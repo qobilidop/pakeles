@@ -16,6 +16,11 @@ fn main() -> anyhow::Result<()> {
     std::fs::write(dir.join("doc.md"), pakeles::docgen::generate_markdown(&ir)?)?;
     std::fs::write(dir.join("graph.dot"), pakeles::viz::to_dot(&ir))?;
 
+    let c = pakeles::codegen::c::generate_c(&ir)?;
+    std::fs::write(dir.join("parser.h"), c.header)?;
+    std::fs::write(dir.join("parser.c"), c.source)?;
+    std::fs::write(dir.join("ebpf.c"), pakeles::codegen::c::generate_ebpf(&ir)?)?;
+
     let suite = pakeles::symex::testgen::generate(&ir)?;
     std::fs::write(
         dir.join("vectors.json"),

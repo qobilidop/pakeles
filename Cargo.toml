@@ -25,6 +25,7 @@ name = "gen_examples"
 required-features = ["symex"]
 
 [dev-dependencies]
+rbpf = "0.2"
 
 [build-dependencies]
 prost-build = "0.13"
