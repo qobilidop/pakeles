@@ -3,6 +3,13 @@ name = "pakeles"
 version = "0.1.0"
 edition = "2021"
 default-run = "pakeles"
+description = "A serializable IR for wire-format parsers — one description, many provably-agreeing artifacts"
+license = "Apache-2.0"
+repository = "https://github.com/qobilidop/pakeles"
+readme = "README.md"
+keywords = ["parser", "packet", "network", "ir", "wireshark"]
+categories = ["parsing", "network-programming"]
+include = ["src/**", "proto/**", "build.rs", "Cargo.toml", "README.md", "LICENSE"]
 
 [dependencies]
 prost = "0.13"

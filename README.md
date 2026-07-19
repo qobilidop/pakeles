@@ -1,5 +1,7 @@
 # Pakeles
 
+[![CI](https://github.com/qobilidop/pakeles/actions/workflows/ci.yml/badge.svg)](https://github.com/qobilidop/pakeles/actions/workflows/ci.yml)
+
 > [!WARNING]
 > **Work in progress, iterating fast — don't use this yet.** The IR
 > schema (`v1alpha1`), the CLI, and every API change without notice,
