@@ -184,10 +184,162 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
         }
     }
 
+    // Path-sensitive def-use: an expression may only reference header
+    // instances *definitely* extracted on every path to its use point.
+    // Must-analysis fixpoint: in(s) = ∩ over predecessors p of
+    // (in(p) ∪ extracted(p)); in(start) = ∅.
+    if errs.is_empty() {
+        definite_extraction_errors(parser, &header_types, &mut errs);
+    }
+
     if errs.is_empty() {
         Ok(())
     } else {
         Err(errs)
+    }
+}
+
+fn state_instances(s: &pb::State) -> Vec<String> {
+    s.extracts
+        .iter()
+        .map(|e| {
+            if e.instance.is_empty() {
+                e.header_type.clone()
+            } else {
+                e.instance.clone()
+            }
+        })
+        .collect()
+}
+
+fn definite_extraction_errors(
+    parser: &pb::Parser,
+    header_types: &std::collections::HashMap<&str, &pb::HeaderType>,
+    errs: &mut Vec<String>,
+) {
+    use std::collections::{HashMap, HashSet};
+
+    let succs = |s: &pb::State| -> Vec<String> {
+        let mut out = Vec::new();
+        let mut push = |t: &pb::Target| {
+            if let Some(pb::target::Kind::State(n)) = &t.kind {
+                out.push(n.clone());
+            }
+        };
+        match s.transition.as_ref().and_then(|t| t.kind.as_ref()) {
+            Some(pb::transition::Kind::Direct(t)) => push(t),
+            Some(pb::transition::Kind::Select(sel)) => {
+                for arm in &sel.arms {
+                    if let Some(t) = &arm.next {
+                        push(t);
+                    }
+                }
+                if let Some(t) = &sel.default_target {
+                    push(t);
+                }
+            }
+            None => {}
+        }
+        out
+    };
+
+    // Fixpoint over must-extracted sets at state entry.
+    let all: HashSet<String> = parser.states.iter().flat_map(state_instances).collect();
+    let mut inset: HashMap<&str, HashSet<String>> = parser
+        .states
+        .iter()
+        .map(|s| {
+            let init = if s.name == parser.start_state {
+                HashSet::new()
+            } else {
+                all.clone()
+            };
+            (s.name.as_str(), init)
+        })
+        .collect();
+    loop {
+        let mut changed = false;
+        for s in &parser.states {
+            let out: HashSet<String> = inset[s.name.as_str()]
+                .iter()
+                .cloned()
+                .chain(state_instances(s))
+                .collect();
+            for succ in succs(s) {
+                if let Some(cur) = inset.get_mut(succ.as_str()) {
+                    let narrowed: HashSet<String> = cur.intersection(&out).cloned().collect();
+                    if narrowed.len() != cur.len() {
+                        *cur = narrowed;
+                        changed = true;
+                    }
+                }
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+
+    // Check every expression use point against the available set.
+    let mut check_expr = |e: &pb::Expr, avail: &HashSet<String>, ctx: &str| {
+        let mut refs = Vec::new();
+        collect_refs(e, &mut refs);
+        for r in refs {
+            if !avail.contains(&r.header) {
+                errs.push(format!(
+                    "{ctx}: `{}.{}` is not definitely extracted on every path to this point",
+                    r.header, r.field
+                ));
+            }
+        }
+    };
+    for s in &parser.states {
+        let mut avail = inset[s.name.as_str()].clone();
+        for ex in &s.extracts {
+            let inst = if ex.instance.is_empty() {
+                &ex.header_type
+            } else {
+                &ex.instance
+            };
+            // Var-length exprs inside this header may use earlier
+            // fields of the same instance: add before checking widths.
+            avail.insert(inst.clone());
+            if let Some(ht) = header_types.get(ex.header_type.as_str()) {
+                for f in &ht.fields {
+                    if let Some(pb::field_width::Width::ByteLen(e)) =
+                        f.width.as_ref().and_then(|w| w.width.as_ref())
+                    {
+                        check_expr(
+                            e,
+                            &avail,
+                            &format!("state `{}` width of `{inst}.{}`", s.name, f.name),
+                        );
+                    }
+                }
+            }
+        }
+        if let Some(pb::transition::Kind::Select(sel)) =
+            s.transition.as_ref().and_then(|t| t.kind.as_ref())
+        {
+            for k in &sel.keys {
+                check_expr(k, &avail, &format!("state `{}` select key", s.name));
+            }
+        }
+    }
+}
+
+fn collect_refs<'a>(e: &'a pb::Expr, out: &mut Vec<&'a pb::FieldRef>) {
+    match &e.kind {
+        Some(pb::expr::Kind::Field(r)) => out.push(r),
+        Some(pb::expr::Kind::Bin(b)) => {
+            if let Some(l) = &b.lhs {
+                collect_refs(l, out);
+            }
+            if let Some(r) = &b.rhs {
+                collect_refs(r, out);
+            }
+        }
+        _ => {}
     }
 }
 
@@ -314,6 +466,29 @@ mod tests {
         let mut ir = tiny();
         with_select(&mut ir, vec![field_ref("ghost", "f")], vec![]);
         assert_err_contains(&ir, "unknown header instance `ghost`");
+    }
+
+    #[test]
+    fn rejects_branch_dependent_ref() {
+        use crate::builder::*;
+        let err = ParserBuilder::new("branchy", 3)
+            .header(HeaderTypeBuilder::new("h").bits("f", 8))
+            .header(HeaderTypeBuilder::new("g").bits("x", 8))
+            .state(StateBuilder::new("a").extract("h").select(
+                vec![f("h", "f")],
+                vec![arm(vec![v(1)], to("b"))],
+                to("c"),
+            ))
+            .state(StateBuilder::new("b").extract("g").goto_(to("c")))
+            .state(StateBuilder::new("c").select(
+                vec![f("g", "x")],
+                vec![arm(vec![v(1)], accept())],
+                reject("no"),
+            ))
+            .start("a")
+            .build()
+            .unwrap_err();
+        assert!(err.to_string().contains("not definitely extracted"));
     }
 
     #[test]

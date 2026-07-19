@@ -38,6 +38,29 @@ enum Command {
         #[command(subcommand)]
         oracle: Oracle,
     },
+    /// Generate the path-complete conformance test-vector suite.
+    #[cfg(feature = "symex")]
+    Testgen {
+        #[arg(long)]
+        ir: Option<PathBuf>,
+        /// Output path; `-` for stdout.
+        #[arg(long, default_value = "-")]
+        out: PathBuf,
+    },
+    /// Report unreachable states and unsatisfiable select arms.
+    #[cfg(feature = "symex")]
+    Lint {
+        #[arg(long)]
+        ir: Option<PathBuf>,
+    },
+    /// Report which parse paths a pcap corpus exercises.
+    #[cfg(feature = "symex")]
+    Cov {
+        #[arg(long)]
+        pcap: PathBuf,
+        #[arg(long)]
+        ir: Option<PathBuf>,
+    },
     /// Write the built-in example IR (the file other tools consume).
     ExportIr {
         /// Output path; `-` for stdout (JSON only).
@@ -135,6 +158,44 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
                 );
             }
             Ok(if report.mismatches.is_empty() { 0 } else { 1 })
+        }
+        #[cfg(feature = "symex")]
+        Command::Lint { ir } => {
+            let findings = crate::symex::lint::lint(&load_ir(&ir)?)?;
+            for f in &findings {
+                println!("{}: {}", f.location, f.message);
+            }
+            if findings.is_empty() {
+                println!("clean");
+            }
+            Ok(if findings.is_empty() { 0 } else { 1 })
+        }
+        #[cfg(feature = "symex")]
+        Command::Cov { pcap, ir } => {
+            let cov = crate::symex::cov::coverage(&load_ir(&ir)?, &pcap)?;
+            println!(
+                "{} packets exercised {}/{} paths",
+                cov.packets,
+                cov.hits.len(),
+                cov.total
+            );
+            for (id, n) in &cov.hits {
+                println!("  {n:>6}  {id}");
+            }
+            println!("{} paths unexercised", cov.unexercised.len());
+            Ok(0)
+        }
+        #[cfg(feature = "symex")]
+        Command::Testgen { ir, out } => {
+            let suite = crate::symex::testgen::generate(&load_ir(&ir)?)?;
+            let json = crate::testvec::suite_to_json(&suite)?;
+            if out.as_os_str() == "-" {
+                println!("{json}");
+            } else {
+                std::fs::write(&out, json)?;
+                eprintln!("wrote {} vectors to {}", suite.vectors.len(), out.display());
+            }
+            Ok(0)
         }
         Command::ExportIr { out, binary } => {
             let ir = crate::examples::eth_ipv4_tcp();

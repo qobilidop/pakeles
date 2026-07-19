@@ -6,4 +6,7 @@ pub mod interp;
 pub mod ir;
 pub mod oracle;
 pub mod pcapio;
+#[cfg(feature = "symex")]
+pub mod symex;
+pub mod testvec;
 pub mod viz;
