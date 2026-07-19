@@ -53,6 +53,14 @@ enum Command {
         #[arg(long)]
         ir: Option<PathBuf>,
     },
+    /// Report which parse paths a pcap corpus exercises.
+    #[cfg(feature = "symex")]
+    Cov {
+        #[arg(long)]
+        pcap: PathBuf,
+        #[arg(long)]
+        ir: Option<PathBuf>,
+    },
     /// Write the built-in example IR (the file other tools consume).
     ExportIr {
         /// Output path; `-` for stdout (JSON only).
@@ -161,6 +169,21 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
                 println!("clean");
             }
             Ok(if findings.is_empty() { 0 } else { 1 })
+        }
+        #[cfg(feature = "symex")]
+        Command::Cov { pcap, ir } => {
+            let cov = crate::symex::cov::coverage(&load_ir(&ir)?, &pcap)?;
+            println!(
+                "{} packets exercised {}/{} paths",
+                cov.packets,
+                cov.hits.len(),
+                cov.total
+            );
+            for (id, n) in &cov.hits {
+                println!("  {n:>6}  {id}");
+            }
+            println!("{} paths unexercised", cov.unexercised.len());
+            Ok(0)
         }
         #[cfg(feature = "symex")]
         Command::Testgen { ir, out } => {

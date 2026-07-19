@@ -8,6 +8,15 @@ use crate::ir::pb;
 use bits::read_bits;
 use eval::{eval_entry, eval_expr, Env};
 
+/// Expression evaluation for sibling modules (pathid) — same semantics
+/// the interpreter itself uses.
+pub(crate) fn eval_expr_pub(
+    e: &pb::Expr,
+    env: &std::collections::HashMap<(String, String), u64>,
+) -> anyhow::Result<u64> {
+    eval_expr(e, env)
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Outcome {
     Accept,
@@ -36,10 +45,27 @@ pub struct ParsedHeader {
     pub fields: Vec<ParsedField>,
 }
 
+/// One transition decision, recorded per state entered.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TraceStep {
+    pub state: String,
+    pub decision: Decision,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Decision {
+    Arm(usize),
+    Default,
+    Direct,
+    /// Parse ended inside this state (oob/depth) before any decision.
+    None,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParseResult {
     pub outcome: Outcome,
     pub headers: Vec<ParsedHeader>,
+    pub trace: Vec<TraceStep>,
 }
 
 /// Run the parser over one byte-aligned packet. `Err` means the IR
@@ -65,24 +91,27 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
         .collect();
 
     let mut headers = Vec::new();
+    let mut trace: Vec<TraceStep> = Vec::new();
     let mut env = Env::new();
     let mut cursor_bits = 0usize;
     let mut depth = 0u32;
     let mut current = parser.start_state.as_str();
 
-    let reject = |reason: &str, headers: Vec<ParsedHeader>| {
+    let reject = |reason: &str, headers: Vec<ParsedHeader>, trace: Vec<TraceStep>| {
         Ok(ParseResult {
             outcome: Outcome::Reject {
                 reason: reason.into(),
             },
             headers,
+            trace,
         })
     };
 
     loop {
         depth += 1;
+        trace.push(TraceStep { state: current.to_string(), decision: Decision::None });
         if depth > parser.max_depth {
-            return reject("max depth exceeded", headers);
+            return reject("max depth exceeded", headers, trace);
         }
         let state = states
             .get(current)
@@ -114,7 +143,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                         let n = *n as usize;
                         let Some(value) = read_bits(packet, avail_bits, cursor_bits, n) else {
                             headers.push(parsed);
-                            return reject("out of bounds", headers);
+                            return reject("out of bounds", headers, trace);
                         };
                         env.insert((instance.clone(), field.name.clone()), value);
                         parsed.fields.push(ParsedField {
@@ -141,7 +170,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                             .and_then(|lb| lb.checked_add(cursor_bits));
                         if end_bits.is_none_or(|e| e > avail_bits) {
                             headers.push(parsed);
-                            return reject("out of bounds", headers);
+                            return reject("out of bounds", headers, trace);
                         }
                         let slice = &packet[start..start + len_bytes];
                         parsed.fields.push(ParsedField {
@@ -159,13 +188,16 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
 
         let target = match state.transition.as_ref().and_then(|t| t.kind.as_ref()) {
             None => anyhow::bail!("state `{current}` has no transition"),
-            Some(pb::transition::Kind::Direct(t)) => t,
+            Some(pb::transition::Kind::Direct(t)) => {
+                trace.last_mut().expect("state entered").decision = Decision::Direct;
+                t
+            }
             Some(pb::transition::Kind::Select(sel)) => {
                 let mut keys = Vec::with_capacity(sel.keys.len());
                 for k in &sel.keys {
                     keys.push(eval_expr(k, &env)?);
                 }
-                let hit = sel.arms.iter().find(|arm| {
+                let hit = sel.arms.iter().position(|arm| {
                     arm.entries.len() == keys.len()
                         && arm
                             .entries
@@ -174,14 +206,20 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                             .all(|(e, k)| eval_entry(e, *k))
                 });
                 match hit {
-                    Some(arm) => arm
-                        .next
-                        .as_ref()
-                        .ok_or_else(|| anyhow::anyhow!("select arm has no target"))?,
-                    None => match sel.default_target.as_ref() {
-                        Some(t) => t,
-                        None => return reject("no matching select arm", headers),
-                    },
+                    Some(i) => {
+                        trace.last_mut().expect("state entered").decision = Decision::Arm(i);
+                        sel.arms[i]
+                            .next
+                            .as_ref()
+                            .ok_or_else(|| anyhow::anyhow!("select arm has no target"))?
+                    }
+                    None => {
+                        trace.last_mut().expect("state entered").decision = Decision::Default;
+                        match sel.default_target.as_ref() {
+                            Some(t) => t,
+                            None => return reject("no matching select arm", headers, trace),
+                        }
+                    }
                 }
             }
         };
@@ -192,6 +230,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                 return Ok(ParseResult {
                     outcome: Outcome::Accept,
                     headers,
+                    trace,
                 })
             }
             Some(pb::target::Kind::Reject(r)) => {
@@ -199,6 +238,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                 return Ok(ParseResult {
                     outcome: Outcome::Reject { reason },
                     headers,
+                    trace,
                 });
             }
             None => anyhow::bail!("empty target"),
