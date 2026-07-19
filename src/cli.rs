@@ -46,6 +46,9 @@ enum Command {
         /// Output path; `-` for stdout.
         #[arg(long, default_value = "-")]
         out: PathBuf,
+        /// Also export the byte-aligned vectors as a pcap.
+        #[arg(long)]
+        pcap_out: Option<PathBuf>,
     },
     /// Report unreachable states and unsatisfiable select arms.
     #[cfg(feature = "symex")]
@@ -205,7 +208,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             Ok(0)
         }
         #[cfg(feature = "symex")]
-        Command::Testgen { ir, out } => {
+        Command::Testgen { ir, out, pcap_out } => {
             let suite = crate::symex::testgen::generate(&load_ir(&ir)?)?;
             let json = crate::testvec::suite_to_json(&suite)?;
             if out.as_os_str() == "-" {
@@ -213,6 +216,16 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             } else {
                 std::fs::write(&out, json)?;
                 eprintln!("wrote {} vectors to {}", suite.vectors.len(), out.display());
+            }
+            if let Some(pcap) = pcap_out {
+                let (packets, indices) = crate::testvec::suite_to_packets(&suite);
+                crate::pcapio::write_pcap(&pcap, &packets)?;
+                eprintln!(
+                    "wrote {} byte-aligned vectors to {} ({} bit-granular vectors skipped)",
+                    packets.len(),
+                    pcap.display(),
+                    suite.vectors.len() - indices.len()
+                );
             }
             Ok(0)
         }

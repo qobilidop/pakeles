@@ -98,6 +98,24 @@ pub fn hex_decode(s: &str) -> Result<Vec<u8>> {
         .collect()
 }
 
+/// Byte-aligned vectors as raw packets (pcap is byte-granular), in
+/// suite order, with their vector indices. Callers must report the
+/// skipped count — no silent drops.
+pub fn suite_to_packets(s: &pb::TestSuite) -> (Vec<Vec<u8>>, Vec<usize>) {
+    let mut packets = Vec::new();
+    let mut indices = Vec::new();
+    for (i, v) in s.vectors.iter().enumerate() {
+        if let Some(bs) = &v.packet {
+            if bs.bit_len.is_multiple_of(8) {
+                let (bits, _) = Bits::from_pb(bs);
+                packets.push(bits.bytes);
+                indices.push(i);
+            }
+        }
+    }
+    (packets, indices)
+}
+
 pub fn suite_to_json(s: &pb::TestSuite) -> Result<String> {
     Ok(serde_json::to_string_pretty(s)?)
 }
@@ -152,6 +170,27 @@ mod tests {
         });
         assert_eq!(bits.bytes, vec![0xF0]);
         assert!(w[0].contains("pad bits"));
+    }
+
+    #[test]
+    fn suite_to_packets_selects_byte_aligned() {
+        let text = std::fs::read_to_string("testdata/eth_ipv4_tcp.vectors.json").unwrap();
+        let suite = suite_from_json(&text).unwrap();
+        let (packets, indices) = suite_to_packets(&suite);
+        assert_eq!(packets.len(), indices.len());
+        assert!(!packets.is_empty());
+        for (p, i) in packets.iter().zip(&indices) {
+            let bs = suite.vectors[*i].packet.as_ref().unwrap();
+            assert_eq!(bs.bit_len as usize, p.len() * 8);
+        }
+        // Every accept vector is byte-aligned and therefore exported.
+        let accepts = suite
+            .vectors
+            .iter()
+            .enumerate()
+            .filter(|(_, v)| v.category == pb::Category::Accept as i32)
+            .count();
+        assert!(indices.len() >= accepts);
     }
 
     #[test]
