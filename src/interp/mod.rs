@@ -62,11 +62,35 @@ pub enum Decision {
     None,
 }
 
+/// Diagnose-mode severity of a reject (from `Reject.annotations["severity"]`;
+/// built-in rejects are always `Error`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Severity {
+    Error,
+    Info,
+}
+
+/// Structured forensics for a reject: where the parse stopped and why.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParseError {
+    pub state: String,
+    pub instance: Option<String>,
+    pub field: Option<String>,
+    pub bit_offset: usize,
+    pub reason: String,
+    pub severity: Severity,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParseResult {
     pub outcome: Outcome,
     pub headers: Vec<ParsedHeader>,
     pub trace: Vec<TraceStep>,
+    /// Present iff outcome is Reject.
+    pub error: Option<ParseError>,
+    /// Bits consumed when parsing stopped; payload/remainder is
+    /// `consumed_bits..input.bit_len`.
+    pub consumed_bits: usize,
 }
 
 /// Run the parser over one byte-aligned packet. `Err` means the IR
@@ -98,14 +122,39 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
     let mut depth = 0u32;
     let mut current = parser.start_state.as_str();
 
-    let reject = |reason: &str, headers: Vec<ParsedHeader>, trace: Vec<TraceStep>| {
+    struct RejectCtx {
+        severity: Severity,
+        instance: Option<String>,
+        field: Option<String>,
+    }
+
+    let reject = |reason: &str,
+                  ctx: RejectCtx,
+                  state: &str,
+                  bit_offset: usize,
+                  headers: Vec<ParsedHeader>,
+                  trace: Vec<TraceStep>| {
         Ok(ParseResult {
             outcome: Outcome::Reject {
                 reason: reason.into(),
             },
             headers,
             trace,
+            error: Some(ParseError {
+                state: state.to_string(),
+                instance: ctx.instance,
+                field: ctx.field,
+                bit_offset,
+                reason: reason.into(),
+                severity: ctx.severity,
+            }),
+            consumed_bits: bit_offset,
         })
+    };
+    let plain = |severity: Severity| RejectCtx {
+        severity,
+        instance: None,
+        field: None,
     };
 
     loop {
@@ -115,7 +164,14 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
             decision: Decision::None,
         });
         if depth > parser.max_depth {
-            return reject("max depth exceeded", headers, trace);
+            return reject(
+                "max depth exceeded",
+                plain(Severity::Error),
+                current,
+                cursor_bits,
+                headers,
+                trace,
+            );
         }
         let state = states
             .get(current)
@@ -146,8 +202,20 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                     pb::field_width::Width::Bits(n) => {
                         let n = *n as usize;
                         let Some(value) = read_bits(packet, avail_bits, cursor_bits, n) else {
+                            let ctx = RejectCtx {
+                                severity: Severity::Error,
+                                instance: Some(instance.clone()),
+                                field: Some(field.name.clone()),
+                            };
                             headers.push(parsed);
-                            return reject("out of bounds", headers, trace);
+                            return reject(
+                                "out of bounds",
+                                ctx,
+                                current,
+                                cursor_bits,
+                                headers,
+                                trace,
+                            );
                         };
                         env.insert((instance.clone(), field.name.clone()), value);
                         parsed.fields.push(ParsedField {
@@ -173,8 +241,20 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                             .checked_mul(8)
                             .and_then(|lb| lb.checked_add(cursor_bits));
                         if end_bits.is_none_or(|e| e > avail_bits) {
+                            let ctx = RejectCtx {
+                                severity: Severity::Error,
+                                instance: Some(instance.clone()),
+                                field: Some(field.name.clone()),
+                            };
                             headers.push(parsed);
-                            return reject("out of bounds", headers, trace);
+                            return reject(
+                                "out of bounds",
+                                ctx,
+                                current,
+                                cursor_bits,
+                                headers,
+                                trace,
+                            );
                         }
                         let slice = &packet[start..start + len_bytes];
                         parsed.fields.push(ParsedField {
@@ -221,7 +301,16 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                         trace.last_mut().expect("state entered").decision = Decision::Default;
                         match sel.default_target.as_ref() {
                             Some(t) => t,
-                            None => return reject("no matching select arm", headers, trace),
+                            None => {
+                                return reject(
+                                    "no matching select arm",
+                                    plain(Severity::Error),
+                                    current,
+                                    cursor_bits,
+                                    headers,
+                                    trace,
+                                )
+                            }
                         }
                     }
                 }
@@ -235,15 +324,23 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                     outcome: Outcome::Accept,
                     headers,
                     trace,
+                    error: None,
+                    consumed_bits: cursor_bits,
                 })
             }
             Some(pb::target::Kind::Reject(r)) => {
-                let reason = r.reason.clone();
-                return Ok(ParseResult {
-                    outcome: Outcome::Reject { reason },
+                let severity = match r.annotations.get("severity").map(String::as_str) {
+                    Some("info") => Severity::Info,
+                    _ => Severity::Error,
+                };
+                return reject(
+                    &r.reason,
+                    plain(severity),
+                    current,
+                    cursor_bits,
                     headers,
                     trace,
-                });
+                );
             }
             None => anyhow::bail!("empty target"),
         }
@@ -317,6 +414,34 @@ mod tests {
                 reason: "out of bounds".into()
             }
         );
+    }
+
+    #[test]
+    fn diagnose_forensics_on_truncation() {
+        let res = run(&eth_ipv4_tcp(), &tcp_packet()[..20]).unwrap();
+        let err = res.error.unwrap();
+        assert_eq!(err.state, "parse_ipv4");
+        assert_eq!(err.instance.as_deref(), Some("ipv4"));
+        assert_eq!(err.field.as_deref(), Some("flags"));
+        assert_eq!(err.bit_offset, 160);
+        assert_eq!(err.severity, Severity::Error);
+        assert_eq!(res.consumed_bits, 160);
+    }
+
+    #[test]
+    fn diagnose_payload_boundary_is_info() {
+        let res = run(&eth_ipv4_tcp(), &udp_packet()).unwrap();
+        let err = res.error.unwrap();
+        assert_eq!(err.severity, Severity::Info);
+        assert_eq!(err.reason, "unsupported ip protocol");
+        assert_eq!(res.consumed_bits, 272); // eth + ipv4(ihl=5)
+    }
+
+    #[test]
+    fn accept_has_no_error_and_full_consumption() {
+        let res = run(&eth_ipv4_tcp(), &tcp_packet()).unwrap();
+        assert!(res.error.is_none());
+        assert_eq!(res.consumed_bits, 54 * 8);
     }
 
     #[test]

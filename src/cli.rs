@@ -122,7 +122,26 @@ fn result_json(idx: usize, res: &crate::interp::ParseResult) -> serde_json::Valu
         Outcome::Accept => serde_json::json!("accept"),
         Outcome::Reject { reason } => serde_json::json!({ "reject": reason }),
     };
-    serde_json::json!({ "packet": idx, "outcome": outcome, "headers": headers })
+    let error = res.error.as_ref().map(|e| {
+        serde_json::json!({
+            "state": e.state,
+            "instance": e.instance,
+            "field": e.field,
+            "bit_offset": e.bit_offset,
+            "reason": e.reason,
+            "severity": match e.severity {
+                crate::interp::Severity::Error => "error",
+                crate::interp::Severity::Info => "info",
+            },
+        })
+    });
+    serde_json::json!({
+        "packet": idx,
+        "outcome": outcome,
+        "headers": headers,
+        "error": error,
+        "payload_bit_off": res.consumed_bits,
+    })
 }
 
 /// Entry point returning a process exit code (testable without a process).
