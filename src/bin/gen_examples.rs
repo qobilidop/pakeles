@@ -20,6 +20,7 @@ fn main() -> anyhow::Result<()> {
     std::fs::write(dir.join("parser.h"), c.header)?;
     std::fs::write(dir.join("parser.c"), c.source)?;
     std::fs::write(dir.join("ebpf.c"), pakeles::codegen::c::generate_ebpf(&ir)?)?;
+    std::fs::write(dir.join("parser.p4"), pakeles::codegen::p4::generate_p4(&ir)?)?;
 
     let suite = pakeles::symex::testgen::generate(&ir)?;
     std::fs::write(

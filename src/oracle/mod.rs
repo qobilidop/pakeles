@@ -1,6 +1,9 @@
-//! Differential oracle: our interpreter vs `tshark -T json`.
-//! tshark is the boss — a mismatch means our description (or our
-//! semantics) is wrong until proven otherwise.
+//! Differential oracles: our interpreter vs `tshark -T json` (below)
+//! and vs BMv2 `simple_switch` (`bmv2` submodule). The oracle is the
+//! boss — a mismatch means our description (or our semantics) is wrong
+//! until proven otherwise.
+
+pub mod bmv2;
 
 use crate::interp::{run, FieldValue, Outcome};
 use crate::ir::pb;
