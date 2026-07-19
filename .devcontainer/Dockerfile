@@ -1,5 +1,15 @@
 # Dev environment from a plain Ubuntu base: everything installed
 # explicitly, the same way you would on a real Linux machine.
+#
+# Exception: p4c + BMv2 come prebuilt from qobilidop/p4lang-builds
+# (personal multi-arch images with immutable version tags; recipes in
+# that repo). No packages exist for Ubuntu 24.04 and a source build
+# costs ~50 minutes per cold start.
+ARG P4C_VERSION=1.2.5.15
+ARG BMV2_VERSION=1.15.4
+FROM ghcr.io/qobilidop/p4lang-builds/p4c:${P4C_VERSION}-noble AS p4c
+FROM ghcr.io/qobilidop/p4lang-builds/bmv2:${BMV2_VERSION}-noble AS bmv2
+
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -17,42 +27,26 @@ ARG BUF_VERSION=1.47.2
 RUN curl -fsSL "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-$(uname -s)-$(uname -m)" \
       -o /usr/local/bin/buf && chmod +x /usr/local/bin/buf
 
-# p4c + behavioral-model (BMv2), built from pinned sources: no packages
-# exist for Ubuntu 24.04 (p4lang OBS stops at 23.04; checked 2026-07-19 —
-# revisit apt the day p4lang publishes noble packages). Thrift is required:
-# bmv2's switch targets (simple_switch) only build with it. Nanomsg and
-# logging macros stay off (we program no tables at runtime).
-ARG BMV2_VERSION=1.15.4
-ARG P4C_VERSION=1.2.5.15
+# p4c + BMv2, grafted from the prebuilt images pinned above (both are
+# noble-based, so /usr/local grafts cleanly). The apt line installs the
+# union of the runtime deps listed in each image's final stage (-dev
+# packages for simplicity: they pull the runtime libs; the headers cost
+# size, not correctness). cpp — p4c's runtime preprocessor — is already
+# present via build-essential; python3 serves p4c's helper scripts.
+COPY --from=p4c /usr/local /usr/local
+COPY --from=bmv2 /usr/local /usr/local
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      cmake g++ automake autoconf libtool pkg-config flex bison \
-      libgc-dev libfl-dev libgmp-dev libpcap-dev libjudy-dev \
-      libevent-dev libssl-dev libxxhash-dev libjsoncpp-dev \
-      libthrift-dev thrift-compiler \
-      libboost-dev libboost-graph-dev libboost-iostreams-dev \
+      python3 \
+      libboost-iostreams-dev libboost-graph-dev libgc-dev libfl-dev \
+      libgmp-dev libpcap-dev libjudy-dev libevent-dev libssl-dev \
+      libxxhash-dev libjsoncpp-dev libthrift-dev \
       libboost-program-options-dev libboost-system-dev \
       libboost-filesystem-dev libboost-thread-dev \
- && rm -rf /var/lib/apt/lists/*
-RUN curl -fsSL "https://github.com/p4lang/behavioral-model/archive/refs/tags/${BMV2_VERSION}.tar.gz" | tar xz -C /tmp \
- && cd "/tmp/behavioral-model-${BMV2_VERSION}" \
- && ./autogen.sh \
- && ./configure --without-nanomsg --disable-logging-macros \
- && make -j"$(nproc)" && make install && ldconfig \
- && rm -rf "/tmp/behavioral-model-${BMV2_VERSION}"
-# p4c's build additionally needs a python3 interpreter (IR generators).
-RUN apt-get update && apt-get install -y --no-install-recommends python3 \
- && rm -rf /var/lib/apt/lists/*
-RUN git clone --depth 1 --branch "v${P4C_VERSION}" --recursive \
-      https://github.com/p4lang/p4c /tmp/p4c \
- && cmake -S /tmp/p4c -B /tmp/p4c/build \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DENABLE_BMV2=ON -DENABLE_P4TEST=ON \
-      -DENABLE_EBPF=OFF -DENABLE_UBPF=OFF -DENABLE_DPDK=OFF \
-      -DENABLE_P4TC=OFF -DENABLE_P4FMT=OFF -DENABLE_DOCS=OFF \
-      -DENABLE_GTESTS=OFF \
- && cmake --build /tmp/p4c/build -j"$(nproc)" \
- && cmake --install /tmp/p4c/build \
- && rm -rf /tmp/p4c
+ && rm -rf /var/lib/apt/lists/* \
+ && ldconfig \
+ && p4test --version \
+ && p4c-bm2-ss --version \
+ && simple_switch --help >/dev/null 2>&1
 
 # Python authoring-surface tooling (slice 6). Pinned loosely; the gate
 # (ruff/pyright/pytest) is what actually defines correctness.

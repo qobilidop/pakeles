@@ -36,7 +36,8 @@ via `pakeles doc`.
 
 The only host requirement is Docker; `./dev.sh` runs everything inside
 the pinned dev image (Ubuntu 24.04 + Rust, protoc, buf, tshark 4.2,
-graphviz, clang/llvm, and source-built p4c + BMv2):
+graphviz, clang/llvm, and prebuilt p4c + BMv2 grafted from
+[p4lang-builds](https://github.com/qobilidop/p4lang-builds)):
 
 ```sh
 ./dev.sh cargo test                                        # full suite
