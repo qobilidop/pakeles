@@ -14,15 +14,17 @@ and golden test vectors. Parsing is the decidable subset of packet
 processing — parsers here are bounded by construction, which is what
 makes cross-artifact equivalence provable rather than merely tested.
 
-Status: slice 3 ("the dissector"). One description (Ethernet→IPv4→TCP)
+Status: slice 4 ("the datapath"). One description (Ethernet→IPv4→TCP)
 is authored in Rust, serialized as proto3, interpreted, visualized,
 differentially tested against `tshark`, compiled by symbolic execution
 into a path-complete conformance suite (every parse path — truncations
-and rejects included — gets a solver-derived witness packet), **and
-compiled into a working Wireshark dissector**: readable Lua generated
-by `pakeles gen lua`, whose output running inside real tshark agrees
-with the reference interpreter on every conformance vector. Docs
-generate from the same description via `pakeles doc`.
+and rejects included — gets a solver-derived witness packet), and compiled into three
+more implementations that provably agree with it: a working Wireshark
+dissector (`gen lua`, verified inside real tshark), a portable C99
+parser (`gen c`, verified field-for-field on all 164 vectors), and an
+eBPF program (`gen ebpf`, clang-compiled BPF bytecode verified under
+the rbpf VM). Docs generate from the same description via `pakeles
+doc`.
 
 ## Quickstart
 
@@ -40,6 +42,8 @@ the pinned dev image (Ubuntu 24.04 + Rust, protoc, buf, tshark 4.2, graphviz):
 ./dev.sh cargo run -- cov --pcap testdata/basic.pcap       # path coverage
 ./dev.sh cargo run -- gen lua --out dissector.lua          # Wireshark dissector
 ./dev.sh cargo run -- doc                                  # markdown docs
+./dev.sh cargo run -- gen c --out-dir .                    # portable C99 parser
+./dev.sh cargo run -- gen ebpf --out ebpf.c                # eBPF variant
 ```
 
 Try the dissector in your own Wireshark:
