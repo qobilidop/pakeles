@@ -1,0 +1,325 @@
+---
+source: src/examples.rs
+expression: json
+---
+{
+  "irVersion": "0.1.0",
+  "parser": {
+    "name": "eth_ipv4_tcp",
+    "headerTypes": [
+      {
+        "name": "ethernet",
+        "fields": [
+          {
+            "name": "dst",
+            "width": {
+              "bits": 48
+            }
+          },
+          {
+            "name": "src",
+            "width": {
+              "bits": 48
+            }
+          },
+          {
+            "name": "ethertype",
+            "width": {
+              "bits": 16
+            },
+            "annotations": {
+              "tshark.key": "eth.type"
+            }
+          }
+        ]
+      },
+      {
+        "name": "ipv4",
+        "fields": [
+          {
+            "name": "version",
+            "width": {
+              "bits": 4
+            },
+            "annotations": {
+              "tshark.key": "ip.version"
+            }
+          },
+          {
+            "name": "ihl",
+            "width": {
+              "bits": 4
+            }
+          },
+          {
+            "name": "dscp",
+            "width": {
+              "bits": 6
+            }
+          },
+          {
+            "name": "ecn",
+            "width": {
+              "bits": 2
+            }
+          },
+          {
+            "name": "total_len",
+            "width": {
+              "bits": 16
+            },
+            "annotations": {
+              "tshark.key": "ip.len"
+            }
+          },
+          {
+            "name": "id",
+            "width": {
+              "bits": 16
+            }
+          },
+          {
+            "name": "flags",
+            "width": {
+              "bits": 3
+            }
+          },
+          {
+            "name": "frag_offset",
+            "width": {
+              "bits": 13
+            }
+          },
+          {
+            "name": "ttl",
+            "width": {
+              "bits": 8
+            },
+            "annotations": {
+              "tshark.key": "ip.ttl"
+            }
+          },
+          {
+            "name": "protocol",
+            "width": {
+              "bits": 8
+            },
+            "annotations": {
+              "tshark.key": "ip.proto"
+            }
+          },
+          {
+            "name": "checksum",
+            "width": {
+              "bits": 16
+            },
+            "annotations": {
+              "tshark.key": "ip.checksum"
+            }
+          },
+          {
+            "name": "src",
+            "width": {
+              "bits": 32
+            }
+          },
+          {
+            "name": "dst",
+            "width": {
+              "bits": 32
+            }
+          },
+          {
+            "name": "options",
+            "width": {
+              "byteLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_SUB",
+                  "lhs": {
+                    "bin": {
+                      "op": "BIN_OP_KIND_MUL",
+                      "lhs": {
+                        "field": {
+                          "header": "ipv4",
+                          "field": "ihl"
+                        }
+                      },
+                      "rhs": {
+                        "constant": "4"
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "constant": "20"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "tcp",
+        "fields": [
+          {
+            "name": "sport",
+            "width": {
+              "bits": 16
+            },
+            "annotations": {
+              "tshark.key": "tcp.srcport"
+            }
+          },
+          {
+            "name": "dport",
+            "width": {
+              "bits": 16
+            },
+            "annotations": {
+              "tshark.key": "tcp.dstport"
+            }
+          },
+          {
+            "name": "seq",
+            "width": {
+              "bits": 32
+            }
+          },
+          {
+            "name": "ack",
+            "width": {
+              "bits": 32
+            }
+          },
+          {
+            "name": "data_offset",
+            "width": {
+              "bits": 4
+            }
+          },
+          {
+            "name": "reserved",
+            "width": {
+              "bits": 4
+            }
+          },
+          {
+            "name": "flags",
+            "width": {
+              "bits": 8
+            }
+          },
+          {
+            "name": "window",
+            "width": {
+              "bits": 16
+            }
+          },
+          {
+            "name": "checksum",
+            "width": {
+              "bits": 16
+            }
+          },
+          {
+            "name": "urgent",
+            "width": {
+              "bits": 16
+            }
+          }
+        ]
+      }
+    ],
+    "states": [
+      {
+        "name": "parse_ethernet",
+        "extracts": [
+          {
+            "headerType": "ethernet"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ethernet",
+                  "field": "ethertype"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "reject": {
+                "reason": "unsupported ethertype"
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_ipv4",
+        "extracts": [
+          {
+            "headerType": "ipv4"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv4",
+                  "field": "protocol"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_tcp"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "reject": {
+                "reason": "unsupported ip protocol"
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_tcp",
+        "extracts": [
+          {
+            "headerType": "tcp"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        }
+      }
+    ],
+    "startState": "parse_ethernet",
+    "maxDepth": 4
+  }
+}

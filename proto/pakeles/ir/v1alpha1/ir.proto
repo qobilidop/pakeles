@@ -1,0 +1,135 @@
+// PakelesIR: a serializable IR for wire-format parsers.
+// This schema is the one normative artifact; every tool consumes or
+// produces messages defined here. Expressions are operator trees —
+// no syntax is ever smuggled inside strings.
+syntax = "proto3";
+package pakeles.ir.v1alpha1;
+
+message Ir {
+  string ir_version = 1;
+  Parser parser = 2;
+}
+
+message Parser {
+  string name = 1;
+  repeated HeaderType header_types = 2;
+  repeated State states = 3;
+  string start_state = 4;
+  // Mandatory global parse-depth bound (states entered). Boundedness is
+  // what keeps the IR inside the decidable class; it is never optional.
+  uint32 max_depth = 5;
+  map<string, string> annotations = 15;
+}
+
+message HeaderType {
+  string name = 1;
+  repeated Field fields = 2;
+  map<string, string> annotations = 15;
+}
+
+message Field {
+  string name = 1;
+  FieldWidth width = 2;
+  map<string, string> annotations = 15;
+}
+
+message FieldWidth {
+  oneof width {
+    // Fixed width in bits; big-endian (network order), MSB-first; <= 64.
+    uint32 bits = 1;
+    // Opaque byte run; length in bytes computed from prior fields.
+    Expr byte_len = 2;
+  }
+}
+
+message Expr {
+  oneof kind {
+    uint64 constant = 1;
+    FieldRef field = 2;
+    BinOp bin = 3;
+  }
+}
+
+message FieldRef {
+  string header = 1;  // header *instance* name
+  string field = 2;
+}
+
+message BinOp {
+  BinOpKind op = 1;
+  Expr lhs = 2;
+  Expr rhs = 3;
+}
+
+enum BinOpKind {
+  BIN_OP_KIND_UNSPECIFIED = 0;
+  BIN_OP_KIND_ADD = 1;
+  BIN_OP_KIND_SUB = 2;
+  BIN_OP_KIND_MUL = 3;
+  BIN_OP_KIND_SHL = 4;
+  BIN_OP_KIND_SHR = 5;
+  BIN_OP_KIND_AND = 6;
+  BIN_OP_KIND_OR = 7;
+}
+
+message State {
+  string name = 1;
+  repeated Extract extracts = 2;
+  Transition transition = 3;
+  map<string, string> annotations = 15;
+}
+
+message Extract {
+  string header_type = 1;
+  string instance = 2;  // defaults to header_type when empty
+}
+
+message Transition {
+  oneof kind {
+    Target direct = 1;
+    Select select = 2;
+  }
+}
+
+message Target {
+  oneof kind {
+    string state = 1;
+    Accept accept = 2;
+    Reject reject = 3;
+  }
+}
+
+message Accept {}
+
+message Reject {
+  string reason = 1;
+}
+
+message Select {
+  repeated Expr keys = 1;
+  repeated SelectArm arms = 2;
+  Target default_target = 3;
+}
+
+message SelectArm {
+  repeated KeysetEntry entries = 1;  // one per key
+  Target next = 2;
+}
+
+message KeysetEntry {
+  oneof kind {
+    uint64 value = 1;
+    Masked masked = 2;
+    Range range = 3;
+  }
+}
+
+message Masked {
+  uint64 value = 1;
+  uint64 mask = 2;
+}
+
+message Range {
+  uint64 lo = 1;
+  uint64 hi = 2;
+}
