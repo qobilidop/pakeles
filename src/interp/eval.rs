@@ -17,11 +17,15 @@ pub(crate) fn eval_expr(e: &pb::Expr, env: &Env) -> anyhow::Result<u64> {
             .ok_or_else(|| anyhow::anyhow!("unresolved field ref `{}.{}`", r.header, r.field)),
         Some(pb::expr::Kind::Bin(b)) => {
             let lhs = eval_expr(
-                b.lhs.as_deref().ok_or_else(|| anyhow::anyhow!("binop missing lhs"))?,
+                b.lhs
+                    .as_deref()
+                    .ok_or_else(|| anyhow::anyhow!("binop missing lhs"))?,
                 env,
             )?;
             let rhs = eval_expr(
-                b.rhs.as_deref().ok_or_else(|| anyhow::anyhow!("binop missing rhs"))?,
+                b.rhs
+                    .as_deref()
+                    .ok_or_else(|| anyhow::anyhow!("binop missing rhs"))?,
                 env,
             )?;
             let op = pb::BinOpKind::try_from(b.op)

@@ -8,7 +8,9 @@ use crate::ir::IR_VERSION;
 // ---- Expr helpers ----
 
 pub fn c(v: u64) -> pb::Expr {
-    pb::Expr { kind: Some(pb::expr::Kind::Constant(v)) }
+    pb::Expr {
+        kind: Some(pb::expr::Kind::Constant(v)),
+    }
 }
 
 pub fn f(header: &str, field: &str) -> pb::Expr {
@@ -30,29 +32,45 @@ fn bin(op: pb::BinOpKind, lhs: pb::Expr, rhs: pb::Expr) -> pb::Expr {
     }
 }
 
-pub fn add(l: pb::Expr, r: pb::Expr) -> pb::Expr { bin(pb::BinOpKind::Add, l, r) }
-pub fn sub(l: pb::Expr, r: pb::Expr) -> pb::Expr { bin(pb::BinOpKind::Sub, l, r) }
-pub fn mul(l: pb::Expr, r: pb::Expr) -> pb::Expr { bin(pb::BinOpKind::Mul, l, r) }
-pub fn shl(l: pb::Expr, r: pb::Expr) -> pb::Expr { bin(pb::BinOpKind::Shl, l, r) }
+pub fn add(l: pb::Expr, r: pb::Expr) -> pb::Expr {
+    bin(pb::BinOpKind::Add, l, r)
+}
+pub fn sub(l: pb::Expr, r: pb::Expr) -> pb::Expr {
+    bin(pb::BinOpKind::Sub, l, r)
+}
+pub fn mul(l: pb::Expr, r: pb::Expr) -> pb::Expr {
+    bin(pb::BinOpKind::Mul, l, r)
+}
+pub fn shl(l: pb::Expr, r: pb::Expr) -> pb::Expr {
+    bin(pb::BinOpKind::Shl, l, r)
+}
 
 // ---- Target / arm / keyset helpers ----
 
 pub fn to(state: &str) -> pb::Target {
-    pb::Target { kind: Some(pb::target::Kind::State(state.into())) }
+    pb::Target {
+        kind: Some(pb::target::Kind::State(state.into())),
+    }
 }
 
 pub fn accept() -> pb::Target {
-    pb::Target { kind: Some(pb::target::Kind::Accept(pb::Accept {})) }
+    pb::Target {
+        kind: Some(pb::target::Kind::Accept(pb::Accept {})),
+    }
 }
 
 pub fn reject(reason: &str) -> pb::Target {
     pb::Target {
-        kind: Some(pb::target::Kind::Reject(pb::Reject { reason: reason.into() })),
+        kind: Some(pb::target::Kind::Reject(pb::Reject {
+            reason: reason.into(),
+        })),
     }
 }
 
 pub fn v(value: u64) -> pb::KeysetEntry {
-    pb::KeysetEntry { kind: Some(pb::keyset_entry::Kind::Value(value)) }
+    pb::KeysetEntry {
+        kind: Some(pb::keyset_entry::Kind::Value(value)),
+    }
 }
 
 pub fn masked(value: u64, mask: u64) -> pb::KeysetEntry {
@@ -68,7 +86,10 @@ pub fn range(lo: u64, hi: u64) -> pb::KeysetEntry {
 }
 
 pub fn arm(entries: Vec<pb::KeysetEntry>, next: pb::Target) -> pb::SelectArm {
-    pb::SelectArm { entries, next: Some(next) }
+    pb::SelectArm {
+        entries,
+        next: Some(next),
+    }
 }
 
 // ---- HeaderTypeBuilder ----
@@ -79,7 +100,12 @@ pub struct HeaderTypeBuilder {
 
 impl HeaderTypeBuilder {
     pub fn new(name: &str) -> Self {
-        Self { ht: pb::HeaderType { name: name.into(), ..Default::default() } }
+        Self {
+            ht: pb::HeaderType {
+                name: name.into(),
+                ..Default::default()
+            },
+        }
     }
 
     pub fn bits(self, name: &str, n: u32) -> Self {
@@ -116,7 +142,12 @@ pub struct StateBuilder {
 
 impl StateBuilder {
     pub fn new(name: &str) -> Self {
-        Self { state: pb::State { name: name.into(), ..Default::default() } }
+        Self {
+            state: pb::State {
+                name: name.into(),
+                ..Default::default()
+            },
+        }
     }
 
     /// Extract a header; instance name defaults to the header type name.
@@ -225,13 +256,11 @@ mod tests {
     fn built_ir_validates() {
         let ir = ParserBuilder::new("two", 2)
             .header(HeaderTypeBuilder::new("h").bits("f", 8))
-            .state(
-                StateBuilder::new("a").extract("h").select(
-                    vec![f("h", "f")],
-                    vec![arm(vec![v(1)], to("b"))],
-                    reject("nope"),
-                ),
-            )
+            .state(StateBuilder::new("a").extract("h").select(
+                vec![f("h", "f")],
+                vec![arm(vec![v(1)], to("b"))],
+                reject("nope"),
+            ))
             .state(StateBuilder::new("b").accept())
             .start("a")
             .build()

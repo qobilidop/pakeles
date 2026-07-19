@@ -7,7 +7,11 @@ use clap::{Parser as ClapParser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(ClapParser)]
-#[command(name = "pakeles", version, about = "PakelesIR wire-format parser toolchain")]
+#[command(
+    name = "pakeles",
+    version,
+    about = "PakelesIR wire-format parser toolchain"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -70,9 +74,10 @@ fn result_json(idx: usize, res: &crate::interp::ParseResult) -> serde_json::Valu
                 .map(|f| {
                     let v = match &f.value {
                         FieldValue::Uint(u) => serde_json::json!(u),
-                        FieldValue::Bytes(b) => serde_json::json!(
-                            b.iter().map(|x| format!("{x:02x}")).collect::<String>()
-                        ),
+                        FieldValue::Bytes(b) => serde_json::json!(b
+                            .iter()
+                            .map(|x| format!("{x:02x}"))
+                            .collect::<String>()),
                     };
                     (f.name.clone(), v)
                 })
@@ -145,12 +150,15 @@ mod tests {
 
     #[test]
     fn diff_tshark_on_fixture_green() {
-        if std::process::Command::new("tshark").arg("--version").output().is_err() {
+        if std::process::Command::new("tshark")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             eprintln!("skipping: tshark not available");
             return;
         }
-        let code =
-            main_with(&["pakeles", "diff-tshark", "--pcap", "testdata/basic.pcap"]).unwrap();
+        let code = main_with(&["pakeles", "diff-tshark", "--pcap", "testdata/basic.pcap"]).unwrap();
         assert_eq!(code, 0);
     }
 
@@ -162,13 +170,7 @@ mod tests {
     #[test]
     fn exported_ir_loads_back() {
         let path = std::env::temp_dir().join("pakeles_export.json");
-        let code = main_with(&[
-            "pakeles",
-            "export-ir",
-            "--out",
-            path.to_str().unwrap(),
-        ])
-        .unwrap();
+        let code = main_with(&["pakeles", "export-ir", "--out", path.to_str().unwrap()]).unwrap();
         assert_eq!(code, 0);
         let ir = crate::ir::from_json(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(ir, crate::examples::eth_ipv4_tcp());

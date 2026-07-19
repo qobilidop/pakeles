@@ -45,11 +45,15 @@ pub fn eth_ipv4_tcp() -> pb::Ir {
                 .bits("checksum", 16)
                 .bits("urgent", 16),
         )
-        .state(StateBuilder::new("parse_ethernet").extract("ethernet").select(
-            vec![f("ethernet", "ethertype")],
-            vec![arm(vec![v(0x0800)], to("parse_ipv4"))],
-            reject("unsupported ethertype"),
-        ))
+        .state(
+            StateBuilder::new("parse_ethernet")
+                .extract("ethernet")
+                .select(
+                    vec![f("ethernet", "ethertype")],
+                    vec![arm(vec![v(0x0800)], to("parse_ipv4"))],
+                    reject("unsupported ethertype"),
+                ),
+        )
         .state(StateBuilder::new("parse_ipv4").extract("ipv4").select(
             vec![f("ipv4", "protocol")],
             vec![arm(vec![v(6)], to("parse_tcp"))],

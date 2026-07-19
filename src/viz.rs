@@ -111,7 +111,11 @@ pub fn to_dot(ir: &pb::Ir) -> String {
             .extracts
             .iter()
             .map(|e| {
-                let inst = if e.instance.is_empty() { &e.header_type } else { &e.instance };
+                let inst = if e.instance.is_empty() {
+                    &e.header_type
+                } else {
+                    &e.instance
+                };
                 format!("extract {inst}")
             })
             .collect::<Vec<_>>()
@@ -125,8 +129,11 @@ pub fn to_dot(ir: &pb::Ir) -> String {
     }
     writeln!(out, "  \"accept\" [shape=doublecircle];").unwrap();
     for (i, reason) in rejects.iter().enumerate() {
-        writeln!(out, "  \"reject_{i}\" [shape=diamond, label=\"reject:\\n{reason}\"];")
-            .unwrap();
+        writeln!(
+            out,
+            "  \"reject_{i}\" [shape=diamond, label=\"reject:\\n{reason}\"];"
+        )
+        .unwrap();
     }
     for e in &edges {
         out.push_str(e);

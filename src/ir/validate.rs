@@ -56,7 +56,11 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
     let mut instances = std::collections::HashMap::new();
     for s in &parser.states {
         for e in &s.extracts {
-            let inst = if e.instance.is_empty() { &e.header_type } else { &e.instance };
+            let inst = if e.instance.is_empty() {
+                &e.header_type
+            } else {
+                &e.instance
+            };
             if !header_types.contains_key(e.header_type.as_str()) {
                 errs.push(format!(
                     "state `{}` extracts unknown header type `{}`",
@@ -68,17 +72,17 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
         }
     }
 
-    let check_ref = |r: &pb::FieldRef, ctx: &str, errs: &mut Vec<String>| {
-        match instances.get(r.header.as_str()) {
-            None => errs.push(format!("{ctx}: unknown header instance `{}`", r.header)),
-            Some(ht_name) => {
-                let ht = header_types[ht_name];
-                if !ht.fields.iter().any(|f| f.name == r.field) {
-                    errs.push(format!(
-                        "{ctx}: header `{}` has no field `{}`",
-                        r.header, r.field
-                    ));
-                }
+    let check_ref = |r: &pb::FieldRef, ctx: &str, errs: &mut Vec<String>| match instances
+        .get(r.header.as_str())
+    {
+        None => errs.push(format!("{ctx}: unknown header instance `{}`", r.header)),
+        Some(ht_name) => {
+            let ht = header_types[ht_name];
+            if !ht.fields.iter().any(|f| f.name == r.field) {
+                errs.push(format!(
+                    "{ctx}: header `{}` has no field `{}`",
+                    r.header, r.field
+                ));
             }
         }
     };
@@ -165,9 +169,7 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
                                 pb::keyset_entry::Kind::Range(r) => &[r.lo, r.hi],
                             };
                             if vals.iter().any(|v| *v > max) {
-                                errs.push(format!(
-                                    "{ctx}: keyset entry exceeds {w}-bit key width"
-                                ));
+                                errs.push(format!("{ctx}: keyset entry exceeds {w}-bit key width"));
                             }
                         }
                     }
@@ -182,13 +184,17 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
         }
     }
 
-    if errs.is_empty() { Ok(()) } else { Err(errs) }
+    if errs.is_empty() {
+        Ok(())
+    } else {
+        Err(errs)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::super::test_support::tiny;
     use super::super::pb;
+    use super::super::test_support::tiny;
     use super::validate;
 
     fn parser(ir: &mut pb::Ir) -> &mut pb::Parser {
@@ -295,7 +301,10 @@ mod tests {
         with_select(
             &mut ir,
             vec![field_ref("x", "y")],
-            vec![pb::SelectArm { entries: vec![], next: None }],
+            vec![pb::SelectArm {
+                entries: vec![],
+                next: None,
+            }],
         );
         assert_err_contains(&ir, "0 entries for 1 keys");
     }

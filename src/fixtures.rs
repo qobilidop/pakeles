@@ -7,7 +7,7 @@ pub fn tcp_packet() -> Vec<u8> {
     p.extend([0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF]); // dst
     p.extend([0x11, 0x22, 0x33, 0x44, 0x55, 0x66]); // src
     p.extend([0x08, 0x00]); // ethertype IPv4
-    // ipv4, ihl=5
+                            // ipv4, ihl=5
     p.extend([0x45, 0x00]); // version/ihl, dscp/ecn
     p.extend([0x00, 0x28]); // total_len 40
     p.extend([0x12, 0x34]); // id
@@ -16,7 +16,7 @@ pub fn tcp_packet() -> Vec<u8> {
     p.extend([0xDE, 0xAD]); // checksum (raw value; validity irrelevant to the diff)
     p.extend([10, 0, 0, 1]); // src
     p.extend([10, 0, 0, 2]); // dst
-    // tcp
+                             // tcp
     p.extend([0x30, 0x39]); // sport 12345
     p.extend([0x01, 0xBB]); // dport 443
     p.extend([0x00, 0x00, 0x00, 0x01]); // seq
@@ -54,5 +54,10 @@ pub fn truncated_packet() -> Vec<u8> {
 /// The four packets of `testdata/basic.pcap`, in order. Expected
 /// interpreter outcomes: Accept, Accept, Reject(proto), Reject(oob).
 pub fn basic_pcap_packets() -> Vec<Vec<u8>> {
-    vec![tcp_packet(), tcp_packet_ihl6(), udp_packet(), truncated_packet()]
+    vec![
+        tcp_packet(),
+        tcp_packet_ihl6(),
+        udp_packet(),
+        truncated_packet(),
+    ]
 }

@@ -45,11 +45,17 @@ pub struct ParseResult {
 /// Run the parser over one packet. `Err` means the IR itself is
 /// malformed; anything about the *packet* is a `Reject` outcome.
 pub fn run(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<ParseResult> {
-    let parser = ir.parser.as_ref().ok_or_else(|| anyhow::anyhow!("ir has no parser"))?;
+    let parser = ir
+        .parser
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("ir has no parser"))?;
     let states: std::collections::HashMap<&str, &pb::State> =
         parser.states.iter().map(|s| (s.name.as_str(), s)).collect();
-    let header_types: std::collections::HashMap<&str, &pb::HeaderType> =
-        parser.header_types.iter().map(|h| (h.name.as_str(), h)).collect();
+    let header_types: std::collections::HashMap<&str, &pb::HeaderType> = parser
+        .header_types
+        .iter()
+        .map(|h| (h.name.as_str(), h))
+        .collect();
 
     let mut headers = Vec::new();
     let mut env = Env::new();
@@ -58,7 +64,12 @@ pub fn run(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<ParseResult> {
     let mut current = parser.start_state.as_str();
 
     let reject = |reason: &str, headers: Vec<ParsedHeader>| {
-        Ok(ParseResult { outcome: Outcome::Reject { reason: reason.into() }, headers })
+        Ok(ParseResult {
+            outcome: Outcome::Reject {
+                reason: reason.into(),
+            },
+            headers,
+        })
     };
 
     loop {
@@ -74,8 +85,11 @@ pub fn run(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<ParseResult> {
             let ht = header_types
                 .get(ex.header_type.as_str())
                 .ok_or_else(|| anyhow::anyhow!("unknown header type `{}`", ex.header_type))?;
-            let instance =
-                if ex.instance.is_empty() { &ex.header_type } else { &ex.instance };
+            let instance = if ex.instance.is_empty() {
+                &ex.header_type
+            } else {
+                &ex.instance
+            };
             let mut parsed = ParsedHeader {
                 instance: instance.clone(),
                 header_type: ht.name.clone(),
@@ -106,7 +120,7 @@ pub fn run(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<ParseResult> {
                     }
                     pb::field_width::Width::ByteLen(expr) => {
                         let len_bytes = eval_expr(expr, &env)? as usize;
-                        if cursor_bits % 8 != 0 {
+                        if !cursor_bits.is_multiple_of(8) {
                             anyhow::bail!(
                                 "var-length field `{}` at non-byte-aligned offset",
                                 field.name
@@ -140,7 +154,11 @@ pub fn run(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<ParseResult> {
                 }
                 let hit = sel.arms.iter().find(|arm| {
                     arm.entries.len() == keys.len()
-                        && arm.entries.iter().zip(&keys).all(|(e, k)| eval_entry(e, *k))
+                        && arm
+                            .entries
+                            .iter()
+                            .zip(&keys)
+                            .all(|(e, k)| eval_entry(e, *k))
                 });
                 match hit {
                     Some(arm) => arm
@@ -158,11 +176,17 @@ pub fn run(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<ParseResult> {
         match target.kind.as_ref() {
             Some(pb::target::Kind::State(name)) => current = name,
             Some(pb::target::Kind::Accept(_)) => {
-                return Ok(ParseResult { outcome: Outcome::Accept, headers })
+                return Ok(ParseResult {
+                    outcome: Outcome::Accept,
+                    headers,
+                })
             }
             Some(pb::target::Kind::Reject(r)) => {
                 let reason = r.reason.clone();
-                return Ok(ParseResult { outcome: Outcome::Reject { reason }, headers });
+                return Ok(ParseResult {
+                    outcome: Outcome::Reject { reason },
+                    headers,
+                });
             }
             None => anyhow::bail!("empty target"),
         }
@@ -192,7 +216,10 @@ mod tests {
     fn parses_tcp_packet() {
         let res = run(&eth_ipv4_tcp(), &tcp_packet()).unwrap();
         assert_eq!(res.outcome, Outcome::Accept);
-        assert_eq!(field(&res, "ethernet", "ethertype"), FieldValue::Uint(0x0800));
+        assert_eq!(
+            field(&res, "ethernet", "ethertype"),
+            FieldValue::Uint(0x0800)
+        );
         assert_eq!(field(&res, "ipv4", "protocol"), FieldValue::Uint(6));
         assert_eq!(field(&res, "ipv4", "options"), FieldValue::Bytes(vec![]));
         assert_eq!(field(&res, "tcp", "dport"), FieldValue::Uint(443));
@@ -217,7 +244,9 @@ mod tests {
         let res = run(&eth_ipv4_tcp(), &udp_packet()).unwrap();
         assert_eq!(
             res.outcome,
-            Outcome::Reject { reason: "unsupported ip protocol".into() }
+            Outcome::Reject {
+                reason: "unsupported ip protocol".into()
+            }
         );
         assert_eq!(res.headers.len(), 2); // ethernet + ipv4 still extracted
     }
@@ -225,7 +254,12 @@ mod tests {
     #[test]
     fn rejects_truncated() {
         let res = run(&eth_ipv4_tcp(), &tcp_packet()[..20]).unwrap();
-        assert_eq!(res.outcome, Outcome::Reject { reason: "out of bounds".into() });
+        assert_eq!(
+            res.outcome,
+            Outcome::Reject {
+                reason: "out of bounds".into()
+            }
+        );
     }
 
     #[test]
@@ -249,6 +283,11 @@ mod tests {
             .build()
             .unwrap();
         let res = run(&ir, &[]).unwrap();
-        assert_eq!(res.outcome, Outcome::Reject { reason: "max depth exceeded".into() });
+        assert_eq!(
+            res.outcome,
+            Outcome::Reject {
+                reason: "max depth exceeded".into()
+            }
+        );
     }
 }

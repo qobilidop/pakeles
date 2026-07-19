@@ -83,7 +83,10 @@ pub fn diff_pcap(ir: &pb::Ir, pcap: &Path) -> Result<DiffReport> {
         );
     }
 
-    let mut report = DiffReport { packets: packets.len(), ..Default::default() };
+    let mut report = DiffReport {
+        packets: packets.len(),
+        ..Default::default()
+    };
 
     for (idx, (packet, dis)) in packets.iter().zip(&dissected).enumerate() {
         let result = run(ir, packet)?;
@@ -106,7 +109,9 @@ pub fn diff_pcap(ir: &pb::Ir, pcap: &Path) -> Result<DiffReport> {
                 else {
                     continue;
                 };
-                let FieldValue::Uint(ours) = field.value else { continue };
+                let FieldValue::Uint(ours) = field.value else {
+                    continue;
+                };
                 report.compared += 1;
                 let raw = lookup(layers, key);
                 let theirs = raw.and_then(normalize);
@@ -152,7 +157,11 @@ mod tests {
 
     #[test]
     fn fixture_pcap_diffs_green() {
-        if std::process::Command::new("tshark").arg("--version").output().is_err() {
+        if std::process::Command::new("tshark")
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             eprintln!("skipping: tshark not available");
             return;
         }
@@ -162,7 +171,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(report.packets, 4);
-        assert_eq!(report.compared, 16, "8 annotated fields x 2 accepted packets");
+        assert_eq!(
+            report.compared, 16,
+            "8 annotated fields x 2 accepted packets"
+        );
         assert!(
             report.mismatches.is_empty(),
             "oracle mismatches: {:#?}",
