@@ -67,7 +67,6 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
         pkt.extract(hdr.ethernet_s0);
         transition select((bit<64>)hdr.ethernet_s0.ethertype) {
             64w2048: st_parse_ipv4;
-            default: reject;
         }
     }
     state st_parse_ipv4 {
@@ -75,7 +74,6 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
         pkt.extract(hdr.ipv4_v1, (bit<32>)(64w8 * (((bit<64>)hdr.ipv4_s0.ihl * 64w4) - 64w20)));
         transition select((bit<64>)hdr.ipv4_s0.protocol) {
             64w6: st_parse_tcp;
-            default: reject;
         }
     }
     state st_parse_tcp {

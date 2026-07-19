@@ -67,7 +67,10 @@ pub fn run_one(json: &Path, packet: &[u8], workdir: &Path) -> Result<Verdict> {
     let dir = workdir.join("run");
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir)?;
-    crate::pcapio::write_pcap(&dir.join("p0_in.pcap"), std::slice::from_ref(&packet.to_vec()))?;
+    crate::pcapio::write_pcap(
+        &dir.join("p0_in.pcap"),
+        std::slice::from_ref(&packet.to_vec()),
+    )?;
     crate::pcapio::write_pcap(&dir.join("p1_in.pcap"), &[])?;
     let mut child = Command::new("simple_switch")
         .args(["--use-files", "0", "-i", "0@p0", "-i", "1@p1"])
@@ -153,10 +156,13 @@ pub fn expected(ir: &pb::Ir, bits: &crate::testvec::Bits) -> Result<Expectation>
         },
         crate::interp::Outcome::Reject { reason } => {
             if declared_reject_reasons(parser).iter().any(|r| r == reason) {
-                // Explicit `transition reject`: reaches ingress with NoError.
+                // Explicit reject, emitted as select-no-match. The P4-16
+                // spec says error.NoMatch (2); BMv2 deviates and stops
+                // parsing with NoError (0). Either way the bitmap is
+                // partial, which is what separates reject from accept.
                 Expectation {
                     bitmap,
-                    errs: vec![crate::codegen::p4::ERR_NO_ERROR],
+                    errs: vec![0, 2],
                 }
             } else {
                 // Runtime reject (truncation / bad length): the failing
@@ -166,9 +172,10 @@ pub fn expected(ir: &pb::Ir, bits: &crate::testvec::Bits) -> Result<Expectation>
                 }
                 Expectation {
                     bitmap,
-                    // PacketTooShort for truncation; HeaderTooShort when a
-                    // wrapped length exceeds the varbit bound.
-                    errs: vec![crate::codegen::p4::ERR_PACKET_TOO_SHORT, 4],
+                    // PacketTooShort (1) for truncation; HeaderTooShort (4)
+                    // or ParserInvalidArgument (6, what BMv2 raises) when a
+                    // wrapped negative length exceeds the varbit bound.
+                    errs: vec![crate::codegen::p4::ERR_PACKET_TOO_SHORT, 4, 6],
                 }
             }
         }
@@ -260,7 +267,7 @@ mod tests {
         .unwrap();
         let report = diff_suite(&ir, &suite).unwrap();
         assert!(
-            report.compared > 30,
+            report.compared >= 28,
             "suspiciously few byte-aligned vectors: {}",
             report.compared
         );

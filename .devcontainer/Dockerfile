@@ -18,14 +18,17 @@ RUN curl -fsSL "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION
       -o /usr/local/bin/buf && chmod +x /usr/local/bin/buf
 
 # p4c + behavioral-model (BMv2), built from pinned sources: no packages
-# exist for Ubuntu 24.04 (p4lang OBS stops at 23.04; checked 2026-07-19).
-# BMv2 minimal: no nanomsg/thrift (we program no tables at runtime).
+# exist for Ubuntu 24.04 (p4lang OBS stops at 23.04; checked 2026-07-19 —
+# revisit apt the day p4lang publishes noble packages). Thrift is required:
+# bmv2's switch targets (simple_switch) only build with it. Nanomsg and
+# logging macros stay off (we program no tables at runtime).
 ARG BMV2_VERSION=1.15.4
 ARG P4C_VERSION=1.2.5.15
 RUN apt-get update && apt-get install -y --no-install-recommends \
       cmake g++ automake autoconf libtool pkg-config flex bison \
       libgc-dev libfl-dev libgmp-dev libpcap-dev libjudy-dev \
       libevent-dev libssl-dev libxxhash-dev libjsoncpp-dev \
+      libthrift-dev thrift-compiler \
       libboost-dev libboost-graph-dev libboost-iostreams-dev \
       libboost-program-options-dev libboost-system-dev \
       libboost-filesystem-dev libboost-thread-dev \
@@ -33,9 +36,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl -fsSL "https://github.com/p4lang/behavioral-model/archive/refs/tags/${BMV2_VERSION}.tar.gz" | tar xz -C /tmp \
  && cd "/tmp/behavioral-model-${BMV2_VERSION}" \
  && ./autogen.sh \
- && ./configure --without-nanomsg --without-thrift --disable-logging-macros \
+ && ./configure --without-nanomsg --disable-logging-macros \
  && make -j"$(nproc)" && make install && ldconfig \
  && rm -rf "/tmp/behavioral-model-${BMV2_VERSION}"
+# p4c's build additionally needs a python3 interpreter (IR generators).
+RUN apt-get update && apt-get install -y --no-install-recommends python3 \
+ && rm -rf /var/lib/apt/lists/*
 RUN git clone --depth 1 --branch "v${P4C_VERSION}" --recursive \
       https://github.com/p4lang/p4c /tmp/p4c \
  && cmake -S /tmp/p4c -B /tmp/p4c/build \

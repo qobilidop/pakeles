@@ -13,6 +13,7 @@ fails. Regenerate with `./dev.sh cargo run --bin gen_examples`.
 | [`graph.dot`](graph.dot) / [`graph.svg`](graph.svg) | The parse graph | `pakeles viz` |
 | [`parser.h`](parser.h) / [`parser.c`](parser.c) | Portable C99 parser (zero-copy, bit-granular) | `pakeles gen c` |
 | [`ebpf.c`](ebpf.c) | Self-contained eBPF variant (verifier-shaped core) | `pakeles gen ebpf` |
+| [`parser.p4`](parser.p4) | P4-16 program (v1model, BMv2-runnable) | `pakeles gen p4` |
 | [`vectors.json`](vectors.json) | Path-complete conformance suite: 164 solver-derived test vectors (11 accept / 17 reject / 136 truncation) | `pakeles testgen` |
 | [`vectors.pcap`](vectors.pcap) | The 28 byte-aligned vectors as a capture file | `pakeles testgen --pcap-out` |
 
@@ -25,10 +26,11 @@ tshark -X lua_script:dissector.lua -r vectors.pcap -V
 
 It registers as a postdissector, so its tree appears alongside
 Wireshark's built-in dissection. The generated dissector's output has
-been verified inside tshark to agree with the reference interpreter,
-and the C parser (compiled with `-Wall -Wextra -Werror`) and the eBPF
+been verified inside tshark to agree with the reference interpreter;
+the C parser (compiled with `-Wall -Wextra -Werror`) and the eBPF
 program (executed under the rbpf VM) agree with it on **all 164
-vectors** in `vectors.json` — four implementations of one description,
-mechanically in agreement.
+vectors** in `vectors.json`; and the P4 program agrees verdict-for-
+verdict on the byte-aligned vectors under BMv2's `simple_switch` —
+five implementations of one description, mechanically in agreement.
 
 ![parse graph](graph.svg)
