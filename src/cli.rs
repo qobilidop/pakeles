@@ -117,7 +117,7 @@ enum GenTarget {
         out_dir: PathBuf,
     },
     /// Self-contained eBPF C variant.
-    Ebpf {
+    Bpf {
         #[arg(long)]
         ir: Option<PathBuf>,
         /// Output path; `-` for stdout.
@@ -345,9 +345,9 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             Ok(0)
         }
         Command::Gen {
-            target: GenTarget::Ebpf { ir, out },
+            target: GenTarget::Bpf { ir, out },
         } => {
-            let c = crate::codegen::c::generate_ebpf(&load_ir(&ir)?)?;
+            let c = crate::codegen::c::generate_bpf(&load_ir(&ir)?)?;
             if out.as_os_str() == "-" {
                 print!("{c}");
             } else {

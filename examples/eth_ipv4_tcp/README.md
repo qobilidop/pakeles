@@ -9,11 +9,11 @@ flowchart LR
     PY["eth_ipv4_tcp.py\n(authoring, Python eDSL)"] -->|"emit + fmt-ir"| IR["eth_ipv4_tcp.ir.json\n(normative Pakeles IR)"]
     IR -->|"gen lua"| LUA["gen/dissector.lua"]
     IR -->|"gen c"| C["gen/parser.h/.c"]
-    IR -->|"gen ebpf"| EBPF["gen/parser.bpf.c"]
+    IR -->|"gen bpf"| BPF["gen/parser.bpf.c"]
     IR -->|"gen p4"| P4["gen/parser.p4"]
     IR -->|"doc / viz"| DOCS["gen/doc.md, gen/graph.svg"]
     IR -->|"testgen (symbolic execution)"| V["conformance/\n164 path-complete vectors"]
-    V -.->|conformance| LUA & C & EBPF & P4
+    V -.->|conformance| LUA & C & BPF & P4
 ```
 
 Every file is committed **and equality-guarded**: if anything here

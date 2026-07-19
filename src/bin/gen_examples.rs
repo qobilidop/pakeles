@@ -33,7 +33,7 @@ fn main() -> anyhow::Result<()> {
     std::fs::write(gen.join("parser.c"), c.source)?;
     std::fs::write(
         gen.join("parser.bpf.c"),
-        pakeles::codegen::c::generate_ebpf(&ir)?,
+        pakeles::codegen::c::generate_bpf(&ir)?,
     )?;
     std::fs::write(
         gen.join("parser.p4"),

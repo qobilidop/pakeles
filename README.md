@@ -26,7 +26,7 @@ and rejects included — gets a solver-derived witness packet), and compiled int
 more implementations that provably agree with it: a working Wireshark
 dissector (`gen lua`, verified inside real tshark), a portable C99
 parser (`gen c`, verified field-for-field on all 164 vectors), an
-eBPF program (`gen ebpf`, clang-compiled BPF bytecode verified under
+eBPF program (`gen bpf`, clang-compiled BPF bytecode verified under
 the rbpf VM), and a P4-16 program (`gen p4`, p4c-compiled and
 verdict-verified on BMv2's `simple_switch` — the decidability ceiling
 demonstrated by construction). Docs generate from the same description
@@ -50,7 +50,7 @@ graphviz, clang/llvm, and source-built p4c + BMv2):
 ./dev.sh cargo run -- gen lua --out dissector.lua          # Wireshark dissector
 ./dev.sh cargo run -- doc                                  # markdown docs
 ./dev.sh cargo run -- gen c --out-dir .                    # portable C99 parser
-./dev.sh cargo run -- gen ebpf --out parser.bpf.c                # eBPF variant
+./dev.sh cargo run -- gen bpf --out parser.bpf.c           # eBPF variant
 ./dev.sh cargo run -- gen p4 --out parser.p4               # P4-16 (v1model)
 ./dev.sh cargo run -- diff bmv2                            # vectors vs BMv2
 ```
