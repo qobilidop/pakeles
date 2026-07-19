@@ -130,7 +130,7 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
 
     for s in &parser.states {
         let ctx = format!("state `{}`", s.name);
-        let mut check_target = |t: &pb::Target, errs: &mut Vec<String>| {
+        let check_target = |t: &pb::Target, errs: &mut Vec<String>| {
             if let Some(pb::target::Kind::State(name)) = &t.kind {
                 if !states.contains(name.as_str()) {
                     errs.push(format!("{ctx}: unknown state `{name}`"));

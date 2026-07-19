@@ -6,4 +6,5 @@ exec docker run --rm \
   -v "$PWD":/work -w /work \
   -v pakeles-target:/target \
   -v pakeles-cargo:/usr/local/cargo/registry \
+  -v pakeles-rustup:/usr/local/rustup \
   pakeles-dev "$@"
