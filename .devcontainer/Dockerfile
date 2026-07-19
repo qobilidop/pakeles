@@ -9,7 +9,7 @@ RUN echo "wireshark-common wireshark-common/install-setuid boolean false" | debc
  && apt-get install -y --no-install-recommends \
       ca-certificates curl build-essential git \
       protobuf-compiler tshark graphviz \
-      libz3-dev libclang-dev \
+      libz3-dev libclang-dev clang llvm \
  && rm -rf /var/lib/apt/lists/*
 
 # buf CLI (pinned)
