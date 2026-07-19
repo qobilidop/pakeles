@@ -426,10 +426,9 @@ mod tests {
         let ir = crate::examples::eth_ipv4_tcp();
         let canonical = crate::ir::to_json(&ir).unwrap();
         // Same document, hostile formatting: compact everything.
-        let mangled = serde_json::to_string(
-            &serde_json::from_str::<serde_json::Value>(&canonical).unwrap(),
-        )
-        .unwrap();
+        let mangled =
+            serde_json::to_string(&serde_json::from_str::<serde_json::Value>(&canonical).unwrap())
+                .unwrap();
         let dir = std::env::temp_dir().join("pakeles_fmt_ir");
         std::fs::create_dir_all(&dir).unwrap();
         let inp = dir.join("mangled.json");
