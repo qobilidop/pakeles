@@ -25,23 +25,15 @@ _OPS: dict[str, ir_pb2.BinOpKind] = {
 }
 
 
-class _Operand:
+class Operand:
     """Mixin: arithmetic on fields/exprs yields Expr trees."""
 
-    def _as_expr(self) -> Expr:
+    def as_expr(self) -> Expr:
         raise NotImplementedError
 
-    @staticmethod
-    def _coerce(v: object) -> Expr:
-        if isinstance(v, int):
-            return const(v)
-        if isinstance(v, _Operand):
-            return v._as_expr()
-        raise TypeError(f"cannot use {v!r} in a field expression")
-
     def _bin(self, op: str, other: object, swap: bool = False) -> Expr:
-        rhs = _Operand._coerce(other)
-        lhs = self._as_expr()
+        rhs = coerce_expr(other)
+        lhs = self.as_expr()
         if swap:
             lhs, rhs = rhs, lhs
         return Expr(op=_OPS[op], lhs=lhs, rhs=rhs)
@@ -78,14 +70,14 @@ class _Operand:
 
 
 @dataclass
-class Expr(_Operand):
+class Expr(Operand):
     op: ir_pb2.BinOpKind | None = None
     lhs: Expr | None = None
     rhs: Expr | None = None
     constant: int | None = None
     ref: FieldSpec | None = None
 
-    def _as_expr(self) -> Expr:
+    def as_expr(self) -> Expr:
         return self
 
     def to_pb(self) -> ir_pb2.Expr:
@@ -114,7 +106,7 @@ def const(v: int) -> Expr:
 
 
 @dataclass
-class FieldSpec(_Operand):
+class FieldSpec(Operand):
     """One declared field; created by `bits()` / `var_bytes()` in a
     Header class body. `name` and `header` are assigned by the Header
     machinery at class finalization."""
@@ -129,5 +121,13 @@ class FieldSpec(_Operand):
     name: str = ""
     header: str = ""
 
-    def _as_expr(self) -> Expr:
+    def as_expr(self) -> Expr:
         return Expr(ref=self)
+
+
+def coerce_expr(v: object) -> Expr:
+    if isinstance(v, int):
+        return const(v)
+    if isinstance(v, Operand):
+        return v.as_expr()
+    raise TypeError(f"cannot use {v!r} in a field expression")
