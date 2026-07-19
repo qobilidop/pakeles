@@ -25,6 +25,13 @@ fn main() -> anyhow::Result<()> {
         pakeles::codegen::p4::generate_p4(&ir)?,
     )?;
 
+    // The Python eDSL authoring source (the gallery's *input* twin):
+    // canonical copy lives in the py package; mirrored here for browsing.
+    std::fs::copy(
+        "py/src/pakeles/examples/eth_ipv4_tcp.py",
+        dir.join("eth_ipv4_tcp.py"),
+    )?;
+
     let suite = pakeles::symex::testgen::generate(&ir)?;
     std::fs::write(
         dir.join("vectors.json"),

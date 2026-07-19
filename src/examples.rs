@@ -154,6 +154,16 @@ mod tests {
     }
 
     #[test]
+    fn committed_py_example_current() {
+        let canonical = std::fs::read_to_string("py/src/pakeles/examples/eth_ipv4_tcp.py").unwrap();
+        let mirrored = std::fs::read_to_string("examples/eth_ipv4_tcp/eth_ipv4_tcp.py").unwrap();
+        assert_eq!(
+            canonical, mirrored,
+            "examples/ drifted; regenerate: ./dev.sh cargo run --bin gen_examples"
+        );
+    }
+
+    #[test]
     fn committed_ir_json_current() {
         let json = crate::ir::to_json(&eth_ipv4_tcp()).unwrap();
         let committed = std::fs::read_to_string("examples/eth_ipv4_tcp/ir.json").unwrap();
