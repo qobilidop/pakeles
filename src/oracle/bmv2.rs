@@ -80,7 +80,10 @@ pub fn run_one(json: &Path, packet: &[u8], workdir: &Path) -> Result<Verdict> {
         .stderr(Stdio::null())
         .spawn()
         .context("spawning simple_switch")?;
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    // Generous: the first spawn in a fresh container (cold lib cache,
+    // parallel test threads) has been seen to need well over a second,
+    // and CI runners are slower still.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
     let out_pcap = dir.join("p1_out.pcap");
     let verdict = loop {
         if let Ok(pkts) = crate::pcapio::read_packets(&out_pcap) {
