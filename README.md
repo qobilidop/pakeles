@@ -16,22 +16,25 @@ and golden test vectors. Parsing is the decidable subset of packet
 processing — parsers here are bounded by construction, which is what
 makes cross-artifact equivalence provable rather than merely tested.
 
-Status: slice 4 ("the datapath"). One description (Ethernet→IPv4→TCP)
+Status: slice 5 ("the switch"). One description (Ethernet→IPv4→TCP)
 is authored in Rust, serialized as proto3, interpreted, visualized,
 differentially tested against `tshark`, compiled by symbolic execution
 into a path-complete conformance suite (every parse path — truncations
-and rejects included — gets a solver-derived witness packet), and compiled into three
+and rejects included — gets a solver-derived witness packet), and compiled into four
 more implementations that provably agree with it: a working Wireshark
 dissector (`gen lua`, verified inside real tshark), a portable C99
-parser (`gen c`, verified field-for-field on all 164 vectors), and an
+parser (`gen c`, verified field-for-field on all 164 vectors), an
 eBPF program (`gen ebpf`, clang-compiled BPF bytecode verified under
-the rbpf VM). Docs generate from the same description via `pakeles
-doc`.
+the rbpf VM), and a P4-16 program (`gen p4`, p4c-compiled and
+verdict-verified on BMv2's `simple_switch` — the decidability ceiling
+demonstrated by construction). Docs generate from the same description
+via `pakeles doc`.
 
 ## Quickstart
 
 The only host requirement is Docker; `./dev.sh` runs everything inside
-the pinned dev image (Ubuntu 24.04 + Rust, protoc, buf, tshark 4.2, graphviz):
+the pinned dev image (Ubuntu 24.04 + Rust, protoc, buf, tshark 4.2,
+graphviz, clang/llvm, and source-built p4c + BMv2):
 
 ```sh
 ./dev.sh cargo test                                        # full suite
@@ -46,6 +49,8 @@ the pinned dev image (Ubuntu 24.04 + Rust, protoc, buf, tshark 4.2, graphviz):
 ./dev.sh cargo run -- doc                                  # markdown docs
 ./dev.sh cargo run -- gen c --out-dir .                    # portable C99 parser
 ./dev.sh cargo run -- gen ebpf --out ebpf.c                # eBPF variant
+./dev.sh cargo run -- gen p4 --out parser.p4               # P4-16 (v1model)
+./dev.sh cargo run -- diff bmv2                            # vectors vs BMv2
 ```
 
 Try the dissector in your own Wireshark:
@@ -58,8 +63,8 @@ dissection — side-by-side comparison for free).
 - `proto/pakeles/{ir,testvec}/v1alpha1/` — the normative schemas (proto3)
 - `src/` — `ir` (types + validation), `builder`, `interp` (reference
   interpreter), `symex` (symbolic engine: testgen/lint/cov, z3 behind a
-  solver trait), `codegen` (backends: Wireshark Lua), `docgen`, `viz`,
-  `oracle` (tshark diff), `cli`
+  solver trait), `codegen` (backends: Wireshark Lua, C99/eBPF, P4-16),
+  `docgen`, `viz`, `oracle` (tshark + BMv2 diffs), `cli`
 - `testdata/` — language-neutral fixtures (regenerate: `cargo run --bin gen_fixtures`)
 - `examples/eth_ipv4_tcp/` — the gallery: every artifact one
   description yields, equality-guarded by tests

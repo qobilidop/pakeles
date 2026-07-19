@@ -113,6 +113,14 @@ enum GenTarget {
         #[arg(long, default_value = "-")]
         out: PathBuf,
     },
+    /// P4-16 program for the v1model architecture (BMv2-runnable).
+    P4 {
+        #[arg(long)]
+        ir: Option<PathBuf>,
+        /// Output path; `-` for stdout.
+        #[arg(long, default_value = "-")]
+        out: PathBuf,
+    },
 }
 
 #[derive(Subcommand)]
@@ -123,6 +131,14 @@ enum Oracle {
         pcap: PathBuf,
         #[arg(long)]
         ir: Option<PathBuf>,
+    },
+    /// Verdict-compare the byte-aligned vectors against BMv2 simple_switch.
+    Bmv2 {
+        #[arg(long)]
+        ir: Option<PathBuf>,
+        /// Vector suite (testvec JSON). Defaults to the gallery suite.
+        #[arg(long, default_value = "examples/eth_ipv4_tcp/vectors.json")]
+        vectors: PathBuf,
     },
 }
 
@@ -203,6 +219,23 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
         Command::Viz { ir } => {
             print!("{}", crate::viz::to_dot(&load_ir(&ir)?));
             Ok(0)
+        }
+        Command::Diff {
+            oracle: Oracle::Bmv2 { ir, vectors },
+        } => {
+            let ir = load_ir(&ir)?;
+            let suite = crate::testvec::suite_from_json(&std::fs::read_to_string(&vectors)?)?;
+            let report = crate::oracle::bmv2::diff_suite(&ir, &suite)?;
+            println!(
+                "{} vectors compared ({} bit-granular skipped), {} mismatches",
+                report.compared,
+                report.skipped_bit_granular,
+                report.mismatches.len()
+            );
+            for m in &report.mismatches {
+                println!("  {m}");
+            }
+            Ok(if report.mismatches.is_empty() { 0 } else { 1 })
         }
         Command::Diff {
             oracle: Oracle::Tshark { pcap, ir },
@@ -308,6 +341,17 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
                 print!("{c}");
             } else {
                 std::fs::write(&out, c)?;
+            }
+            Ok(0)
+        }
+        Command::Gen {
+            target: GenTarget::P4 { ir, out },
+        } => {
+            let p4 = crate::codegen::p4::generate_p4(&load_ir(&ir)?)?;
+            if out.as_os_str() == "-" {
+                print!("{p4}");
+            } else {
+                std::fs::write(&out, p4)?;
             }
             Ok(0)
         }
