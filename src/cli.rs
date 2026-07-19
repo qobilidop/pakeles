@@ -46,6 +46,9 @@ enum Command {
         /// Output path; `-` for stdout.
         #[arg(long, default_value = "-")]
         out: PathBuf,
+        /// Also export the byte-aligned vectors as a pcap.
+        #[arg(long)]
+        pcap_out: Option<PathBuf>,
     },
     /// Report unreachable states and unsatisfiable select arms.
     #[cfg(feature = "symex")]
@@ -61,6 +64,19 @@ enum Command {
         #[arg(long)]
         ir: Option<PathBuf>,
     },
+    /// Generate markdown documentation from the IR + annotations.
+    Doc {
+        #[arg(long)]
+        ir: Option<PathBuf>,
+        /// Output path; `-` for stdout.
+        #[arg(long, default_value = "-")]
+        out: PathBuf,
+    },
+    /// Generate a backend artifact from the IR.
+    Gen {
+        #[command(subcommand)]
+        target: GenTarget,
+    },
     /// Write the built-in example IR (the file other tools consume).
     ExportIr {
         /// Output path; `-` for stdout (JSON only).
@@ -68,6 +84,18 @@ enum Command {
         out: PathBuf,
         #[arg(long)]
         binary: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum GenTarget {
+    /// Wireshark Lua dissector (direct translation, Lua 5.2).
+    Lua {
+        #[arg(long)]
+        ir: Option<PathBuf>,
+        /// Output path; `-` for stdout.
+        #[arg(long, default_value = "-")]
+        out: PathBuf,
     },
 }
 
@@ -122,7 +150,26 @@ fn result_json(idx: usize, res: &crate::interp::ParseResult) -> serde_json::Valu
         Outcome::Accept => serde_json::json!("accept"),
         Outcome::Reject { reason } => serde_json::json!({ "reject": reason }),
     };
-    serde_json::json!({ "packet": idx, "outcome": outcome, "headers": headers })
+    let error = res.error.as_ref().map(|e| {
+        serde_json::json!({
+            "state": e.state,
+            "instance": e.instance,
+            "field": e.field,
+            "bit_offset": e.bit_offset,
+            "reason": e.reason,
+            "severity": match e.severity {
+                crate::interp::Severity::Error => "error",
+                crate::interp::Severity::Info => "info",
+            },
+        })
+    });
+    serde_json::json!({
+        "packet": idx,
+        "outcome": outcome,
+        "headers": headers,
+        "error": error,
+        "payload_bit_off": res.consumed_bits,
+    })
 }
 
 /// Entry point returning a process exit code (testable without a process).
@@ -186,7 +233,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             Ok(0)
         }
         #[cfg(feature = "symex")]
-        Command::Testgen { ir, out } => {
+        Command::Testgen { ir, out, pcap_out } => {
             let suite = crate::symex::testgen::generate(&load_ir(&ir)?)?;
             let json = crate::testvec::suite_to_json(&suite)?;
             if out.as_os_str() == "-" {
@@ -194,6 +241,36 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             } else {
                 std::fs::write(&out, json)?;
                 eprintln!("wrote {} vectors to {}", suite.vectors.len(), out.display());
+            }
+            if let Some(pcap) = pcap_out {
+                let (packets, indices) = crate::testvec::suite_to_packets(&suite);
+                crate::pcapio::write_pcap(&pcap, &packets)?;
+                eprintln!(
+                    "wrote {} byte-aligned vectors to {} ({} bit-granular vectors skipped)",
+                    packets.len(),
+                    pcap.display(),
+                    suite.vectors.len() - indices.len()
+                );
+            }
+            Ok(0)
+        }
+        Command::Doc { ir, out } => {
+            let md = crate::docgen::generate_markdown(&load_ir(&ir)?)?;
+            if out.as_os_str() == "-" {
+                print!("{md}");
+            } else {
+                std::fs::write(&out, md)?;
+            }
+            Ok(0)
+        }
+        Command::Gen {
+            target: GenTarget::Lua { ir, out },
+        } => {
+            let lua = crate::codegen::lua::generate_lua(&load_ir(&ir)?)?;
+            if out.as_os_str() == "-" {
+                print!("{lua}");
+            } else {
+                std::fs::write(&out, lua)?;
             }
             Ok(0)
         }
