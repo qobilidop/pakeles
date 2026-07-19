@@ -9,7 +9,10 @@ use crate::ir::pb;
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Term {
     /// Zero-extended extract of `len` bits (MSB-first) at `bit_off`.
-    Extract { bit_off: usize, len: usize },
+    Extract {
+        bit_off: usize,
+        len: usize,
+    },
     Const(u64),
     Bin(pb::BinOpKind, Box<Term>, Box<Term>),
 }

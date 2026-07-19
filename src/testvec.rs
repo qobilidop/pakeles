@@ -4,7 +4,10 @@
 #[allow(clippy::all)]
 pub mod pb {
     include!(concat!(env!("OUT_DIR"), "/pakeles.testvec.v1alpha1.rs"));
-    include!(concat!(env!("OUT_DIR"), "/pakeles.testvec.v1alpha1.serde.rs"));
+    include!(concat!(
+        env!("OUT_DIR"),
+        "/pakeles.testvec.v1alpha1.serde.rs"
+    ));
 }
 
 use anyhow::Result;
@@ -18,7 +21,10 @@ pub struct Bits {
 
 impl Bits {
     pub fn from_bytes(bytes: &[u8]) -> Self {
-        Self { bytes: bytes.to_vec(), bit_len: bytes.len() * 8 }
+        Self {
+            bytes: bytes.to_vec(),
+            bit_len: bytes.len() * 8,
+        }
     }
 
     /// Canonicalize per the BitString contract: pad short data with
@@ -106,7 +112,10 @@ mod tests {
 
     #[test]
     fn canonical_roundtrips_without_warnings() {
-        let bits = Bits { bytes: vec![0xAB, 0xC0], bit_len: 12 };
+        let bits = Bits {
+            bytes: vec![0xAB, 0xC0],
+            bit_len: 12,
+        };
         let pb = bits.to_pb();
         assert_eq!(pb.data_hex, "abc0");
         let (back, warnings) = Bits::from_pb(&pb);
@@ -116,7 +125,10 @@ mod tests {
 
     #[test]
     fn short_data_zero_padded_with_warning() {
-        let (bits, w) = Bits::from_pb(&pb::BitString { data_hex: "ab".into(), bit_len: 24 });
+        let (bits, w) = Bits::from_pb(&pb::BitString {
+            data_hex: "ab".into(),
+            bit_len: 24,
+        });
         assert_eq!(bits.bytes, vec![0xAB, 0, 0]);
         assert_eq!(w.len(), 1);
         assert!(w[0].contains("zero-padded"));
@@ -124,15 +136,20 @@ mod tests {
 
     #[test]
     fn long_data_truncated_with_warning() {
-        let (bits, w) =
-            Bits::from_pb(&pb::BitString { data_hex: "aabbcc".into(), bit_len: 8 });
+        let (bits, w) = Bits::from_pb(&pb::BitString {
+            data_hex: "aabbcc".into(),
+            bit_len: 8,
+        });
         assert_eq!(bits.bytes, vec![0xAA]);
         assert!(w[0].contains("truncated"));
     }
 
     #[test]
     fn nonzero_pad_bits_zeroed_with_warning() {
-        let (bits, w) = Bits::from_pb(&pb::BitString { data_hex: "ff".into(), bit_len: 4 });
+        let (bits, w) = Bits::from_pb(&pb::BitString {
+            data_hex: "ff".into(),
+            bit_len: 4,
+        });
         assert_eq!(bits.bytes, vec![0xF0]);
         assert!(w[0].contains("pad bits"));
     }
@@ -153,6 +170,9 @@ mod tests {
                 }),
             }],
         };
-        assert_eq!(suite_from_json(&suite_to_json(&suite).unwrap()).unwrap(), suite);
+        assert_eq!(
+            suite_from_json(&suite_to_json(&suite).unwrap()).unwrap(),
+            suite
+        );
     }
 }

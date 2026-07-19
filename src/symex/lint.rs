@@ -34,9 +34,8 @@ pub fn lint(ir: &pb::Ir) -> anyhow::Result<Vec<Finding>> {
                 {
                     findings.push(Finding {
                         location: format!("state `{}` arm {i}", state.name),
-                        message:
-                            "unsatisfiable: shadowed by earlier arms or contradicts guards"
-                                .into(),
+                        message: "unsatisfiable: shadowed by earlier arms or contradicts guards"
+                            .into(),
                     });
                 }
             }

@@ -26,15 +26,14 @@ pub fn generate(ir: &irpb::Ir) -> Result<pb::TestSuite> {
     })
 }
 
-fn vector_for(
-    ir: &irpb::Ir,
-    solver: &mut dyn Solver,
-    path: &Path,
-) -> Result<pb::TestVector> {
+fn vector_for(ir: &irpb::Ir, solver: &mut dyn Solver, path: &Path) -> Result<pb::TestVector> {
     let Some(bytes) = solver.check(path.bit_len, &path.constraints) else {
         bail!("engine bug: enumerated path is UNSAT");
     };
-    let bits = Bits { bytes, bit_len: path.bit_len };
+    let bits = Bits {
+        bytes,
+        bit_len: path.bit_len,
+    };
     let result = run_bits(ir, &bits)?;
 
     // The interpreter must agree with the path's own expectation —
@@ -54,9 +53,7 @@ fn vector_for(
                             .map(|f| pb::ExpectedField {
                                 name: f.name.clone(),
                                 value: Some(match &f.value {
-                                    FieldValue::Uint(u) => {
-                                        pb::expected_field::Value::Uint(*u)
-                                    }
+                                    FieldValue::Uint(u) => pb::expected_field::Value::Uint(*u),
                                     FieldValue::Bytes(b) => pb::expected_field::Value::BytesHex(
                                         crate::testvec::hex_encode(b),
                                     ),
@@ -69,22 +66,28 @@ fn vector_for(
         ),
         (PathKind::Reject { reason }, Outcome::Reject { reason: got }) if reason == got => (
             pb::Category::Reject,
-            pb::expected::Outcome::Reject(pb::Rejected { reason: got.clone() }),
+            pb::expected::Outcome::Reject(pb::Rejected {
+                reason: got.clone(),
+            }),
         ),
         (PathKind::Truncation, Outcome::Reject { reason: got }) if got == "out of bounds" => (
             pb::Category::Truncation,
-            pb::expected::Outcome::Reject(pb::Rejected { reason: got.clone() }),
+            pb::expected::Outcome::Reject(pb::Rejected {
+                reason: got.clone(),
+            }),
         ),
-        (kind, outcome) => bail!(
-            "soundness bug: path predicts {kind:?}, interpreter says {outcome:?}"
-        ),
+        (kind, outcome) => {
+            bail!("soundness bug: path predicts {kind:?}, interpreter says {outcome:?}")
+        }
     };
 
     Ok(pb::TestVector {
         id: path.id.clone(),
         category: category as i32,
         packet: Some(bits.to_pb()),
-        expected: Some(pb::Expected { outcome: Some(expected) }),
+        expected: Some(pb::Expected {
+            outcome: Some(expected),
+        }),
     })
 }
 
@@ -119,9 +122,7 @@ pub fn replay(ir: &irpb::Ir, suite: &pb::TestSuite) -> Result<Vec<String>> {
                             .map(|f| pb::ExpectedField {
                                 name: f.name.clone(),
                                 value: Some(match &f.value {
-                                    FieldValue::Uint(u) => {
-                                        pb::expected_field::Value::Uint(*u)
-                                    }
+                                    FieldValue::Uint(u) => pb::expected_field::Value::Uint(*u),
                                     FieldValue::Bytes(b) => pb::expected_field::Value::BytesHex(
                                         crate::testvec::hex_encode(b),
                                     ),
@@ -150,7 +151,11 @@ mod tests {
         let ir = eth_ipv4_tcp();
         let suite = generate(&ir).unwrap();
         let by_cat = |c: pb::Category| {
-            suite.vectors.iter().filter(|v| v.category == c as i32).count()
+            suite
+                .vectors
+                .iter()
+                .filter(|v| v.category == c as i32)
+                .count()
         };
         // ihl 5..=15 feasible layouts -> 11 accepts; rejects: 5 wrapped
         // ihl (oob) + 11 ipv4-default + 1 eth-default = 17.

@@ -52,7 +52,11 @@ pub fn path_id(ir: &pb::Ir, result: &ParseResult) -> anyhow::Result<String> {
             let ht = header_types
                 .get(ex.header_type.as_str())
                 .ok_or_else(|| anyhow::anyhow!("unknown header type `{}`", ex.header_type))?;
-            let inst = if ex.instance.is_empty() { &ex.header_type } else { &ex.instance };
+            let inst = if ex.instance.is_empty() {
+                &ex.header_type
+            } else {
+                &ex.instance
+            };
             let parsed = headers.next();
             for field in &ht.fields {
                 let parsed_field =

@@ -10,7 +10,9 @@ pub(crate) struct Z3Solver {
 
 impl Z3Solver {
     pub(crate) fn new() -> Self {
-        Self { ctx: z3::Context::new(&z3::Config::new()) }
+        Self {
+            ctx: z3::Context::new(&z3::Config::new()),
+        }
     }
 
     /// Packet variable: one bitvector of `packet_bits` (>=1 dummy bit

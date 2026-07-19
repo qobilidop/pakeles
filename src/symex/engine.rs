@@ -86,7 +86,10 @@ pub(crate) fn enumerate(ir: &pb::Ir, solver: &mut dyn Solver) -> anyhow::Result<
     let frame = Frame::default();
     walk_state(&mut ctx, &parser.start_state, frame)?;
     ctx.paths.sort_by(|a, b| a.id.cmp(&b.id));
-    Ok(Enumeration { paths: ctx.paths, log: ctx.log })
+    Ok(Enumeration {
+        paths: ctx.paths,
+        log: ctx.log,
+    })
 }
 
 fn term_of_expr(e: &pb::Expr, frame: &Frame) -> anyhow::Result<Term> {
@@ -99,17 +102,24 @@ fn term_of_expr(e: &pb::Expr, frame: &Frame) -> anyhow::Result<Term> {
                 .ok_or_else(|| {
                     anyhow::anyhow!("unresolved field ref `{}.{}`", r.header, r.field)
                 })?;
-            Ok(Term::Extract { bit_off: *bit_off, len: *len })
+            Ok(Term::Extract {
+                bit_off: *bit_off,
+                len: *len,
+            })
         }
         Some(pb::expr::Kind::Bin(b)) => {
             let op = pb::BinOpKind::try_from(b.op)
                 .map_err(|_| anyhow::anyhow!("unknown binop {}", b.op))?;
             let l = term_of_expr(
-                b.lhs.as_deref().ok_or_else(|| anyhow::anyhow!("binop missing lhs"))?,
+                b.lhs
+                    .as_deref()
+                    .ok_or_else(|| anyhow::anyhow!("binop missing lhs"))?,
                 frame,
             )?;
             let r = term_of_expr(
-                b.rhs.as_deref().ok_or_else(|| anyhow::anyhow!("binop missing rhs"))?,
+                b.rhs
+                    .as_deref()
+                    .ok_or_else(|| anyhow::anyhow!("binop missing rhs"))?,
                 frame,
             )?;
             Ok(Term::Bin(op, Box::new(l), Box::new(r)))
@@ -142,7 +152,14 @@ fn walk_state(ctx: &mut Ctx, state_name: &str, mut frame: Frame) -> anyhow::Resu
     frame.segments.push(state_name.to_string());
     if frame.depth > ctx.parser.max_depth {
         let bl = frame.cursor;
-        emit(ctx, &frame, PathKind::Reject { reason: "max depth exceeded".into() }, bl);
+        emit(
+            ctx,
+            &frame,
+            PathKind::Reject {
+                reason: "max depth exceeded".into(),
+            },
+            bl,
+        );
         return Ok(());
     }
     ctx.log.reached_states.insert(state_name.to_string());
@@ -158,7 +175,11 @@ fn walk_state(ctx: &mut Ctx, state_name: &str, mut frame: Frame) -> anyhow::Resu
             .header_types
             .get(ex.header_type.as_str())
             .ok_or_else(|| anyhow::anyhow!("unknown header type `{}`", ex.header_type))?;
-        let inst = if ex.instance.is_empty() { ex.header_type.clone() } else { ex.instance.clone() };
+        let inst = if ex.instance.is_empty() {
+            ex.header_type.clone()
+        } else {
+            ex.instance.clone()
+        };
         for f in &ht.fields {
             items.push((inst.clone(), f.clone()));
         }
@@ -204,13 +225,18 @@ fn walk_extracts(
             for v in values {
                 let mut child = frame.clone();
                 child.segments.push(format!("{inst}.{}={v}B", field.name));
-                child
-                    .constraints
-                    .push(Constraint::Eq(len_term.clone(), v));
+                child.constraints.push(Constraint::Eq(len_term.clone(), v));
                 let len_bits = (v as usize).saturating_mul(8);
                 if child.cursor.saturating_add(len_bits) > SANITY_BITS {
                     let bl = child.cursor;
-                    emit(ctx, &child, PathKind::Reject { reason: "out of bounds".into() }, bl);
+                    emit(
+                        ctx,
+                        &child,
+                        PathKind::Reject {
+                            reason: "out of bounds".into(),
+                        },
+                        bl,
+                    );
                     continue;
                 }
                 if len_bits > 0 {
@@ -239,7 +265,14 @@ fn walk_target(ctx: &mut Ctx, target: &pb::Target, frame: Frame) -> anyhow::Resu
         }
         Some(pb::target::Kind::Reject(r)) => {
             let bl = frame.cursor;
-            emit(ctx, &frame, PathKind::Reject { reason: r.reason.clone() }, bl);
+            emit(
+                ctx,
+                &frame,
+                PathKind::Reject {
+                    reason: r.reason.clone(),
+                },
+                bl,
+            );
             Ok(())
         }
         None => anyhow::bail!("empty target"),
@@ -313,7 +346,9 @@ fn walk_transition(ctx: &mut Ctx, state: &pb::State, frame: Frame) -> anyhow::Re
                         emit(
                             ctx,
                             &child,
-                            PathKind::Reject { reason: "no matching select arm".into() },
+                            PathKind::Reject {
+                                reason: "no matching select arm".into(),
+                            },
                             bl,
                         );
                     }
@@ -407,7 +442,9 @@ mod tests {
         assert_eq!(e.paths[0].id, "s/s/s/s");
         assert_eq!(
             e.paths[0].kind,
-            PathKind::Reject { reason: "max depth exceeded".into() }
+            PathKind::Reject {
+                reason: "max depth exceeded".into()
+            }
         );
     }
 

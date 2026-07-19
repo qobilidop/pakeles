@@ -10,6 +10,7 @@ use eval::{eval_entry, eval_expr, Env};
 
 /// Expression evaluation for sibling modules (pathid) — same semantics
 /// the interpreter itself uses.
+#[cfg(feature = "symex")]
 pub(crate) fn eval_expr_pub(
     e: &pb::Expr,
     env: &std::collections::HashMap<(String, String), u64>,
@@ -109,7 +110,10 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
 
     loop {
         depth += 1;
-        trace.push(TraceStep { state: current.to_string(), decision: Decision::None });
+        trace.push(TraceStep {
+            state: current.to_string(),
+            decision: Decision::None,
+        });
         if depth > parser.max_depth {
             return reject("max depth exceeded", headers, trace);
         }

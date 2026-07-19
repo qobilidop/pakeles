@@ -36,7 +36,12 @@ pub fn coverage(ir: &pb::Ir, pcap: &Path) -> anyhow::Result<Coverage> {
         .filter(|id| !hits.contains_key(*id))
         .cloned()
         .collect();
-    Ok(Coverage { total: all_ids.len(), hits, unexercised, packets: packets.len() })
+    Ok(Coverage {
+        total: all_ids.len(),
+        hits,
+        unexercised,
+        packets: packets.len(),
+    })
 }
 
 #[cfg(test)]

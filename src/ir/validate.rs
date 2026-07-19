@@ -203,7 +203,11 @@ fn state_instances(s: &pb::State) -> Vec<String> {
     s.extracts
         .iter()
         .map(|e| {
-            if e.instance.is_empty() { e.header_type.clone() } else { e.instance.clone() }
+            if e.instance.is_empty() {
+                e.header_type.clone()
+            } else {
+                e.instance.clone()
+            }
         })
         .collect()
 }
@@ -240,16 +244,16 @@ fn definite_extraction_errors(
     };
 
     // Fixpoint over must-extracted sets at state entry.
-    let all: HashSet<String> = parser
-        .states
-        .iter()
-        .flat_map(state_instances)
-        .collect();
+    let all: HashSet<String> = parser.states.iter().flat_map(state_instances).collect();
     let mut inset: HashMap<&str, HashSet<String>> = parser
         .states
         .iter()
         .map(|s| {
-            let init = if s.name == parser.start_state { HashSet::new() } else { all.clone() };
+            let init = if s.name == parser.start_state {
+                HashSet::new()
+            } else {
+                all.clone()
+            };
             (s.name.as_str(), init)
         })
         .collect();
@@ -263,8 +267,7 @@ fn definite_extraction_errors(
                 .collect();
             for succ in succs(s) {
                 if let Some(cur) = inset.get_mut(succ.as_str()) {
-                    let narrowed: HashSet<String> =
-                        cur.intersection(&out).cloned().collect();
+                    let narrowed: HashSet<String> = cur.intersection(&out).cloned().collect();
                     if narrowed.len() != cur.len() {
                         *cur = narrowed;
                         changed = true;
@@ -293,7 +296,11 @@ fn definite_extraction_errors(
     for s in &parser.states {
         let mut avail = inset[s.name.as_str()].clone();
         for ex in &s.extracts {
-            let inst = if ex.instance.is_empty() { &ex.header_type } else { &ex.instance };
+            let inst = if ex.instance.is_empty() {
+                &ex.header_type
+            } else {
+                &ex.instance
+            };
             // Var-length exprs inside this header may use earlier
             // fields of the same instance: add before checking widths.
             avail.insert(inst.clone());
