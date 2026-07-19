@@ -81,6 +81,10 @@ class Header:
         raise TypeError("Header classes are declarations; do not instantiate")
 
     @classmethod
+    def ir_name(cls) -> str:
+        return cls._name
+
+    @classmethod
     def to_pb(cls) -> ir_pb2.HeaderType:
         ht = ir_pb2.HeaderType(name=cls._name)
         for f in cls._fields:
