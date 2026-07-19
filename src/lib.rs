@@ -6,4 +6,5 @@ pub mod interp;
 pub mod ir;
 pub mod oracle;
 pub mod pcapio;
+pub mod testvec;
 pub mod viz;
