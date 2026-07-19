@@ -20,7 +20,7 @@ differentially tested against `tshark`.
 ## Quickstart
 
 The only host requirement is Docker; `./dev.sh` runs everything inside
-the pinned dev image (Rust, protoc, buf, tshark 4.0, graphviz):
+the pinned dev image (Ubuntu 24.04 + Rust, protoc, buf, tshark 4.2, graphviz):
 
 ```sh
 ./dev.sh cargo test                                        # full suite
