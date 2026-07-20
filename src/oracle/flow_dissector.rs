@@ -51,6 +51,7 @@ pub struct GoldenFile {
 
 /// Run the interpreter and project an Accept result to the rung-0
 /// `FlowKeys`. `None` if the parse rejects (no flow key).
+#[allow(clippy::field_reassign_with_default)]
 pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Option<FlowKeys>> {
     let res = crate::interp::run(ir, packet)?;
     if !matches!(res.outcome, crate::interp::Outcome::Accept) {
@@ -78,27 +79,33 @@ pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Option<FlowKeys>> {
             })
     };
     let mut k = FlowKeys::default();
-    k.n_proto = u("ethernet", "ethertype").unwrap_or(0) as u16;
-    k.addr_proto = k.n_proto;
-    // Fallback to ipv6 if ipv4 absent: sound because rung-0 IR reachability
-    // guarantees Accept implies exactly one of {ipv4, ipv6} was extracted.
-    let ip_inst = if hdr("ipv4").is_some() {
-        "ipv4"
-    } else {
-        "ipv6"
-    };
-    k.nhoff = (hdr(ip_inst).map(|h| h.start_bit).unwrap_or(0) / 8) as u16;
-    if ip_inst == "ipv4" {
+    // Kernel PROG(VLAN) rewrites n_proto to the inner encapsulated proto;
+    // vlan_q is the final tag on every VLAN path (the AD path's C-tag or
+    // the single Q tag), so its encapsulated_proto is authoritative.
+    k.n_proto = u("vlan_q", "encapsulated_proto")
+        .or_else(|| u("ethernet", "ethertype"))
+        .unwrap_or(0) as u16;
+    if let Some(h) = hdr("ipv4") {
+        k.addr_proto = 0x0800;
+        k.nhoff = (h.start_bit / 8) as u16;
         k.ip_proto = u("ipv4", "protocol").unwrap_or(0) as u8;
         k.ipv4_src = format!("{:08x}", u("ipv4", "src").unwrap_or(0));
         k.ipv4_dst = format!("{:08x}", u("ipv4", "dst").unwrap_or(0));
-    } else {
+    } else if let Some(h) = hdr("ipv6") {
+        k.addr_proto = 0x86DD;
+        k.nhoff = (h.start_bit / 8) as u16;
         k.ip_proto = u("ipv6", "next_header").unwrap_or(0) as u8;
         k.ipv6_src = bytes("ipv6", "src").map(hex).unwrap_or_default();
         k.ipv6_dst = bytes("ipv6", "dst").map(hex).unwrap_or_default();
+    } else if let Some(h) = hdr("mpls") {
+        // Kernel PROG(MPLS): single-entry read, no key updates — nhoff and
+        // thoff stay at the MPLS header start; addr_proto/ports stay 0.
+        k.nhoff = (h.start_bit / 8) as u16;
+        k.thoff = k.nhoff;
+        return Ok(Some(k));
     }
-    // Fallback to udp if tcp absent: sound because rung-0 IR reachability
-    // guarantees Accept implies exactly one of {tcp, udp} was extracted.
+    // Reachability: Accept through an IP path implies exactly one of
+    // {tcp, udp} was extracted (unchanged from rung 0).
     let t_inst = if hdr("tcp").is_some() { "tcp" } else { "udp" };
     k.thoff = (hdr(t_inst).map(|h| h.start_bit).unwrap_or(0) / 8) as u16;
     k.sport = u(t_inst, "sport").unwrap_or(0) as u16;
@@ -222,6 +229,90 @@ mod tests {
 #[cfg(test)]
 mod project_tests {
     use super::*;
+
+    fn hexpkt(s: &str) -> Vec<u8> {
+        crate::testvec::hex_decode(s).unwrap()
+    }
+
+    #[test]
+    fn projects_single_vlan_v4_tcp() {
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff112233445566810000640800\
+             45000028123440004006dead0a0000010a000002303901bb\
+             00000001000000005018ffff00000000",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert_eq!(k.nhoff, 18); // 14 + one 4-byte tag
+        assert_eq!(k.thoff, 38);
+        assert_eq!(k.n_proto, 0x0800); // kernel: inner encapsulated proto
+        assert_eq!(k.addr_proto, 0x0800);
+        assert_eq!(k.ip_proto, 6);
+        assert_eq!(k.sport, 12345);
+        assert_eq!(k.dport, 443);
+    }
+
+    #[test]
+    fn projects_qinq_v4_tcp() {
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff11223344556688a80064810000650800\
+             45000028123440004006dead0a0000010a000002303901bb\
+             00000001000000005018ffff00000000",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert_eq!(k.nhoff, 22); // 14 + two tags
+        assert_eq!(k.thoff, 42);
+        assert_eq!(k.n_proto, 0x0800);
+        assert_eq!(k.addr_proto, 0x0800);
+    }
+
+    #[test]
+    fn projects_mpls_stop() {
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff112233445566884700064140\
+             45000028123440004006dead0a0000010a000002303901bb\
+             00000001000000005018ffff00000000",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert_eq!(k.nhoff, 14);
+        assert_eq!(k.thoff, 14); // kernel PROG(MPLS) leaves thoff untouched
+        assert_eq!(k.n_proto, 0x8847);
+        assert_eq!(k.addr_proto, 0); // set only by the IP progs upstream
+        assert_eq!(k.ip_proto, 0);
+        assert_eq!(k.sport, 0);
+        assert_eq!(k.dport, 0);
+        assert_eq!(k.ipv4_src, "");
+        assert_eq!(k.ipv6_src, "");
+    }
+
+    #[test]
+    fn projects_vlan_then_mpls() {
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff11223344556681000064884700064140\
+             45000028123440004006dead0a0000010a000002303901bb\
+             00000001000000005018ffff00000000",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert_eq!(k.nhoff, 18);
+        assert_eq!(k.thoff, 18);
+        assert_eq!(k.n_proto, 0x8847);
+        assert_eq!(k.addr_proto, 0);
+    }
+
+    #[test]
+    fn triple_tag_rejects() {
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff11223344556688a800648100006581000066\
+             080045000028123440004006dead0a0000010a000002303901bb\
+             00000001000000005018ffff00000000",
+        );
+        assert!(project(&ir, &pkt).unwrap().is_none());
+    }
+
     #[test]
     fn projects_v4_tcp_fixture() {
         let ir = crate::examples::linux_flow_dissector();
