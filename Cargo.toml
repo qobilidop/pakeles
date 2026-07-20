@@ -9,7 +9,7 @@ repository = "https://github.com/qobilidop/pakeles"
 readme = "README.md"
 keywords = ["parser", "packet", "network", "ir", "wireshark"]
 categories = ["parsing", "network-programming"]
-include = ["src/**", "proto/**", "build.rs", "Cargo.toml", "README.md", "LICENSE"]
+include = ["src/**", "proto/**", "build.rs", "Cargo.toml", "README.md", "LICENSE", "examples/eth_ipvx_l4/eth_ipvx_l4.ir.json"]
 
 [dependencies]
 prost = "0.13"

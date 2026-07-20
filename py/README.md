@@ -11,6 +11,11 @@ Dev loop (from the repo root, inside the dev container):
 ./dev.sh sh -c 'cd py && ruff check . && pyright && pytest'
 ```
 
+`eth_ipvx_l4.py` is the single source of truth for the gallery example.
+Regenerate every derived artifact (canonical `ir.json`, `gen/*`, vectors)
+with `./dev.sh scripts/gen-examples.sh` — phase 1 runs this eDSL, phase 2
+canonicalizes and derives.
+
 Regenerate the vendored proto modules after editing `proto/`:
 
 ```sh

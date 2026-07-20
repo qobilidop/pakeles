@@ -101,3 +101,6 @@ two authoring surfaces, provably one artifact. See `py/README.md`.
   description yields, equality-guarded by tests
 - `docs/superpowers/specs/` — design docs; start with
   `2026-07-18-pakelesir-v0-design.md`
+
+Regenerate the gallery from its single source (the eDSL):
+`./dev.sh scripts/gen-examples.sh`.
