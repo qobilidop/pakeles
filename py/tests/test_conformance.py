@@ -2,6 +2,8 @@
 and must produce IR proto-equal to the committed `ir.json` the Rust
 builder generated — two authoring surfaces, one artifact."""
 
+import subprocess
+import sys
 from pathlib import Path
 
 from google.protobuf import json_format
@@ -21,3 +23,13 @@ def test_python_authoring_matches_gallery() -> None:
 def test_own_json_roundtrips_to_same_proto() -> None:
     p = eth_ipvx_l4()
     assert json_format.Parse(p.to_json(), ir_pb2.Ir()) == p.to_pb()
+
+
+def test_module_main_emits_parseable_json() -> None:
+    out = subprocess.run(
+        [sys.executable, "-m", "pakeles.examples.eth_ipvx_l4"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert json_format.Parse(out, ir_pb2.Ir()) == eth_ipvx_l4().to_pb()
