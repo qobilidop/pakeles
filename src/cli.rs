@@ -155,11 +155,11 @@ enum Oracle {
     FlowDissector {
         #[arg(long)]
         ir: Option<PathBuf>,
-        #[arg(
-            long,
-            default_value = "examples/linux_flow_dissector/conformance/flow_keys.golden.json"
-        )]
-        goldens: PathBuf,
+        /// Golden file path. Defaults to the committed kernel-captured
+        /// goldens (`flow_keys.linux-*.golden.json`) under
+        /// examples/linux_flow_dissector/conformance/.
+        #[arg(long)]
+        goldens: Option<PathBuf>,
     },
 }
 
@@ -264,6 +264,16 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             let ir = match &ir {
                 None => crate::examples::linux_flow_dissector(),
                 Some(_) => load_ir(&ir)?,
+            };
+            let goldens = match goldens {
+                Some(p) => p,
+                None => crate::oracle::flow_dissector::discover_committed_golden(
+                    std::path::Path::new("examples/linux_flow_dissector/conformance"),
+                )
+                .context(
+                    "no --goldens given and no committed flow_keys.linux-*.golden.json \
+                     found under examples/linux_flow_dissector/conformance/",
+                )?,
             };
             let golden: crate::oracle::flow_dissector::GoldenFile =
                 serde_json::from_str(&std::fs::read_to_string(&goldens).with_context(|| {
@@ -480,6 +490,14 @@ mod tests {
             path.to_str().unwrap(),
         ])
         .unwrap();
+        assert_eq!(code, 0);
+    }
+
+    #[test]
+    fn diff_flow_dissector_default_goldens_discovers_committed_file() {
+        // No --goldens: should discover the committed
+        // flow_keys.linux-*.golden.json and agree with it.
+        let code = main_with(&["pakeles", "diff", "flow-dissector"]).unwrap();
         assert_eq!(code, 0);
     }
 

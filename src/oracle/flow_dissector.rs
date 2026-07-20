@@ -122,6 +122,21 @@ fn field_pair(name: &str, ours: &FlowKeys, golden: &FlowKeys) -> (String, String
     }
 }
 
+/// Find the committed kernel-captured golden file under `dir` (filename
+/// starts with `flow_keys.linux-`). Shared by the CLI's default `--goldens`
+/// resolution and the `committed_goldens_agree` gate test.
+pub fn discover_committed_golden(dir: &std::path::Path) -> Option<std::path::PathBuf> {
+    std::fs::read_dir(dir)
+        .ok()?
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .find(|p| {
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.starts_with("flow_keys.linux-"))
+        })
+}
+
 /// Diff our `project`ed `flow_keys` against a golden file's entries, over
 /// the golden's declared `keys_subset` fields.
 pub fn diff_goldens(ir: &pb::Ir, golden: &GoldenFile) -> anyhow::Result<FlowDiffReport> {
@@ -255,5 +270,34 @@ mod diff_tests {
         g.entries[0].keys.dport = 1; // corrupt
         let report = diff_goldens(&ir, &g).unwrap();
         assert_eq!(report.mismatches.len(), 1);
+    }
+}
+
+#[cfg(test)]
+mod gate_tests {
+    use super::*;
+
+    /// Rung 0's definition of done: Pakeles's projected `flow_keys` agree
+    /// with the kernel-captured goldens committed in
+    /// `examples/linux_flow_dissector/conformance/`. If this fails, that's
+    /// a real disagreement between our parse/projection and the kernel —
+    /// investigate; do NOT edit the golden file to force green.
+    #[test]
+    fn committed_goldens_agree() {
+        let dir = std::path::Path::new("examples/linux_flow_dissector/conformance");
+        let golden_path = discover_committed_golden(dir).expect("a committed golden file exists");
+        let g: GoldenFile =
+            serde_json::from_str(&std::fs::read_to_string(golden_path).unwrap()).unwrap();
+        let report = diff_goldens(&crate::examples::linux_flow_dissector(), &g).unwrap();
+        assert!(
+            report.compared >= 4,
+            "corpus too small: {}",
+            report.compared
+        );
+        assert!(
+            report.mismatches.is_empty(),
+            "Pakeles disagrees with the kernel flow dissector:\n{}",
+            report.mismatches.join("\n")
+        );
     }
 }
