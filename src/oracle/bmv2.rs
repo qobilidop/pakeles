@@ -62,8 +62,16 @@ pub fn compile(p4_src: &str, workdir: &Path) -> Result<PathBuf> {
     Ok(json)
 }
 
+/// Serializes `simple_switch` spawns process-wide. Each spawn is heavy
+/// (BMv2 loads its target libs cold); under parallel test threads that
+/// also run `p4c`/`simple_switch`, concurrent spawns starve one another
+/// and a packet can miss even a generous deadline. One switch at a time
+/// keeps the differential suite deterministic.
+static SWITCH_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// Run one packet through simple_switch; port 0 in, port 1 out.
 pub fn run_one(json: &Path, packet: &[u8], workdir: &Path) -> Result<Verdict> {
+    let _guard = SWITCH_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let dir = workdir.join("run");
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir)?;
@@ -236,12 +244,12 @@ mod tests {
             eprintln!("skipping: p4 toolchain not available");
             return;
         }
-        let ir = crate::examples::eth_ipv4_tcp();
+        let ir = crate::examples::eth_ipvx_l4();
         let p4 = crate::codegen::p4::generate_p4(&ir).unwrap();
         let dir = std::env::temp_dir().join("pakeles_bmv2_unit");
         let json = compile(&p4, &dir).unwrap();
         let suite = crate::testvec::suite_from_json(
-            &std::fs::read_to_string("examples/eth_ipv4_tcp/conformance/vectors.json").unwrap(),
+            &std::fs::read_to_string("examples/eth_ipvx_l4/conformance/vectors.json").unwrap(),
         )
         .unwrap();
         let (packets, indices) = crate::testvec::suite_to_packets(&suite);
@@ -263,9 +271,9 @@ mod tests {
             eprintln!("skipping: p4 toolchain not available");
             return;
         }
-        let ir = crate::examples::eth_ipv4_tcp();
+        let ir = crate::examples::eth_ipvx_l4();
         let suite = crate::testvec::suite_from_json(
-            &std::fs::read_to_string("examples/eth_ipv4_tcp/conformance/vectors.json").unwrap(),
+            &std::fs::read_to_string("examples/eth_ipvx_l4/conformance/vectors.json").unwrap(),
         )
         .unwrap();
         let report = diff_suite(&ir, &suite).unwrap();

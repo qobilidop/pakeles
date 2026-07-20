@@ -628,7 +628,7 @@ pub fn generate_bpf(ir: &pb::Ir) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::examples::eth_ipv4_tcp;
+    use crate::examples::eth_ipvx_l4;
 
     fn cc_compiles(files: &[(&str, &str)], cmd: &[&str]) -> std::process::Output {
         let dir = std::env::temp_dir().join(format!("pakeles_c_{}", std::process::id()));
@@ -658,7 +658,7 @@ mod tests {
             eprintln!("skipping: cc not available");
             return;
         }
-        let ir = eth_ipv4_tcp();
+        let ir = eth_ipvx_l4();
         let arts = generate_c(&ir).unwrap();
         let harness = generate_c_harness(&ir).unwrap();
         let dir = std::env::temp_dir().join(format!("pakeles_cconf_{}", std::process::id()));
@@ -681,7 +681,7 @@ mod tests {
         );
 
         let suite = crate::testvec::suite_from_json(
-            &std::fs::read_to_string("examples/eth_ipv4_tcp/conformance/vectors.json").unwrap(),
+            &std::fs::read_to_string("examples/eth_ipvx_l4/conformance/vectors.json").unwrap(),
         )
         .unwrap();
         let mut input = String::new();
@@ -791,7 +791,7 @@ mod tests {
                 return;
             }
         }
-        let ir = eth_ipv4_tcp();
+        let ir = eth_ipvx_l4();
         let bpf = generate_bpf(&ir).unwrap();
         let dir = std::env::temp_dir().join(format!("pakeles_bpf_{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
@@ -822,7 +822,7 @@ mod tests {
         assert!(!prog.is_empty());
 
         let suite = crate::testvec::suite_from_json(
-            &std::fs::read_to_string("examples/eth_ipv4_tcp/conformance/vectors.json").unwrap(),
+            &std::fs::read_to_string("examples/eth_ipvx_l4/conformance/vectors.json").unwrap(),
         )
         .unwrap();
         let reasons = reason_table(ir.parser.as_ref().unwrap());
@@ -868,12 +868,12 @@ mod tests {
 
     #[test]
     fn committed_c_artifacts_current() {
-        let arts = generate_c(&eth_ipv4_tcp()).unwrap();
-        let bpf = generate_bpf(&eth_ipv4_tcp()).unwrap();
+        let arts = generate_c(&eth_ipvx_l4()).unwrap();
+        let bpf = generate_bpf(&eth_ipvx_l4()).unwrap();
         for (path, fresh) in [
-            ("examples/eth_ipv4_tcp/gen/parser.h", &arts.header),
-            ("examples/eth_ipv4_tcp/gen/parser.c", &arts.source),
-            ("examples/eth_ipv4_tcp/gen/parser.bpf.c", &bpf),
+            ("examples/eth_ipvx_l4/gen/parser.h", &arts.header),
+            ("examples/eth_ipvx_l4/gen/parser.c", &arts.source),
+            ("examples/eth_ipvx_l4/gen/parser.bpf.c", &bpf),
         ] {
             let committed = std::fs::read_to_string(path).unwrap();
             assert_eq!(
@@ -893,8 +893,8 @@ mod tests {
             eprintln!("skipping: cc not available");
             return;
         }
-        let arts = generate_c(&eth_ipv4_tcp()).unwrap();
-        let harness = generate_c_harness(&eth_ipv4_tcp()).unwrap();
+        let arts = generate_c(&eth_ipvx_l4()).unwrap();
+        let harness = generate_c_harness(&eth_ipvx_l4()).unwrap();
         let out = cc_compiles(
             &[
                 ("parser.h", &arts.header),

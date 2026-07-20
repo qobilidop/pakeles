@@ -510,7 +510,7 @@ mod tests {
 
     #[test]
     fn ipv4_splits_into_fixed_then_var() {
-        let ir = crate::examples::eth_ipv4_tcp();
+        let ir = crate::examples::eth_ipvx_l4();
         let ipv4 = ir
             .parser
             .as_ref()
@@ -527,7 +527,7 @@ mod tests {
 
     #[test]
     fn ipv4_options_max_is_40_bytes() {
-        let ir = crate::examples::eth_ipv4_tcp();
+        let ir = crate::examples::eth_ipvx_l4();
         let parser = ir.parser.as_ref().unwrap();
         let ipv4 = parser
             .header_types
@@ -545,15 +545,15 @@ mod tests {
 
     #[test]
     fn instance_order_is_extraction_order() {
-        let ir = crate::examples::eth_ipv4_tcp();
+        let ir = crate::examples::eth_ipvx_l4();
         let order = instance_order(ir.parser.as_ref().unwrap());
         let names: Vec<&str> = order.iter().map(|(i, _)| i.as_str()).collect();
-        assert_eq!(names, ["ethernet", "ipv4", "tcp"]);
+        assert_eq!(names, ["ethernet", "ipv4", "ipv6", "tcp", "udp"]);
     }
 
     #[test]
     fn generated_p4_contains_expected_decls() {
-        let p4 = generate_p4(&crate::examples::eth_ipv4_tcp()).unwrap();
+        let p4 = generate_p4(&crate::examples::eth_ipvx_l4()).unwrap();
         for needle in [
             "#include <v1model.p4>",
             "header ethernet_s0_t",
@@ -576,7 +576,7 @@ mod tests {
 
     #[test]
     fn cyclic_graph_is_rejected() {
-        let mut ir = crate::examples::eth_ipv4_tcp();
+        let mut ir = crate::examples::eth_ipvx_l4();
         let p = ir.parser.as_mut().unwrap();
         let tcp = p.states.iter_mut().find(|s| s.name == "parse_tcp").unwrap();
         tcp.transition = Some(pb::Transition {
@@ -590,8 +590,8 @@ mod tests {
 
     #[test]
     fn committed_p4_artifact_current() {
-        let p4 = generate_p4(&crate::examples::eth_ipv4_tcp()).unwrap();
-        let committed = std::fs::read_to_string("examples/eth_ipv4_tcp/gen/parser.p4").unwrap();
+        let p4 = generate_p4(&crate::examples::eth_ipvx_l4()).unwrap();
+        let committed = std::fs::read_to_string("examples/eth_ipvx_l4/gen/parser.p4").unwrap();
         assert_eq!(
             p4, committed,
             "examples/ drifted; regenerate: ./dev.sh cargo run --bin gen_examples"
@@ -608,7 +608,7 @@ mod tests {
             eprintln!("skipping: p4test not available");
             return;
         }
-        let p4 = generate_p4(&crate::examples::eth_ipv4_tcp()).unwrap();
+        let p4 = generate_p4(&crate::examples::eth_ipvx_l4()).unwrap();
         let dir = std::env::temp_dir().join("pakeles_p4test");
         std::fs::create_dir_all(&dir).unwrap();
         let src = dir.join("parser.p4");

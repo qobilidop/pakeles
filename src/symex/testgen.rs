@@ -144,11 +144,11 @@ pub fn replay(ir: &irpb::Ir, suite: &pb::TestSuite) -> Result<Vec<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::examples::eth_ipv4_tcp;
+    use crate::examples::eth_ipvx_l4;
 
     #[test]
     fn example_suite_shape_and_replay() {
-        let ir = eth_ipv4_tcp();
+        let ir = eth_ipvx_l4();
         let suite = generate(&ir).unwrap();
         let by_cat = |c: pb::Category| {
             suite
@@ -157,11 +157,12 @@ mod tests {
                 .filter(|v| v.category == c as i32)
                 .count()
         };
-        // ihl 5..=15 feasible layouts -> 11 accepts; rejects: 5 wrapped
-        // ihl (oob) + 11 ipv4-default + 1 eth-default = 17.
-        assert_eq!(by_cat(pb::Category::Accept), 11);
-        assert_eq!(by_cat(pb::Category::Reject), 17);
-        assert_eq!(by_cat(pb::Category::Truncation), 136);
+        // Accepts: 11 ipv4 ihl layouts x {tcp,udp} = 22, plus ipv6 x
+        // {tcp,udp} = 2 -> 24. Rejects: 5 wrapped ihl (oob) + 11
+        // ipv4-default + 1 ipv6-default + 1 eth-default = 18.
+        assert_eq!(by_cat(pb::Category::Accept), 24);
+        assert_eq!(by_cat(pb::Category::Reject), 18);
+        assert_eq!(by_cat(pb::Category::Truncation), 202);
         // IDs unique and sorted.
         let ids: Vec<&str> = suite.vectors.iter().map(|v| v.id.as_str()).collect();
         let mut sorted = ids.clone();
@@ -174,10 +175,10 @@ mod tests {
 
     #[test]
     fn committed_vectors_replay_green() {
-        let path = "examples/eth_ipv4_tcp/conformance/vectors.json";
+        let path = "examples/eth_ipvx_l4/conformance/vectors.json";
         let text = std::fs::read_to_string(path).expect("committed suite exists");
         let suite = crate::testvec::suite_from_json(&text).unwrap();
-        let mismatches = replay(&eth_ipv4_tcp(), &suite).unwrap();
+        let mismatches = replay(&eth_ipvx_l4(), &suite).unwrap();
         assert!(mismatches.is_empty(), "{mismatches:#?}");
     }
 }

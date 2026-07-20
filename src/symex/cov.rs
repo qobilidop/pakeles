@@ -47,24 +47,24 @@ pub fn coverage(ir: &pb::Ir, pcap: &Path) -> anyhow::Result<Coverage> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::examples::eth_ipv4_tcp;
+    use crate::examples::eth_ipvx_l4;
 
     #[test]
     fn fixture_pcap_coverage() {
-        let cov = coverage(&eth_ipv4_tcp(), Path::new("testdata/basic.pcap")).unwrap();
+        let cov = coverage(&eth_ipvx_l4(), Path::new("testdata/basic.pcap")).unwrap();
         assert_eq!(cov.packets, 4);
-        assert_eq!(cov.total, 164);
+        assert_eq!(cov.total, 244);
         let ids: Vec<&str> = cov.hits.keys().map(String::as_str).collect();
         assert_eq!(
             ids,
             vec![
                 "parse_ethernet/!trunc@ethernet.src",
                 "parse_ethernet/arm0/parse_ipv4/ipv4.options=0B/arm0/parse_tcp",
-                "parse_ethernet/arm0/parse_ipv4/ipv4.options=0B/default",
+                "parse_ethernet/arm0/parse_ipv4/ipv4.options=0B/arm1/parse_udp",
                 "parse_ethernet/arm0/parse_ipv4/ipv4.options=4B/arm0/parse_tcp",
             ]
         );
-        assert_eq!(cov.unexercised.len(), 160);
+        assert_eq!(cov.unexercised.len(), 240);
     }
 
     /// Every committed vector, replayed concretely, must map back to
@@ -72,9 +72,9 @@ mod tests {
     /// cross-validation of pathid against the engine.
     #[test]
     fn pathid_roundtrips_all_committed_vectors() {
-        let ir = eth_ipv4_tcp();
+        let ir = eth_ipvx_l4();
         let text =
-            std::fs::read_to_string("examples/eth_ipv4_tcp/conformance/vectors.json").unwrap();
+            std::fs::read_to_string("examples/eth_ipvx_l4/conformance/vectors.json").unwrap();
         let suite = crate::testvec::suite_from_json(&text).unwrap();
         for v in &suite.vectors {
             let (bits, _) = crate::testvec::Bits::from_pb(v.packet.as_ref().unwrap());

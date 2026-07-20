@@ -1,18 +1,25 @@
-//! Built-in protocol descriptions. Slice 1: Ethernet -> IPv4 -> TCP.
+//! Built-in protocol descriptions: the `eth_ipvx_l4` hello-world stack.
 
 use crate::builder::*;
 use crate::ir::pb;
 use pb::DisplayFormat as F;
 
-/// Ethernet II -> IPv4 (with options) -> TCP (fixed 20-byte portion).
+/// Ethernet II -> {IPv4 (with options) | IPv6} -> {TCP | UDP}.
+///
+/// The canonical hello-world example. It *branches*: EtherType demuxes
+/// to IPv4 or IPv6, and each IP header demuxes to a shared TCP or UDP
+/// successor state (a join in the parse DAG) — so it teaches
+/// demultiplexing, not just field-mapping.
 ///
 /// Fully annotated: typed `Display` presentation (names, formats,
 /// value labels) drives the generated dissector and docs; `tshark.key`
 /// annotations mark fields diffed against tshark's built-in dissector.
+/// IPv6 addresses are 128-bit, above the fixed-`bits` ceiling, so they
+/// are `var_bytes` opaque runs (rendered as hex; not tshark-diffed).
 /// Unknown next-protocol rejects are payload boundaries
 /// (severity=info), not errors.
-pub fn eth_ipv4_tcp() -> pb::Ir {
-    ParserBuilder::new("eth_ipv4_tcp", 4)
+pub fn eth_ipvx_l4() -> pb::Ir {
+    ParserBuilder::new("eth_ipvx_l4", 4)
         .header(
             HeaderTypeBuilder::new("ethernet")
                 .bits_full(
@@ -97,6 +104,39 @@ pub fn eth_ipv4_tcp() -> pb::Ir {
                 .var_bytes("options", sub(mul(f("ipv4", "ihl"), c(4)), c(20))),
         )
         .header(
+            HeaderTypeBuilder::new("ipv6")
+                .bits_full(
+                    "version",
+                    4,
+                    disp("Version", F::Dec),
+                    &[("tshark.key", "ipv6.version")],
+                )
+                .bits_full("traffic_class", 8, disp("Traffic Class", F::Hex), &[])
+                .bits_full("flow_label", 20, disp("Flow Label", F::Hex), &[])
+                .bits_full(
+                    "payload_length",
+                    16,
+                    disp("Payload Length", F::Dec),
+                    &[("tshark.key", "ipv6.plen")],
+                )
+                .bits_full(
+                    "next_header",
+                    8,
+                    disp("Next Header", F::Dec).labels(&[(1, "ICMP"), (6, "TCP"), (17, "UDP")]),
+                    &[("tshark.key", "ipv6.nxt")],
+                )
+                .bits_full(
+                    "hop_limit",
+                    8,
+                    disp("Hop Limit", F::Dec),
+                    &[("tshark.key", "ipv6.hlim")],
+                )
+                // 128-bit addresses exceed the fixed-`bits` ceiling: opaque
+                // 16-byte runs (hex-rendered; the u64 tshark oracle can't diff them).
+                .var_bytes("src", c(16))
+                .var_bytes("dst", c(16)),
+        )
+        .header(
             HeaderTypeBuilder::new("tcp")
                 .bits_full(
                     "sport",
@@ -124,24 +164,56 @@ pub fn eth_ipv4_tcp() -> pb::Ir {
                 .bits_full("checksum", 16, disp("Checksum", F::Hex), &[])
                 .bits_full("urgent", 16, disp("Urgent Pointer", F::Dec), &[]),
         )
+        .header(
+            HeaderTypeBuilder::new("udp")
+                .bits_full(
+                    "sport",
+                    16,
+                    disp("Source Port", F::Dec),
+                    &[("tshark.key", "udp.srcport")],
+                )
+                .bits_full(
+                    "dport",
+                    16,
+                    disp("Destination Port", F::Dec),
+                    &[("tshark.key", "udp.dstport")],
+                )
+                .bits_full("length", 16, disp("Length", F::Dec), &[])
+                .bits_full("checksum", 16, disp("Checksum", F::Hex), &[]),
+        )
         .state(
             StateBuilder::new("parse_ethernet")
                 .extract("ethernet")
                 .select(
                     vec![f("ethernet", "ethertype")],
-                    vec![arm(vec![v(0x0800)], to("parse_ipv4"))],
+                    vec![
+                        arm(vec![v(0x0800)], to("parse_ipv4")),
+                        arm(vec![v(0x86DD)], to("parse_ipv6")),
+                    ],
                     reject_info("unsupported ethertype"),
                 ),
         )
         .state(StateBuilder::new("parse_ipv4").extract("ipv4").select(
             vec![f("ipv4", "protocol")],
-            vec![arm(vec![v(6)], to("parse_tcp"))],
+            vec![
+                arm(vec![v(6)], to("parse_tcp")),
+                arm(vec![v(17)], to("parse_udp")),
+            ],
+            reject_info("unsupported ip protocol"),
+        ))
+        .state(StateBuilder::new("parse_ipv6").extract("ipv6").select(
+            vec![f("ipv6", "next_header")],
+            vec![
+                arm(vec![v(6)], to("parse_tcp")),
+                arm(vec![v(17)], to("parse_udp")),
+            ],
             reject_info("unsupported ip protocol"),
         ))
         .state(StateBuilder::new("parse_tcp").extract("tcp").accept())
+        .state(StateBuilder::new("parse_udp").extract("udp").accept())
         .start("parse_ethernet")
         .build()
-        .expect("eth_ipv4_tcp example must validate")
+        .expect("eth_ipvx_l4 example must validate")
 }
 
 #[cfg(test)]
@@ -150,13 +222,13 @@ mod tests {
 
     #[test]
     fn example_validates() {
-        crate::ir::validate::validate(&eth_ipv4_tcp()).unwrap();
+        crate::ir::validate::validate(&eth_ipvx_l4()).unwrap();
     }
 
     #[test]
     fn committed_py_example_current() {
-        let canonical = std::fs::read_to_string("py/src/pakeles/examples/eth_ipv4_tcp.py").unwrap();
-        let mirrored = std::fs::read_to_string("examples/eth_ipv4_tcp/eth_ipv4_tcp.py").unwrap();
+        let canonical = std::fs::read_to_string("py/src/pakeles/examples/eth_ipvx_l4.py").unwrap();
+        let mirrored = std::fs::read_to_string("examples/eth_ipvx_l4/eth_ipvx_l4.py").unwrap();
         assert_eq!(
             canonical, mirrored,
             "examples/ drifted; regenerate: ./dev.sh cargo run --bin gen_examples"
@@ -165,9 +237,9 @@ mod tests {
 
     #[test]
     fn committed_ir_json_current() {
-        let json = crate::ir::to_json(&eth_ipv4_tcp()).unwrap();
+        let json = crate::ir::to_json(&eth_ipvx_l4()).unwrap();
         let committed =
-            std::fs::read_to_string("examples/eth_ipv4_tcp/eth_ipv4_tcp.ir.json").unwrap();
+            std::fs::read_to_string("examples/eth_ipvx_l4/eth_ipvx_l4.ir.json").unwrap();
         assert_eq!(
             json, committed,
             "examples/ drifted; regenerate: ./dev.sh cargo run --bin gen_examples"

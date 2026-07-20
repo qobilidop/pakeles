@@ -155,13 +155,13 @@ pub fn to_dot(ir: &pb::Ir) -> String {
 #[cfg(test)]
 mod tests {
     use super::to_dot;
-    use crate::examples::eth_ipv4_tcp;
+    use crate::examples::eth_ipvx_l4;
 
     #[test]
     fn committed_dot_current() {
-        let dot = to_dot(&eth_ipv4_tcp());
+        let dot = to_dot(&eth_ipvx_l4());
         assert!(dot.contains("\"parse_ipv4\" -> \"parse_tcp\""));
-        let committed = std::fs::read_to_string("examples/eth_ipv4_tcp/gen/graph.dot").unwrap();
+        let committed = std::fs::read_to_string("examples/eth_ipvx_l4/gen/graph.dot").unwrap();
         assert_eq!(
             dot, committed,
             "examples/ drifted; regenerate: ./dev.sh cargo run --bin gen_examples"

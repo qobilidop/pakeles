@@ -213,14 +213,14 @@ mod tests {
             return;
         }
         let report = diff_pcap(
-            &crate::examples::eth_ipv4_tcp(),
+            &crate::examples::eth_ipvx_l4(),
             std::path::Path::new("testdata/basic.pcap"),
         )
         .unwrap();
         assert_eq!(report.packets, 4);
         assert_eq!(
-            report.compared, 24,
-            "12 annotated fields x 2 accepted packets"
+            report.compared, 36,
+            "12 annotated fields x 3 accepted packets (tcp, tcp+options, udp)"
         );
         assert!(
             report.mismatches.is_empty(),

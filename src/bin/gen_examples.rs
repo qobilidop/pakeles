@@ -6,19 +6,19 @@ use std::path::Path;
 fn main() -> anyhow::Result<()> {
     // Role-organized gallery: top level = input + normative IR + README;
     // gen/ = everything compiled from the IR; conformance/ = the suite.
-    let dir = Path::new("examples/eth_ipv4_tcp");
+    let dir = Path::new("examples/eth_ipvx_l4");
     let gen = dir.join("gen");
     let conformance = dir.join("conformance");
     std::fs::create_dir_all(&gen)?;
     std::fs::create_dir_all(&conformance)?;
-    let ir = pakeles::examples::eth_ipv4_tcp();
+    let ir = pakeles::examples::eth_ipvx_l4();
 
-    std::fs::write(dir.join("eth_ipv4_tcp.ir.json"), pakeles::ir::to_json(&ir)?)?;
+    std::fs::write(dir.join("eth_ipvx_l4.ir.json"), pakeles::ir::to_json(&ir)?)?;
     // The Python eDSL authoring source (the gallery's *input* twin):
     // canonical copy lives in the py package; mirrored here for browsing.
     std::fs::copy(
-        "py/src/pakeles/examples/eth_ipv4_tcp.py",
-        dir.join("eth_ipv4_tcp.py"),
+        "py/src/pakeles/examples/eth_ipvx_l4.py",
+        dir.join("eth_ipvx_l4.py"),
     )?;
 
     std::fs::write(
@@ -60,6 +60,6 @@ fn main() -> anyhow::Result<()> {
         _ => eprintln!("note: graph.svg not rendered (graphviz unavailable)"),
     }
 
-    println!("examples/eth_ipv4_tcp regenerated");
+    println!("examples/eth_ipvx_l4 regenerated");
     Ok(())
 }

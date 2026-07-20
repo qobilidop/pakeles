@@ -1,7 +1,7 @@
 {
   "irVersion": "0.1.0",
   "parser": {
-    "name": "eth_ipv4_tcp",
+    "name": "eth_ipvx_l4",
     "headerTypes": [
       {
         "name": "ethernet",
@@ -264,6 +264,113 @@
         ]
       },
       {
+        "name": "ipv6",
+        "fields": [
+          {
+            "name": "version",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Version",
+              "format": "DISPLAY_FORMAT_DEC"
+            },
+            "annotations": {
+              "tshark.key": "ipv6.version"
+            }
+          },
+          {
+            "name": "traffic_class",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Traffic Class",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "flow_label",
+            "width": {
+              "bits": 20
+            },
+            "display": {
+              "name": "Flow Label",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "payload_length",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Payload Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            },
+            "annotations": {
+              "tshark.key": "ipv6.plen"
+            }
+          },
+          {
+            "name": "next_header",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Next Header",
+              "format": "DISPLAY_FORMAT_DEC",
+              "valueLabels": [
+                {
+                  "value": "1",
+                  "label": "ICMP"
+                },
+                {
+                  "value": "6",
+                  "label": "TCP"
+                },
+                {
+                  "value": "17",
+                  "label": "UDP"
+                }
+              ]
+            },
+            "annotations": {
+              "tshark.key": "ipv6.nxt"
+            }
+          },
+          {
+            "name": "hop_limit",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Hop Limit",
+              "format": "DISPLAY_FORMAT_DEC"
+            },
+            "annotations": {
+              "tshark.key": "ipv6.hlim"
+            }
+          },
+          {
+            "name": "src",
+            "width": {
+              "byteLen": {
+                "constant": "16"
+              }
+            }
+          },
+          {
+            "name": "dst",
+            "width": {
+              "byteLen": {
+                "constant": "16"
+              }
+            }
+          }
+        ]
+      },
+      {
         "name": "tcp",
         "fields": [
           {
@@ -374,6 +481,57 @@
             }
           }
         ]
+      },
+      {
+        "name": "udp",
+        "fields": [
+          {
+            "name": "sport",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Source Port",
+              "format": "DISPLAY_FORMAT_DEC"
+            },
+            "annotations": {
+              "tshark.key": "udp.srcport"
+            }
+          },
+          {
+            "name": "dport",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Destination Port",
+              "format": "DISPLAY_FORMAT_DEC"
+            },
+            "annotations": {
+              "tshark.key": "udp.dstport"
+            }
+          },
+          {
+            "name": "length",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "checksum",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Checksum",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
       }
     ],
     "states": [
@@ -403,6 +561,16 @@
                 ],
                 "next": {
                   "state": "parse_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6"
                 }
               }
             ],
@@ -444,6 +612,66 @@
                 "next": {
                   "state": "parse_tcp"
                 }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "17"
+                  }
+                ],
+                "next": {
+                  "state": "parse_udp"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "reject": {
+                "reason": "unsupported ip protocol",
+                "annotations": {
+                  "severity": "info"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_ipv6",
+        "extracts": [
+          {
+            "headerType": "ipv6"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv6",
+                  "field": "next_header"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "17"
+                  }
+                ],
+                "next": {
+                  "state": "parse_udp"
+                }
               }
             ],
             "defaultTarget": {
@@ -462,6 +690,19 @@
         "extracts": [
           {
             "headerType": "tcp"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        }
+      },
+      {
+        "name": "parse_udp",
+        "extracts": [
+          {
+            "headerType": "udp"
           }
         ],
         "transition": {

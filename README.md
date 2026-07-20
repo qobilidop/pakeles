@@ -17,7 +17,8 @@ processing — parsers here are bounded by construction, which is what
 makes cross-artifact equivalence provable rather than merely tested.
 
 Status: slice 6 ("the authoring surface"). One description
-(Ethernet→IPv4→TCP)
+(Ethernet → {IPv4 | IPv6} → {TCP | UDP} — a *branching* parse graph that
+demultiplexes on EtherType and IP protocol)
 is authored in Rust — or in the Python eDSL (`py/`), which produces
 proto-identical IR — serialized as proto3, interpreted, visualized,
 differentially tested against `tshark`, compiled by symbolic execution
@@ -25,7 +26,7 @@ into a path-complete conformance suite (every parse path — truncations
 and rejects included — gets a solver-derived witness packet), and compiled into four
 more implementations that provably agree with it: a working Wireshark
 dissector (`gen lua`, verified inside real tshark), a portable C99
-parser (`gen c`, verified field-for-field on all 164 vectors), an
+parser (`gen c`, verified field-for-field on all 244 vectors), an
 eBPF program (`gen bpf`, clang-compiled BPF bytecode verified under
 the rbpf VM), and a P4-16 program (`gen p4`, p4c-compiled and
 verdict-verified on BMv2's `simple_switch` — the decidability ceiling
@@ -83,7 +84,7 @@ eth.save("ir.json")                     # then: pakeles lint ir.json
 ```
 
 The serialized IR stays the only contract: Python authors it, the Rust
-CLI validates and compiles it. The eDSL's `eth_ipv4_tcp` example is
+CLI validates and compiles it. The eDSL's `eth_ipvx_l4` example is
 proto-equality-tested against the Rust builder's gallery `ir.json` —
 two authoring surfaces, provably one artifact. See `py/README.md`.
 
@@ -96,7 +97,7 @@ two authoring surfaces, provably one artifact. See `py/README.md`.
   `docgen`, `viz`, `oracle` (tshark + BMv2 diffs), `cli`
 - `py/` — the Python authoring eDSL (`pakeles` on PyPI, eventually)
 - `testdata/` — language-neutral fixtures (regenerate: `cargo run --bin gen_fixtures`)
-- `examples/eth_ipv4_tcp/` — the gallery: every artifact one
+- `examples/eth_ipvx_l4/` — the gallery: every artifact one
   description yields, equality-guarded by tests
 - `docs/superpowers/specs/` — design docs; start with
   `2026-07-18-pakelesir-v0-design.md`

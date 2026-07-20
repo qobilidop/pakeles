@@ -350,7 +350,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::examples::eth_ipv4_tcp;
+    use crate::examples::eth_ipvx_l4;
     use crate::fixtures::*;
 
     fn field(res: &ParseResult, instance: &str, name: &str) -> FieldValue {
@@ -368,7 +368,7 @@ mod tests {
 
     #[test]
     fn parses_tcp_packet() {
-        let res = run(&eth_ipv4_tcp(), &tcp_packet()).unwrap();
+        let res = run(&eth_ipvx_l4(), &tcp_packet()).unwrap();
         assert_eq!(res.outcome, Outcome::Accept);
         assert_eq!(
             field(&res, "ethernet", "ethertype"),
@@ -383,7 +383,7 @@ mod tests {
 
     #[test]
     fn parses_ihl6_options() {
-        let res = run(&eth_ipv4_tcp(), &tcp_packet_ihl6()).unwrap();
+        let res = run(&eth_ipvx_l4(), &tcp_packet_ihl6()).unwrap();
         assert_eq!(res.outcome, Outcome::Accept);
         assert_eq!(
             field(&res, "ipv4", "options"),
@@ -394,8 +394,32 @@ mod tests {
     }
 
     #[test]
-    fn rejects_udp() {
-        let res = run(&eth_ipv4_tcp(), &udp_packet()).unwrap();
+    fn parses_udp_packet() {
+        let res = run(&eth_ipvx_l4(), &udp_packet()).unwrap();
+        assert_eq!(res.outcome, Outcome::Accept);
+        assert_eq!(field(&res, "ipv4", "protocol"), FieldValue::Uint(17));
+        assert_eq!(field(&res, "udp", "dport"), FieldValue::Uint(443));
+        assert_eq!(res.headers.len(), 3); // ethernet + ipv4 + udp
+    }
+
+    #[test]
+    fn parses_ipv6_tcp_packet() {
+        let res = run(&eth_ipvx_l4(), &ipv6_tcp_packet()).unwrap();
+        assert_eq!(res.outcome, Outcome::Accept);
+        assert_eq!(
+            field(&res, "ethernet", "ethertype"),
+            FieldValue::Uint(0x86DD)
+        );
+        assert_eq!(field(&res, "ipv6", "next_header"), FieldValue::Uint(6));
+        assert_eq!(field(&res, "tcp", "dport"), FieldValue::Uint(443));
+        // eth(112) + ipv6(320) then tcp starts.
+        let starts: Vec<usize> = res.headers.iter().map(|h| h.start_bit).collect();
+        assert_eq!(starts, vec![0, 112, 112 + 320]);
+    }
+
+    #[test]
+    fn rejects_icmp() {
+        let res = run(&eth_ipvx_l4(), &icmp_packet()).unwrap();
         assert_eq!(
             res.outcome,
             Outcome::Reject {
@@ -407,7 +431,7 @@ mod tests {
 
     #[test]
     fn rejects_truncated() {
-        let res = run(&eth_ipv4_tcp(), &tcp_packet()[..20]).unwrap();
+        let res = run(&eth_ipvx_l4(), &tcp_packet()[..20]).unwrap();
         assert_eq!(
             res.outcome,
             Outcome::Reject {
@@ -418,7 +442,7 @@ mod tests {
 
     #[test]
     fn diagnose_forensics_on_truncation() {
-        let res = run(&eth_ipv4_tcp(), &tcp_packet()[..20]).unwrap();
+        let res = run(&eth_ipvx_l4(), &tcp_packet()[..20]).unwrap();
         let err = res.error.unwrap();
         assert_eq!(err.state, "parse_ipv4");
         assert_eq!(err.instance.as_deref(), Some("ipv4"));
@@ -430,7 +454,7 @@ mod tests {
 
     #[test]
     fn diagnose_payload_boundary_is_info() {
-        let res = run(&eth_ipv4_tcp(), &udp_packet()).unwrap();
+        let res = run(&eth_ipvx_l4(), &icmp_packet()).unwrap();
         let err = res.error.unwrap();
         assert_eq!(err.severity, Severity::Info);
         assert_eq!(err.reason, "unsupported ip protocol");
@@ -439,21 +463,21 @@ mod tests {
 
     #[test]
     fn accept_has_no_error_and_full_consumption() {
-        let res = run(&eth_ipv4_tcp(), &tcp_packet()).unwrap();
+        let res = run(&eth_ipvx_l4(), &tcp_packet()).unwrap();
         assert!(res.error.is_none());
         assert_eq!(res.consumed_bits, 54 * 8);
     }
 
     #[test]
     fn interp_over_fixture_pcap() {
-        let ir = eth_ipv4_tcp();
+        let ir = eth_ipvx_l4();
         let packets =
             crate::pcapio::read_packets(std::path::Path::new("testdata/basic.pcap")).unwrap();
         let accepts: Vec<bool> = packets
             .iter()
             .map(|p| run(&ir, p).unwrap().outcome == Outcome::Accept)
             .collect();
-        assert_eq!(accepts, vec![true, true, false, false]);
+        assert_eq!(accepts, vec![true, true, true, false]);
     }
 
     #[test]

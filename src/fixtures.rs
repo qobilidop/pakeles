@@ -39,10 +39,48 @@ pub fn tcp_packet_ihl6() -> Vec<u8> {
     p
 }
 
-/// UDP variant of tcp_packet (protocol byte 17).
+/// Valid UDP variant of tcp_packet: protocol byte 17 and a UDP length
+/// field of 20 (8-byte header + 12 bytes reusing the old TCP bytes).
 pub fn udp_packet() -> Vec<u8> {
     let mut p = tcp_packet();
-    p[23] = 17;
+    p[23] = 17; // ipv4.protocol = UDP
+    p[38..40].copy_from_slice(&[0x00, 0x14]); // udp.length = 20
+    p
+}
+
+/// ICMP over IPv4 (protocol byte 1): reaches neither TCP nor UDP, so the
+/// parser rejects at the IPv4 protocol demux with an info-severity
+/// payload boundary. Used for the diagnose-mode forensics test.
+pub fn icmp_packet() -> Vec<u8> {
+    let mut p = tcp_packet();
+    p[23] = 1; // ipv4.protocol = ICMP
+    p
+}
+
+/// 74-byte Ethernet + IPv6 + TCP packet (ethertype 0x86DD).
+pub fn ipv6_tcp_packet() -> Vec<u8> {
+    let mut p = Vec::new();
+    // ethernet
+    p.extend([0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF]); // dst
+    p.extend([0x11, 0x22, 0x33, 0x44, 0x55, 0x66]); // src
+    p.extend([0x86, 0xDD]); // ethertype IPv6
+                            // ipv6
+    p.extend([0x60, 0x00, 0x00, 0x00]); // version 6, tclass 0, flow 0
+    p.extend([0x00, 0x14]); // payload_length 20 (the TCP header)
+    p.push(0x06); // next_header TCP
+    p.push(0x40); // hop_limit 64
+    p.extend([0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]); // src 2001:db8::1
+    p.extend([0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2]); // dst 2001:db8::2
+                                                                            // tcp (20 bytes, same shape as tcp_packet)
+    p.extend([0x30, 0x39]); // sport 12345
+    p.extend([0x01, 0xBB]); // dport 443
+    p.extend([0x00, 0x00, 0x00, 0x01]); // seq
+    p.extend([0x00, 0x00, 0x00, 0x00]); // ack
+    p.extend([0x50, 0x18]); // data_offset 5, flags PSH|ACK
+    p.extend([0xFF, 0xFF]); // window
+    p.extend([0x00, 0x00]); // checksum
+    p.extend([0x00, 0x00]); // urgent
+    assert_eq!(p.len(), 74);
     p
 }
 
@@ -52,7 +90,7 @@ pub fn truncated_packet() -> Vec<u8> {
 }
 
 /// The four packets of `testdata/basic.pcap`, in order. Expected
-/// interpreter outcomes: Accept, Accept, Reject(proto), Reject(oob).
+/// interpreter outcomes: Accept, Accept, Accept(udp), Reject(oob).
 pub fn basic_pcap_packets() -> Vec<Vec<u8>> {
     vec![
         tcp_packet(),

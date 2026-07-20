@@ -148,14 +148,14 @@ enum Oracle {
         #[arg(long)]
         ir: Option<PathBuf>,
         /// Vector suite (testvec JSON). Defaults to the gallery suite.
-        #[arg(long, default_value = "examples/eth_ipv4_tcp/conformance/vectors.json")]
+        #[arg(long, default_value = "examples/eth_ipvx_l4/conformance/vectors.json")]
         vectors: PathBuf,
     },
 }
 
 fn load_ir(path: &Option<PathBuf>) -> Result<pb::Ir> {
     match path {
-        None => Ok(crate::examples::eth_ipv4_tcp()),
+        None => Ok(crate::examples::eth_ipvx_l4()),
         Some(p) => {
             let text = std::fs::read_to_string(p)
                 .with_context(|| format!("reading IR from {}", p.display()))?;
@@ -378,7 +378,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             Ok(0)
         }
         Command::ExportIr { out, binary } => {
-            let ir = crate::examples::eth_ipv4_tcp();
+            let ir = crate::examples::eth_ipvx_l4();
             if out.as_os_str() == "-" {
                 print!("{}", crate::ir::to_json(&ir)?);
             } else if binary {
@@ -423,7 +423,7 @@ mod tests {
 
     #[test]
     fn fmt_ir_canonicalizes_mangled_json() {
-        let ir = crate::examples::eth_ipv4_tcp();
+        let ir = crate::examples::eth_ipvx_l4();
         let canonical = crate::ir::to_json(&ir).unwrap();
         // Same document, hostile formatting: compact everything.
         let mangled =
@@ -453,6 +453,6 @@ mod tests {
         let code = main_with(&["pakeles", "export-ir", "--out", path.to_str().unwrap()]).unwrap();
         assert_eq!(code, 0);
         let ir = crate::ir::from_json(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(ir, crate::examples::eth_ipv4_tcp());
+        assert_eq!(ir, crate::examples::eth_ipvx_l4());
     }
 }

@@ -660,15 +660,15 @@ fi"#;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::examples::eth_ipv4_tcp;
+    use crate::examples::eth_ipvx_l4;
 
     #[test]
     fn committed_dissector_current() {
-        let lua = generate_lua(&eth_ipv4_tcp()).unwrap();
+        let lua = generate_lua(&eth_ipvx_l4()).unwrap();
         assert!(lua.contains("function states.parse_ipv4"));
         assert!(lua.contains("ProtoField.ether"));
         assert!(lua.contains("[6] = \"TCP\""));
-        let committed = std::fs::read_to_string("examples/eth_ipv4_tcp/gen/dissector.lua").unwrap();
+        let committed = std::fs::read_to_string("examples/eth_ipvx_l4/gen/dissector.lua").unwrap();
         assert_eq!(
             lua, committed,
             "examples/ drifted; regenerate: ./dev.sh cargo run --bin gen_examples"
@@ -687,11 +687,11 @@ mod tests {
             eprintln!("skipping: tshark not available");
             return;
         }
-        let ir = eth_ipv4_tcp();
+        let ir = eth_ipvx_l4();
         let parser = ir.parser.as_ref().unwrap();
         let proto = format!("pakeles_{}", parser.name);
         let suite = crate::testvec::suite_from_json(
-            &std::fs::read_to_string("examples/eth_ipv4_tcp/conformance/vectors.json").unwrap(),
+            &std::fs::read_to_string("examples/eth_ipvx_l4/conformance/vectors.json").unwrap(),
         )
         .unwrap();
         let (packets, indices) = crate::testvec::suite_to_packets(&suite);
