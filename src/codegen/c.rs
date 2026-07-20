@@ -628,7 +628,7 @@ pub fn generate_bpf(ir: &pb::Ir) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::examples::eth_ipvx_l4;
+    use crate::examples::{eth_ipvx_l4, linux_flow_dissector};
 
     fn cc_compiles(files: &[(&str, &str)], cmd: &[&str]) -> std::process::Output {
         let dir = std::env::temp_dir().join(format!("pakeles_c_{}", std::process::id()));
@@ -644,11 +644,11 @@ mod tests {
     }
 
     /// Full-suite conformance: the compiled C parser must agree with
-    /// the reference interpreter on all 164 vectors — including the
-    /// bit-granular truncations pcap could not carry to the Lua
-    /// backend — on outcome, reason, consumed bits, and every field.
-    #[test]
-    fn c_backend_conformance_full_suite() {
+    /// the reference interpreter on every vector in the suite —
+    /// including the bit-granular truncations pcap could not carry to
+    /// the Lua backend — on outcome, reason, consumed bits, and every
+    /// field.
+    fn c_backend_conformance(ir: &pb::Ir) {
         use std::io::Write as _;
         if std::process::Command::new("cc")
             .arg("--version")
@@ -658,10 +658,10 @@ mod tests {
             eprintln!("skipping: cc not available");
             return;
         }
-        let ir = eth_ipvx_l4();
-        let arts = generate_c(&ir).unwrap();
-        let harness = generate_c_harness(&ir).unwrap();
-        let dir = std::env::temp_dir().join(format!("pakeles_cconf_{}", std::process::id()));
+        let name = ir.parser.as_ref().unwrap().name.clone();
+        let arts = generate_c(ir).unwrap();
+        let harness = generate_c_harness(ir).unwrap();
+        let dir = std::env::temp_dir().join(format!("pakeles_cconf_{name}_{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("parser.h"), &arts.header).unwrap();
         std::fs::write(dir.join("parser.c"), &arts.source).unwrap();
@@ -681,7 +681,7 @@ mod tests {
         );
 
         let suite = crate::testvec::suite_from_json(
-            &std::fs::read_to_string("examples/eth_ipvx_l4/conformance/vectors.json").unwrap(),
+            &std::fs::read_to_string(format!("examples/{name}/conformance/vectors.json")).unwrap(),
         )
         .unwrap();
         let mut input = String::new();
@@ -701,20 +701,23 @@ mod tests {
             .stdout(std::process::Stdio::piped())
             .spawn()
             .unwrap();
-        child
-            .stdin
-            .take()
-            .unwrap()
-            .write_all(input.as_bytes())
-            .unwrap();
+        // Write stdin from a helper thread: the harness starts writing
+        // its verdict lines to stdout as soon as it reads a vector, so
+        // for a large enough suite (linux_flow_dissector's 8-instance
+        // vectors produce far more stdout than eth_ipvx_l4's) the OS
+        // pipe buffer fills before we finish writing input, and a
+        // sequential write-then-read deadlocks parent against child.
+        let mut stdin = child.stdin.take().unwrap();
+        let writer = std::thread::spawn(move || stdin.write_all(input.as_bytes()));
         let out = child.wait_with_output().unwrap();
+        writer.join().unwrap().unwrap();
         assert!(out.status.success());
         let lines: Vec<&str> = std::str::from_utf8(&out.stdout).unwrap().lines().collect();
         assert_eq!(lines.len(), suite.vectors.len());
 
         let mut mismatches = Vec::new();
         for ((line, vector), bits) in lines.iter().zip(&suite.vectors).zip(&bits_list) {
-            let reference = crate::interp::run_bits(&ir, bits).unwrap();
+            let reference = crate::interp::run_bits(ir, bits).unwrap();
             let mut parts = line.split('|');
             let outcome = parts.next().unwrap_or("");
             let reason = parts.next().unwrap_or("");
@@ -775,12 +778,21 @@ mod tests {
         );
     }
 
+    #[test]
+    fn c_backend_conformance_full_suite() {
+        c_backend_conformance(&eth_ipvx_l4());
+    }
+
+    #[test]
+    fn c_backend_conformance_full_suite_flow_dissector() {
+        c_backend_conformance(&linux_flow_dissector());
+    }
+
     /// eBPF conformance: compile with clang -target bpf, extract
     /// .text, execute under the rbpf userspace VM per vector, compare
     /// the packed verdict (outcome | reason | consumed) against the
-    /// reference interpreter for all 164 vectors.
-    #[test]
-    fn bpf_backend_conformance_full_suite() {
+    /// reference interpreter for every vector in the suite.
+    fn bpf_backend_conformance(ir: &pb::Ir) {
         for tool in ["clang", "llvm-objcopy"] {
             if std::process::Command::new(tool)
                 .arg("--version")
@@ -791,9 +803,9 @@ mod tests {
                 return;
             }
         }
-        let ir = eth_ipvx_l4();
-        let bpf = generate_bpf(&ir).unwrap();
-        let dir = std::env::temp_dir().join(format!("pakeles_bpf_{}", std::process::id()));
+        let name = ir.parser.as_ref().unwrap().name.clone();
+        let bpf = generate_bpf(ir).unwrap();
+        let dir = std::env::temp_dir().join(format!("pakeles_bpf_{name}_{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("bpf.c"), &bpf).unwrap();
         let cc = std::process::Command::new("clang")
@@ -822,7 +834,7 @@ mod tests {
         assert!(!prog.is_empty());
 
         let suite = crate::testvec::suite_from_json(
-            &std::fs::read_to_string("examples/eth_ipvx_l4/conformance/vectors.json").unwrap(),
+            &std::fs::read_to_string(format!("examples/{name}/conformance/vectors.json")).unwrap(),
         )
         .unwrap();
         let reasons = reason_table(ir.parser.as_ref().unwrap());
@@ -830,7 +842,7 @@ mod tests {
         let mut mismatches = Vec::new();
         for v in &suite.vectors {
             let (bits, _) = crate::testvec::Bits::from_pb(v.packet.as_ref().unwrap());
-            let reference = crate::interp::run_bits(&ir, &bits).unwrap();
+            let reference = crate::interp::run_bits(ir, &bits).unwrap();
             let mut mem = (bits.bit_len as u64).to_le_bytes().to_vec();
             mem.extend_from_slice(&bits.bytes);
             let verdict = vm.execute_program(&mut mem).unwrap();
@@ -864,6 +876,16 @@ mod tests {
             mismatches.len(),
             mismatches.join("\n")
         );
+    }
+
+    #[test]
+    fn bpf_backend_conformance_full_suite() {
+        bpf_backend_conformance(&eth_ipvx_l4());
+    }
+
+    #[test]
+    fn bpf_backend_conformance_full_suite_flow_dissector() {
+        bpf_backend_conformance(&linux_flow_dissector());
     }
 
     #[test]

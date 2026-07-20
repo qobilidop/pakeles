@@ -201,7 +201,8 @@ pub struct DiffReport {
 
 pub fn diff_suite(ir: &pb::Ir, suite: &tvpb::TestSuite) -> Result<DiffReport> {
     let p4 = crate::codegen::p4::generate_p4(ir)?;
-    let workdir = std::env::temp_dir().join(format!("pakeles_bmv2_{}", std::process::id()));
+    let name = &ir.parser.as_ref().context("IR has no parser")?.name;
+    let workdir = std::env::temp_dir().join(format!("pakeles_bmv2_{name}_{}", std::process::id()));
     let json = compile(&p4, &workdir)?;
     let (packets, indices) = crate::testvec::suite_to_packets(suite);
     let mut report = DiffReport {
@@ -265,20 +266,19 @@ mod tests {
         assert_eq!(v.err, crate::codegen::p4::ERR_NO_ERROR);
     }
 
-    #[test]
-    fn bmv2_conformance_byte_aligned_suite() {
+    fn bmv2_conformance_byte_aligned(ir: &pb::Ir, min_compared: usize) {
         if !tools_available() {
             eprintln!("skipping: p4 toolchain not available");
             return;
         }
-        let ir = crate::examples::eth_ipvx_l4();
+        let name = &ir.parser.as_ref().unwrap().name;
         let suite = crate::testvec::suite_from_json(
-            &std::fs::read_to_string("examples/eth_ipvx_l4/conformance/vectors.json").unwrap(),
+            &std::fs::read_to_string(format!("examples/{name}/conformance/vectors.json")).unwrap(),
         )
         .unwrap();
-        let report = diff_suite(&ir, &suite).unwrap();
+        let report = diff_suite(ir, &suite).unwrap();
         assert!(
-            report.compared >= 28,
+            report.compared >= min_compared,
             "suspiciously few byte-aligned vectors: {}",
             report.compared
         );
@@ -288,5 +288,15 @@ mod tests {
             report.mismatches.len(),
             report.mismatches.join("\n")
         );
+    }
+
+    #[test]
+    fn bmv2_conformance_byte_aligned_suite() {
+        bmv2_conformance_byte_aligned(&crate::examples::eth_ipvx_l4(), 28);
+    }
+
+    #[test]
+    fn bmv2_conformance_byte_aligned_suite_flow_dissector() {
+        bmv2_conformance_byte_aligned(&crate::examples::linux_flow_dissector(), 28);
     }
 }

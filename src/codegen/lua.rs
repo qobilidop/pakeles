@@ -660,7 +660,7 @@ fi"#;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::examples::eth_ipvx_l4;
+    use crate::examples::{eth_ipvx_l4, linux_flow_dissector};
 
     #[test]
     fn committed_dissector_current() {
@@ -677,8 +677,7 @@ mod tests {
 
     /// The full loop: symbolic vectors -> pcap -> tshark running our
     /// generated dissector -> JSON diffed against expected fields.
-    #[test]
-    fn generated_dissector_conformance() {
+    fn generated_dissector_conformance_suite(ir: &pb::Ir) {
         if std::process::Command::new("tshark")
             .arg("--version")
             .output()
@@ -687,19 +686,19 @@ mod tests {
             eprintln!("skipping: tshark not available");
             return;
         }
-        let ir = eth_ipvx_l4();
         let parser = ir.parser.as_ref().unwrap();
+        let name = parser.name.clone();
         let proto = format!("pakeles_{}", parser.name);
         let suite = crate::testvec::suite_from_json(
-            &std::fs::read_to_string("examples/eth_ipvx_l4/conformance/vectors.json").unwrap(),
+            &std::fs::read_to_string(format!("examples/{name}/conformance/vectors.json")).unwrap(),
         )
         .unwrap();
         let (packets, indices) = crate::testvec::suite_to_packets(&suite);
 
         let dir = std::env::temp_dir();
-        let lua_path = dir.join(format!("pakeles_conf_{}.lua", std::process::id()));
-        let pcap_path = dir.join(format!("pakeles_conf_{}.pcap", std::process::id()));
-        std::fs::write(&lua_path, generate_lua(&ir).unwrap()).unwrap();
+        let lua_path = dir.join(format!("pakeles_conf_{name}_{}.lua", std::process::id()));
+        let pcap_path = dir.join(format!("pakeles_conf_{name}_{}.pcap", std::process::id()));
+        std::fs::write(&lua_path, generate_lua(ir).unwrap()).unwrap();
         crate::pcapio::write_pcap(&pcap_path, &packets).unwrap();
 
         let out = tshark_unprivileged(&[
@@ -767,7 +766,7 @@ mod tests {
                     .collect::<Vec<_>>(),
                 _ => {
                     let (bits, _) = crate::testvec::Bits::from_pb(vector.packet.as_ref().unwrap());
-                    let res = crate::interp::run_bits(&ir, &bits).unwrap();
+                    let res = crate::interp::run_bits(ir, &bits).unwrap();
                     headers_to_expected(&res.headers)
                 }
             };
@@ -820,6 +819,16 @@ mod tests {
             mismatches.len(),
             mismatches.join("\n")
         );
+    }
+
+    #[test]
+    fn generated_dissector_conformance() {
+        generated_dissector_conformance_suite(&eth_ipvx_l4());
+    }
+
+    #[test]
+    fn generated_dissector_conformance_flow_dissector() {
+        generated_dissector_conformance_suite(&linux_flow_dissector());
     }
 
     type ExpectedFields = Vec<(String, Option<crate::testvec::pb::expected_field::Value>)>;
