@@ -99,10 +99,32 @@ form — one authoring surface, one provably-canonical artifact. See
   `docgen`, `viz`, `oracle` (tshark + BMv2 diffs), `cli`
 - `py/` — the Python authoring eDSL (`pakeles` on PyPI, eventually)
 - `testdata/` — language-neutral fixtures (regenerate: `cargo run --bin gen_fixtures`)
-- `examples/eth_ipvx_l4/` — the gallery: every artifact one
-  description yields, equality-guarded by tests
+- `examples/` — the gallery: every artifact one description yields,
+  equality-guarded by tests. `eth_ipvx_l4/` is the hello-world;
+  `linux_flow_dissector/` is the kernel-agreement north-star (see below)
 - `docs/superpowers/specs/` — design docs; start with
   `2026-07-18-pakelesir-v0-design.md`
 
 Regenerate the gallery from its single source (the eDSL):
 `./dev.sh scripts/gen-examples.sh`.
+
+## Kernel agreement: the flow-dissector golden factory
+
+[`examples/linux_flow_dissector/`](examples/linux_flow_dissector/) is a
+north-star example: its `diff flow-dissector` oracle checks that Pakeles's
+extracted flow keys agree with the Linux kernel's own flow dissector, via
+golden `flow_keys` captured by running a BPF program in the kernel
+(`BPF_PROG_TEST_RUN`). That capture needs real kernel privilege
+(`CAP_BPF`/`CAP_SYS_ADMIN`), which the normal `./dev.sh` container
+deliberately doesn't have — so the golden factory is **privileged and
+out-of-gate**, run through a separate `dev-priv.sh` (`docker run
+--privileged`) instead:
+
+```sh
+./dev-priv.sh oracle/flow_dissector/factory/capture.sh
+```
+
+The everyday gate only diffs the committed, version-tagged golden file —
+no privilege, no BPF, in the normal loop. See
+[`examples/linux_flow_dissector/README.md`](examples/linux_flow_dissector/README.md)
+for the full oracle architecture.
