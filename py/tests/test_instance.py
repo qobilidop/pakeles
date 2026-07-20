@@ -63,6 +63,16 @@ def test_unknown_field_on_instance_raises() -> None:
         _ = Tag["outer"].nope  # type: ignore[attr-defined]
 
 
+def test_empty_instance_name_raises() -> None:
+    with pytest.raises(TypeError, match="instance name must be a non-empty string"):
+        _ = Tag[""]  # type: ignore[index]
+
+
+def test_non_string_instance_name_raises() -> None:
+    with pytest.raises(TypeError, match="instance name must be a non-empty string"):
+        _ = Tag[123]  # type: ignore[index]
+
+
 def test_bound_field_arm_width_check_still_applies() -> None:
     with pytest.raises(ValueError, match="does not fit"):
         parser(

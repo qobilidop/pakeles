@@ -84,7 +84,7 @@ class Header:
         """`VLAN["vlan_q"]`: a named extraction of this header type.
         The IR schema keys field references by header *instance*; the
         default instance shares the header type's name."""
-        if not name:
+        if not isinstance(name, str) or not name:  # type: ignore[unreachable]
             raise TypeError(f"instance name must be a non-empty string, got {name!r}")
         return Instance(cls, name)
 
