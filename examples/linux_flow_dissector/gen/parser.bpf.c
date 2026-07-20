@@ -20,6 +20,20 @@ typedef struct {
 } pk_linux_flow_dissector_ethernet_t;
 
 typedef struct {
+  uint8_t pcp;
+  uint8_t dei;
+  uint16_t vid;
+  uint16_t encapsulated_proto;
+} pk_linux_flow_dissector_vlan_ad_t;
+
+typedef struct {
+  uint8_t pcp;
+  uint8_t dei;
+  uint16_t vid;
+  uint16_t encapsulated_proto;
+} pk_linux_flow_dissector_vlan_q_t;
+
+typedef struct {
   uint8_t version;
   uint8_t ihl;
   uint8_t dscp;
@@ -51,6 +65,13 @@ typedef struct {
 } pk_linux_flow_dissector_ipv6_t;
 
 typedef struct {
+  uint32_t label;
+  uint8_t tc;
+  uint8_t s;
+  uint8_t ttl;
+} pk_linux_flow_dissector_mpls_t;
+
+typedef struct {
   uint16_t sport;
   uint16_t dport;
   uint32_t seq;
@@ -76,10 +97,16 @@ typedef struct {
   uint64_t consumed_bits;
   uint8_t ethernet_present;
   pk_linux_flow_dissector_ethernet_t ethernet;
+  uint8_t vlan_ad_present;
+  pk_linux_flow_dissector_vlan_ad_t vlan_ad;
+  uint8_t vlan_q_present;
+  pk_linux_flow_dissector_vlan_q_t vlan_q;
   uint8_t ipv4_present;
   pk_linux_flow_dissector_ipv4_t ipv4;
   uint8_t ipv6_present;
   pk_linux_flow_dissector_ipv6_t ipv6;
+  uint8_t mpls_present;
+  pk_linux_flow_dissector_mpls_t mpls;
   uint8_t tcp_present;
   pk_linux_flow_dissector_tcp_t tcp;
   uint8_t udp_present;
@@ -91,8 +118,10 @@ typedef enum {
   PK_R_OUT_OF_BOUNDS = 1,
   PK_R_MAX_DEPTH_EXCEEDED = 2,
   PK_R_NO_MATCHING_SELECT_ARM = 3,
-  PK_R_UNSUPPORTED_ETHERTYPE = 16,
-  PK_R_UNSUPPORTED_IP_PROTOCOL = 17,
+  PK_R_802_1AD_MUST_BE_FOLLOWED_BY_802_1Q = 16,
+  PK_R_UNSUPPORTED_ETHERTYPE = 17,
+  PK_R_UNSUPPORTED_IP_PROTOCOL = 18,
+  PK_R_VLAN_STACKING_BEYOND_KERNEL_DEPTH = 19,
 } pk_linux_flow_dissector_reason_t;
 
 static __attribute__((always_inline)) uint64_t pk_read_bits(const uint8_t *buf, uint64_t off, uint32_t n) {
@@ -106,16 +135,19 @@ static __attribute__((always_inline)) uint64_t pk_read_bits(const uint8_t *buf, 
 }
 
 #define PK_S_PARSE_ETHERNET 0
-#define PK_S_PARSE_IPV4 1
-#define PK_S_PARSE_IPV6 2
-#define PK_S_PARSE_TCP 3
-#define PK_S_PARSE_UDP 4
+#define PK_S_PARSE_VLAN_AD 1
+#define PK_S_PARSE_VLAN_Q 2
+#define PK_S_PARSE_IPV4 3
+#define PK_S_PARSE_IPV6 4
+#define PK_S_PARSE_MPLS 5
+#define PK_S_PARSE_TCP 6
+#define PK_S_PARSE_UDP 7
 
 static __attribute__((always_inline)) int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_len, pk_linux_flow_dissector_result_t *out) {
   uint64_t off = 0;
   uint32_t state = PK_S_PARSE_ETHERNET;
   uint32_t depth;
-  for (depth = 0; depth < 4u; depth++) {
+  for (depth = 0; depth < 5u; depth++) {
     switch (state) {
     case PK_S_PARSE_ETHERNET: {
       out->ethernet_present = 1;
@@ -150,6 +182,127 @@ static __attribute__((always_inline)) int pk_linux_flow_dissector_parse_core(con
       } else if (key0 == 34525ULL) {
         state = PK_S_PARSE_IPV6;
         continue;
+      } else if (key0 == 33024ULL) {
+        state = PK_S_PARSE_VLAN_Q;
+        continue;
+      } else if (key0 == 34984ULL) {
+        state = PK_S_PARSE_VLAN_AD;
+        continue;
+      } else if (key0 == 34887ULL) {
+        state = PK_S_PARSE_MPLS;
+        continue;
+      } else if (key0 == 34888ULL) {
+        state = PK_S_PARSE_MPLS;
+        continue;
+      } else {
+        out->outcome = 1;
+        out->reason = PK_R_UNSUPPORTED_ETHERTYPE;
+        out->consumed_bits = off;
+        return 1;
+      }
+    }
+    case PK_S_PARSE_VLAN_AD: {
+      out->vlan_ad_present = 1;
+      if (off + 3 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->vlan_ad.pcp = (uint8_t)pk_read_bits(buf, off, 3);
+      off += 3;
+      if (off + 1 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->vlan_ad.dei = (uint8_t)pk_read_bits(buf, off, 1);
+      off += 1;
+      if (off + 12 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->vlan_ad.vid = (uint16_t)pk_read_bits(buf, off, 12);
+      off += 12;
+      if (off + 16 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->vlan_ad.encapsulated_proto = (uint16_t)pk_read_bits(buf, off, 16);
+      off += 16;
+      uint64_t key0 = (uint64_t)out->vlan_ad.encapsulated_proto;
+      if (key0 == 33024ULL) {
+        state = PK_S_PARSE_VLAN_Q;
+        continue;
+      } else {
+        out->outcome = 1;
+        out->reason = PK_R_802_1AD_MUST_BE_FOLLOWED_BY_802_1Q;
+        out->consumed_bits = off;
+        return 1;
+      }
+    }
+    case PK_S_PARSE_VLAN_Q: {
+      out->vlan_q_present = 1;
+      if (off + 3 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->vlan_q.pcp = (uint8_t)pk_read_bits(buf, off, 3);
+      off += 3;
+      if (off + 1 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->vlan_q.dei = (uint8_t)pk_read_bits(buf, off, 1);
+      off += 1;
+      if (off + 12 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->vlan_q.vid = (uint16_t)pk_read_bits(buf, off, 12);
+      off += 12;
+      if (off + 16 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->vlan_q.encapsulated_proto = (uint16_t)pk_read_bits(buf, off, 16);
+      off += 16;
+      uint64_t key0 = (uint64_t)out->vlan_q.encapsulated_proto;
+      if (key0 == 2048ULL) {
+        state = PK_S_PARSE_IPV4;
+        continue;
+      } else if (key0 == 34525ULL) {
+        state = PK_S_PARSE_IPV6;
+        continue;
+      } else if (key0 == 34887ULL) {
+        state = PK_S_PARSE_MPLS;
+        continue;
+      } else if (key0 == 34888ULL) {
+        state = PK_S_PARSE_MPLS;
+        continue;
+      } else if (key0 == 33024ULL) {
+        out->outcome = 1;
+        out->reason = PK_R_VLAN_STACKING_BEYOND_KERNEL_DEPTH;
+        out->consumed_bits = off;
+        return 1;
+      } else if (key0 == 34984ULL) {
+        out->outcome = 1;
+        out->reason = PK_R_VLAN_STACKING_BEYOND_KERNEL_DEPTH;
+        out->consumed_bits = off;
+        return 1;
       } else {
         out->outcome = 1;
         out->reason = PK_R_UNSUPPORTED_ETHERTYPE;
@@ -376,6 +529,45 @@ static __attribute__((always_inline)) int pk_linux_flow_dissector_parse_core(con
         out->consumed_bits = off;
         return 1;
       }
+    }
+    case PK_S_PARSE_MPLS: {
+      out->mpls_present = 1;
+      if (off + 20 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->mpls.label = (uint32_t)pk_read_bits(buf, off, 20);
+      off += 20;
+      if (off + 3 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->mpls.tc = (uint8_t)pk_read_bits(buf, off, 3);
+      off += 3;
+      if (off + 1 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->mpls.s = (uint8_t)pk_read_bits(buf, off, 1);
+      off += 1;
+      if (off + 8 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->mpls.ttl = (uint8_t)pk_read_bits(buf, off, 8);
+      off += 8;
+      out->outcome = 0;
+      out->reason = PK_R_NONE;
+      out->consumed_bits = off;
+      return 0;
     }
     case PK_S_PARSE_TCP: {
       out->tcp_present = 1;

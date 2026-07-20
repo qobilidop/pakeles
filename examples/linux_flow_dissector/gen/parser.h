@@ -13,8 +13,10 @@ typedef enum {
   PK_R_OUT_OF_BOUNDS = 1, /* "out of bounds" */
   PK_R_MAX_DEPTH_EXCEEDED = 2, /* "max depth exceeded" */
   PK_R_NO_MATCHING_SELECT_ARM = 3, /* "no matching select arm" */
-  PK_R_UNSUPPORTED_ETHERTYPE = 16, /* "unsupported ethertype" */
-  PK_R_UNSUPPORTED_IP_PROTOCOL = 17, /* "unsupported ip protocol" */
+  PK_R_802_1AD_MUST_BE_FOLLOWED_BY_802_1Q = 16, /* "802.1AD must be followed by 802.1Q" */
+  PK_R_UNSUPPORTED_ETHERTYPE = 17, /* "unsupported ethertype" */
+  PK_R_UNSUPPORTED_IP_PROTOCOL = 18, /* "unsupported ip protocol" */
+  PK_R_VLAN_STACKING_BEYOND_KERNEL_DEPTH = 19, /* "vlan stacking beyond kernel depth" */
 } pk_linux_flow_dissector_reason_t;
 
 typedef struct {
@@ -22,6 +24,20 @@ typedef struct {
   uint64_t src;
   uint16_t ethertype;
 } pk_linux_flow_dissector_ethernet_t;
+
+typedef struct {
+  uint8_t pcp;
+  uint8_t dei;
+  uint16_t vid;
+  uint16_t encapsulated_proto;
+} pk_linux_flow_dissector_vlan_ad_t;
+
+typedef struct {
+  uint8_t pcp;
+  uint8_t dei;
+  uint16_t vid;
+  uint16_t encapsulated_proto;
+} pk_linux_flow_dissector_vlan_q_t;
 
 typedef struct {
   uint8_t version;
@@ -55,6 +71,13 @@ typedef struct {
 } pk_linux_flow_dissector_ipv6_t;
 
 typedef struct {
+  uint32_t label;
+  uint8_t tc;
+  uint8_t s;
+  uint8_t ttl;
+} pk_linux_flow_dissector_mpls_t;
+
+typedef struct {
   uint16_t sport;
   uint16_t dport;
   uint32_t seq;
@@ -80,10 +103,16 @@ typedef struct {
   uint64_t consumed_bits;
   uint8_t ethernet_present;
   pk_linux_flow_dissector_ethernet_t ethernet;
+  uint8_t vlan_ad_present;
+  pk_linux_flow_dissector_vlan_ad_t vlan_ad;
+  uint8_t vlan_q_present;
+  pk_linux_flow_dissector_vlan_q_t vlan_q;
   uint8_t ipv4_present;
   pk_linux_flow_dissector_ipv4_t ipv4;
   uint8_t ipv6_present;
   pk_linux_flow_dissector_ipv6_t ipv6;
+  uint8_t mpls_present;
+  pk_linux_flow_dissector_mpls_t mpls;
   uint8_t tcp_present;
   pk_linux_flow_dissector_tcp_t tcp;
   uint8_t udp_present;

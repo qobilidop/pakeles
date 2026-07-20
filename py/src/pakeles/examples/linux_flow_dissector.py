@@ -1,12 +1,24 @@
-"""Ethernet -> {IPv4 (with options) | IPv6} -> {TCP | UDP}, authored in the eDSL.
+"""Ethernet -> {VLAN | MPLS | IPv4 (with options) | IPv6} -> {TCP | UDP}.
 
-The rung-0 flow-dissector target: the permanent home the flow-dissector
-initiative grows in. Its parse mirrors `eth_ipvx_l4` — EtherType demuxes
-to IPv4 or IPv6, and each IP header demuxes to a shared TCP or UDP
-successor (a join in the parse DAG) — so it teaches demultiplexing, not
-just field-mapping. A field-for-field port of the Rust builder description
-(src/examples.rs); the conformance test asserts proto equality with the
-committed gallery `ir.json`.
+The flow-dissector target: the permanent home the flow-dissector
+initiative grows in. Rung 0 mirrored `eth_ipvx_l4` — plain EtherType
+demux to IPv4 or IPv6, each IP header demuxing to a shared TCP or UDP
+successor (a join in the parse DAG). Rung 1 adds kernel-faithful VLAN
+and MPLS handling, agreeing with upstream `bpf_flow.c`:
+
+- VLAN is unrolled to depth <=2 to mirror upstream `PROG(VLAN)`'s
+  position-dependent rules: an 802.1AD (QinQ) outer tag must be followed
+  by exactly one 802.1Q tag (`parse_vlan_ad` -> `parse_vlan_q` only); a
+  bare 802.1Q tag is the common tail (`parse_vlan_q`) and demuxes to
+  IPv4/IPv6/MPLS; a third tag of either kind is a kernel drop (no triple
+  tagging, no double-Q).
+- MPLS is a single-entry read-and-stop state (`parse_mpls`) mirroring
+  upstream `PROG(MPLS)`: read one label entry and accept, regardless of
+  the bottom-of-stack bit.
+
+A field-for-field port of the Rust builder description (src/examples.rs)
+for the rung-0 subset; the conformance test asserts proto equality with
+the committed gallery `ir.json`.
 
 IPv6 addresses are 128-bit, above the fixed-`bits` ceiling, so they are
 `var_bytes` opaque runs (rendered as hex; not tshark-diffed).
@@ -29,8 +41,36 @@ class Ethernet(Header):
             0x0806: "ARP",
             0x8100: "802.1Q VLAN",
             0x86DD: "IPv6",
+            0x88A8: "802.1AD (QinQ)",
+            0x8847: "MPLS unicast",
+            0x8848: "MPLS multicast",
         },
     )
+
+
+class VLAN(Header):
+    pcp = bits(3, "Priority", DEC, tshark="vlan.priority")
+    dei = bits(1, "DEI", DEC, tshark="vlan.dei")
+    vid = bits(12, "VLAN ID", DEC, tshark="vlan.id")
+    encapsulated_proto = bits(
+        16,
+        "Type",
+        HEX,
+        tshark="vlan.etype",
+        labels={
+            0x0800: "IPv4",
+            0x86DD: "IPv6",
+            0x8847: "MPLS unicast",
+            0x8848: "MPLS multicast",
+        },
+    )
+
+
+class MPLS(Header):
+    label = bits(20, "Label", DEC, tshark="mpls.label")
+    tc = bits(3, "Traffic Class", DEC, tshark="mpls.exp")
+    s = bits(1, "Bottom of Stack", DEC, tshark="mpls.bottom")
+    ttl = bits(8, "TTL", DEC, tshark="mpls.ttl")
 
 
 class IPv4(Header):
@@ -97,12 +137,41 @@ class UDP(Header):
 def linux_flow_dissector() -> Parser:
     return parser(
         "linux_flow_dissector",
-        max_depth=4,
+        max_depth=5,
         start="parse_ethernet",
         states={
             "parse_ethernet": extract(Ethernet).select(
                 Ethernet.ethertype,
-                {0x0800: "parse_ipv4", 0x86DD: "parse_ipv6"},
+                {
+                    0x0800: "parse_ipv4",
+                    0x86DD: "parse_ipv6",
+                    0x8100: "parse_vlan_q",
+                    0x88A8: "parse_vlan_ad",
+                    0x8847: "parse_mpls",
+                    0x8848: "parse_mpls",
+                },
+                default=reject("unsupported ethertype", info=True),
+            ),
+            # Upstream PROG(VLAN), 802.1AD arm: the outer S-tag must be
+            # followed by exactly one 802.1Q C-tag.
+            "parse_vlan_ad": extract(VLAN["vlan_ad"]).select(
+                VLAN["vlan_ad"].encapsulated_proto,
+                {0x8100: "parse_vlan_q"},
+                default=reject("802.1AD must be followed by 802.1Q"),
+            ),
+            # Upstream PROG(VLAN), common tail: the final (or only) tag;
+            # a further Q/AD tag is a kernel drop (no triple tagging, no
+            # double-Q).
+            "parse_vlan_q": extract(VLAN["vlan_q"]).select(
+                VLAN["vlan_q"].encapsulated_proto,
+                {
+                    0x0800: "parse_ipv4",
+                    0x86DD: "parse_ipv6",
+                    0x8847: "parse_mpls",
+                    0x8848: "parse_mpls",
+                    0x8100: reject("vlan stacking beyond kernel depth"),
+                    0x88A8: reject("vlan stacking beyond kernel depth"),
+                },
                 default=reject("unsupported ethertype", info=True),
             ),
             "parse_ipv4": extract(IPv4).select(
@@ -115,6 +184,8 @@ def linux_flow_dissector() -> Parser:
                 {6: "parse_tcp", 17: "parse_udp"},
                 default=reject("unsupported ip protocol", info=True),
             ),
+            # Upstream PROG(MPLS): read one label entry, stop, BPF_OK.
+            "parse_mpls": extract(MPLS).accept(),
             "parse_tcp": extract(TCP).accept(),
             "parse_udp": extract(UDP).accept(),
         },

@@ -12,7 +12,17 @@ p.experts = { ef_error, ef_info }
 local f_hdr_ethernet = ProtoField.none("pakeles_linux_flow_dissector.ethernet", "ethernet")
 local f_ethernet_dst = ProtoField.ether("pakeles_linux_flow_dissector.ethernet.dst", "Destination")
 local f_ethernet_src = ProtoField.ether("pakeles_linux_flow_dissector.ethernet.src", "Source")
-local f_ethernet_ethertype = ProtoField.uint16("pakeles_linux_flow_dissector.ethernet.ethertype", "Type", base.HEX, { [2048] = "IPv4", [2054] = "ARP", [33024] = "802.1Q VLAN", [34525] = "IPv6" })
+local f_ethernet_ethertype = ProtoField.uint16("pakeles_linux_flow_dissector.ethernet.ethertype", "Type", base.HEX, { [2048] = "IPv4", [2054] = "ARP", [33024] = "802.1Q VLAN", [34525] = "IPv6", [34984] = "802.1AD (QinQ)", [34887] = "MPLS unicast", [34888] = "MPLS multicast" })
+local f_hdr_vlan_ad = ProtoField.none("pakeles_linux_flow_dissector.vlan_ad", "vlan_ad")
+local f_vlan_ad_pcp = ProtoField.uint8("pakeles_linux_flow_dissector.vlan_ad.pcp", "Priority", base.DEC)
+local f_vlan_ad_dei = ProtoField.uint8("pakeles_linux_flow_dissector.vlan_ad.dei", "DEI", base.DEC)
+local f_vlan_ad_vid = ProtoField.uint16("pakeles_linux_flow_dissector.vlan_ad.vid", "VLAN ID", base.DEC)
+local f_vlan_ad_encapsulated_proto = ProtoField.uint16("pakeles_linux_flow_dissector.vlan_ad.encapsulated_proto", "Type", base.HEX, { [2048] = "IPv4", [34525] = "IPv6", [34887] = "MPLS unicast", [34888] = "MPLS multicast" })
+local f_hdr_vlan_q = ProtoField.none("pakeles_linux_flow_dissector.vlan_q", "vlan_q")
+local f_vlan_q_pcp = ProtoField.uint8("pakeles_linux_flow_dissector.vlan_q.pcp", "Priority", base.DEC)
+local f_vlan_q_dei = ProtoField.uint8("pakeles_linux_flow_dissector.vlan_q.dei", "DEI", base.DEC)
+local f_vlan_q_vid = ProtoField.uint16("pakeles_linux_flow_dissector.vlan_q.vid", "VLAN ID", base.DEC)
+local f_vlan_q_encapsulated_proto = ProtoField.uint16("pakeles_linux_flow_dissector.vlan_q.encapsulated_proto", "Type", base.HEX, { [2048] = "IPv4", [34525] = "IPv6", [34887] = "MPLS unicast", [34888] = "MPLS multicast" })
 local f_hdr_ipv4 = ProtoField.none("pakeles_linux_flow_dissector.ipv4", "ipv4")
 local f_ipv4_version = ProtoField.uint8("pakeles_linux_flow_dissector.ipv4.version", "Version", base.DEC)
 local f_ipv4_ihl = ProtoField.uint8("pakeles_linux_flow_dissector.ipv4.ihl", "Header Length", base.DEC)
@@ -37,6 +47,11 @@ local f_ipv6_next_header = ProtoField.uint8("pakeles_linux_flow_dissector.ipv6.n
 local f_ipv6_hop_limit = ProtoField.uint8("pakeles_linux_flow_dissector.ipv6.hop_limit", "Hop Limit", base.DEC)
 local f_ipv6_src = ProtoField.bytes("pakeles_linux_flow_dissector.ipv6.src", "src")
 local f_ipv6_dst = ProtoField.bytes("pakeles_linux_flow_dissector.ipv6.dst", "dst")
+local f_hdr_mpls = ProtoField.none("pakeles_linux_flow_dissector.mpls", "mpls")
+local f_mpls_label = ProtoField.uint24("pakeles_linux_flow_dissector.mpls.label", "Label", base.DEC)
+local f_mpls_tc = ProtoField.uint8("pakeles_linux_flow_dissector.mpls.tc", "Traffic Class", base.DEC)
+local f_mpls_s = ProtoField.uint8("pakeles_linux_flow_dissector.mpls.s", "Bottom of Stack", base.DEC)
+local f_mpls_ttl = ProtoField.uint8("pakeles_linux_flow_dissector.mpls.ttl", "TTL", base.DEC)
 local f_hdr_tcp = ProtoField.none("pakeles_linux_flow_dissector.tcp", "tcp")
 local f_tcp_sport = ProtoField.uint16("pakeles_linux_flow_dissector.tcp.sport", "Source Port", base.DEC)
 local f_tcp_dport = ProtoField.uint16("pakeles_linux_flow_dissector.tcp.dport", "Destination Port", base.DEC)
@@ -54,7 +69,7 @@ local f_udp_dport = ProtoField.uint16("pakeles_linux_flow_dissector.udp.dport", 
 local f_udp_length = ProtoField.uint16("pakeles_linux_flow_dissector.udp.length", "Length", base.DEC)
 local f_udp_checksum = ProtoField.uint16("pakeles_linux_flow_dissector.udp.checksum", "Checksum", base.HEX)
 local f_payload = ProtoField.bytes("pakeles_linux_flow_dissector.payload", "Payload")
-p.fields = { f_hdr_ethernet, f_ethernet_dst, f_ethernet_src, f_ethernet_ethertype, f_hdr_ipv4, f_ipv4_version, f_ipv4_ihl, f_ipv4_dscp, f_ipv4_ecn, f_ipv4_total_len, f_ipv4_id, f_ipv4_flags, f_ipv4_frag_offset, f_ipv4_ttl, f_ipv4_protocol, f_ipv4_checksum, f_ipv4_src, f_ipv4_dst, f_ipv4_options, f_hdr_ipv6, f_ipv6_version, f_ipv6_traffic_class, f_ipv6_flow_label, f_ipv6_payload_length, f_ipv6_next_header, f_ipv6_hop_limit, f_ipv6_src, f_ipv6_dst, f_hdr_tcp, f_tcp_sport, f_tcp_dport, f_tcp_seq, f_tcp_ack, f_tcp_data_offset, f_tcp_reserved, f_tcp_flags, f_tcp_window, f_tcp_checksum, f_tcp_urgent, f_hdr_udp, f_udp_sport, f_udp_dport, f_udp_length, f_udp_checksum, f_payload }
+p.fields = { f_hdr_ethernet, f_ethernet_dst, f_ethernet_src, f_ethernet_ethertype, f_hdr_vlan_ad, f_vlan_ad_pcp, f_vlan_ad_dei, f_vlan_ad_vid, f_vlan_ad_encapsulated_proto, f_hdr_vlan_q, f_vlan_q_pcp, f_vlan_q_dei, f_vlan_q_vid, f_vlan_q_encapsulated_proto, f_hdr_ipv4, f_ipv4_version, f_ipv4_ihl, f_ipv4_dscp, f_ipv4_ecn, f_ipv4_total_len, f_ipv4_id, f_ipv4_flags, f_ipv4_frag_offset, f_ipv4_ttl, f_ipv4_protocol, f_ipv4_checksum, f_ipv4_src, f_ipv4_dst, f_ipv4_options, f_hdr_ipv6, f_ipv6_version, f_ipv6_traffic_class, f_ipv6_flow_label, f_ipv6_payload_length, f_ipv6_next_header, f_ipv6_hop_limit, f_ipv6_src, f_ipv6_dst, f_hdr_mpls, f_mpls_label, f_mpls_tc, f_mpls_s, f_mpls_ttl, f_hdr_tcp, f_tcp_sport, f_tcp_dport, f_tcp_seq, f_tcp_ack, f_tcp_data_offset, f_tcp_reserved, f_tcp_flags, f_tcp_window, f_tcp_checksum, f_tcp_urgent, f_hdr_udp, f_udp_sport, f_udp_dport, f_udp_length, f_udp_checksum, f_payload }
 
 local states = {}
 
@@ -66,7 +81,7 @@ end
 
 function states.parse_ethernet(buf, pinfo, tree, off, depth)
   depth = depth + 1
-  if depth > 4 then
+  if depth > 5 then
     tree:add_proto_expert_info(ef_error, "max depth exceeded")
     return off
   end
@@ -95,6 +110,109 @@ function states.parse_ethernet(buf, pinfo, tree, off, depth)
     return states.parse_ipv4(buf, pinfo, tree, off, depth)
   elseif v_ethernet_ethertype == 34525 then
     return states.parse_ipv6(buf, pinfo, tree, off, depth)
+  elseif v_ethernet_ethertype == 33024 then
+    return states.parse_vlan_q(buf, pinfo, tree, off, depth)
+  elseif v_ethernet_ethertype == 34984 then
+    return states.parse_vlan_ad(buf, pinfo, tree, off, depth)
+  elseif v_ethernet_ethertype == 34887 then
+    return states.parse_mpls(buf, pinfo, tree, off, depth)
+  elseif v_ethernet_ethertype == 34888 then
+    return states.parse_mpls(buf, pinfo, tree, off, depth)
+  else
+    add_payload(buf, tree, off)
+    tree:add_proto_expert_info(ef_info, "unsupported ethertype")
+    return off
+  end
+end
+
+function states.parse_vlan_ad(buf, pinfo, tree, off, depth)
+  depth = depth + 1
+  if depth > 5 then
+    tree:add_proto_expert_info(ef_error, "max depth exceeded")
+    return off
+  end
+  local avail = buf:len() * 8
+  local hdr_vlan_ad = tree:add(f_hdr_vlan_ad, buf(math.floor(off / 8)))
+  if off + 3 > avail then
+    hdr_vlan_ad:add_proto_expert_info(ef_error, "out of bounds in vlan_ad.pcp")
+    return off
+  end
+  hdr_vlan_ad:add(f_vlan_ad_pcp, buf(math.floor(off / 8), math.floor((off % 8 + 3 + 7) / 8)), buf():bitfield(off, 3))
+  off = off + 3
+  if off + 1 > avail then
+    hdr_vlan_ad:add_proto_expert_info(ef_error, "out of bounds in vlan_ad.dei")
+    return off
+  end
+  hdr_vlan_ad:add(f_vlan_ad_dei, buf(math.floor(off / 8), math.floor((off % 8 + 1 + 7) / 8)), buf():bitfield(off, 1))
+  off = off + 1
+  if off + 12 > avail then
+    hdr_vlan_ad:add_proto_expert_info(ef_error, "out of bounds in vlan_ad.vid")
+    return off
+  end
+  hdr_vlan_ad:add(f_vlan_ad_vid, buf(math.floor(off / 8), math.floor((off % 8 + 12 + 7) / 8)), buf():bitfield(off, 12))
+  off = off + 12
+  if off + 16 > avail then
+    hdr_vlan_ad:add_proto_expert_info(ef_error, "out of bounds in vlan_ad.encapsulated_proto")
+    return off
+  end
+  local v_vlan_ad_encapsulated_proto = buf():bitfield(off, 16)
+  hdr_vlan_ad:add(f_vlan_ad_encapsulated_proto, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v_vlan_ad_encapsulated_proto)
+  off = off + 16
+  if v_vlan_ad_encapsulated_proto == 33024 then
+    return states.parse_vlan_q(buf, pinfo, tree, off, depth)
+  else
+    tree:add_proto_expert_info(ef_error, "802.1AD must be followed by 802.1Q")
+    return off
+  end
+end
+
+function states.parse_vlan_q(buf, pinfo, tree, off, depth)
+  depth = depth + 1
+  if depth > 5 then
+    tree:add_proto_expert_info(ef_error, "max depth exceeded")
+    return off
+  end
+  local avail = buf:len() * 8
+  local hdr_vlan_q = tree:add(f_hdr_vlan_q, buf(math.floor(off / 8)))
+  if off + 3 > avail then
+    hdr_vlan_q:add_proto_expert_info(ef_error, "out of bounds in vlan_q.pcp")
+    return off
+  end
+  hdr_vlan_q:add(f_vlan_q_pcp, buf(math.floor(off / 8), math.floor((off % 8 + 3 + 7) / 8)), buf():bitfield(off, 3))
+  off = off + 3
+  if off + 1 > avail then
+    hdr_vlan_q:add_proto_expert_info(ef_error, "out of bounds in vlan_q.dei")
+    return off
+  end
+  hdr_vlan_q:add(f_vlan_q_dei, buf(math.floor(off / 8), math.floor((off % 8 + 1 + 7) / 8)), buf():bitfield(off, 1))
+  off = off + 1
+  if off + 12 > avail then
+    hdr_vlan_q:add_proto_expert_info(ef_error, "out of bounds in vlan_q.vid")
+    return off
+  end
+  hdr_vlan_q:add(f_vlan_q_vid, buf(math.floor(off / 8), math.floor((off % 8 + 12 + 7) / 8)), buf():bitfield(off, 12))
+  off = off + 12
+  if off + 16 > avail then
+    hdr_vlan_q:add_proto_expert_info(ef_error, "out of bounds in vlan_q.encapsulated_proto")
+    return off
+  end
+  local v_vlan_q_encapsulated_proto = buf():bitfield(off, 16)
+  hdr_vlan_q:add(f_vlan_q_encapsulated_proto, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v_vlan_q_encapsulated_proto)
+  off = off + 16
+  if v_vlan_q_encapsulated_proto == 2048 then
+    return states.parse_ipv4(buf, pinfo, tree, off, depth)
+  elseif v_vlan_q_encapsulated_proto == 34525 then
+    return states.parse_ipv6(buf, pinfo, tree, off, depth)
+  elseif v_vlan_q_encapsulated_proto == 34887 then
+    return states.parse_mpls(buf, pinfo, tree, off, depth)
+  elseif v_vlan_q_encapsulated_proto == 34888 then
+    return states.parse_mpls(buf, pinfo, tree, off, depth)
+  elseif v_vlan_q_encapsulated_proto == 33024 then
+    tree:add_proto_expert_info(ef_error, "vlan stacking beyond kernel depth")
+    return off
+  elseif v_vlan_q_encapsulated_proto == 34984 then
+    tree:add_proto_expert_info(ef_error, "vlan stacking beyond kernel depth")
+    return off
   else
     add_payload(buf, tree, off)
     tree:add_proto_expert_info(ef_info, "unsupported ethertype")
@@ -104,7 +222,7 @@ end
 
 function states.parse_ipv4(buf, pinfo, tree, off, depth)
   depth = depth + 1
-  if depth > 4 then
+  if depth > 5 then
     tree:add_proto_expert_info(ef_error, "max depth exceeded")
     return off
   end
@@ -212,7 +330,7 @@ end
 
 function states.parse_ipv6(buf, pinfo, tree, off, depth)
   depth = depth + 1
-  if depth > 4 then
+  if depth > 5 then
     tree:add_proto_expert_info(ef_error, "max depth exceeded")
     return off
   end
@@ -284,9 +402,45 @@ function states.parse_ipv6(buf, pinfo, tree, off, depth)
   end
 end
 
+function states.parse_mpls(buf, pinfo, tree, off, depth)
+  depth = depth + 1
+  if depth > 5 then
+    tree:add_proto_expert_info(ef_error, "max depth exceeded")
+    return off
+  end
+  local avail = buf:len() * 8
+  local hdr_mpls = tree:add(f_hdr_mpls, buf(math.floor(off / 8)))
+  if off + 20 > avail then
+    hdr_mpls:add_proto_expert_info(ef_error, "out of bounds in mpls.label")
+    return off
+  end
+  hdr_mpls:add(f_mpls_label, buf(math.floor(off / 8), math.floor((off % 8 + 20 + 7) / 8)), buf():bitfield(off, 20))
+  off = off + 20
+  if off + 3 > avail then
+    hdr_mpls:add_proto_expert_info(ef_error, "out of bounds in mpls.tc")
+    return off
+  end
+  hdr_mpls:add(f_mpls_tc, buf(math.floor(off / 8), math.floor((off % 8 + 3 + 7) / 8)), buf():bitfield(off, 3))
+  off = off + 3
+  if off + 1 > avail then
+    hdr_mpls:add_proto_expert_info(ef_error, "out of bounds in mpls.s")
+    return off
+  end
+  hdr_mpls:add(f_mpls_s, buf(math.floor(off / 8), math.floor((off % 8 + 1 + 7) / 8)), buf():bitfield(off, 1))
+  off = off + 1
+  if off + 8 > avail then
+    hdr_mpls:add_proto_expert_info(ef_error, "out of bounds in mpls.ttl")
+    return off
+  end
+  hdr_mpls:add(f_mpls_ttl, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), buf():bitfield(off, 8))
+  off = off + 8
+  add_payload(buf, tree, off)
+  return off
+end
+
 function states.parse_tcp(buf, pinfo, tree, off, depth)
   depth = depth + 1
-  if depth > 4 then
+  if depth > 5 then
     tree:add_proto_expert_info(ef_error, "max depth exceeded")
     return off
   end
@@ -358,7 +512,7 @@ end
 
 function states.parse_udp(buf, pinfo, tree, off, depth)
   depth = depth + 1
-  if depth > 4 then
+  if depth > 5 then
     tree:add_proto_expert_info(ef_error, "max depth exceeded")
     return off
   end

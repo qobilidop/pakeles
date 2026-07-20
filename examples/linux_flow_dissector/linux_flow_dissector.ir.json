@@ -56,11 +56,98 @@
                 {
                   "value": "34525",
                   "label": "IPv6"
+                },
+                {
+                  "value": "34984",
+                  "label": "802.1AD (QinQ)"
+                },
+                {
+                  "value": "34887",
+                  "label": "MPLS unicast"
+                },
+                {
+                  "value": "34888",
+                  "label": "MPLS multicast"
                 }
               ]
             },
             "annotations": {
               "tshark.key": "eth.type"
+            }
+          }
+        ]
+      },
+      {
+        "name": "vlan",
+        "fields": [
+          {
+            "name": "pcp",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "Priority",
+              "format": "DISPLAY_FORMAT_DEC"
+            },
+            "annotations": {
+              "tshark.key": "vlan.priority"
+            }
+          },
+          {
+            "name": "dei",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "DEI",
+              "format": "DISPLAY_FORMAT_DEC"
+            },
+            "annotations": {
+              "tshark.key": "vlan.dei"
+            }
+          },
+          {
+            "name": "vid",
+            "width": {
+              "bits": 12
+            },
+            "display": {
+              "name": "VLAN ID",
+              "format": "DISPLAY_FORMAT_DEC"
+            },
+            "annotations": {
+              "tshark.key": "vlan.id"
+            }
+          },
+          {
+            "name": "encapsulated_proto",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Type",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "2048",
+                  "label": "IPv4"
+                },
+                {
+                  "value": "34525",
+                  "label": "IPv6"
+                },
+                {
+                  "value": "34887",
+                  "label": "MPLS unicast"
+                },
+                {
+                  "value": "34888",
+                  "label": "MPLS multicast"
+                }
+              ]
+            },
+            "annotations": {
+              "tshark.key": "vlan.etype"
             }
           }
         ]
@@ -371,6 +458,63 @@
         ]
       },
       {
+        "name": "mpls",
+        "fields": [
+          {
+            "name": "label",
+            "width": {
+              "bits": 20
+            },
+            "display": {
+              "name": "Label",
+              "format": "DISPLAY_FORMAT_DEC"
+            },
+            "annotations": {
+              "tshark.key": "mpls.label"
+            }
+          },
+          {
+            "name": "tc",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "Traffic Class",
+              "format": "DISPLAY_FORMAT_DEC"
+            },
+            "annotations": {
+              "tshark.key": "mpls.exp"
+            }
+          },
+          {
+            "name": "s",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Bottom of Stack",
+              "format": "DISPLAY_FORMAT_DEC"
+            },
+            "annotations": {
+              "tshark.key": "mpls.bottom"
+            }
+          },
+          {
+            "name": "ttl",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "TTL",
+              "format": "DISPLAY_FORMAT_DEC"
+            },
+            "annotations": {
+              "tshark.key": "mpls.ttl"
+            }
+          }
+        ]
+      },
+      {
         "name": "tcp",
         "fields": [
           {
@@ -572,6 +716,179 @@
                 "next": {
                   "state": "parse_ipv6"
                 }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "33024"
+                  }
+                ],
+                "next": {
+                  "state": "parse_vlan_q"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34984"
+                  }
+                ],
+                "next": {
+                  "state": "parse_vlan_ad"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34887"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34888"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "reject": {
+                "reason": "unsupported ethertype",
+                "annotations": {
+                  "severity": "info"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_vlan_ad",
+        "extracts": [
+          {
+            "headerType": "vlan",
+            "instance": "vlan_ad"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "vlan_ad",
+                  "field": "encapsulated_proto"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "33024"
+                  }
+                ],
+                "next": {
+                  "state": "parse_vlan_q"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "reject": {
+                "reason": "802.1AD must be followed by 802.1Q"
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_vlan_q",
+        "extracts": [
+          {
+            "headerType": "vlan",
+            "instance": "vlan_q"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "vlan_q",
+                  "field": "encapsulated_proto"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34887"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34888"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "33024"
+                  }
+                ],
+                "next": {
+                  "reject": {
+                    "reason": "vlan stacking beyond kernel depth"
+                  }
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34984"
+                  }
+                ],
+                "next": {
+                  "reject": {
+                    "reason": "vlan stacking beyond kernel depth"
+                  }
+                }
               }
             ],
             "defaultTarget": {
@@ -686,6 +1003,19 @@
         }
       },
       {
+        "name": "parse_mpls",
+        "extracts": [
+          {
+            "headerType": "mpls"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        }
+      },
+      {
         "name": "parse_tcp",
         "extracts": [
           {
@@ -713,6 +1043,6 @@
       }
     ],
     "startState": "parse_ethernet",
-    "maxDepth": 4
+    "maxDepth": 5
   }
 }
