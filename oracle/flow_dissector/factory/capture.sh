@@ -10,7 +10,9 @@ short="${ver%%-*}"
 out="../../../examples/linux_flow_dissector/conformance/flow_keys.linux-${short}.golden.json"
 mkdir -p "$(dirname "$out")"
 
-clang -O2 -target bpf -I/usr/include/aarch64-linux-gnu -c flow_dissector.bpf.c -o /tmp/fd.o
+# -I the multiarch dir so <asm/types.h> resolves under -target bpf (works on
+# both arm64 devcontainer and x86_64 CI runners).
+clang -O2 -target bpf -I"/usr/include/$(uname -m)-linux-gnu" -c flow_dissector.bpf.c -o /tmp/fd.o
 llvm-objcopy -O binary --only-section=.text /tmp/fd.o /tmp/fd.text
 clang -O2 -o /tmp/capture capture.c
 /tmp/capture /tmp/fd.text corpus.txt > "$out"

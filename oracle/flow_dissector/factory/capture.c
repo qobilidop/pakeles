@@ -24,6 +24,7 @@ static int load_prog(const char *path) {
     if (!f) { perror("fopen prog"); exit(1); }
     fseek(f, 0, SEEK_END); long sz = ftell(f); fseek(f, 0, SEEK_SET);
     void *insns = malloc(sz);
+    if (!insns) { perror("malloc"); exit(1); }
     if (fread(insns, 1, sz, f) != (size_t)sz) { perror("fread prog"); exit(1); }
     fclose(f);
     static char log[16384];
@@ -41,14 +42,20 @@ static int load_prog(const char *path) {
     return fd;
 }
 
-// hex string -> bytes; returns length, -1 on error.
+static int is_hex(char c) {
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+}
+
+// hex string -> bytes; returns length, or -1 on odd-length/invalid input.
 static int unhex(const char *s, unsigned char *out, int cap) {
     int n = 0;
-    for (; s[0] && s[1] && s[0] != '\n'; s += 2) {
+    while (s[0] && s[0] != '\n') {
+        if (!is_hex(s[0]) || !is_hex(s[1])) return -1; // require a full byte pair
         if (n >= cap) return -1;
         unsigned v;
-        if (sscanf(s, "%2x", &v) != 1) return -1;
+        sscanf(s, "%2x", &v);
         out[n++] = (unsigned char)v;
+        s += 2;
     }
     return n;
 }
@@ -86,6 +93,13 @@ int main(int argc, char **argv) {
         t.test.repeat = 1;
         if (sys_bpf(BPF_PROG_TEST_RUN, &t, sizeof t) < 0) {
             fprintf(stderr, "TEST_RUN failed errno=%d (%s)\n", errno, strerror(errno));
+            return 1;
+        }
+        // The program must accept (BPF_OK==0). A drop/reject would leave a
+        // zeroed `out` that we'd otherwise emit as bogus ground truth — fail loud.
+        if (t.test.retval != 0) {
+            fprintf(stderr, "packet not accepted by dissector (retval=%u); "
+                            "every corpus packet must yield a flow key\n", t.test.retval);
             return 1;
         }
         struct bpf_flow_keys *k = (struct bpf_flow_keys *)out;

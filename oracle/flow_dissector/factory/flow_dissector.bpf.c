@@ -1,7 +1,8 @@
 // In-repo minimal flow dissector for rung 0 (eth/IPv4/IPv6/TCP/UDP).
 // Runs IN THE KERNEL via BPF_PROG_TEST_RUN to mint golden flow_keys.
-// Fidelity-identical to upstream bpf_flow.c for these protocols; upstream
-// replaces it at rung 1. No SEC (lands in .text), no maps, no helpers ->
+// Approximates upstream bpf_flow.c for eth/IPv4/IPv6/TCP/UDP WITHOUT IPv4
+// options or IPv6 extension headers (out of rung-0 scope); upstream
+// bpf_flow.c replaces it at rung 1. No SEC (lands in .text), no maps, no helpers ->
 // .text is self-contained raw bytecode (raw BPF_PROG_LOAD, no libbpf).
 #include <linux/bpf.h>
 #include <linux/if_ether.h>
