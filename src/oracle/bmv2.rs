@@ -206,6 +206,15 @@ pub struct DiffReport {
     pub mismatches: Vec<String>,
 }
 
+/// Cap on byte-aligned vectors sent through `simple_switch` per suite.
+/// Each spawn is heavy and serialized behind `SWITCH_LOCK`, so a large
+/// suite (the flow dissector has 380 byte-aligned vectors) would take
+/// many minutes. We stride-sample down to at most this many, evenly
+/// spread across the suite; the C/eBPF/Lua differentials stay exhaustive
+/// over every vector. A no-op when the suite has fewer byte-aligned
+/// vectors than the cap.
+pub const BMV2_SAMPLE_CAP: usize = 64;
+
 pub fn diff_suite(ir: &pb::Ir, suite: &tvpb::TestSuite) -> Result<DiffReport> {
     let p4 = crate::codegen::p4::generate_p4(ir)?;
     let parser = ir.parser.as_ref().context("IR has no parser")?;
@@ -215,12 +224,16 @@ pub fn diff_suite(ir: &pb::Ir, suite: &tvpb::TestSuite) -> Result<DiffReport> {
     let workdir = std::env::temp_dir().join(format!("pakeles_bmv2_{name}_{}", std::process::id()));
     let json = compile(&p4, &workdir)?;
     let (packets, indices) = crate::testvec::suite_to_packets(suite);
+    // Stride-sample the byte-aligned vectors down to `BMV2_SAMPLE_CAP`,
+    // evenly spread. `stride == 1` (small suites) leaves them all.
+    let byte_aligned = indices.len();
+    let stride = byte_aligned.div_ceil(BMV2_SAMPLE_CAP).max(1);
     let mut report = DiffReport {
         compared: 0,
-        skipped_bit_granular: suite.vectors.len() - indices.len(),
+        skipped_bit_granular: suite.vectors.len() - byte_aligned,
         mismatches: Vec::new(),
     };
-    for (packet, &vi) in packets.iter().zip(indices.iter()) {
+    for (packet, &vi) in packets.iter().zip(indices.iter()).step_by(stride) {
         let vector = &suite.vectors[vi];
         let bs = vector.packet.as_ref().context("vector has no packet")?;
         let (bits, _) = crate::testvec::Bits::from_pb(bs);
@@ -242,6 +255,10 @@ pub fn diff_suite(ir: &pb::Ir, suite: &tvpb::TestSuite) -> Result<DiffReport> {
         }
     }
     let _ = std::fs::remove_dir_all(&workdir);
+    eprintln!(
+        "bmv2: sampled {} of {} byte-aligned vectors",
+        report.compared, byte_aligned
+    );
     Ok(report)
 }
 
@@ -310,6 +327,9 @@ mod tests {
 
     #[test]
     fn bmv2_conformance_byte_aligned_suite_flow_dissector() {
-        bmv2_conformance_byte_aligned(&crate::examples::linux_flow_dissector(), 28);
+        // The flow-dissector suite has hundreds of byte-aligned vectors;
+        // the differential stride-samples them down to `BMV2_SAMPLE_CAP`
+        // (see `diff_suite`). We still expect a full sample's worth.
+        bmv2_conformance_byte_aligned(&crate::examples::linux_flow_dissector(), 60);
     }
 }
