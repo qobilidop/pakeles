@@ -20,12 +20,16 @@ const LENGTH_VALUES_CAP: usize = 1024;
 
 /// Max times a cyclic state may be entered per path during testgen. A
 /// self-loop (e.g. IPv6 option chains) otherwise forks exponentially in
-/// loop depth (~arms^depth), so we cap unrolling to a small constant:
-/// enough to exercise 0..N option headers, the self-loop-twice case, and
-/// the varbit boundaries, without the explosion. This is a coverage
+/// loop depth (~arms^depth), so we cap unrolling to a small constant.
+/// At 2, this generates 0/1/2 option-header vectors — exercising loop
+/// entry, the self-loop taken twice (stack depth 2), and
+/// opt→opt→{frag,tcp,udp} — which is sufficient backend coverage, while
+/// roughly halving the loop's path contribution vs 3 (which produced
+/// ~7346 vectors for the looped example). Deeper chains are a documented
+/// divergence covered by the kernel-agreement corpus. This is a coverage
 /// bound, NOT parser behavior — over-cap unrollings emit no vector (not a
 /// reject). Coexists with the global `max_depth` reject.
-const TESTGEN_LOOP_UNROLL: u32 = 3;
+const TESTGEN_LOOP_UNROLL: u32 = 2;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PathKind {
@@ -527,14 +531,21 @@ mod tests {
 
     #[test]
     fn depth_bound_emits_reject() {
-        let ir = ParserBuilder::new("loop", 3)
+        // `s` is a cyclic state, so the loop-unroll cap also gates it; with
+        // max_depth == TESTGEN_LOOP_UNROLL the entry that would exceed depth
+        // is reached first and the global max_depth reject still fires
+        // (checked before the cap), proving the two bounds coexist.
+        let md = TESTGEN_LOOP_UNROLL;
+        let ir = ParserBuilder::new("loop", md)
             .state(StateBuilder::new("s").goto_(to("s")))
             .start("s")
             .build()
             .unwrap();
         let e = enumerate_ir(&ir);
         assert_eq!(e.paths.len(), 1);
-        assert_eq!(e.paths[0].id, "s/s/s/s");
+        // `s` repeated (md + 1) times: the (md+1)th entry trips max_depth.
+        let expected_id = vec!["s"; md as usize + 1].join("/");
+        assert_eq!(e.paths[0].id, expected_id);
         assert_eq!(
             e.paths[0].kind,
             PathKind::Reject {
