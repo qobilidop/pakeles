@@ -440,11 +440,11 @@ git commit -m "feat(p4): header-stack emitter for cyclic graphs (.next/.last sta
 **This is the task that introduces the loop into the real example.** By now the P4 emitter (Task 3) and the harnesses (Task 2) can handle it, so regenerating and running the dual-example conformance suites stays green.
 
 **Files:**
-- Modify: `py/src/pakeles/examples/linux_flow_dissector.py` (add `IPv6ExtOpt`, `IPv6Frag`, the three IPv6-chain states, `max_depth=10`).
-- Modify: `src/examples.rs` (the Rust builder mirror — the gallery `ir.json` is generated from it; the Python example must stay proto-equal per the existing conformance test). **Read `src/examples.rs` first** to mirror the exact builder API used for rung-1 VLAN/MPLS instances.
+- Modify: `py/src/pakeles/examples/linux_flow_dissector.py` — **the single source of truth** (add `IPv6ExtOpt`, `IPv6Frag`, the three IPv6-chain states, `max_depth=10`).
 - Modify: `src/oracle/flow_dissector.rs:88-114` (`project` — IPv6-chain semantics, last-link reads, new fields).
-- Regenerate: `examples/linux_flow_dissector/**` via `./dev.sh cargo run --bin gen_examples` and mirror the Python source.
-- Test: `src/oracle/flow_dissector.rs` (`mod project_tests`), the Python conformance test (`py/`), the codegen conformance suites.
+- Regenerate: `examples/linux_flow_dissector/**` (the committed `ir.json`, the mirrored `.py`, and ALL `gen/` artifacts including `gen/parser.p4`) via `./dev.sh scripts/gen-examples.sh`.
+- **Do NOT edit `src/examples.rs`** — it only `include_str!`s the committed `linux_flow_dissector.ir.json` at compile time (the eDSL is authoritative; `gen-examples.sh` produces the `ir.json`). No Rust builder mirror exists.
+- Test: `src/oracle/flow_dissector.rs` (`mod project_tests`), the Python conformance/canonical tests (`py/` + `examples.rs`'s `committed_ir_json_is_canonical`/`committed_py_example_current`), the codegen conformance suites, `p4.rs`'s `committed_p4_artifact_current` for the regenerated example.
 
 **Interfaces:**
 - Consumes: named instances `Header["name"]` (rung 1), `var_bytes(expr)` + `<<` (already in the eDSL — confirmed, no new code), the stack-aware harness (Task 2), the P4 stack emitter (Task 3).
@@ -541,13 +541,14 @@ class IPv6Frag(Header):  # fragment header (nexthdr 44)
             "parse_ipv6_frag": extract(IPv6Frag["ext_frag"]).accept(),
 ```
 
-- [ ] **Step 6: Mirror the same in `src/examples.rs`.** Read the rung-1 VLAN instance emission there (named `Header["name"]` → builder `.extract_as("ext_opt", ...)` or equivalent) and add `IPv6ExtOpt`/`IPv6Frag` header types + the three states + `max_depth(10)` identically. The var body uses the builder's `var_bytes(expr)` with `sub(shl(add(field("ext_opt","hdr_ext_len"),1),3),2)` — match the exact builder helper names already in `src/examples.rs` for `ihl*4-20`.
+- [ ] **Step 6: (removed)** — there is no Rust builder to mirror. `src/examples.rs::linux_flow_dissector()` `include_str!`s the committed `ir.json`; editing the Python (Steps 4–5) plus regenerating (Step 7) is the whole change. Skip to Step 7.
 
-- [ ] **Step 7: Regenerate + check proto-equality**
+- [ ] **Step 7: Regenerate all artifacts + check canonical/mirror invariants**
 
-Run: `./dev.sh cargo run --bin gen_examples`
-Then: `./dev.sh sh -c 'cd py && python -m pytest -k linux_flow_dissector -v'`
-Expected: the Python example is proto-equal to the regenerated `examples/linux_flow_dissector/linux_flow_dissector.ir.json`. If not, reconcile field order / names between `src/examples.rs` and the `.py`.
+Run: `./dev.sh scripts/gen-examples.sh`
+This regenerates `examples/linux_flow_dissector/linux_flow_dissector.ir.json`, the mirrored `.py`, and every `gen/` artifact (`parser.p4`, `parser.c`, `parser.bpf.c`, `dissector.lua`, `doc.md`, `graph.{dot,svg}`). The P4 regeneration exercises the Task-3 header-stack emitter on the real looped example — if it errors, that is a Task-3 emitter gap surfaced here.
+Then: `./dev.sh cargo test -p pakeles examples::` and `./dev.sh sh -c 'cd py && python -m pytest -k linux_flow_dissector -v'`
+Expected: `committed_ir_json_is_canonical`, `committed_py_example_current`, and `committed_p4_artifact_current` (for the regenerated example) all green; the Python example round-trips to the regenerated `ir.json`. Note: `gen-examples.sh` must run privileged? No — it is unprivileged codegen; only the golden re-mint (Task 5) needs privilege.
 
 ### 4c — Projection: IPv6-chain flow_keys (last-link)
 
@@ -648,7 +649,7 @@ Expected: PASS where `simple_switch` is available. If the header-stack P4 mis-pa
 - [ ] **Step 13: Commit**
 
 ```bash
-git add py/src/pakeles/examples/linux_flow_dissector.py src/examples.rs \
+git add py/src/pakeles/examples/linux_flow_dissector.py \
         src/oracle/flow_dissector.rs examples/linux_flow_dissector/
 git commit -m "feat(example): rung 2 — IPv6 ext-header chain (self-loop) + last-link projection; max_depth=10"
 ```
@@ -780,5 +781,6 @@ Pakeles agrees with upstream `bpf_flow.c@v6.8`, in-kernel, over the full rung-0+
 
 - §0 BLOCKER-1 (`flow_label` `ntohl`) → Task 5 Step 2. §0 DECISION (P4 first-class) → Task 3. §0 correction (no C/BPF arrays) → Task 4c relies on existing overwrite; no array work. §0 SHOULD-FIX-A (last-link `ip_proto`) → Task 4c Step 10. §0 SHOULD-FIX-B (harness) → Task 2. §0 SHOULD-FIX-C (`max_depth` doc) → Task 4 (`max_depth=10`) + Task 5 Step 5. §0 SHOULD-FIX-D (non-maskable gate + IPv4-frag note) → Task 5 Step 4 + README.
 - §6 `var_bytes(expr)` — already implemented (Task 4a confirms). §1 prose fixes — reflected in the README bullets + the design §0; no code.
-- Open verification during execution: exact `ParsedHeader`/`ParsedField` field names (Task 2 Step 1), the `src/examples.rs` builder helpers for named instances + `var_bytes(expr)` (Task 4 Step 6), the exact bmv2 conformance test name (Task 4 Step 12), and Lua `field_alignment` behavior across the self-loop (the option body is byte-aligned, so it should pass; if `field_alignment` can't prove alignment through a back-edge, that's a Lua finding to fix minimally).
+- Open verification during execution: exact `ParsedHeader`/`ParsedField` field names (Task 2 — confirmed: `ParsedHeader { instance, header_type, start_bit: usize, fields }`, `ParsedField { name, value }`, `FieldValue::Uint(u64)|Bytes(Vec<u8>)`); the exact bmv2 conformance test name (Task 4 Step 12); Lua `field_alignment` behavior across the self-loop (the option body is byte-aligned, so it should pass; if `field_alignment` can't prove alignment through a back-edge, that's a Lua finding to fix minimally); and — carried from the Task 2 review — the Lua **accept**-branch compares against schema-baked `vector.expected.headers` from `vectors.json`, not interpreter output, so Task 4 must ensure the regenerated accept vectors encode repeated `ext_opt` as its single terminal link (matching the datapath overwrite + `last_headers_by_instance`), or accept-vector Lua conformance for looped packets will mismatch.
+- **Architecture note (corrected during execution):** the Python eDSL (`py/src/pakeles/examples/*.py`) is the single source of truth; `./dev.sh scripts/gen-examples.sh` regenerates the committed `ir.json`, the mirrored gallery `.py`, and all `gen/` artifacts. `src/examples.rs` only `include_str!`s the committed `ir.json` — never hand-edited. (There is no `gen_examples` Rust bin / builder mirror; earlier plan text that referenced one has been corrected.)
 ```
