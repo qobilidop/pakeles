@@ -72,9 +72,17 @@ rung boundaries, not bugs:
   (kernel accepts; we reject) — plus the encap cases below. IP protocols
   outside the kernel's dissected set are dropped by both sides, so that
   direction already agrees.
-- **IPv6 extension headers** (`PROG(IPV6OP)`/`PROG(IPV6FR)`) — not yet
-  modeled.
 - **GRE/IPIP encapsulation** — not yet modeled.
+- **IPv6 extension headers (default flags):** we model `flags == 0` (what
+  `BPF_PROG_TEST_RUN` produces). `flow_label` is recorded but never triggers
+  an early stop (`STOP_AT_FLOW_LABEL` off); a Fragment header always stops
+  after setting `is_frag`/`is_first_frag` (`PARSE_1ST_FRAG` off). Flag-driven
+  behavior is out of scope — the parser takes no side channel.
+- **Option-chain depth:** we bound the chain by `max_depth` (~5 option
+  headers behind an Ethernet/IPv6 prefix, fewer behind QinQ). The kernel
+  bounds it by the tail-call limit (~30). Chains of 6–~30 option headers are
+  a known divergence: the kernel accepts, we reject. Not in the agreement
+  corpus by construction.
 
 Adding any of these as a corpus vector would make the gate legitimately
 red until a future rung models them.

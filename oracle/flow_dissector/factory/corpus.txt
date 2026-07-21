@@ -34,3 +34,25 @@ aabbccddeeff11223344556681000064
 aabbccddeeff11223344556688a800648100006586dd600000000014114020010db800000000000000000000000120010db8000000000000000000000002303901bb00140001000000005018ffff00000000
 # drop: truncated MPLS entry (2 of 4 bytes)
 aabbccddeeff11223344556688470006
+# --- rung 2: IPv6 extension-header chain (default flags) ---
+# accept: IPv6 + HopByHop(1 opt, nexthdr=TCP) + TCP — minimal single loop iter
+# (byte-identical to project_tests::projects_ipv6_hopopt_tcp)
+aabbccddeeff11223344556686dd60000000001c004020010db800000000000000000000000120010db80000000000000000000000020600000000000000303901bb00000001000000005018ffff00000000
+# accept: IPv6 + DestOpts + HopByHop + UDP — two options (self-loop twice), ip_proto=17 from last link
+# (byte-identical to project_tests::projects_ipv6_two_opts_udp)
+aabbccddeeff11223344556686dd6000000000183c4020010db800000000000000000000000120010db800000000000000000000000200000000000000001100000000000000303901bb00080000
+# accept: IPv6 + Fragment (first frag, offset 0) — stops; is_frag=is_first_frag=true, ports 0
+# (byte-identical to project_tests::projects_ipv6_frag_first)
+aabbccddeeff11223344556686dd6000000000082c4020010db800000000000000000000000120010db80000000000000000000000020600000000000001
+# accept: IPv6 + Fragment (later frag, offset!=0) — stops; is_frag=true, is_first_frag=false
+# (byte-identical to project_tests::projects_ipv6_frag_later)
+aabbccddeeff11223344556686dd6000000000082c4020010db800000000000000000000000120010db80000000000000000000000020600000900000001
+# accept: IPv6 + HopByHop + Fragment — option then frag terminal
+aabbccddeeff11223344556686dd600000000010004020010db800000000000000000000000120010db80000000000000000000000022c000000000000000600000000000001
+# accept: IPv6 non-zero flow_label + TCP — flow_label recorded, no early stop
+# (byte-identical to project_tests::projects_ipv6_flow_label)
+aabbccddeeff11223344556686dd600123450014064020010db800000000000000000000000120010db8000000000000000000000002303901bb00000001000000005018ffff00000000
+# drop: IPv6 + HopByHop truncated (hdrlen claims 16-byte option header, only 8 bytes present) — extract-fail on the following TCP read == kernel drop (downstream get_header)
+aabbccddeeff11223344556686dd600000000008004020010db800000000000000000000000120010db80000000000000000000000020601000000000000
+# drop: IPv6 + option chain final nexthdr unsupported (89/OSPF) — parse_ip_proto default BPF_DROP
+aabbccddeeff11223344556686dd600000000008004020010db800000000000000000000000120010db80000000000000000000000025900000000000000

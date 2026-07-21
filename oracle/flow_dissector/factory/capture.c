@@ -74,7 +74,8 @@ int main(int argc, char **argv) {
     struct utsname un; uname(&un);
     printf("{\n  \"kernel_version\": \"%s\",\n", un.release);
     printf("  \"keys_subset\": [\"nhoff\",\"thoff\",\"n_proto\",\"addr_proto\",\"ip_proto\","
-           "\"sport\",\"dport\",\"ipv4_src\",\"ipv4_dst\",\"ipv6_src\",\"ipv6_dst\"],\n");
+           "\"sport\",\"dport\",\"ipv4_src\",\"ipv4_dst\",\"ipv6_src\",\"ipv6_dst\","
+           "\"flow_label\",\"is_frag\",\"is_first_frag\"],\n");
     printf("  \"entries\": [\n");
 
     FILE *cf = fopen(argv[2], "r");
@@ -116,15 +117,23 @@ int main(int argc, char **argv) {
             hexcat(v6s, (unsigned char *)k->ipv6_src, 16);
             hexcat(v6d, (unsigned char *)k->ipv6_dst, 16);
         }
+        // is_frag/is_first_frag are also kernel-set for IPv4 fragments (via
+        // iph->frag_off in PROG(IP)), which this corpus does not model — it
+        // stays IPv4-unfragmented, so these two fields are exercised here
+        // only through the IPv6 Fragment extension header path.
         printf("%s    {\"packet_hex\": \"%s\", \"disposition\": \"ok\", \"keys\": {"
                "\"nhoff\": %u, \"thoff\": %u, \"n_proto\": %u, \"addr_proto\": %u, "
                "\"ip_proto\": %u, \"sport\": %u, \"dport\": %u, "
                "\"ipv4_src\": \"%s\", \"ipv4_dst\": \"%s\", "
-               "\"ipv6_src\": \"%s\", \"ipv6_dst\": \"%s\"}}",
+               "\"ipv6_src\": \"%s\", \"ipv6_dst\": \"%s\", "
+               "\"flow_label\": %u, \"is_frag\": %s, \"is_first_frag\": %s}}",
                first ? "" : ",\n", phex,
                k->nhoff, k->thoff, ntohs(k->n_proto), k->addr_proto,
                k->ip_proto, ntohs(k->sport), ntohs(k->dport),
-               v4s, v4d, v6s, v6d);
+               v4s, v4d, v6s, v6d,
+               ntohl(k->flow_label),
+               k->is_frag ? "true" : "false",
+               k->is_first_frag ? "true" : "false");
         first = 0;
     }
     fclose(cf);
