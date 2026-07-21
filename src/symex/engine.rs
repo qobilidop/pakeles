@@ -55,6 +55,10 @@ struct Ctx<'a> {
     solver: &'a mut dyn Solver,
     paths: Vec<Path>,
     log: FeasibilityLog,
+    /// States reachable from themselves via the transition graph. A
+    /// var-length field on such a state forks only min+max witnesses so
+    /// loop enumeration stays tractable (see `walk_extracts`).
+    cyclic_states: HashSet<String>,
 }
 
 #[derive(Clone, Default)]
@@ -82,6 +86,7 @@ pub(crate) fn enumerate(ir: &pb::Ir, solver: &mut dyn Solver) -> anyhow::Result<
         solver,
         paths: Vec::new(),
         log: FeasibilityLog::default(),
+        cyclic_states: cyclic_states(parser),
     };
     let frame = Frame::default();
     walk_state(&mut ctx, &parser.start_state, frame)?;
@@ -90,6 +95,54 @@ pub(crate) fn enumerate(ir: &pb::Ir, solver: &mut dyn Solver) -> anyhow::Result<
         paths: ctx.paths,
         log: ctx.log,
     })
+}
+
+/// State names that lie on a cycle (reachable from themselves) via the
+/// transition graph: Direct target, Select arm targets, and Select
+/// default. Accept/Reject targets contribute no edge.
+fn cyclic_states(parser: &pb::Parser) -> HashSet<String> {
+    fn target_state(t: &pb::Target) -> Option<&str> {
+        match t.kind.as_ref() {
+            Some(pb::target::Kind::State(n)) => Some(n.as_str()),
+            _ => None,
+        }
+    }
+    let mut succ: HashMap<&str, Vec<&str>> = HashMap::new();
+    for s in &parser.states {
+        let mut outs = Vec::new();
+        match s.transition.as_ref().and_then(|t| t.kind.as_ref()) {
+            Some(pb::transition::Kind::Direct(t)) => outs.extend(target_state(t)),
+            Some(pb::transition::Kind::Select(sel)) => {
+                for arm in &sel.arms {
+                    if let Some(t) = arm.next.as_ref() {
+                        outs.extend(target_state(t));
+                    }
+                }
+                if let Some(t) = sel.default_target.as_ref() {
+                    outs.extend(target_state(t));
+                }
+            }
+            None => {}
+        }
+        succ.insert(s.name.as_str(), outs);
+    }
+    // A state is cyclic iff it can reach itself. BFS from its successors.
+    let mut cyclic = HashSet::new();
+    for s in &parser.states {
+        let start = s.name.as_str();
+        let mut stack: Vec<&str> = succ.get(start).cloned().unwrap_or_default();
+        let mut seen: HashSet<&str> = HashSet::new();
+        while let Some(cur) = stack.pop() {
+            if cur == start {
+                cyclic.insert(start.to_string());
+                break;
+            }
+            if seen.insert(cur) {
+                stack.extend(succ.get(cur).into_iter().flatten().copied());
+            }
+        }
+    }
+    cyclic
 }
 
 fn term_of_expr(e: &pb::Expr, frame: &Frame) -> anyhow::Result<Term> {
@@ -222,6 +275,21 @@ fn walk_extracts(
                 &len_term,
                 LENGTH_VALUES_CAP,
             )?;
+            // On a cyclic state, forking every feasible length compounds
+            // multiplicatively per loop iteration and never terminates.
+            // Enumerate only the min and max witnesses (dedup if equal):
+            // one representative per control-flow path, preserving the
+            // boundary coverage of the length arithmetic. Acyclic states
+            // keep the exhaustive all-SAT enumeration unchanged.
+            let values = if ctx.cyclic_states.contains(state.name.as_str()) {
+                match (values.iter().min().copied(), values.iter().max().copied()) {
+                    (Some(mn), Some(mx)) if mn == mx => vec![mn],
+                    (Some(mn), Some(mx)) => vec![mn, mx],
+                    _ => values,
+                }
+            } else {
+                values
+            };
             for v in values {
                 let mut child = frame.clone();
                 child.segments.push(format!("{inst}.{}={v}B", field.name));
@@ -471,5 +539,65 @@ mod tests {
             .find(|p| p.kind == PathKind::Accept && p.id.contains("=3B"))
             .unwrap();
         assert_eq!(a3.bit_len, 2 + 24);
+    }
+
+    /// Distinct `=NB` length witnesses appearing for `inst.field` across all paths.
+    fn byte_len_witnesses(paths: &[Path], inst_field: &str) -> std::collections::BTreeSet<u64> {
+        let prefix = format!("{inst_field}=");
+        let mut out = std::collections::BTreeSet::new();
+        for p in paths {
+            for seg in p.id.split('/') {
+                if let Some(rest) = seg.strip_prefix(&prefix) {
+                    if let Some(n) = rest.strip_suffix('B') {
+                        out.insert(n.parse::<u64>().unwrap());
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn cyclic_length_forking_bounded_to_min_max() {
+        // Self-loop `opt` extracts h{len:4 bits, body:len bytes}; len==0 accepts,
+        // any other len loops back to `opt`. The var-length `body` sits on a
+        // cyclic state, so per-iteration forking must collapse to the min (0)
+        // and max (15) length witnesses instead of every feasible value 0..15.
+        let ir = ParserBuilder::new("optloop", 3)
+            .header(
+                HeaderTypeBuilder::new("h")
+                    .bits("len", 4)
+                    .var_bytes("body", f("h", "len")),
+            )
+            .state(StateBuilder::new("opt").extract("h").select(
+                vec![f("h", "len")],
+                vec![arm(vec![v(0)], accept())],
+                to("opt"),
+            ))
+            .start("opt")
+            .build()
+            .unwrap();
+        let e = enumerate_ir(&ir);
+        // Only min (0) and max (15) length witnesses fork on the cyclic state —
+        // not the 16 values the unbounded all-SAT enumeration would produce.
+        assert_eq!(
+            byte_len_witnesses(&e.paths, "h.body"),
+            [0, 15].into_iter().collect()
+        );
+        // Termination: bounded path count (2^depth-scale, not 16^depth).
+        assert!(
+            e.paths.len() < 40,
+            "expected a bounded path count, got {}",
+            e.paths.len()
+        );
+        // Boundary witnesses actually produced accepts (min) and looped (max).
+        assert!(e
+            .paths
+            .iter()
+            .any(|p| p.kind == PathKind::Accept && p.id.contains("h.body=0B")));
+        assert!(e
+            .paths
+            .iter()
+            .any(|p| p.id.contains("h.body=15B/default/opt")));
     }
 }
