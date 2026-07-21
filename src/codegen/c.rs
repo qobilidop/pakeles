@@ -24,6 +24,10 @@ pub struct CArtifacts {
 /// instances (loop back-edges) appear multiple times in the interpreter's
 /// header list; only the terminal link is stored by the backends and is
 /// the conformance surface.
+///
+/// Test-only: both callers are the C and Lua differential conformance
+/// harnesses, which are `#[cfg(test)]`.
+#[cfg(test)]
 pub(crate) fn last_headers_by_instance(
     headers: &[crate::interp::ParsedHeader],
 ) -> Vec<&crate::interp::ParsedHeader> {
@@ -31,7 +35,7 @@ pub(crate) fn last_headers_by_instance(
     let mut last: std::collections::HashMap<&str, &crate::interp::ParsedHeader> =
         std::collections::HashMap::new();
     for h in headers {
-        if !order.iter().any(|i| *i == h.instance.as_str()) {
+        if !order.contains(&h.instance.as_str()) {
             order.push(h.instance.as_str());
         }
         last.insert(h.instance.as_str(), h);
