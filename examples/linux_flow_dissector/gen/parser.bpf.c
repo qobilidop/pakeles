@@ -65,6 +65,22 @@ typedef struct {
 } pk_linux_flow_dissector_ipv6_t;
 
 typedef struct {
+  uint8_t next_header;
+  uint8_t hdr_ext_len;
+  uint64_t body_bit_off;
+  uint64_t body_bit_len;
+} pk_linux_flow_dissector_ext_opt_t;
+
+typedef struct {
+  uint8_t next_header;
+  uint8_t reserved;
+  uint16_t frag_off;
+  uint8_t res2;
+  uint8_t m_flag;
+  uint32_t identification;
+} pk_linux_flow_dissector_ext_frag_t;
+
+typedef struct {
   uint32_t label;
   uint8_t tc;
   uint8_t s;
@@ -105,6 +121,10 @@ typedef struct {
   pk_linux_flow_dissector_ipv4_t ipv4;
   uint8_t ipv6_present;
   pk_linux_flow_dissector_ipv6_t ipv6;
+  uint8_t ext_opt_present;
+  pk_linux_flow_dissector_ext_opt_t ext_opt;
+  uint8_t ext_frag_present;
+  pk_linux_flow_dissector_ext_frag_t ext_frag;
   uint8_t mpls_present;
   pk_linux_flow_dissector_mpls_t mpls;
   uint8_t tcp_present;
@@ -139,15 +159,17 @@ static __attribute__((always_inline)) uint64_t pk_read_bits(const uint8_t *buf, 
 #define PK_S_PARSE_VLAN_Q 2
 #define PK_S_PARSE_IPV4 3
 #define PK_S_PARSE_IPV6 4
-#define PK_S_PARSE_MPLS 5
-#define PK_S_PARSE_TCP 6
-#define PK_S_PARSE_UDP 7
+#define PK_S_PARSE_IPV6_OPT 5
+#define PK_S_PARSE_IPV6_FRAG 6
+#define PK_S_PARSE_MPLS 7
+#define PK_S_PARSE_TCP 8
+#define PK_S_PARSE_UDP 9
 
 static __attribute__((always_inline)) int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_len, pk_linux_flow_dissector_result_t *out) {
   uint64_t off = 0;
   uint32_t state = PK_S_PARSE_ETHERNET;
   uint32_t depth;
-  for (depth = 0; depth < 5u; depth++) {
+  for (depth = 0; depth < 10u; depth++) {
     switch (state) {
     case PK_S_PARSE_ETHERNET: {
       out->ethernet_present = 1;
@@ -517,7 +539,16 @@ static __attribute__((always_inline)) int pk_linux_flow_dissector_parse_core(con
         off += vlen * 8;
       }
       uint64_t key0 = (uint64_t)out->ipv6.next_header;
-      if (key0 == 6ULL) {
+      if (key0 == 0ULL) {
+        state = PK_S_PARSE_IPV6_OPT;
+        continue;
+      } else if (key0 == 60ULL) {
+        state = PK_S_PARSE_IPV6_OPT;
+        continue;
+      } else if (key0 == 44ULL) {
+        state = PK_S_PARSE_IPV6_FRAG;
+        continue;
+      } else if (key0 == 6ULL) {
         state = PK_S_PARSE_TCP;
         continue;
       } else if (key0 == 17ULL) {
@@ -529,6 +560,114 @@ static __attribute__((always_inline)) int pk_linux_flow_dissector_parse_core(con
         out->consumed_bits = off;
         return 1;
       }
+    }
+    case PK_S_PARSE_IPV6_OPT: {
+      out->ext_opt_present = 1;
+      if (off + 8 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->ext_opt.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      off += 8;
+      if (off + 8 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->ext_opt.hdr_ext_len = (uint8_t)pk_read_bits(buf, off, 8);
+      off += 8;
+      {
+        uint64_t vlen = (((1ULL + (uint64_t)out->ext_opt.hdr_ext_len) << 3ULL) - 2ULL);
+        if (vlen > (bit_len - off) / 8) {
+          out->outcome = 1;
+          out->reason = PK_R_OUT_OF_BOUNDS;
+          out->consumed_bits = off;
+          return 1;
+        }
+        out->ext_opt.body_bit_off = off;
+        out->ext_opt.body_bit_len = vlen * 8;
+        off += vlen * 8;
+      }
+      uint64_t key0 = (uint64_t)out->ext_opt.next_header;
+      if (key0 == 0ULL) {
+        state = PK_S_PARSE_IPV6_OPT;
+        continue;
+      } else if (key0 == 60ULL) {
+        state = PK_S_PARSE_IPV6_OPT;
+        continue;
+      } else if (key0 == 44ULL) {
+        state = PK_S_PARSE_IPV6_FRAG;
+        continue;
+      } else if (key0 == 6ULL) {
+        state = PK_S_PARSE_TCP;
+        continue;
+      } else if (key0 == 17ULL) {
+        state = PK_S_PARSE_UDP;
+        continue;
+      } else {
+        out->outcome = 1;
+        out->reason = PK_R_UNSUPPORTED_IP_PROTOCOL;
+        out->consumed_bits = off;
+        return 1;
+      }
+    }
+    case PK_S_PARSE_IPV6_FRAG: {
+      out->ext_frag_present = 1;
+      if (off + 8 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->ext_frag.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      off += 8;
+      if (off + 8 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->ext_frag.reserved = (uint8_t)pk_read_bits(buf, off, 8);
+      off += 8;
+      if (off + 13 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->ext_frag.frag_off = (uint16_t)pk_read_bits(buf, off, 13);
+      off += 13;
+      if (off + 2 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->ext_frag.res2 = (uint8_t)pk_read_bits(buf, off, 2);
+      off += 2;
+      if (off + 1 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->ext_frag.m_flag = (uint8_t)pk_read_bits(buf, off, 1);
+      off += 1;
+      if (off + 32 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->ext_frag.identification = (uint32_t)pk_read_bits(buf, off, 32);
+      off += 32;
+      out->outcome = 0;
+      out->reason = PK_R_NONE;
+      out->consumed_bits = off;
+      return 0;
     }
     case PK_S_PARSE_MPLS: {
       out->mpls_present = 1;

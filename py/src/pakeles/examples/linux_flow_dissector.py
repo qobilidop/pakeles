@@ -114,6 +114,22 @@ class IPv6(Header):
     dst = var_bytes(16)
 
 
+class IPv6ExtOpt(Header):  # HopByHop (0) / DestOpts (60) option header
+    next_header = bits(8, "Next Header", DEC, tshark="ipv6.opt.nxt")
+    hdr_ext_len = bits(8, "Hdr Ext Len", DEC, doc="in 8-octet units, excl. first 8")
+    # option body: (1 + hdr_ext_len) * 8 total bytes, minus the 2-byte prefix.
+    body = var_bytes(((1 + hdr_ext_len) << 3) - 2)
+
+
+class IPv6Frag(Header):  # fragment header (nexthdr 44)
+    next_header = bits(8, "Next Header", DEC, tshark="ipv6.frag.nxt")
+    reserved = bits(8, "Reserved", HEX)
+    frag_off = bits(13, "Fragment Offset", DEC, doc="in 8-octet units")
+    res2 = bits(2, "Res", HEX)
+    m_flag = bits(1, "More Fragments", DEC)
+    identification = bits(32, "Identification", HEX)
+
+
 class TCP(Header):
     sport = bits(16, "Source Port", DEC, tshark="tcp.srcport")
     dport = bits(16, "Destination Port", DEC, tshark="tcp.dstport")
@@ -137,7 +153,7 @@ class UDP(Header):
 def linux_flow_dissector() -> Parser:
     return parser(
         "linux_flow_dissector",
-        max_depth=5,
+        max_depth=10,
         start="parse_ethernet",
         states={
             "parse_ethernet": extract(Ethernet).select(
@@ -181,9 +197,31 @@ def linux_flow_dissector() -> Parser:
             ),
             "parse_ipv6": extract(IPv6).select(
                 IPv6.next_header,
-                {6: "parse_tcp", 17: "parse_udp"},
+                {
+                    0x00: "parse_ipv6_opt",  # HopByHop
+                    0x3C: "parse_ipv6_opt",  # DestOpts (60)
+                    0x2C: "parse_ipv6_frag",  # Fragment (44)
+                    6: "parse_tcp",
+                    17: "parse_udp",
+                },
                 default=reject("unsupported ip protocol", info=True),
             ),
+            # Kernel PROG(IPV6OP): walk the option, dispatch on its own
+            # next_header — HopByHop/DestOpts loop back (self-edge).
+            "parse_ipv6_opt": extract(IPv6ExtOpt["ext_opt"]).select(
+                IPv6ExtOpt["ext_opt"].next_header,
+                {
+                    0x00: "parse_ipv6_opt",
+                    0x3C: "parse_ipv6_opt",
+                    0x2C: "parse_ipv6_frag",
+                    6: "parse_tcp",
+                    17: "parse_udp",
+                },
+                default=reject("unsupported ip protocol", info=True),
+            ),
+            # Kernel PROG(IPV6FR) under default flags: read the fragment
+            # header and stop (BPF_OK), always.
+            "parse_ipv6_frag": extract(IPv6Frag["ext_frag"]).accept(),
             # Upstream PROG(MPLS): read one label entry, stop, BPF_OK.
             "parse_mpls": extract(MPLS).accept(),
             "parse_tcp": extract(TCP).accept(),

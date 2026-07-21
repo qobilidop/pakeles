@@ -458,6 +458,139 @@
         ]
       },
       {
+        "name": "ipv6_ext_opt",
+        "fields": [
+          {
+            "name": "next_header",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Next Header",
+              "format": "DISPLAY_FORMAT_DEC"
+            },
+            "annotations": {
+              "tshark.key": "ipv6.opt.nxt"
+            }
+          },
+          {
+            "name": "hdr_ext_len",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Hdr Ext Len",
+              "format": "DISPLAY_FORMAT_DEC",
+              "doc": "in 8-octet units, excl. first 8"
+            }
+          },
+          {
+            "name": "body",
+            "width": {
+              "byteLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_SUB",
+                  "lhs": {
+                    "bin": {
+                      "op": "BIN_OP_KIND_SHL",
+                      "lhs": {
+                        "bin": {
+                          "op": "BIN_OP_KIND_ADD",
+                          "lhs": {
+                            "constant": "1"
+                          },
+                          "rhs": {
+                            "field": {
+                              "header": "ext_opt",
+                              "field": "hdr_ext_len"
+                            }
+                          }
+                        }
+                      },
+                      "rhs": {
+                        "constant": "3"
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "constant": "2"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "ipv6_frag",
+        "fields": [
+          {
+            "name": "next_header",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Next Header",
+              "format": "DISPLAY_FORMAT_DEC"
+            },
+            "annotations": {
+              "tshark.key": "ipv6.frag.nxt"
+            }
+          },
+          {
+            "name": "reserved",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Reserved",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "frag_off",
+            "width": {
+              "bits": 13
+            },
+            "display": {
+              "name": "Fragment Offset",
+              "format": "DISPLAY_FORMAT_DEC",
+              "doc": "in 8-octet units"
+            }
+          },
+          {
+            "name": "res2",
+            "width": {
+              "bits": 2
+            },
+            "display": {
+              "name": "Res",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "m_flag",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "More Fragments",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "identification",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Identification",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
+      },
+      {
         "name": "mpls",
         "fields": [
           {
@@ -973,6 +1106,36 @@
               {
                 "entries": [
                   {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6_opt"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "60"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6_opt"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "44"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6_frag"
+                }
+              },
+              {
+                "entries": [
+                  {
                     "value": "6"
                   }
                 ],
@@ -999,6 +1162,101 @@
                 }
               }
             }
+          }
+        }
+      },
+      {
+        "name": "parse_ipv6_opt",
+        "extracts": [
+          {
+            "headerType": "ipv6_ext_opt",
+            "instance": "ext_opt"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ext_opt",
+                  "field": "next_header"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6_opt"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "60"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6_opt"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "44"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6_frag"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "17"
+                  }
+                ],
+                "next": {
+                  "state": "parse_udp"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "reject": {
+                "reason": "unsupported ip protocol",
+                "annotations": {
+                  "severity": "info"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_ipv6_frag",
+        "extracts": [
+          {
+            "headerType": "ipv6_frag",
+            "instance": "ext_frag"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
           }
         }
       },
@@ -1043,6 +1301,6 @@
       }
     ],
     "startState": "parse_ethernet",
-    "maxDepth": 5
+    "maxDepth": 10
   }
 }

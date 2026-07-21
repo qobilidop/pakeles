@@ -71,6 +71,22 @@ typedef struct {
 } pk_linux_flow_dissector_ipv6_t;
 
 typedef struct {
+  uint8_t next_header;
+  uint8_t hdr_ext_len;
+  uint64_t body_bit_off;
+  uint64_t body_bit_len;
+} pk_linux_flow_dissector_ext_opt_t;
+
+typedef struct {
+  uint8_t next_header;
+  uint8_t reserved;
+  uint16_t frag_off;
+  uint8_t res2;
+  uint8_t m_flag;
+  uint32_t identification;
+} pk_linux_flow_dissector_ext_frag_t;
+
+typedef struct {
   uint32_t label;
   uint8_t tc;
   uint8_t s;
@@ -111,6 +127,10 @@ typedef struct {
   pk_linux_flow_dissector_ipv4_t ipv4;
   uint8_t ipv6_present;
   pk_linux_flow_dissector_ipv6_t ipv6;
+  uint8_t ext_opt_present;
+  pk_linux_flow_dissector_ext_opt_t ext_opt;
+  uint8_t ext_frag_present;
+  pk_linux_flow_dissector_ext_frag_t ext_frag;
   uint8_t mpls_present;
   pk_linux_flow_dissector_mpls_t mpls;
   uint8_t tcp_present;

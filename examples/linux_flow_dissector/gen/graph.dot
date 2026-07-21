@@ -6,6 +6,8 @@ digraph "linux_flow_dissector" {
   "parse_vlan_q" [shape=box, label="parse_vlan_q\nextract vlan_q"];
   "parse_ipv4" [shape=box, label="parse_ipv4\nextract ipv4"];
   "parse_ipv6" [shape=box, label="parse_ipv6\nextract ipv6"];
+  "parse_ipv6_opt" [shape=box, label="parse_ipv6_opt\nextract ext_opt"];
+  "parse_ipv6_frag" [shape=box, label="parse_ipv6_frag\nextract ext_frag"];
   "parse_mpls" [shape=box, label="parse_mpls\nextract mpls"];
   "parse_tcp" [shape=box, label="parse_tcp\nextract tcp"];
   "parse_udp" [shape=box, label="parse_udp\nextract udp"];
@@ -33,9 +35,19 @@ digraph "linux_flow_dissector" {
   "parse_ipv4" -> "parse_tcp" [label="ipv4.protocol == 0x6"];
   "parse_ipv4" -> "parse_udp" [label="ipv4.protocol == 0x11"];
   "parse_ipv4" -> "reject_3" [label="default", style=dashed];
+  "parse_ipv6" -> "parse_ipv6_opt" [label="ipv6.next_header == 0x0"];
+  "parse_ipv6" -> "parse_ipv6_opt" [label="ipv6.next_header == 0x3c"];
+  "parse_ipv6" -> "parse_ipv6_frag" [label="ipv6.next_header == 0x2c"];
   "parse_ipv6" -> "parse_tcp" [label="ipv6.next_header == 0x6"];
   "parse_ipv6" -> "parse_udp" [label="ipv6.next_header == 0x11"];
   "parse_ipv6" -> "reject_3" [label="default", style=dashed];
+  "parse_ipv6_opt" -> "parse_ipv6_opt" [label="ext_opt.next_header == 0x0"];
+  "parse_ipv6_opt" -> "parse_ipv6_opt" [label="ext_opt.next_header == 0x3c"];
+  "parse_ipv6_opt" -> "parse_ipv6_frag" [label="ext_opt.next_header == 0x2c"];
+  "parse_ipv6_opt" -> "parse_tcp" [label="ext_opt.next_header == 0x6"];
+  "parse_ipv6_opt" -> "parse_udp" [label="ext_opt.next_header == 0x11"];
+  "parse_ipv6_opt" -> "reject_3" [label="default", style=dashed];
+  "parse_ipv6_frag" -> "accept";
   "parse_mpls" -> "accept";
   "parse_tcp" -> "accept";
   "parse_udp" -> "accept";
