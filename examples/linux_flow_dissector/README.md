@@ -68,8 +68,10 @@ rung boundaries, not bugs:
 - **Fragmented IPv4** — the kernel's `PROG(IP)` stops before port parsing
   when `MF`/frag-off is set, returning `BPF_OK` with zero ports; this
   parser would instead read TCP/UDP ports off fragment data or reject.
-- **IP protocols other than TCP/UDP** (e.g. ICMP) — the kernel accepts
-  with `ip_proto` set and no ports; we reject.
+- **IP protocols the kernel dissects beyond TCP/UDP** — ICMP and UDP-Lite
+  (kernel accepts; we reject) — plus the encap cases below. IP protocols
+  outside the kernel's dissected set are dropped by both sides, so that
+  direction already agrees.
 - **IPv6 extension headers** (`PROG(IPV6OP)`/`PROG(IPV6FR)`) — not yet
   modeled.
 - **GRE/IPIP encapsulation** — not yet modeled.
