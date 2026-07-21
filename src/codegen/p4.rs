@@ -196,7 +196,8 @@ fn expr_p4(
                 parser,
                 stacked,
             )?;
-            let op = match pb::BinOpKind::try_from(b.op) {
+            let kind = pb::BinOpKind::try_from(b.op);
+            let op = match kind {
                 Ok(pb::BinOpKind::Add) => "+",
                 Ok(pb::BinOpKind::Sub) => "-",
                 Ok(pb::BinOpKind::Mul) => "*",
@@ -206,7 +207,16 @@ fn expr_p4(
                 Ok(pb::BinOpKind::Or) => "|",
                 _ => bail!("unspecified binop"),
             };
-            format!("({l} {op} {r})")
+            // The `simple_switch` (BMv2) backend caps a shift's right
+            // operand at 8 bits ("shift amount limited to 8 bits on this
+            // target"), but our expressions evaluate in bit<64>, so a
+            // bit<64> shift amount is rejected by p4c-bm2-ss. Shift
+            // amounts are always small, so narrow the RHS to bit<8>.
+            if matches!(kind, Ok(pb::BinOpKind::Shl) | Ok(pb::BinOpKind::Shr)) {
+                format!("({l} {op} (bit<8>)({r}))")
+            } else {
+                format!("({l} {op} {r})")
+            }
         }
     })
 }
