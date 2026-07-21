@@ -658,9 +658,31 @@ mod gate_tests {
             .count();
         let drop = g.entries.len() - ok;
         assert!(
-            ok >= 9 && drop >= 4,
+            ok >= 15 && drop >= 6,
             "corpus shape shrank: {ok} ok / {drop} drop entries"
         );
+        for name in [
+            "nhoff",
+            "thoff",
+            "n_proto",
+            "addr_proto",
+            "ip_proto",
+            "sport",
+            "dport",
+            "ipv4_src",
+            "ipv4_dst",
+            "ipv6_src",
+            "ipv6_dst",
+            "flow_label",
+            "is_frag",
+            "is_first_frag",
+        ] {
+            assert!(
+                g.keys_subset.iter().any(|s| s == name),
+                "golden keys_subset missing `{name}` — re-mint with the rung-2 capture.c \
+                 (a subset-stale golden would silently skip the new v3 fields)"
+            );
+        }
         assert_eq!(report.compared, g.entries.len());
         assert!(
             report.mismatches.is_empty(),
