@@ -122,7 +122,7 @@ int main(int argc, char **argv) {
                "\"ipv4_src\": \"%s\", \"ipv4_dst\": \"%s\", "
                "\"ipv6_src\": \"%s\", \"ipv6_dst\": \"%s\"}}",
                first ? "" : ",\n", phex,
-               k->nhoff, k->thoff, ntohs(k->n_proto), ntohs(k->addr_proto),
+               k->nhoff, k->thoff, ntohs(k->n_proto), k->addr_proto,
                k->ip_proto, ntohs(k->sport), ntohs(k->dport),
                v4s, v4d, v6s, v6d);
         first = 0;
