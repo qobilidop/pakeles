@@ -59,6 +59,15 @@ or over-depth tag stacks), not just accepts. The rung-1 state graph — VLAN
 and MPLS states added — is regenerated at
 [`gen/graph.svg`](gen/graph.svg).
 
+**Handled as of rung 3 — IPv4/TCP options.** Both are `doff`/`ihl`-sized
+regions the kernel opaque-skips (it validates the size, never parses into
+the options). IPv4 options were covered from rung 0 (`var_bytes(ihl*4-20)`);
+rung 3 gives TCP the same treatment (`var_bytes(data_offset*4-20)`), so the
+corpus now proves agreement on TCP options: `doff<5` (kernel `tcp->doff<5`
+drop == our wrapped-length reject), truncated options (kernel
+`tcp+doff*4>data_end` drop == our truncation), and options-present accepts
+with ports read. No new IR — the same sized-region `var_bytes` mechanism.
+
 **Boundary of the agreement claim:** the reject⇔drop agreement above is
 proven over the committed corpus, no further. There are known divergence
 classes *outside this rung's scope* where upstream `bpf_flow.c` **accepts**
