@@ -388,7 +388,7 @@ mod tests {
 
     #[test]
     fn bmv2_conformance_byte_aligned_suite() {
-        bmv2_conformance_byte_aligned(&crate::examples::eth_ipvx_l4(), 28);
+        bmv2_conformance_byte_aligned(&crate::examples::eth_ipvx_l4(), 6);
     }
 
     #[test]
@@ -397,6 +397,6 @@ mod tests {
         // all run through ONE batched simple_switch invocation (see
         // `run_batch`) rather than a per-vector spawn — so we exercise the
         // whole byte-aligned set, not a sample.
-        bmv2_conformance_byte_aligned(&crate::examples::linux_flow_dissector(), 300);
+        bmv2_conformance_byte_aligned(&crate::examples::linux_flow_dissector(), 90);
     }
 }

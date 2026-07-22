@@ -684,7 +684,7 @@ mod tests {
 
     /// The full loop: symbolic vectors -> pcap -> tshark running our
     /// generated dissector -> JSON diffed against expected fields.
-    fn generated_dissector_conformance_suite(ir: &pb::Ir) {
+    fn generated_dissector_conformance_suite(ir: &pb::Ir, min_compared: usize) {
         if std::process::Command::new("tshark")
             .arg("--version")
             .output()
@@ -845,7 +845,10 @@ mod tests {
         }
         let _ = std::fs::remove_file(&lua_path);
         let _ = std::fs::remove_file(&pcap_path);
-        assert!(compared > 500, "suspiciously few comparisons: {compared}");
+        assert!(
+            compared >= min_compared,
+            "suspiciously few comparisons: {compared}"
+        );
         assert!(
             mismatches.is_empty(),
             "{} mismatches:\n{}",
@@ -856,12 +859,15 @@ mod tests {
 
     #[test]
     fn generated_dissector_conformance() {
-        generated_dissector_conformance_suite(&eth_ipvx_l4());
+        // One-witness-per-path shrank the accept-vector set; ~128 field
+        // comparisons across eth_ipvx_l4's accept paths (floor guards
+        // against a silently-empty suite, not an exact count).
+        generated_dissector_conformance_suite(&eth_ipvx_l4(), 100);
     }
 
     #[test]
     fn generated_dissector_conformance_flow_dissector() {
-        generated_dissector_conformance_suite(&linux_flow_dissector());
+        generated_dissector_conformance_suite(&linux_flow_dissector(), 400);
     }
 
     type ExpectedFields = Vec<(String, Option<crate::testvec::pb::expected_field::Value>)>;

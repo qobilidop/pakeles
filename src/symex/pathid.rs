@@ -5,8 +5,8 @@
 use crate::interp::{Decision, FieldValue, ParseResult};
 use crate::ir::pb;
 
-/// Engine's sanity bound, mirrored (see engine::SANITY_BITS).
-const SANITY_BITS: u64 = 8 * 1024 * 1024;
+/// Engine's sanity ceiling, mirrored (see engine::SANITY_BITS/SANITY_BYTES).
+const SANITY_BYTES: u64 = (8 * 1024 * 1024) / 8;
 
 pub fn path_id(ir: &pb::Ir, result: &ParseResult) -> anyhow::Result<String> {
     let parser = ir
@@ -33,7 +33,6 @@ pub fn path_id(ir: &pb::Ir, result: &ParseResult) -> anyhow::Result<String> {
 
     let mut segments: Vec<String> = Vec::new();
     let mut headers = result.headers.iter();
-    let mut cursor_bits: u64 = 0;
 
     for (step_idx, step) in result.trace.iter().enumerate() {
         segments.push(step.state.clone());
@@ -62,26 +61,35 @@ pub fn path_id(ir: &pb::Ir, result: &ParseResult) -> anyhow::Result<String> {
                 let parsed_field =
                     parsed.and_then(|h| h.fields.iter().find(|f| f.name == field.name));
                 match field.width.as_ref().and_then(|w| w.width.as_ref()) {
-                    Some(pb::field_width::Width::Bits(n)) => match parsed_field {
-                        Some(_) => cursor_bits += u64::from(*n),
+                    Some(pb::field_width::Width::Bits(_)) => match parsed_field {
+                        Some(_) => {} // read succeeded: no segment, offset unneeded
                         None => {
                             segments.push(format!("!trunc@{inst}.{}", field.name));
                             return Ok(segments.join("/"));
                         }
                     },
                     Some(pb::field_width::Width::ByteLen(expr)) => {
-                        // Length is derivable from already-extracted
-                        // fields whether or not the read succeeded.
-                        let v = crate::interp::eval_expr_pub(expr, &env)?;
-                        segments.push(format!("{inst}.{}={v}B", field.name));
-                        let oob_by_len = v
-                            .checked_mul(8)
-                            .and_then(|b| b.checked_add(cursor_bits))
-                            .is_none_or(|end| end > SANITY_BITS);
+                        // A successful var-field read adds NO segment (the
+                        // length is layout, not control flow). A failed read
+                        // ends the path: `!oob` if the length wraps/exceeds
+                        // the sane max (matching engine's SANITY_BYTES split),
+                        // else `!trunc` (packet simply too short).
                         match parsed_field {
-                            Some(_) => cursor_bits += v * 8,
+                            Some(_) => {} // read succeeded: no segment
                             None => {
-                                if !oob_by_len {
+                                let v = crate::interp::eval_expr_pub(expr, &env)?;
+                                // Classify on the SAME quantity the engine
+                                // splits on: `v > min(expr_max, SANITY_BYTES)`.
+                                // (Not `v*8 + cursor` — that shifts the
+                                // boundary by the cursor and diverges from the
+                                // engine near ~1 MB lengths.)
+                                let bound_bytes: u64 = crate::codegen::p4::expr_max(expr, parser)?
+                                    .min(SANITY_BYTES as u128)
+                                    as u64;
+                                let oob_by_len = v > bound_bytes;
+                                if oob_by_len {
+                                    segments.push(format!("!oob@{inst}.{}", field.name));
+                                } else {
                                     segments.push(format!("!trunc@{inst}.{}", field.name));
                                 }
                                 return Ok(segments.join("/"));

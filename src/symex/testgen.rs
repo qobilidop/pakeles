@@ -27,13 +27,11 @@ pub fn generate(ir: &irpb::Ir) -> Result<pb::TestSuite> {
 }
 
 fn vector_for(ir: &irpb::Ir, solver: &mut dyn Solver, path: &Path) -> Result<pb::TestVector> {
-    let Some(bytes) = solver.check(path.bit_len, &path.constraints) else {
+    let Some((bytes, bit_len)) = solver.solve_witness(path.width, &path.constraints, &path.bit_len)
+    else {
         bail!("engine bug: enumerated path is UNSAT");
     };
-    let bits = Bits {
-        bytes,
-        bit_len: path.bit_len,
-    };
+    let bits = Bits { bytes, bit_len };
     let result = run_bits(ir, &bits)?;
 
     // The interpreter must agree with the path's own expectation —
@@ -157,12 +155,13 @@ mod tests {
                 .filter(|v| v.category == c as i32)
                 .count()
         };
-        // Accepts: 11 ipv4 ihl layouts x {tcp,udp} = 22, plus ipv6 x
-        // {tcp,udp} = 2 -> 24. Rejects: 5 wrapped ihl (oob) + 11
-        // ipv4-default + 1 ipv6-default + 1 eth-default = 18.
-        assert_eq!(by_cat(pb::Category::Accept), 24);
-        assert_eq!(by_cat(pb::Category::Reject), 18);
-        assert_eq!(by_cat(pb::Category::Truncation), 202);
+        // Symbolic layout = one witness per control-flow path. Accepts:
+        // ipv4->{tcp,udp} + ipv6->{tcp,udp} = 4 (ihl length no longer forks).
+        // Rejects: 1 ipv4-options oob (ihl<5 wraps) + ipv4-default +
+        // ipv6-default + eth-default = 4.
+        assert_eq!(by_cat(pb::Category::Accept), 4);
+        assert_eq!(by_cat(pb::Category::Reject), 4);
+        assert!(by_cat(pb::Category::Truncation) > 0);
         // IDs unique and sorted.
         let ids: Vec<&str> = suite.vectors.iter().map(|v| v.id.as_str()).collect();
         let mut sorted = ids.clone();

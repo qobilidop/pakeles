@@ -1,22 +1,25 @@
-//! Path enumeration with layout concretization.
+//! Path enumeration with symbolic layout.
 //!
-//! Variable-length fields are handled by forking on every feasible
-//! value of the length expression (all-SAT, loud cap), which makes all
-//! field offsets concrete per path; the only symbolic values are field
-//! contents, encoded as extracts of one packet bitvector.
+//! Control-flow *path* is decoupled from concrete *layout*: variable-length
+//! fields do NOT fork per length value. Field offsets and the per-path total
+//! length are symbolic `Term`s over one packet bitvector; a var-length field
+//! forks control flow only into {continue, body-truncation, out-of-bounds}.
+//! `testgen` solves one minimal witness per path. A concrete `cursor_max`
+//! width budget (via interval arithmetic) keeps each per-path solve tight.
 
 use super::solver::{Constraint, Solver, Term};
+use crate::codegen::p4::expr_max;
 use crate::ir::pb;
 use std::collections::{HashMap, HashSet};
 
-/// Refuse layouts demanding more than this many bits (1 MiB): a
-/// wrapping length expression (e.g. ihl<5) is a semantic reject, not a
-/// layout to materialize.
+/// Ceiling on a materializable var-length body: the per-field bound is
+/// `min(interval-max, SANITY_BYTES)`. A length above it (a wrapping expr like
+/// ihl<5 -> ~2^64 bytes, or a genuinely huge field) is a semantic reject
+/// ("out of bounds"), not a layout to build; it also caps the width budget so
+/// the packet BV stays finite. Mirrored by `pathid` (same `min(expr_max,
+/// SANITY_BYTES)` classifier) so engine and path-id agree per witness.
 const SANITY_BITS: usize = 8 * 1024 * 1024;
-
-/// All-SAT cap for length-value enumeration. Exceeding it is an error,
-/// never a silent truncation.
-const LENGTH_VALUES_CAP: usize = 1024;
+const SANITY_BYTES: u64 = (SANITY_BITS / 8) as u64;
 
 /// Max times a cyclic state may be entered per path during testgen. A
 /// self-loop (e.g. IPv6 option chains) otherwise forks exponentially in
@@ -42,8 +45,30 @@ pub enum PathKind {
 pub struct Path {
     pub id: String,
     pub kind: PathKind,
-    pub bit_len: usize,
+    /// Symbolic total packet length for this path (bits). Solved (and
+    /// minimized) into a concrete length by `testgen`.
+    pub(crate) bit_len: Term,
+    /// Concrete upper bound on `bit_len` (bits) — the packet-BV width the
+    /// witness solve runs over. Sound because every var-length is bounded
+    /// by its expression's interval max.
+    pub(crate) width: usize,
     pub(crate) constraints: Vec<Constraint>,
+}
+
+// Term arithmetic helpers for building symbolic offsets / lengths.
+// (`t_` prefixed to avoid clashing with the `builder::{add,sub,mul}` Expr
+// constructors glob-imported in the test module.)
+fn t_cst(v: u64) -> Term {
+    Term::Const(v)
+}
+fn t_add(a: Term, b: Term) -> Term {
+    Term::Bin(pb::BinOpKind::Add, Box::new(a), Box::new(b))
+}
+fn t_sub(a: Term, b: Term) -> Term {
+    Term::Bin(pb::BinOpKind::Sub, Box::new(a), Box::new(b))
+}
+fn t_mul(a: Term, b: Term) -> Term {
+    Term::Bin(pb::BinOpKind::Mul, Box::new(a), Box::new(b))
 }
 
 /// Feasibility byproducts consumed by lint.
@@ -74,15 +99,32 @@ struct Ctx<'a> {
     cyclic_states: HashSet<String>,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 struct Frame {
-    cursor: usize,
-    placed: HashMap<(String, String), (usize, usize)>, // (inst,field) -> (bit_off, len)
+    /// Symbolic bit offset of the parse cursor (starts `Const(0)`).
+    cursor: Term,
+    /// Concrete upper bound on `cursor` (bits) — the width budget.
+    cursor_max: usize,
+    placed: HashMap<(String, String), (Term, usize)>, // (inst,field) -> (off_term, len)
     constraints: Vec<Constraint>,
     segments: Vec<String>,
     depth: u32,
     /// Per-path entry count for each cyclic state (loop-unroll cap).
     loop_counts: HashMap<String, u32>,
+}
+
+impl Default for Frame {
+    fn default() -> Self {
+        Frame {
+            cursor: t_cst(0),
+            cursor_max: 0,
+            placed: HashMap::new(),
+            constraints: Vec::new(),
+            segments: Vec::new(),
+            depth: 0,
+            loop_counts: HashMap::new(),
+        }
+    }
 }
 
 pub(crate) fn enumerate(ir: &pb::Ir, solver: &mut dyn Solver) -> anyhow::Result<Enumeration> {
@@ -164,15 +206,23 @@ fn term_of_expr(e: &pb::Expr, frame: &Frame) -> anyhow::Result<Term> {
     match e.kind.as_ref() {
         Some(pb::expr::Kind::Constant(v)) => Ok(Term::Const(*v)),
         Some(pb::expr::Kind::Field(r)) => {
-            let (bit_off, len) = frame
+            let (off_term, len) = frame
                 .placed
                 .get(&(r.header.clone(), r.field.clone()))
                 .ok_or_else(|| {
                     anyhow::anyhow!("unresolved field ref `{}.{}`", r.header, r.field)
                 })?;
-            Ok(Term::Extract {
-                bit_off: *bit_off,
-                len: *len,
+            // Concrete offset -> the cheap Extract; symbolic (a field after a
+            // var-length region) -> ExtractAt.
+            Ok(match off_term {
+                Term::Const(c) => Term::Extract {
+                    bit_off: *c as usize,
+                    len: *len,
+                },
+                _ => Term::ExtractAt {
+                    off: Box::new(off_term.clone()),
+                    len: *len,
+                },
             })
         }
         Some(pb::expr::Kind::Bin(b)) => {
@@ -206,11 +256,12 @@ fn entry_constraint(entry: &pb::KeysetEntry, key: Term) -> Constraint {
     }
 }
 
-fn emit(ctx: &mut Ctx, frame: &Frame, kind: PathKind, bit_len: usize) {
+fn emit(ctx: &mut Ctx, frame: &Frame, kind: PathKind, bit_len: Term, width: usize) {
     ctx.paths.push(Path {
         id: frame.segments.join("/"),
         kind,
         bit_len,
+        width,
         constraints: frame.constraints.clone(),
     });
 }
@@ -219,14 +270,14 @@ fn walk_state(ctx: &mut Ctx, state_name: &str, mut frame: Frame) -> anyhow::Resu
     frame.depth += 1;
     frame.segments.push(state_name.to_string());
     if frame.depth > ctx.parser.max_depth {
-        let bl = frame.cursor;
         emit(
             ctx,
             &frame,
             PathKind::Reject {
                 reason: "max depth exceeded".into(),
             },
-            bl,
+            frame.cursor.clone(),
+            frame.cursor_max,
         );
         return Ok(());
     }
@@ -282,73 +333,109 @@ fn walk_extracts(
     match field.width.as_ref().and_then(|w| w.width.as_ref()) {
         Some(pb::field_width::Width::Bits(n)) => {
             let n = *n as usize;
-            // Truncation fork: fail reading exactly this field.
+            // Truncation fork: packet ends before this field is fully read.
             {
                 let mut t = frame.clone();
                 t.segments.push(format!("!trunc@{inst}.{}", field.name));
-                let bl = frame.cursor + n - 1;
-                emit(ctx, &t, PathKind::Truncation, bl);
+                // avail = cursor + n - 1: one bit short of the field.
+                emit(
+                    ctx,
+                    &t,
+                    PathKind::Truncation,
+                    t_add(frame.cursor.clone(), t_cst((n - 1) as u64)),
+                    frame.cursor_max + n,
+                );
             }
-            frame
-                .placed
-                .insert((inst.clone(), field.name.clone()), (frame.cursor, n));
-            frame.cursor += n;
+            frame.placed.insert(
+                (inst.clone(), field.name.clone()),
+                (frame.cursor.clone(), n),
+            );
+            frame.cursor = t_add(frame.cursor, t_cst(n as u64));
+            frame.cursor_max += n;
             walk_extracts(ctx, state, items, idx + 1, frame)
         }
         Some(pb::field_width::Width::ByteLen(expr)) => {
+            // No per-value forking: the body length stays symbolic. Fork
+            // control flow only into {out-of-bounds, body-truncation,
+            // continue}. The oob/continue split is at SANITY_BYTES, matching
+            // pathid; the width budget uses the tighter interval max.
             let len_term = term_of_expr(expr, &frame)?;
-            // On a cyclic state, forking every feasible length compounds
-            // multiplicatively per loop iteration and never terminates.
-            // Fork only the min and max witnesses (dedup if equal): one
-            // representative per control-flow path, preserving the
-            // boundary coverage of the length arithmetic. Computed via
-            // two z3 optimize solves instead of a solver call per value.
-            // Acyclic states keep the exhaustive all-SAT enumeration.
-            let values: Vec<u64> = if ctx.cyclic_states.contains(state.name.as_str()) {
-                match ctx
+            // Bound the body by `min(interval-max, SANITY)`. This is the single
+            // quantity that keeps THREE things consistent: (a) the oob/continue
+            // split matches pathid (which mirrors `bound_bytes`); (b) the width
+            // budget `8*bound_bytes <= SANITY_BITS` is a sound upper bound on
+            // the continue branch's body AND never overflows `usize`/`u32` even
+            // if `expr_max` (a u128) is astronomically large; (c) a wrapped or
+            // oversized length lands in the oob branch, so no feasible continue
+            // layout ever exceeds the width. `expr_max` alone would be unsound
+            // for add/mul-wrap into `(expr_max, SANITY_BYTES]`.
+            let bound_bytes: u64 = expr_max(expr, ctx.parser)?.min(SANITY_BYTES as u128) as u64;
+            let bound_bits: usize = bound_bytes as usize * 8;
+
+            // Out-of-bounds reject: length wraps / exceeds `bound_bytes`
+            // (feasible only when the expr can wrap, e.g. ihl<5, or exceed the
+            // sane cap; z3 prunes it otherwise). Short witness -> interp
+            // "out of bounds".
+            {
+                let mut oob = frame.clone();
+                oob.constraints.push(Constraint::InRange(
+                    len_term.clone(),
+                    bound_bytes + 1,
+                    u64::MAX,
+                ));
+                if ctx
                     .solver
-                    .min_max(frame.cursor.max(1), &frame.constraints, &len_term)?
+                    .check(oob.cursor_max.max(1), &oob.constraints)
+                    .is_some()
                 {
-                    None => Vec::new(),
-                    Some((mn, mx)) if mn == mx => vec![mn],
-                    Some((mn, mx)) => vec![mn, mx],
-                }
-            } else {
-                ctx.solver.all_values(
-                    frame.cursor.max(1),
-                    &frame.constraints,
-                    &len_term,
-                    LENGTH_VALUES_CAP,
-                )?
-            };
-            for v in values {
-                let mut child = frame.clone();
-                child.segments.push(format!("{inst}.{}={v}B", field.name));
-                child.constraints.push(Constraint::Eq(len_term.clone(), v));
-                let len_bits = (v as usize).saturating_mul(8);
-                if child.cursor.saturating_add(len_bits) > SANITY_BITS {
-                    let bl = child.cursor;
+                    oob.segments.push(format!("!oob@{inst}.{}", field.name));
                     emit(
                         ctx,
-                        &child,
+                        &oob,
                         PathKind::Reject {
                             reason: "out of bounds".into(),
                         },
-                        bl,
+                        frame.cursor.clone(),
+                        frame.cursor_max,
                     );
-                    continue;
                 }
-                if len_bits > 0 {
-                    let mut t = child.clone();
-                    t.segments.push(format!("!trunc@{inst}.{}", field.name));
-                    let bl = child.cursor + len_bits - 1;
-                    emit(ctx, &t, PathKind::Truncation, bl);
-                }
-                // Var-length content is opaque bytes; not placeable for refs.
-                child.cursor += len_bits;
-                walk_extracts(ctx, state, items, idx + 1, child)?;
             }
-            Ok(())
+
+            // The continue world is the non-wrapping, within-bound lengths.
+            frame
+                .constraints
+                .push(Constraint::InRange(len_term.clone(), 0, bound_bytes));
+
+            // Body-truncation: packet ends inside a non-empty body.
+            {
+                let mut t = frame.clone();
+                t.constraints
+                    .push(Constraint::InRange(len_term.clone(), 1, bound_bytes));
+                if ctx
+                    .solver
+                    .check(t.cursor_max.max(1), &t.constraints)
+                    .is_some()
+                {
+                    t.segments.push(format!("!trunc@{inst}.{}", field.name));
+                    // avail = cursor + 8*len - 1: one bit short of the body.
+                    let bl = t_sub(
+                        t_add(frame.cursor.clone(), t_mul(t_cst(8), len_term.clone())),
+                        t_cst(1),
+                    );
+                    emit(
+                        ctx,
+                        &t,
+                        PathKind::Truncation,
+                        bl,
+                        frame.cursor_max + bound_bits,
+                    );
+                }
+            }
+
+            // Continue: consume the opaque body (not placeable for refs).
+            frame.cursor = t_add(frame.cursor, t_mul(t_cst(8), len_term));
+            frame.cursor_max += bound_bits;
+            walk_extracts(ctx, state, items, idx + 1, frame)
         }
         None => anyhow::bail!("field `{}` has no width", field.name),
     }
@@ -358,19 +445,24 @@ fn walk_target(ctx: &mut Ctx, target: &pb::Target, frame: Frame) -> anyhow::Resu
     match target.kind.as_ref() {
         Some(pb::target::Kind::State(name)) => walk_state(ctx, name, frame),
         Some(pb::target::Kind::Accept(_)) => {
-            let bl = frame.cursor;
-            emit(ctx, &frame, PathKind::Accept, bl);
+            emit(
+                ctx,
+                &frame,
+                PathKind::Accept,
+                frame.cursor.clone(),
+                frame.cursor_max,
+            );
             Ok(())
         }
         Some(pb::target::Kind::Reject(r)) => {
-            let bl = frame.cursor;
             emit(
                 ctx,
                 &frame,
                 PathKind::Reject {
                     reason: r.reason.clone(),
                 },
-                bl,
+                frame.cursor.clone(),
+                frame.cursor_max,
             );
             Ok(())
         }
@@ -412,7 +504,7 @@ fn walk_transition(ctx: &mut Ctx, state: &pb::State, frame: Frame) -> anyhow::Re
                 }
                 if ctx
                     .solver
-                    .check(child.cursor.max(1), &child.constraints)
+                    .check(child.cursor_max.max(1), &child.constraints)
                     .is_none()
                 {
                     continue; // infeasible in this context; lint sees it via the log
@@ -434,21 +526,21 @@ fn walk_transition(ctx: &mut Ctx, state: &pb::State, frame: Frame) -> anyhow::Re
             }
             if ctx
                 .solver
-                .check(child.cursor.max(1), &child.constraints)
+                .check(child.cursor_max.max(1), &child.constraints)
                 .is_some()
             {
                 child.segments.push("default".into());
                 match sel.default_target.as_ref() {
                     Some(t) => walk_target(ctx, t, child)?,
                     None => {
-                        let bl = child.cursor;
                         emit(
                             ctx,
                             &child,
                             PathKind::Reject {
                                 reason: "no matching select arm".into(),
                             },
-                            bl,
+                            child.cursor.clone(),
+                            child.cursor_max,
                         );
                     }
                 }
@@ -487,7 +579,12 @@ mod tests {
         assert_eq!(count(&e.paths, |k| *k == PathKind::Truncation), 1);
         let accept = e.paths.iter().find(|p| p.kind == PathKind::Accept).unwrap();
         assert_eq!(accept.id, "s");
-        assert_eq!(accept.bit_len, 8);
+        // Symbolic bit_len solves to the concrete 8-bit length.
+        let mut solver = Z3Solver::new();
+        let (_b, bit_len) = solver
+            .solve_witness(accept.width, &accept.constraints, &accept.bit_len)
+            .unwrap();
+        assert_eq!(bit_len, 8);
     }
 
     #[test]
@@ -583,8 +680,9 @@ mod tests {
 
     #[test]
     fn length_forking() {
-        // h { n: 2 bits, body: n bytes } -> 4 accepts (n=0..3),
-        // 1 trunc@n, 3 trunc@body (n=1..3).
+        // h { n: 2 bits, body: n bytes }: symbolic layout -> ONE accept
+        // (continue), one bits-trunc on `n`, one body-trunc. No per-value
+        // fork, and no oob path (len = n is a 2-bit value, never wraps).
         let ir = ParserBuilder::new("varlen", 1)
             .header(
                 HeaderTypeBuilder::new("h")
@@ -596,74 +694,48 @@ mod tests {
             .build()
             .unwrap();
         let e = enumerate_ir(&ir);
-        assert_eq!(count(&e.paths, |k| *k == PathKind::Accept), 4);
-        assert_eq!(count(&e.paths, |k| *k == PathKind::Truncation), 4);
-        let a3 = e
-            .paths
-            .iter()
-            .find(|p| p.kind == PathKind::Accept && p.id.contains("=3B"))
+        assert_eq!(count(&e.paths, |k| *k == PathKind::Accept), 1);
+        assert_eq!(count(&e.paths, |k| *k == PathKind::Truncation), 2);
+        let mut ids: Vec<&str> = e.paths.iter().map(|p| p.id.as_str()).collect();
+        ids.sort_unstable();
+        assert_eq!(ids, vec!["s", "s/!trunc@h.body", "s/!trunc@h.n"]);
+        // The accept witness solves to n=0 (minimized) -> just the 2-bit
+        // header, no body.
+        let accept = e.paths.iter().find(|p| p.kind == PathKind::Accept).unwrap();
+        let mut solver = Z3Solver::new();
+        let (_b, bit_len) = solver
+            .solve_witness(accept.width, &accept.constraints, &accept.bit_len)
             .unwrap();
-        assert_eq!(a3.bit_len, 2 + 24);
-    }
-
-    /// Distinct `=NB` length witnesses appearing for `inst.field` across all paths.
-    fn byte_len_witnesses(paths: &[Path], inst_field: &str) -> std::collections::BTreeSet<u64> {
-        let prefix = format!("{inst_field}=");
-        let mut out = std::collections::BTreeSet::new();
-        for p in paths {
-            for seg in p.id.split('/') {
-                if let Some(rest) = seg.strip_prefix(&prefix) {
-                    if let Some(n) = rest.strip_suffix('B') {
-                        out.insert(n.parse::<u64>().unwrap());
-                    }
-                }
-            }
-        }
-        out
+        assert_eq!(bit_len, 2);
     }
 
     #[test]
-    fn cyclic_length_forking_bounded_to_min_max() {
-        // Self-loop `opt` extracts h{len:4 bits, body:len bytes}; len==0 accepts,
-        // any other len loops back to `opt`. The var-length `body` sits on a
-        // cyclic state, so per-iteration forking must collapse to the min (0)
-        // and max (15) length witnesses instead of every feasible value 0..15.
-        let ir = ParserBuilder::new("optloop", 3)
+    fn wrapping_length_forks_out_of_bounds() {
+        // ihl-style body length `n*4 - 20` on a 4-bit field: n<5 wraps to a
+        // huge u64 -> the oob branch is feasible (a distinct `!oob` reject),
+        // while n>=5 gives a small non-wrapping body (continue -> accept).
+        let ir = ParserBuilder::new("ihl", 1)
             .header(
                 HeaderTypeBuilder::new("h")
-                    .bits("len", 4)
-                    .var_bytes("body", f("h", "len")),
+                    .bits("n", 4)
+                    .var_bytes("body", sub(mul(f("h", "n"), c(4)), c(20))),
             )
-            .state(StateBuilder::new("opt").extract("h").select(
-                vec![f("h", "len")],
-                vec![arm(vec![v(0)], accept())],
-                to("opt"),
-            ))
-            .start("opt")
+            .state(StateBuilder::new("s").extract("h").accept())
+            .start("s")
             .build()
             .unwrap();
         let e = enumerate_ir(&ir);
-        // Only min (0) and max (15) length witnesses fork on the cyclic state —
-        // not the 16 values the unbounded all-SAT enumeration would produce.
+        let ids: std::collections::BTreeSet<&str> = e.paths.iter().map(|p| p.id.as_str()).collect();
+        assert!(ids.contains("s/!oob@h.body"), "missing oob path: {ids:?}");
+        assert!(ids.contains("s"), "missing accept path: {ids:?}");
+        // The oob path really does reject.
+        let oob = e.paths.iter().find(|p| p.id == "s/!oob@h.body").unwrap();
         assert_eq!(
-            byte_len_witnesses(&e.paths, "h.body"),
-            [0, 15].into_iter().collect()
+            oob.kind,
+            PathKind::Reject {
+                reason: "out of bounds".into()
+            }
         );
-        // Termination: bounded path count (2^depth-scale, not 16^depth).
-        assert!(
-            e.paths.len() < 40,
-            "expected a bounded path count, got {}",
-            e.paths.len()
-        );
-        // Boundary witnesses actually produced accepts (min) and looped (max).
-        assert!(e
-            .paths
-            .iter()
-            .any(|p| p.kind == PathKind::Accept && p.id.contains("h.body=0B")));
-        assert!(e
-            .paths
-            .iter()
-            .any(|p| p.id.contains("h.body=15B/default/opt")));
     }
 
     #[test]

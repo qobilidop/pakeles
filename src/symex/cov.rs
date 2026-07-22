@@ -53,18 +53,22 @@ mod tests {
     fn fixture_pcap_coverage() {
         let cov = coverage(&eth_ipvx_l4(), Path::new("testdata/basic.pcap")).unwrap();
         assert_eq!(cov.packets, 4);
-        assert_eq!(cov.total, 244);
+        // Symbolic layout: ihl=5 (options=0B) and ihl=6 (options=4B) TCP
+        // packets no longer fork on length -> they share one control-flow
+        // path id (hit twice). So 4 packets map to 3 distinct ids.
         let ids: Vec<&str> = cov.hits.keys().map(String::as_str).collect();
         assert_eq!(
             ids,
             vec![
                 "parse_ethernet/!trunc@ethernet.src",
-                "parse_ethernet/arm0/parse_ipv4/ipv4.options=0B/arm0/parse_tcp",
-                "parse_ethernet/arm0/parse_ipv4/ipv4.options=0B/arm1/parse_udp",
-                "parse_ethernet/arm0/parse_ipv4/ipv4.options=4B/arm0/parse_tcp",
+                "parse_ethernet/arm0/parse_ipv4/arm0/parse_tcp",
+                "parse_ethernet/arm0/parse_ipv4/arm1/parse_udp",
             ]
         );
-        assert_eq!(cov.unexercised.len(), 240);
+        // The two TCP packets collapse onto one path.
+        assert_eq!(cov.hits["parse_ethernet/arm0/parse_ipv4/arm0/parse_tcp"], 2);
+        assert_eq!(cov.hits.values().sum::<usize>(), 4);
+        assert_eq!(cov.unexercised.len(), cov.total - 3);
     }
 
     /// Every committed vector, replayed concretely, must map back to

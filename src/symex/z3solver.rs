@@ -31,6 +31,24 @@ impl Z3Solver {
                 let lo = (total - bit_off - len) as u32;
                 packet.extract(hi, lo).zero_ext(64 - *len as u32)
             }
+            Term::ExtractAt { off, len } => {
+                // MSB-first extract at a symbolic bit offset: the `len` bits
+                // at offset `off` occupy LSB positions [w-off-len, w-off),
+                // so shift down by (w-len)-off and mask the low `len` bits.
+                // `off+len <= w` holds under path constraints, so the shift
+                // (w-len)-off does not wrap.
+                let w = packet.get_size();
+                let len = *len as u32;
+                let off64 = self.term(packet, off); // 64-bit value
+                let off_w = match w.cmp(&64) {
+                    std::cmp::Ordering::Greater => off64.zero_ext(w - 64),
+                    std::cmp::Ordering::Less => off64.extract(w - 1, 0),
+                    std::cmp::Ordering::Equal => off64,
+                };
+                let base = BV::from_u64(&self.ctx, (w - len) as u64, w);
+                let shift = base.bvsub(&off_w);
+                packet.bvlshr(&shift).extract(len - 1, 0).zero_ext(64 - len)
+            }
             Term::Bin(op, l, r) => {
                 let l = self.term(packet, l);
                 let r = self.term(packet, r);
@@ -76,16 +94,19 @@ impl Z3Solver {
         }
     }
 
-    /// Read the completed model byte by byte (MSB-first; a partial
-    /// trailing byte lands in the high bits, pad bits zero — canonical
-    /// form by construction).
-    fn model_packet(&self, model: &z3::Model, packet: &BV, packet_bits: usize) -> Vec<u8> {
-        let mut bytes = vec![0u8; packet_bits.div_ceil(8)];
+    /// Read the top `n_bits` of the completed model byte by byte
+    /// (MSB-first; a partial trailing byte lands in the high bits, pad bits
+    /// zero — canonical form by construction). Indexing is anchored to the
+    /// packet BV's true size, so `n_bits < packet.get_size()` (a minimized
+    /// witness shorter than its width budget) reads the correct top bits.
+    fn model_packet(&self, model: &z3::Model, packet: &BV, n_bits: usize) -> Vec<u8> {
+        let total = packet.get_size() as usize;
+        let mut bytes = vec![0u8; n_bits.div_ceil(8)];
         for (i, byte) in bytes.iter_mut().enumerate() {
             let msb_off = 8 * i;
-            let width = 8.min(packet_bits - msb_off);
-            let hi = (packet_bits - 1 - msb_off) as u32;
-            let lo = (packet_bits - msb_off - width) as u32;
+            let width = 8.min(n_bits - msb_off);
+            let hi = (total - 1 - msb_off) as u32;
+            let lo = (total - msb_off - width) as u32;
             let v = model
                 .eval(&packet.extract(hi, lo), true)
                 .and_then(|b| b.as_u64())
@@ -112,84 +133,30 @@ impl Solver for Z3Solver {
         }
     }
 
-    fn all_values(
+    fn solve_witness(
         &mut self,
-        packet_bits: usize,
+        width: usize,
         cs: &[Constraint],
-        of: &Term,
-        cap: usize,
-    ) -> anyhow::Result<Vec<u64>> {
-        let packet = self.packet(packet_bits);
-        let solver = z3::Solver::new(&self.ctx);
+        len: &Term,
+    ) -> Option<(Vec<u8>, usize)> {
+        let packet = self.packet(width);
+        let opt = z3::Optimize::new(&self.ctx);
         for c in cs {
-            solver.assert(&self.constraint(&packet, c));
+            opt.assert(&self.constraint(&packet, c));
         }
-        let term = self.term(&packet, of);
-        let mut values = Vec::new();
-        while solver.check() == z3::SatResult::Sat {
-            let model = solver.get_model().expect("model after sat");
-            let v = model
-                .eval(&term, true)
-                .and_then(|b| b.as_u64())
-                .ok_or_else(|| anyhow::anyhow!("value eval failed"))?;
-            values.push(v);
-            if values.len() > cap {
-                anyhow::bail!(
-                    "length expression has more than {cap} feasible values; refusing to enumerate"
-                );
-            }
-            solver.assert(&term._eq(&BV::from_u64(&self.ctx, v, 64)).not());
-        }
-        values.sort_unstable();
-        Ok(values)
-    }
-
-    fn min_max(
-        &mut self,
-        packet_bits: usize,
-        cs: &[Constraint],
-        of: &Term,
-    ) -> anyhow::Result<Option<(u64, u64)>> {
-        // Solve the objective in the given direction under `cs`.
+        // Minimize the total-length term → smallest packet for this path.
         // Lengths are small positive values (< 2^63), so unsigned vs.
         // signed BV optimization coincide.
-        fn solve(
-            s: &Z3Solver,
-            packet_bits: usize,
-            cs: &[Constraint],
-            of: &Term,
-            maximize: bool,
-        ) -> anyhow::Result<Option<u64>> {
-            let packet = s.packet(packet_bits);
-            let opt = z3::Optimize::new(&s.ctx);
-            for c in cs {
-                opt.assert(&s.constraint(&packet, c));
+        let len_bv = self.term(&packet, len);
+        opt.minimize(&len_bv);
+        match opt.check(&[]) {
+            z3::SatResult::Sat => {
+                let model = opt.get_model().expect("model after sat");
+                let actual = model.eval(&len_bv, true).and_then(|b| b.as_u64())? as usize;
+                Some((self.model_packet(&model, &packet, actual), actual))
             }
-            let term = s.term(&packet, of);
-            if maximize {
-                opt.maximize(&term);
-            } else {
-                opt.minimize(&term);
-            }
-            match opt.check(&[]) {
-                z3::SatResult::Sat => {
-                    let model = opt.get_model().expect("model after sat");
-                    let v = model
-                        .eval(&term, true)
-                        .and_then(|b| b.as_u64())
-                        .ok_or_else(|| anyhow::anyhow!("value eval failed"))?;
-                    Ok(Some(v))
-                }
-                _ => Ok(None),
-            }
+            _ => None,
         }
-
-        let Some(min) = solve(self, packet_bits, cs, of, false)? else {
-            return Ok(None); // UNSAT
-        };
-        let max = solve(self, packet_bits, cs, of, true)?
-            .ok_or_else(|| anyhow::anyhow!("maximize UNSAT after minimize SAT"))?;
-        Ok(Some((min, max)))
     }
 }
 
@@ -244,36 +211,60 @@ mod tests {
     }
 
     #[test]
-    fn all_values_enumerates_nibble() {
+    fn extract_at_reads_symbolic_offset() {
+        // Read 8 bits at a SYMBOLIC offset taken from the first byte's
+        // value: with off == 8, the byte at bit-offset 8 (the 2nd byte)
+        // must be 0xBC; with off == 16, the 3rd byte.
         let mut s = Z3Solver::new();
-        let vals = s.all_values(8, &[], &ext(0, 4), 32).unwrap();
-        assert_eq!(vals, (0..16).collect::<Vec<u64>>());
-        assert!(s.all_values(8, &[], &ext(0, 8), 16).is_err());
+        let off = ext(0, 8);
+        let read = Term::ExtractAt {
+            off: Box::new(off.clone()),
+            len: 8,
+        };
+        let bytes = s
+            .check(
+                24,
+                &[
+                    Constraint::Eq(off.clone(), 8),
+                    Constraint::Eq(read.clone(), 0xBC),
+                ],
+            )
+            .unwrap();
+        assert_eq!(bytes[0], 8);
+        assert_eq!(bytes[1], 0xBC);
+        let bytes = s
+            .check(24, &[Constraint::Eq(off, 16), Constraint::Eq(read, 0xBC)])
+            .unwrap();
+        assert_eq!(bytes[0], 16);
+        assert_eq!(bytes[2], 0xBC);
     }
 
     #[test]
-    fn min_max_bounds_and_unsat() {
+    fn solve_witness_minimizes_length() {
+        // len term = ext(0,4) (a nibble length in [0,15]); minimizing over
+        // a 16-bit width picks the smallest feasible length. Unconstrained
+        // -> 0; constrained InRange[5,9] -> 5. The returned packet is
+        // exactly `actual` bits.
         let mut s = Z3Solver::new();
-        // Nibble constrained to [3, 9] -> min 3, max 9.
-        let mm = s
-            .min_max(8, &[Constraint::InRange(ext(0, 4), 3, 9)], &ext(0, 4))
+        let len = ext(0, 4);
+        let (bytes, actual) = s.solve_witness(16, &[], &len).unwrap();
+        assert_eq!(actual, 0);
+        assert!(bytes.is_empty());
+        let (_bytes, actual) = s
+            .solve_witness(16, &[Constraint::InRange(len.clone(), 5, 9)], &len)
             .unwrap();
-        assert_eq!(mm, Some((3, 9)));
-        // Unconstrained nibble -> full [0, 15].
-        let full = s.min_max(8, &[], &ext(0, 4)).unwrap();
-        assert_eq!(full, Some((0, 15)));
-        // Contradiction -> None.
-        let unsat = s
-            .min_max(
-                8,
+        assert_eq!(actual, 5);
+        // UNSAT -> None.
+        assert!(s
+            .solve_witness(
+                16,
                 &[
-                    Constraint::Eq(ext(0, 4), 1),
-                    Constraint::Not(Box::new(Constraint::Eq(ext(0, 4), 1))),
+                    Constraint::Eq(len.clone(), 1),
+                    Constraint::Not(Box::new(Constraint::Eq(len.clone(), 1))),
                 ],
-                &ext(0, 4),
+                &len,
             )
-            .unwrap();
-        assert_eq!(unsat, None);
+            .is_none());
     }
 
     #[test]
