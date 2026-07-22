@@ -648,6 +648,18 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
       }
       out->tcp.urgent = (uint16_t)pk_read_bits(buf, off, 16);
       off += 16;
+      {
+        uint64_t vlen = (((uint64_t)out->tcp.data_offset * 4ULL) - 20ULL);
+        if (vlen > (bit_len - off) / 8) {
+          out->outcome = 1;
+          out->reason = PK_R_OUT_OF_BOUNDS;
+          out->consumed_bits = off;
+          return 1;
+        }
+        out->tcp.options_bit_off = off;
+        out->tcp.options_bit_len = vlen * 8;
+        off += vlen * 8;
+      }
       out->outcome = 0;
       out->reason = PK_R_NONE;
       out->consumed_bits = off;

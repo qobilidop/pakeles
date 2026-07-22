@@ -141,6 +141,10 @@ class TCP(Header):
     window = bits(16, "Window", DEC)
     checksum = bits(16, "Checksum", HEX)
     urgent = bits(16, "Urgent Pointer", DEC)
+    # TCP options, a doff-sized region (data_offset counts 32-bit words).
+    # doff<5 wraps -> oob reject == kernel `tcp->doff < 5` DROP; a truncated
+    # region == kernel `tcp+doff*4 > data_end` DROP. Mirrors IPv4 options.
+    options = var_bytes(data_offset * 4 - 20)
 
 
 class UDP(Header):

@@ -104,6 +104,8 @@ typedef struct {
   uint16_t window;
   uint16_t checksum;
   uint16_t urgent;
+  uint64_t options_bit_off;
+  uint64_t options_bit_len;
 } pk_linux_flow_dissector_tcp_t;
 
 typedef struct {

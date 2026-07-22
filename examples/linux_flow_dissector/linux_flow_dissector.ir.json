@@ -756,6 +756,33 @@
               "name": "Urgent Pointer",
               "format": "DISPLAY_FORMAT_DEC"
             }
+          },
+          {
+            "name": "options",
+            "width": {
+              "byteLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_SUB",
+                  "lhs": {
+                    "bin": {
+                      "op": "BIN_OP_KIND_MUL",
+                      "lhs": {
+                        "field": {
+                          "header": "tcp",
+                          "field": "data_offset"
+                        }
+                      },
+                      "rhs": {
+                        "constant": "4"
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "constant": "20"
+                  }
+                }
+              }
+            }
           }
         ]
       },

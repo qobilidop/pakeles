@@ -98,6 +98,10 @@ header tcp_s0_t {
     bit<16> urgent;
 }
 
+header tcp_v1_t {
+    varbit<320> options;
+}
+
 header udp_s0_t {
     bit<16> sport;
     bit<16> dport;
@@ -125,6 +129,7 @@ struct headers {
     ext_frag_s0_t ext_frag_s0;
     mpls_s0_t mpls_s0;
     tcp_s0_t tcp_s0;
+    tcp_v1_t tcp_v1;
     udp_s0_t udp_s0;
 }
 
@@ -205,6 +210,7 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_tcp {
         pkt.extract(hdr.tcp_s0);
+        pkt.extract(hdr.tcp_v1, (bit<32>)(64w8 * (((bit<64>)hdr.tcp_s0.data_offset * 64w4) - 64w20)));
         transition accept;
     }
     state st_parse_udp {
@@ -234,7 +240,7 @@ control PkIngress(inout headers hdr, inout metadata meta,
         if (hdr.ext_opt_v1[0].isValid()) { bm = bm | 16w32; }
         if (hdr.ext_frag_s0.isValid()) { bm = bm | 16w64; }
         if (hdr.mpls_s0.isValid()) { bm = bm | 16w128; }
-        if (hdr.tcp_s0.isValid()) { bm = bm | 16w256; }
+        if (hdr.tcp_v1.isValid()) { bm = bm | 16w256; }
         if (hdr.udp_s0.isValid()) { bm = bm | 16w512; }
         hdr.verdict.bitmap = bm;
         bit<8> err = 8w255;

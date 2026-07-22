@@ -98,6 +98,8 @@ typedef struct {
   uint16_t window;
   uint16_t checksum;
   uint16_t urgent;
+  uint64_t options_bit_off;
+  uint64_t options_bit_len;
 } pk_linux_flow_dissector_tcp_t;
 
 typedef struct {
@@ -790,6 +792,18 @@ static __attribute__((always_inline)) int pk_linux_flow_dissector_parse_core(con
       }
       out->tcp.urgent = (uint16_t)pk_read_bits(buf, off, 16);
       off += 16;
+      {
+        uint64_t vlen = (((uint64_t)out->tcp.data_offset * 4ULL) - 20ULL);
+        if (vlen > (bit_len - off) / 8) {
+          out->outcome = 1;
+          out->reason = PK_R_OUT_OF_BOUNDS;
+          out->consumed_bits = off;
+          return 1;
+        }
+        out->tcp.options_bit_off = off;
+        out->tcp.options_bit_len = vlen * 8;
+        off += vlen * 8;
+      }
       out->outcome = 0;
       out->reason = PK_R_NONE;
       out->consumed_bits = off;
