@@ -9,6 +9,7 @@ from __future__ import annotations
 from google.protobuf import json_format
 
 from pakeles._header import Header
+from pakeles._meta import Meta, MetaFieldSpec
 from pakeles._pb import ir_pb2
 from pakeles._states import Accept, SelectSpec, StateChain, Target
 
@@ -17,13 +18,34 @@ IR_VERSION = "0.1.0"
 
 class Parser:
     def __init__(
-        self, name: str, *, max_depth: int, start: str, states: dict[str, StateChain]
+        self,
+        name: str,
+        *,
+        max_depth: int,
+        start: str,
+        states: dict[str, StateChain],
+        metadata: type[Meta] | None = None,
     ) -> None:
         self._name = name
         self._max_depth = max_depth
         self._start = start
         self._states = dict(states)
+        self._metadata = metadata
         self._check()
+
+    def _check_metadata_field(
+        self, sname: str, what: str, field: MetaFieldSpec
+    ) -> None:
+        if self._metadata is None:
+            raise ValueError(
+                f"state {sname!r}: {what} {field.name!r} used but parser() has "
+                f"no metadata= declared"
+            )
+        if field not in self._metadata._fields:  # type: ignore[attr-defined]
+            raise ValueError(
+                f"state {sname!r}: {what} {field.name!r} does not belong to "
+                f"the declared metadata class {self._metadata.__name__!r}"
+            )
 
     def _check(self) -> None:
         if self._start not in self._states:
@@ -31,6 +53,8 @@ class Parser:
         for sname, chain in self._states.items():
             if chain.transition is None:
                 raise ValueError(f"state {sname!r} has no transition")
+            for target, _value in chain.assigns:
+                self._check_metadata_field(sname, "assign target", target)
             targets: list[Target] = []
             if isinstance(chain.transition, SelectSpec):
                 sel = chain.transition
@@ -42,6 +66,8 @@ class Parser:
                             f"state {sname!r}: select key "
                             f"{key_spec.header}.{key_spec.name} is not a fixed field"
                         )
+                    if isinstance(key_spec, MetaFieldSpec):
+                        self._check_metadata_field(sname, "select key", key_spec)
                 for arm_key in sel.arms:
                     values = arm_key if isinstance(arm_key, tuple) else (arm_key,)
                     if len(values) != len(sel.keys):
@@ -106,6 +132,17 @@ class Parser:
         p.name = self._name
         p.max_depth = self._max_depth
         p.start_state = self._start
+        if self._metadata is not None:
+            for mf in self._metadata._fields:  # type: ignore[attr-defined]
+                pm = p.metadata.add()
+                pm.name = mf.name
+                pm.bits = mf.width_bits
+                if mf.init:
+                    pm.init = mf.init
+                if mf.display_name or mf.format or mf.doc:
+                    pm.display.name = mf.display_name
+                    pm.display.format = mf.format
+                    pm.display.doc = mf.doc
         var_inst = self._var_width_instance()
         for header in self._header_types():
             ht = header.to_pb()
@@ -123,6 +160,10 @@ class Parser:
                 ex.header_type = header.ir_name()
                 if instance is not None:
                     ex.instance = instance
+            for target, value in chain.assigns:
+                a = st.assigns.add()
+                a.metadata = target.name
+                a.value.CopyFrom(value.to_pb())
             tr = chain.transition
             assert tr is not None
             if isinstance(tr, SelectSpec):
@@ -177,6 +218,13 @@ def _fill_target(pb_target: ir_pb2.Target, target: Target) -> None:
 
 
 def parser(
-    name: str, *, max_depth: int, start: str, states: dict[str, StateChain]
+    name: str,
+    *,
+    max_depth: int,
+    start: str,
+    states: dict[str, StateChain],
+    metadata: type[Meta] | None = None,
 ) -> Parser:
-    return Parser(name, max_depth=max_depth, start=start, states=states)
+    return Parser(
+        name, max_depth=max_depth, start=start, states=states, metadata=metadata
+    )

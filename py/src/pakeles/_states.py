@@ -10,8 +10,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from dataclasses import field as dc_field
 
-from pakeles._expr import BoundField, FieldSpec
+from pakeles._expr import BoundField, Expr, FieldSpec, Operand, coerce_expr
 from pakeles._header import Header, Instance
+from pakeles._meta import MetaFieldSpec
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,7 @@ def reject(reason: str, *, info: bool = False) -> Reject:
 
 Target = str | Accept | Reject
 ArmKey = int | tuple[int, ...]
+SelectKey = FieldSpec | BoundField | MetaFieldSpec
 
 
 def _resolve(header: type[Header] | Instance, instance: str | None) -> tuple[type[Header], str | None]:
@@ -49,17 +51,20 @@ def _resolve(header: type[Header] | Instance, instance: str | None) -> tuple[typ
 
 @dataclass
 class SelectSpec:
-    keys: tuple[FieldSpec | BoundField, ...]
+    keys: tuple[SelectKey, ...]
     arms: dict[ArmKey, Target]
     default: Target
 
 
 @dataclass
 class StateChain:
-    """One state under construction: extracts plus one transition."""
+    """One state under construction: extracts, assigns, plus one transition."""
 
     extracts: list[tuple[type[Header], str | None]] = dc_field(
         default_factory=list[tuple[type[Header], str | None]]
+    )
+    assigns: list[tuple[MetaFieldSpec, Expr]] = dc_field(
+        default_factory=list[tuple[MetaFieldSpec, Expr]]
     )
     transition: SelectSpec | Target | None = None
 
@@ -74,9 +79,14 @@ class StateChain:
         self.extracts.append(_resolve(header, instance))
         return self
 
+    def assign(self, target: MetaFieldSpec, value: Expr | Operand | int) -> StateChain:
+        self._need_open()
+        self.assigns.append((target, coerce_expr(value)))
+        return self
+
     def select(
         self,
-        key: FieldSpec | BoundField | tuple[FieldSpec | BoundField, ...],
+        key: SelectKey | tuple[SelectKey, ...],
         arms: dict[ArmKey, Target],
         *,
         default: Target,
@@ -97,3 +107,7 @@ class StateChain:
 
 def extract(header: type[Header] | Instance, instance: str | None = None) -> StateChain:
     return StateChain().extract(header, instance)
+
+
+def assign(target: MetaFieldSpec, value: Expr | Operand | int) -> StateChain:
+    return StateChain().assign(target, value)

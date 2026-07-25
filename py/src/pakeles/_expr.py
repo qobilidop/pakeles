@@ -11,8 +11,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from dataclasses import field as dc_field
+from typing import TYPE_CHECKING
 
 from pakeles._pb import ir_pb2
+
+if TYPE_CHECKING:
+    from pakeles._meta import MetaFieldSpec
 
 _OPS: dict[str, ir_pb2.BinOpKind] = {
     "add": ir_pb2.BIN_OP_KIND_ADD,
@@ -76,6 +80,7 @@ class Expr(Operand):
     rhs: Expr | None = None
     constant: int | None = None
     ref: FieldSpec | BoundField | None = None
+    meta_ref: MetaFieldSpec | None = None
 
     def as_expr(self) -> Expr:
         return self
@@ -84,6 +89,12 @@ class Expr(Operand):
         e = ir_pb2.Expr()
         if self.constant is not None:
             e.constant = self.constant
+        elif self.meta_ref is not None:
+            if not self.meta_ref.name:
+                raise RuntimeError(
+                    "metadata reference used outside a finalized Meta class"
+                )
+            e.metadata.name = self.meta_ref.name
         elif self.ref is not None:
             if not self.ref.name or not self.ref.header:
                 raise RuntimeError(
