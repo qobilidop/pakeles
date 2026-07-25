@@ -7,7 +7,7 @@ metadata paths before any kernel-facing example depends on them:
 - read-write accumulator loop with a select-on-metadata exit
   (`parse_item` — the TLV shape the P4-parity ambition targets).
 
-max_depth (not the count field) bounds the parse: count > 5 rejects with
+max_depth (not the count field) bounds the parse: count > 6 rejects with
 "max depth exceeded" — metadata never extends the budget.
 """
 
