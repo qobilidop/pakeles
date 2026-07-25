@@ -242,6 +242,7 @@ fn term_of_expr(e: &pb::Expr, frame: &Frame) -> anyhow::Result<Term> {
             )?;
             Ok(Term::Bin(op, Box::new(l), Box::new(r)))
         }
+        Some(pb::expr::Kind::Metadata(_)) => anyhow::bail!("metadata refs not yet supported"),
         None => anyhow::bail!("empty expression"),
     }
 }

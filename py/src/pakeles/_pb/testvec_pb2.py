@@ -13,15 +13,15 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n&pakeles/testvec/v1alpha1/testvec.proto\x12\x18pakeles.testvec.v1alpha1\".\n\tBitString\x12\x10\n\x08\x64\x61ta_hex\x18\x01 \x01(\t\x12\x0f\n\x07\x62it_len\x18\x02 \x01(\x04\"k\n\tTestSuite\x12\x13\n\x0bparser_name\x18\x01 \x01(\t\x12\x12\n\nir_version\x18\x02 \x01(\t\x12\x35\n\x07vectors\x18\x03 \x03(\x0b\x32$.pakeles.testvec.v1alpha1.TestVector\"\xb9\x01\n\nTestVector\x12\n\n\x02id\x18\x01 \x01(\t\x12\x34\n\x08\x63\x61tegory\x18\x02 \x01(\x0e\x32\".pakeles.testvec.v1alpha1.Category\x12\x33\n\x06packet\x18\x03 \x01(\x0b\x32#.pakeles.testvec.v1alpha1.BitString\x12\x34\n\x08\x65xpected\x18\x04 \x01(\x0b\x32\".pakeles.testvec.v1alpha1.Expected\"\x81\x01\n\x08\x45xpected\x12\x34\n\x06\x61\x63\x63\x65pt\x18\x01 \x01(\x0b\x32\".pakeles.testvec.v1alpha1.AcceptedH\x00\x12\x34\n\x06reject\x18\x02 \x01(\x0b\x32\".pakeles.testvec.v1alpha1.RejectedH\x00\x42\t\n\x07outcome\"E\n\x08\x41\x63\x63\x65pted\x12\x39\n\x07headers\x18\x01 \x03(\x0b\x32(.pakeles.testvec.v1alpha1.ExpectedHeader\"\x1a\n\x08Rejected\x12\x0e\n\x06reason\x18\x01 \x01(\t\"[\n\x0e\x45xpectedHeader\x12\x10\n\x08instance\x18\x01 \x01(\t\x12\x37\n\x06\x66ields\x18\x02 \x03(\x0b\x32\'.pakeles.testvec.v1alpha1.ExpectedField\"K\n\rExpectedField\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0e\n\x04uint\x18\x02 \x01(\x04H\x00\x12\x13\n\tbytes_hex\x18\x03 \x01(\tH\x00\x42\x07\n\x05value*g\n\x08\x43\x61tegory\x12\x18\n\x14\x43\x41TEGORY_UNSPECIFIED\x10\x00\x12\x13\n\x0f\x43\x41TEGORY_ACCEPT\x10\x01\x12\x13\n\x0f\x43\x41TEGORY_REJECT\x10\x02\x12\x17\n\x13\x43\x41TEGORY_TRUNCATION\x10\x03\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n&pakeles/testvec/v1alpha1/testvec.proto\x12\x18pakeles.testvec.v1alpha1\".\n\tBitString\x12\x10\n\x08\x64\x61ta_hex\x18\x01 \x01(\t\x12\x0f\n\x07\x62it_len\x18\x02 \x01(\x04\"k\n\tTestSuite\x12\x13\n\x0bparser_name\x18\x01 \x01(\t\x12\x12\n\nir_version\x18\x02 \x01(\t\x12\x35\n\x07vectors\x18\x03 \x03(\x0b\x32$.pakeles.testvec.v1alpha1.TestVector\"\xb9\x01\n\nTestVector\x12\n\n\x02id\x18\x01 \x01(\t\x12\x34\n\x08\x63\x61tegory\x18\x02 \x01(\x0e\x32\".pakeles.testvec.v1alpha1.Category\x12\x33\n\x06packet\x18\x03 \x01(\x0b\x32#.pakeles.testvec.v1alpha1.BitString\x12\x34\n\x08\x65xpected\x18\x04 \x01(\x0b\x32\".pakeles.testvec.v1alpha1.Expected\"\x81\x01\n\x08\x45xpected\x12\x34\n\x06\x61\x63\x63\x65pt\x18\x01 \x01(\x0b\x32\".pakeles.testvec.v1alpha1.AcceptedH\x00\x12\x34\n\x06reject\x18\x02 \x01(\x0b\x32\".pakeles.testvec.v1alpha1.RejectedH\x00\x42\t\n\x07outcome\"\x7f\n\x08\x41\x63\x63\x65pted\x12\x39\n\x07headers\x18\x01 \x03(\x0b\x32(.pakeles.testvec.v1alpha1.ExpectedHeader\x12\x38\n\x08metadata\x18\x02 \x03(\x0b\x32&.pakeles.testvec.v1alpha1.ExpectedMeta\"+\n\x0c\x45xpectedMeta\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x04\"\x1a\n\x08Rejected\x12\x0e\n\x06reason\x18\x01 \x01(\t\"[\n\x0e\x45xpectedHeader\x12\x10\n\x08instance\x18\x01 \x01(\t\x12\x37\n\x06\x66ields\x18\x02 \x03(\x0b\x32\'.pakeles.testvec.v1alpha1.ExpectedField\"K\n\rExpectedField\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0e\n\x04uint\x18\x02 \x01(\x04H\x00\x12\x13\n\tbytes_hex\x18\x03 \x01(\tH\x00\x42\x07\n\x05value*g\n\x08\x43\x61tegory\x12\x18\n\x14\x43\x41TEGORY_UNSPECIFIED\x10\x00\x12\x13\n\x0f\x43\x41TEGORY_ACCEPT\x10\x01\x12\x13\n\x0f\x43\x41TEGORY_REJECT\x10\x02\x12\x17\n\x13\x43\x41TEGORY_TRUNCATION\x10\x03\x62\x06proto3')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'pakeles.testvec.v1alpha1.testvec_pb2', globals())
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
-  _CATEGORY._serialized_start=814
-  _CATEGORY._serialized_end=917
+  _CATEGORY._serialized_start=917
+  _CATEGORY._serialized_end=1020
   _BITSTRING._serialized_start=68
   _BITSTRING._serialized_end=114
   _TESTSUITE._serialized_start=116
@@ -31,11 +31,13 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _EXPECTED._serialized_start=414
   _EXPECTED._serialized_end=543
   _ACCEPTED._serialized_start=545
-  _ACCEPTED._serialized_end=614
-  _REJECTED._serialized_start=616
-  _REJECTED._serialized_end=642
-  _EXPECTEDHEADER._serialized_start=644
-  _EXPECTEDHEADER._serialized_end=735
-  _EXPECTEDFIELD._serialized_start=737
-  _EXPECTEDFIELD._serialized_end=812
+  _ACCEPTED._serialized_end=672
+  _EXPECTEDMETA._serialized_start=674
+  _EXPECTEDMETA._serialized_end=717
+  _REJECTED._serialized_start=719
+  _REJECTED._serialized_end=745
+  _EXPECTEDHEADER._serialized_start=747
+  _EXPECTEDHEADER._serialized_end=838
+  _EXPECTEDFIELD._serialized_start=840
+  _EXPECTEDFIELD._serialized_end=915
 # @@protoc_insertion_point(module_scope)

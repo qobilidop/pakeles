@@ -32,6 +32,7 @@ fn fmt_expr(e: &pb::Expr) -> String {
             let r = b.rhs.as_deref().map(fmt_expr).unwrap_or_default();
             format!("({l} {op} {r})")
         }
+        Some(pb::expr::Kind::Metadata(r)) => format!("meta.{}", r.name),
         None => "?".into(),
     }
 }

@@ -18,6 +18,21 @@ message Parser {
   // Mandatory global parse-depth bound (states entered). Boundedness is
   // what keeps the IR inside the decidable class; it is never optional.
   uint32 max_depth = 5;
+  // Declared parse metadata: typed, read-write, initialized scalars.
+  // Assignments may steer control flow (select keys) but can never
+  // extend the max_depth budget.
+  repeated MetadataField metadata = 6;
+  map<string, string> annotations = 15;
+}
+
+message MetadataField {
+  string name = 1;
+  // Width in bits, 1..=64. Assignment truncates to this width (mod 2^bits);
+  // reads zero-extend.
+  uint32 bits = 2;
+  // Initial value; must fit in `bits`. Defaults to 0.
+  uint64 init = 3;
+  Display display = 4;
   map<string, string> annotations = 15;
 }
 
@@ -74,7 +89,12 @@ message Expr {
     uint64 constant = 1;
     FieldRef field = 2;
     BinOp bin = 3;
+    MetadataRef metadata = 4;
   }
+}
+
+message MetadataRef {
+  string name = 1;
 }
 
 message FieldRef {
@@ -103,7 +123,15 @@ message State {
   string name = 1;
   repeated Extract extracts = 2;
   Transition transition = 3;
+  // Ordered metadata assignments, executed after this state's extracts
+  // and before its transition. Total: no failure mode.
+  repeated Assign assigns = 4;
   map<string, string> annotations = 15;
+}
+
+message Assign {
+  string metadata = 1;  // must name a declared MetadataField
+  Expr value = 2;
 }
 
 message Extract {

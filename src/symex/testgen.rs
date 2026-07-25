@@ -60,6 +60,7 @@ fn vector_for(ir: &irpb::Ir, solver: &mut dyn Solver, path: &Path) -> Result<pb:
                             .collect(),
                     })
                     .collect(),
+                metadata: Vec::new(),
             }),
         ),
         (PathKind::Reject { reason }, Outcome::Reject { reason: got }) if reason == got => (

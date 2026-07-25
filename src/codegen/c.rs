@@ -150,6 +150,7 @@ fn expr_c(e: &pb::Expr) -> Result<String> {
             };
             Ok(format!("({l} {op} {r})"))
         }
+        Some(pb::expr::Kind::Metadata(_)) => bail!("metadata refs not yet supported"),
         None => bail!("empty expression"),
     }
 }

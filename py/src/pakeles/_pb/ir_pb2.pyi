@@ -25,6 +25,14 @@ class Accept(_message.Message):
     __slots__ = []
     def __init__(self) -> None: ...
 
+class Assign(_message.Message):
+    __slots__ = ["metadata", "value"]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    metadata: str
+    value: Expr
+    def __init__(self, metadata: _Optional[str] = ..., value: _Optional[_Union[Expr, _Mapping]] = ...) -> None: ...
+
 class BinOp(_message.Message):
     __slots__ = ["lhs", "op", "rhs"]
     LHS_FIELD_NUMBER: _ClassVar[int]
@@ -48,14 +56,16 @@ class Display(_message.Message):
     def __init__(self, name: _Optional[str] = ..., format: _Optional[_Union[DisplayFormat, str]] = ..., value_labels: _Optional[_Iterable[_Union[ValueLabel, _Mapping]]] = ..., doc: _Optional[str] = ...) -> None: ...
 
 class Expr(_message.Message):
-    __slots__ = ["bin", "constant", "field"]
+    __slots__ = ["bin", "constant", "field", "metadata"]
     BIN_FIELD_NUMBER: _ClassVar[int]
     CONSTANT_FIELD_NUMBER: _ClassVar[int]
     FIELD_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
     bin: BinOp
     constant: int
     field: FieldRef
-    def __init__(self, constant: _Optional[int] = ..., field: _Optional[_Union[FieldRef, _Mapping]] = ..., bin: _Optional[_Union[BinOp, _Mapping]] = ...) -> None: ...
+    metadata: MetadataRef
+    def __init__(self, constant: _Optional[int] = ..., field: _Optional[_Union[FieldRef, _Mapping]] = ..., bin: _Optional[_Union[BinOp, _Mapping]] = ..., metadata: _Optional[_Union[MetadataRef, _Mapping]] = ...) -> None: ...
 
 class Extract(_message.Message):
     __slots__ = ["header_type", "instance"]
@@ -143,8 +153,35 @@ class Masked(_message.Message):
     value: int
     def __init__(self, value: _Optional[int] = ..., mask: _Optional[int] = ...) -> None: ...
 
+class MetadataField(_message.Message):
+    __slots__ = ["annotations", "bits", "display", "init", "name"]
+    class AnnotationsEntry(_message.Message):
+        __slots__ = ["key", "value"]
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    ANNOTATIONS_FIELD_NUMBER: _ClassVar[int]
+    BITS_FIELD_NUMBER: _ClassVar[int]
+    DISPLAY_FIELD_NUMBER: _ClassVar[int]
+    INIT_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    annotations: _containers.ScalarMap[str, str]
+    bits: int
+    display: Display
+    init: int
+    name: str
+    def __init__(self, name: _Optional[str] = ..., bits: _Optional[int] = ..., init: _Optional[int] = ..., display: _Optional[_Union[Display, _Mapping]] = ..., annotations: _Optional[_Mapping[str, str]] = ...) -> None: ...
+
+class MetadataRef(_message.Message):
+    __slots__ = ["name"]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    def __init__(self, name: _Optional[str] = ...) -> None: ...
+
 class Parser(_message.Message):
-    __slots__ = ["annotations", "header_types", "max_depth", "name", "start_state", "states"]
+    __slots__ = ["annotations", "header_types", "max_depth", "metadata", "name", "start_state", "states"]
     class AnnotationsEntry(_message.Message):
         __slots__ = ["key", "value"]
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -155,16 +192,18 @@ class Parser(_message.Message):
     ANNOTATIONS_FIELD_NUMBER: _ClassVar[int]
     HEADER_TYPES_FIELD_NUMBER: _ClassVar[int]
     MAX_DEPTH_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     START_STATE_FIELD_NUMBER: _ClassVar[int]
     STATES_FIELD_NUMBER: _ClassVar[int]
     annotations: _containers.ScalarMap[str, str]
     header_types: _containers.RepeatedCompositeFieldContainer[HeaderType]
     max_depth: int
+    metadata: _containers.RepeatedCompositeFieldContainer[MetadataField]
     name: str
     start_state: str
     states: _containers.RepeatedCompositeFieldContainer[State]
-    def __init__(self, name: _Optional[str] = ..., header_types: _Optional[_Iterable[_Union[HeaderType, _Mapping]]] = ..., states: _Optional[_Iterable[_Union[State, _Mapping]]] = ..., start_state: _Optional[str] = ..., max_depth: _Optional[int] = ..., annotations: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., header_types: _Optional[_Iterable[_Union[HeaderType, _Mapping]]] = ..., states: _Optional[_Iterable[_Union[State, _Mapping]]] = ..., start_state: _Optional[str] = ..., max_depth: _Optional[int] = ..., metadata: _Optional[_Iterable[_Union[MetadataField, _Mapping]]] = ..., annotations: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class Range(_message.Message):
     __slots__ = ["hi", "lo"]
@@ -208,7 +247,7 @@ class SelectArm(_message.Message):
     def __init__(self, entries: _Optional[_Iterable[_Union[KeysetEntry, _Mapping]]] = ..., next: _Optional[_Union[Target, _Mapping]] = ...) -> None: ...
 
 class State(_message.Message):
-    __slots__ = ["annotations", "extracts", "name", "transition"]
+    __slots__ = ["annotations", "assigns", "extracts", "name", "transition"]
     class AnnotationsEntry(_message.Message):
         __slots__ = ["key", "value"]
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -217,14 +256,16 @@ class State(_message.Message):
         value: str
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
     ANNOTATIONS_FIELD_NUMBER: _ClassVar[int]
+    ASSIGNS_FIELD_NUMBER: _ClassVar[int]
     EXTRACTS_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     TRANSITION_FIELD_NUMBER: _ClassVar[int]
     annotations: _containers.ScalarMap[str, str]
+    assigns: _containers.RepeatedCompositeFieldContainer[Assign]
     extracts: _containers.RepeatedCompositeFieldContainer[Extract]
     name: str
     transition: Transition
-    def __init__(self, name: _Optional[str] = ..., extracts: _Optional[_Iterable[_Union[Extract, _Mapping]]] = ..., transition: _Optional[_Union[Transition, _Mapping]] = ..., annotations: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., extracts: _Optional[_Iterable[_Union[Extract, _Mapping]]] = ..., transition: _Optional[_Union[Transition, _Mapping]] = ..., assigns: _Optional[_Iterable[_Union[Assign, _Mapping]]] = ..., annotations: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class Target(_message.Message):
     __slots__ = ["accept", "reject", "state"]

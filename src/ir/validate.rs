@@ -120,6 +120,7 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
                     walk_refs(r, out);
                 }
             }
+            Some(pb::expr::Kind::Metadata(_)) => {}
             _ => {}
         }
     }
@@ -371,6 +372,7 @@ fn collect_refs<'a>(e: &'a pb::Expr, out: &mut Vec<&'a pb::FieldRef>) {
                 collect_refs(r, out);
             }
         }
+        Some(pb::expr::Kind::Metadata(_)) => {}
         _ => {}
     }
 }

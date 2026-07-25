@@ -140,6 +140,7 @@ fn expr_range(e: &pb::Expr, parser: &pb::Parser) -> Result<(u128, u128)> {
                 _ => bail!("unspecified binop"),
             }
         }
+        pb::expr::Kind::Metadata(_) => bail!("metadata refs not yet supported"),
     })
 }
 
@@ -218,6 +219,7 @@ fn expr_p4(
                 format!("({l} {op} {r})")
             }
         }
+        pb::expr::Kind::Metadata(_) => bail!("metadata refs not yet supported"),
     })
 }
 

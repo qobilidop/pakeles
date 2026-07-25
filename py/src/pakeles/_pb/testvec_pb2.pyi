@@ -11,10 +11,12 @@ CATEGORY_UNSPECIFIED: Category
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Accepted(_message.Message):
-    __slots__ = ["headers"]
+    __slots__ = ["headers", "metadata"]
     HEADERS_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
     headers: _containers.RepeatedCompositeFieldContainer[ExpectedHeader]
-    def __init__(self, headers: _Optional[_Iterable[_Union[ExpectedHeader, _Mapping]]] = ...) -> None: ...
+    metadata: _containers.RepeatedCompositeFieldContainer[ExpectedMeta]
+    def __init__(self, headers: _Optional[_Iterable[_Union[ExpectedHeader, _Mapping]]] = ..., metadata: _Optional[_Iterable[_Union[ExpectedMeta, _Mapping]]] = ...) -> None: ...
 
 class BitString(_message.Message):
     __slots__ = ["bit_len", "data_hex"]
@@ -49,6 +51,14 @@ class ExpectedHeader(_message.Message):
     fields: _containers.RepeatedCompositeFieldContainer[ExpectedField]
     instance: str
     def __init__(self, instance: _Optional[str] = ..., fields: _Optional[_Iterable[_Union[ExpectedField, _Mapping]]] = ...) -> None: ...
+
+class ExpectedMeta(_message.Message):
+    __slots__ = ["name", "value"]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    value: int
+    def __init__(self, name: _Optional[str] = ..., value: _Optional[int] = ...) -> None: ...
 
 class Rejected(_message.Message):
     __slots__ = ["reason"]

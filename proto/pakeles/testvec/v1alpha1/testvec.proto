@@ -47,6 +47,13 @@ message Expected {
 
 message Accepted {
   repeated ExpectedHeader headers = 1;
+  // Final metadata values in declared order. Compared on accept only.
+  repeated ExpectedMeta metadata = 2;
+}
+
+message ExpectedMeta {
+  string name = 1;
+  uint64 value = 2;
 }
 
 message Rejected {

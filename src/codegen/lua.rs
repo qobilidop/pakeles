@@ -197,6 +197,7 @@ fn collect_refs(e: &pb::Expr, out: &mut HashSet<(String, String)>) {
                 collect_refs(r, out);
             }
         }
+        Some(pb::expr::Kind::Metadata(_)) => {}
         _ => {}
     }
 }
@@ -381,6 +382,7 @@ fn expr_lua(e: &pb::Expr, referenced: &HashSet<(String, String)>) -> Result<Stri
                 pb::BinOpKind::Unspecified => bail!("unspecified binop"),
             })
         }
+        Some(pb::expr::Kind::Metadata(_)) => bail!("metadata refs not yet supported"),
         None => bail!("empty expression"),
     }
 }
@@ -620,6 +622,10 @@ fn emit_state(
 
 /// Bit width of a select key when it is a plain field ref.
 fn key_bit_width(parser: &pb::Parser, key: &pb::Expr) -> Option<u32> {
+    if let Some(pb::expr::Kind::Metadata(_)) = &key.kind {
+        // Metadata key width unknown here for now.
+        return None;
+    }
     if let Some(pb::expr::Kind::Field(r)) = &key.kind {
         for s in &parser.states {
             for ex in &s.extracts {

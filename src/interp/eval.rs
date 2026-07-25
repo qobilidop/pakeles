@@ -43,6 +43,7 @@ pub(crate) fn eval_expr(e: &pb::Expr, env: &Env) -> anyhow::Result<u64> {
                 }
             })
         }
+        Some(pb::expr::Kind::Metadata(_)) => anyhow::bail!("metadata refs not yet supported"),
         None => anyhow::bail!("empty expression"),
     }
 }

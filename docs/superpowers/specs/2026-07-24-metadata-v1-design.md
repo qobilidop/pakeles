@@ -96,6 +96,15 @@ Because `Select.keys` and `FieldWidth.byte_len` are already `Expr`, **branching
 on metadata and sizing regions from metadata fall out with zero changes to
 those messages**. That orthogonality is the point of the design.
 
+**v1 implementation boundaries (discovered during planning):** the schema
+allows metadata in `byte_len`, but the v1 validator rejects it — pathid
+re-classifies oob/trunc by re-evaluating `byte_len` exprs against final
+header values (`src/symex/pathid.rs`), and a metadata value may change
+between mid-parse evaluation and parse end; lift by replaying assigns in
+pathid when a driver appears. The eBPF harness (packed verdict) and BMv2
+oracle (header bitmap) do not observe metadata in v1; the C harness and
+testvec replay do.
+
 **Assignment placement — the judgment call.** Assignments live in the state
 body (P4-style), never on edges, even though `bpf_flow.c` sets `is_encap` in a
 `case` arm. Kernel-shaped edge effects are expressed with **no-extract
