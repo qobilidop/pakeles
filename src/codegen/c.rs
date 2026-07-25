@@ -10,7 +10,7 @@
 //! wrapped lengths.
 
 use crate::ir::pb;
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use std::fmt::Write;
 
 pub struct CArtifacts {
@@ -150,7 +150,7 @@ fn expr_c(e: &pb::Expr) -> Result<String> {
             };
             Ok(format!("({l} {op} {r})"))
         }
-        Some(pb::expr::Kind::Metadata(_)) => bail!("metadata refs not yet supported"),
+        Some(pb::expr::Kind::Metadata(r)) => Ok(format!("out->m_{}", r.name)),
         None => bail!("empty expression"),
     }
 }
@@ -216,6 +216,9 @@ impl<'a> Emit<'a> {
         for (inst, _) in instances(self.parser) {
             writeln!(w, "  uint8_t {inst}_present;")?;
             writeln!(w, "  {p}_{inst}_t {inst};")?;
+        }
+        for md in &self.parser.metadata {
+            writeln!(w, "  uint64_t m_{};", md.name)?;
         }
         writeln!(w, "}} {p}_result_t;")?;
         Ok(w)
@@ -305,6 +308,9 @@ impl<'a> Emit<'a> {
             self.parser.start_state.to_uppercase()
         )?;
         writeln!(w, "  uint32_t depth;")?;
+        for md in &self.parser.metadata {
+            writeln!(w, "  out->m_{} = {}ULL;", md.name, md.init)?;
+        }
         writeln!(
             w,
             "  for (depth = 0; depth < {}u; depth++) {{",
@@ -324,6 +330,15 @@ impl<'a> Emit<'a> {
         writeln!(w, "  return 1;")?;
         writeln!(w, "}}")?;
         Ok(w)
+    }
+
+    fn meta_bits(&self, name: &str) -> u32 {
+        self.parser
+            .metadata
+            .iter()
+            .find(|md| md.name == name)
+            .map(|md| md.bits)
+            .expect("validated IR: assign target declared")
     }
 
     fn emit_reject(&self, w: &mut String, indent: &str, reason: &str) -> Result<()> {
@@ -397,6 +412,20 @@ impl<'a> Emit<'a> {
                     }
                     None => bail!("field `{}` has no width", f.name),
                 }
+            }
+        }
+        for a in &s.assigns {
+            let rhs = expr_c(a.value.as_ref().context("assign without value")?)?;
+            let bits = self.meta_bits(&a.metadata);
+            if bits >= 64 {
+                writeln!(w, "      out->m_{} = {rhs};", a.metadata)?;
+            } else {
+                writeln!(
+                    w,
+                    "      out->m_{} = ({rhs}) & 0x{:x}ULL;",
+                    a.metadata,
+                    (1u64 << bits) - 1
+                )?;
             }
         }
         match s.transition.as_ref().and_then(|t| t.kind.as_ref()) {
@@ -571,6 +600,13 @@ pub fn generate_c_harness(ir: &pb::Ir) -> Result<String> {
         }
         writeln!(w, "    }}")?;
     }
+    for md in &parser.metadata {
+        writeln!(
+            w,
+            "    printf(\"|meta.{}=%llu\", (unsigned long long)r.m_{});",
+            md.name, md.name
+        )?;
+    }
     writeln!(w, "    printf(\"\\n\");")?;
     writeln!(w, "    fflush(stdout);")?;
     writeln!(w, "  }}")?;
@@ -655,6 +691,18 @@ pub fn generate_bpf(ir: &pb::Ir) -> Result<String> {
 mod tests {
     use super::*;
     use crate::examples::{eth_ipvx_l4, linux_flow_dissector};
+
+    #[test]
+    fn metadata_c_emission_and_semantics() {
+        let ir = crate::builder::meta_loop(); // shared test IR from Task 2
+        let art = generate_c(&ir).unwrap();
+        assert!(art.header.contains("uint64_t m_flag;"));
+        assert!(art.header.contains("uint64_t m_acc;"));
+        assert!(art.source.contains("out->m_acc = "));
+        // and the zero-metadata guarantee:
+        let plain = generate_c(&crate::examples::eth_ipvx_l4()).unwrap();
+        assert!(!plain.header.contains("m_"));
+    }
 
     #[test]
     fn last_headers_by_instance_keeps_last_of_repeats() {
@@ -824,6 +872,19 @@ mod tests {
                     }
                 }
             }
+            for (name, want) in &reference.metadata {
+                let key = format!("meta.{name}");
+                let got = c_fields.get(key.as_str()).copied();
+                match got {
+                    Some(got) if got == want.to_string() => {}
+                    Some(got) => {
+                        mismatches.push(format!("{}: {key}={got} want {want}", vector.id));
+                    }
+                    None => {
+                        mismatches.push(format!("{}: {key} missing (want {want})", vector.id));
+                    }
+                }
+            }
         }
         assert!(
             mismatches.is_empty(),
@@ -975,23 +1036,25 @@ mod tests {
             eprintln!("skipping: cc not available");
             return;
         }
-        let arts = generate_c(&eth_ipvx_l4()).unwrap();
-        let harness = generate_c_harness(&eth_ipvx_l4()).unwrap();
-        let out = cc_compiles(
-            &[
-                ("parser.h", &arts.header),
-                ("parser.c", &arts.source),
-                ("main.c", &harness),
-            ],
-            &[
-                "cc", "-std=c99", "-Wall", "-Wextra", "-Werror", "-O2", "parser.c", "main.c", "-o",
-                "harness",
-            ],
-        );
-        assert!(
-            out.status.success(),
-            "cc failed:\n{}",
-            String::from_utf8_lossy(&out.stderr)
-        );
+        for ir in [eth_ipvx_l4(), crate::builder::meta_loop()] {
+            let arts = generate_c(&ir).unwrap();
+            let harness = generate_c_harness(&ir).unwrap();
+            let out = cc_compiles(
+                &[
+                    ("parser.h", &arts.header),
+                    ("parser.c", &arts.source),
+                    ("main.c", &harness),
+                ],
+                &[
+                    "cc", "-std=c99", "-Wall", "-Wextra", "-Werror", "-O2", "parser.c", "main.c",
+                    "-o", "harness",
+                ],
+            );
+            assert!(
+                out.status.success(),
+                "cc failed:\n{}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+        }
     }
 }
