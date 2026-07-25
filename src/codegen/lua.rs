@@ -30,6 +30,7 @@ pub fn generate_lua(ir: &pb::Ir) -> Result<String> {
 
     let referenced = referenced_fields(parser);
     let entry_align = entry_alignments(parser);
+    let has_meta = !parser.metadata.is_empty();
 
     let mut out = String::new();
     let w = &mut out;
@@ -101,6 +102,20 @@ pub fn generate_lua(ir: &pb::Ir) -> Result<String> {
             }
         }
     }
+    for md in &parser.metadata {
+        let var = format!("f_meta_{}", md.name);
+        let abbr = format!("{proto}.meta.{}", md.name);
+        let display = md.display.clone().unwrap_or_default();
+        let name = if display.name.is_empty() {
+            md.name.clone()
+        } else {
+            display.name.clone()
+        };
+        pf_decl.push_str(&format!(
+            "local {var} = ProtoField.uint64(\"{abbr}\", \"{name}\")\n"
+        ));
+        pf_names.push(var);
+    }
     let payload_pf = "f_payload".to_string();
     pf_decl.push_str(&format!(
         "local {payload_pf} = ProtoField.bytes(\"{proto}.payload\", \"Payload\")\n"
@@ -124,7 +139,21 @@ pub fn generate_lua(ir: &pb::Ir) -> Result<String> {
 
     writeln!(w, "function p.dissector(buf, pinfo, tree)")?;
     writeln!(w, "  local root = tree:add(p, buf())")?;
-    writeln!(w, "  states.{}(buf, pinfo, root, 0, 0)", parser.start_state)?;
+    if has_meta {
+        let inits: Vec<String> = parser
+            .metadata
+            .iter()
+            .map(|md| format!("{} = {}", md.name, md.init))
+            .collect();
+        writeln!(w, "  local meta = {{ {} }}", inits.join(", "))?;
+        writeln!(
+            w,
+            "  states.{}(buf, pinfo, root, 0, 0, meta)",
+            parser.start_state
+        )?;
+    } else {
+        writeln!(w, "  states.{}(buf, pinfo, root, 0, 0)", parser.start_state)?;
+    }
     writeln!(w, "end")?;
     writeln!(w)?;
     writeln!(
@@ -178,6 +207,11 @@ fn referenced_fields(parser: &pb::Parser) -> HashSet<(String, String)> {
         {
             for k in &sel.keys {
                 walk(k);
+            }
+        }
+        for a in &s.assigns {
+            if let Some(v) = &a.value {
+                walk(v);
             }
         }
     }
@@ -382,7 +416,7 @@ fn expr_lua(e: &pb::Expr, referenced: &HashSet<(String, String)>) -> Result<Stri
                 pb::BinOpKind::Unspecified => bail!("unspecified binop"),
             })
         }
-        Some(pb::expr::Kind::Metadata(_)) => bail!("metadata refs not yet supported"),
+        Some(pb::expr::Kind::Metadata(r)) => Ok(format!("meta.{}", r.name)),
         None => bail!("empty expression"),
     }
 }
@@ -407,15 +441,27 @@ fn entry_lua(entry: &pb::KeysetEntry, key_lua: &str, key_width: Option<u32>) -> 
     }
 }
 
-fn target_lua(target: &pb::Target, indent: &str, w: &mut String) -> Result<()> {
+fn target_lua(
+    parser: &pb::Parser,
+    target: &pb::Target,
+    indent: &str,
+    w: &mut String,
+) -> Result<()> {
+    let has_meta = !parser.metadata.is_empty();
     match target.kind.as_ref() {
         Some(pb::target::Kind::State(name)) => {
+            let meta_arg = if has_meta { ", meta" } else { "" };
             writeln!(
                 w,
-                "{indent}return states.{name}(buf, pinfo, tree, off, depth)"
+                "{indent}return states.{name}(buf, pinfo, tree, off, depth{meta_arg})"
             )?;
         }
         Some(pb::target::Kind::Accept(_)) => {
+            if has_meta {
+                for md in &parser.metadata {
+                    writeln!(w, "{indent}tree:add(f_meta_{}, meta.{})", md.name, md.name)?;
+                }
+            }
             writeln!(w, "{indent}add_payload(buf, tree, off)")?;
             writeln!(w, "{indent}return off")?;
         }
@@ -450,9 +496,11 @@ fn emit_state(
     entry_align: &HashMap<String, Option<u32>>,
     state: &pb::State,
 ) -> Result<()> {
+    let has_meta = !parser.metadata.is_empty();
+    let meta_param = if has_meta { ", meta" } else { "" };
     writeln!(
         w,
-        "function states.{}(buf, pinfo, tree, off, depth)",
+        "function states.{}(buf, pinfo, tree, off, depth{meta_param})",
         state.name
     )?;
     writeln!(w, "  depth = depth + 1")?;
@@ -558,10 +606,34 @@ fn emit_state(
         }
     }
 
+    for a in &state.assigns {
+        let bits = parser
+            .metadata
+            .iter()
+            .find(|m| m.name == a.metadata)
+            .map(|m| m.bits)
+            .ok_or_else(|| anyhow::anyhow!("assign to undeclared metadata `{}`", a.metadata))?;
+        let rhs = expr_lua(
+            a.value
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("assign without value"))?,
+            referenced,
+        )?;
+        if bits <= 53 {
+            writeln!(w, "  meta.{} = ({}) % 2^{}", a.metadata, rhs, bits)?;
+        } else {
+            writeln!(
+                w,
+                "  meta.{} = ({}) -- wrap elided: >53-bit metadata exceeds Lua number precision",
+                a.metadata, rhs
+            )?;
+        }
+    }
+
     match state.transition.as_ref().and_then(|t| t.kind.as_ref()) {
         None => bail!("state `{}` has no transition", state.name),
         Some(pb::transition::Kind::Direct(t)) => {
-            target_lua(t, "  ", w)?;
+            target_lua(parser, t, "  ", w)?;
         }
         Some(pb::transition::Kind::Select(sel)) => {
             let keys: Vec<String> = sel
@@ -581,6 +653,7 @@ fn emit_state(
                 let kw = if i == 0 { "if" } else { "elseif" };
                 writeln!(w, "  {kw} {} then", conds.join(" and "))?;
                 target_lua(
+                    parser,
                     arm.next
                         .as_ref()
                         .ok_or_else(|| anyhow::anyhow!("arm without target"))?,
@@ -590,7 +663,7 @@ fn emit_state(
             }
             if sel.arms.is_empty() {
                 match sel.default_target.as_ref() {
-                    Some(t) => target_lua(t, "  ", w)?,
+                    Some(t) => target_lua(parser, t, "  ", w)?,
                     None => {
                         writeln!(
                             w,
@@ -602,7 +675,7 @@ fn emit_state(
             } else {
                 writeln!(w, "  else")?;
                 match sel.default_target.as_ref() {
-                    Some(t) => target_lua(t, "    ", w)?,
+                    Some(t) => target_lua(parser, t, "    ", w)?,
                     None => {
                         writeln!(
                             w,
@@ -622,9 +695,12 @@ fn emit_state(
 
 /// Bit width of a select key when it is a plain field ref.
 fn key_bit_width(parser: &pb::Parser, key: &pb::Expr) -> Option<u32> {
-    if let Some(pb::expr::Kind::Metadata(_)) = &key.kind {
-        // Metadata key width unknown here for now.
-        return None;
+    if let Some(pb::expr::Kind::Metadata(r)) = &key.kind {
+        return parser
+            .metadata
+            .iter()
+            .find(|m| m.name == r.name)
+            .map(|m| m.bits);
     }
     if let Some(pb::expr::Kind::Field(r)) = &key.kind {
         for s in &parser.states {
@@ -667,6 +743,17 @@ fi"#;
 mod tests {
     use super::*;
     use crate::examples::{eth_ipvx_l4, linux_flow_dissector};
+
+    #[test]
+    fn metadata_lua_emission() {
+        let ir = crate::builder::meta_loop(); // shared test IR from Task 2
+        let lua = generate_lua(&ir).unwrap();
+        assert!(lua.contains("f_meta_acc"));
+        assert!(lua.contains("local meta = { flag = 0, acc = 0 }"));
+        assert!(lua.contains("meta.acc = "));
+        let plain = generate_lua(&crate::examples::eth_ipvx_l4()).unwrap();
+        assert!(!plain.contains("meta"));
+    }
 
     #[test]
     fn committed_dissector_current() {
@@ -845,6 +932,24 @@ mod tests {
                             }
                         }
                         None => {}
+                    }
+                }
+            }
+            // Metadata is per-parse (not per header instance), so it
+            // sits outside the per-instance fold above.
+            if let Some(crate::testvec::pb::expected::Outcome::Accept(a)) =
+                vector.expected.as_ref().and_then(|e| e.outcome.as_ref())
+            {
+                for m in &a.metadata {
+                    let key = format!("{proto}.meta.{}", m.name);
+                    compared += 1;
+                    let raw = crate::oracle::lookup(layers, &key);
+                    let got = raw.and_then(crate::oracle::normalize);
+                    if got != Some(m.value) {
+                        mismatches.push(format!(
+                            "{}: {key} ours={} tshark={raw:?}",
+                            vector.id, m.value
+                        ));
                     }
                 }
             }
