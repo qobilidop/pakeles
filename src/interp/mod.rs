@@ -300,7 +300,10 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                 &env,
                 &meta,
             )?;
-            let bits = meta_bits[a.metadata.as_str()];
+            let bits = meta_bits
+                .get(a.metadata.as_str())
+                .copied()
+                .ok_or_else(|| anyhow::anyhow!("unresolved assign target `{}`", a.metadata))?;
             let masked = if bits >= 64 {
                 v
             } else {
