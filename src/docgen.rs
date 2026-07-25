@@ -3,7 +3,7 @@
 //! the description itself, nothing is hand-maintained.
 
 use crate::ir::pb;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::fmt::Write;
 
 pub fn generate_markdown(ir: &pb::Ir) -> Result<String> {
@@ -59,6 +59,31 @@ pub fn generate_markdown(ir: &pb::Ir) -> Result<String> {
         }
     }
 
+    if !parser.metadata.is_empty() {
+        writeln!(w)?;
+        writeln!(w, "## Metadata")?;
+        writeln!(w)?;
+        writeln!(w, "| Field | Bits | Init | Format | Name | Notes |")?;
+        writeln!(w, "|---|---|---|---|---|---|")?;
+        for md in &parser.metadata {
+            let d = md.display.clone().unwrap_or_default();
+            let format = match pb::DisplayFormat::try_from(d.format).unwrap_or_default() {
+                pb::DisplayFormat::Dec => "dec",
+                pb::DisplayFormat::Hex => "hex",
+                pb::DisplayFormat::Bin => "bin",
+                pb::DisplayFormat::Ipv4 => "IPv4",
+                pb::DisplayFormat::Ipv6 => "IPv6",
+                pb::DisplayFormat::Ether => "MAC",
+                pb::DisplayFormat::Unspecified => "",
+            };
+            writeln!(
+                w,
+                "| `{}` | {} | {} | {} | {} | {} |",
+                md.name, md.bits, md.init, format, d.name, d.doc
+            )?;
+        }
+    }
+
     writeln!(w)?;
     writeln!(w, "## Parse graph")?;
     writeln!(w)?;
@@ -80,6 +105,10 @@ pub fn generate_markdown(ir: &pb::Ir) -> Result<String> {
         write!(w, "- **`{}`**", s.name)?;
         if !extracts.is_empty() {
             write!(w, " — extracts {extracts}")?;
+        }
+        for a in &s.assigns {
+            let val = crate::viz::expr_text(a.value.as_ref().context("assign without value")?);
+            write!(w, "; sets meta.{} = {}", a.metadata, val)?;
         }
         match s.transition.as_ref().and_then(|t| t.kind.as_ref()) {
             Some(pb::transition::Kind::Direct(t)) => {
@@ -133,6 +162,14 @@ fn target_text(t: &pb::Target) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn metadata_doc_section() {
+        let ir = crate::builder::meta_loop(); // shared test IR from Task 2
+        let md = super::generate_markdown(&ir).unwrap();
+        assert!(md.contains("## Metadata"), "{md}");
+        assert!(md.contains("sets meta.acc"), "{md}");
+    }
+
     #[test]
     fn committed_doc_current() {
         let md = super::generate_markdown(&crate::examples::eth_ipvx_l4()).unwrap();

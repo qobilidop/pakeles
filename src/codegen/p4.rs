@@ -100,6 +100,16 @@ fn header_type_of<'a>(parser: &'a pb::Parser, inst: &str) -> Result<&'a pb::Head
         .with_context(|| format!("unknown header type `{ht_name}`"))
 }
 
+/// Width (in bits) of a declared metadata field.
+fn metadata_bits(parser: &pb::Parser, name: &str) -> Result<u32> {
+    parser
+        .metadata
+        .iter()
+        .find(|m| m.name == name)
+        .map(|m| m.bits)
+        .with_context(|| format!("unknown metadata field `{name}`"))
+}
+
 fn fixed_bits(parser: &pb::Parser, r: &pb::FieldRef) -> Result<u32> {
     let ht = header_type_of(parser, &r.header)?;
     let f = ht
@@ -140,7 +150,7 @@ fn expr_range(e: &pb::Expr, parser: &pb::Parser) -> Result<(u128, u128)> {
                 _ => bail!("unspecified binop"),
             }
         }
-        pb::expr::Kind::Metadata(_) => bail!("metadata refs not yet supported"),
+        pb::expr::Kind::Metadata(r) => (0, (1u128 << metadata_bits(parser, &r.name)?) - 1),
     })
 }
 
@@ -219,7 +229,7 @@ fn expr_p4(
                 format!("({l} {op} {r})")
             }
         }
-        pb::expr::Kind::Metadata(_) => bail!("metadata refs not yet supported"),
+        pb::expr::Kind::Metadata(r) => format!("(bit<64>)meta.{}", r.name),
     })
 }
 
@@ -412,6 +422,9 @@ pub fn generate_p4(ir: &pb::Ir) -> Result<String> {
     writeln!(w, "}}")?;
     writeln!(w)?;
     writeln!(w, "struct metadata {{")?;
+    for md in &parser.metadata {
+        writeln!(w, "    bit<{}> {};", md.bits, md.name)?;
+    }
     writeln!(w, "}}")?;
     writeln!(w)?;
 
@@ -422,6 +435,11 @@ pub fn generate_p4(ir: &pb::Ir) -> Result<String> {
     )?;
     writeln!(w, "                inout standard_metadata_t smeta) {{")?;
     writeln!(w, "    state start {{")?;
+    // Explicit inits: don't rely on v1model zero-init folklore, which is
+    // not guaranteed on every target.
+    for md in &parser.metadata {
+        writeln!(w, "        meta.{} = {};", md.name, md.init)?;
+    }
     writeln!(w, "        transition st_{};", parser.start_state)?;
     writeln!(w, "    }}")?;
     for s in &parser.states {
@@ -456,6 +474,17 @@ pub fn generate_p4(ir: &pb::Ir) -> Result<String> {
                     }
                 }
             }
+        }
+        for a in &s.assigns {
+            let bits = metadata_bits(parser, &a.metadata)?;
+            let rhs = expr_p4(
+                a.value.as_ref().context("assign without value")?,
+                parser,
+                &stacked,
+            )?;
+            // The cast truncates to the field's declared width — no mask
+            // needed.
+            writeln!(w, "        meta.{} = (bit<{bits}>)({rhs});", a.metadata)?;
         }
         match s.transition.as_ref().and_then(|t| t.kind.as_ref()) {
             Some(pb::transition::Kind::Direct(t)) => {
@@ -717,21 +746,23 @@ mod tests {
         }
     }
 
-    #[test]
-    fn generated_p4_compiles_with_p4test() {
+    /// Runs p4test against `p4`, skipping (with a stderr note) when p4test
+    /// isn't installed locally — it runs in the CI container. Asserts a
+    /// clean compile (and, if `deny_warnings`, no warnings); returns
+    /// whether p4test actually ran, so callers can report honestly.
+    fn run_p4test(p4: &str, dir_name: &str, deny_warnings: bool) -> bool {
         if std::process::Command::new("p4test")
             .arg("--version")
             .output()
             .is_err()
         {
             eprintln!("skipping: p4test not available");
-            return;
+            return false;
         }
-        let p4 = generate_p4(&crate::examples::eth_ipvx_l4()).unwrap();
-        let dir = std::env::temp_dir().join("pakeles_p4test");
+        let dir = std::env::temp_dir().join(dir_name);
         std::fs::create_dir_all(&dir).unwrap();
         let src = dir.join("parser.p4");
-        std::fs::write(&src, &p4).unwrap();
+        std::fs::write(&src, p4).unwrap();
         let out = std::process::Command::new("p4test")
             .arg(&src)
             .output()
@@ -741,10 +772,28 @@ mod tests {
             out.status.success(),
             "p4test rejected:\n{stderr}\n---\n{p4}"
         );
-        assert!(
-            !stderr.contains("warning"),
-            "p4test warnings:\n{stderr}\n---\n{p4}"
-        );
+        if deny_warnings {
+            assert!(
+                !stderr.contains("warning"),
+                "p4test warnings:\n{stderr}\n---\n{p4}"
+            );
+        }
+        true
+    }
+
+    #[test]
+    fn generated_p4_compiles_with_p4test() {
+        let p4 = generate_p4(&crate::examples::eth_ipvx_l4()).unwrap();
+        run_p4test(&p4, "pakeles_p4test", true);
+    }
+
+    #[test]
+    fn metadata_p4_emission_compiles() {
+        let ir = crate::builder::meta_loop(); // shared test IR from Task 2
+        let p4 = generate_p4(&ir).unwrap();
+        assert!(p4.contains("bit<8> acc;"), "{p4}");
+        assert!(p4.contains("meta.acc = "), "{p4}");
+        run_p4test(&p4, "pakeles_p4test_metadata", true);
     }
 
     /// A synthetic linear-chain IR with `n` distinct header instances, all
@@ -844,29 +893,9 @@ mod tests {
 
     #[test]
     fn cyclic_p4_compiles_with_p4test() {
-        if std::process::Command::new("p4test")
-            .arg("--version")
-            .output()
-            .is_err()
-        {
-            eprintln!("skipping: p4test not available");
-            return;
-        }
         // The synthetic looped IR must emit header-stack P4 that p4c accepts
         // (`.next`/`.last`/`[0]` on `[max_depth]` stacks).
         let p4 = generate_p4(&cyclic_ir()).unwrap();
-        let dir = std::env::temp_dir().join("pakeles_p4test_cyclic");
-        std::fs::create_dir_all(&dir).unwrap();
-        let src = dir.join("parser.p4");
-        std::fs::write(&src, &p4).unwrap();
-        let out = std::process::Command::new("p4test")
-            .arg(&src)
-            .output()
-            .unwrap();
-        let stderr = String::from_utf8_lossy(&out.stderr);
-        assert!(
-            out.status.success(),
-            "p4test rejected cyclic P4:\n{stderr}\n---\n{p4}"
-        );
+        run_p4test(&p4, "pakeles_p4test_cyclic", false);
     }
 }
