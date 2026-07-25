@@ -60,6 +60,28 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
         }
     }
 
+    // Metadata declarations: unique non-empty names, width 1..=64, init fits.
+    let mut meta_decls: std::collections::HashMap<&str, u32> = std::collections::HashMap::new();
+    for m in &parser.metadata {
+        if m.name.is_empty() {
+            errs.push("metadata field with empty name".into());
+        }
+        if !(1..=64).contains(&m.bits) {
+            errs.push(format!(
+                "metadata `{}` width {} outside 1..=64",
+                m.name, m.bits
+            ));
+        } else if m.bits < 64 && m.init >= (1u64 << m.bits) {
+            errs.push(format!(
+                "metadata `{}` init {} does not fit in {} bits",
+                m.name, m.init, m.bits
+            ));
+        }
+        if meta_decls.insert(m.name.as_str(), m.bits).is_some() {
+            errs.push(format!("duplicate metadata `{}`", m.name));
+        }
+    }
+
     // States: unique non-empty names.
     let mut states = std::collections::HashSet::new();
     for s in &parser.states {
@@ -109,6 +131,12 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
         }
     };
 
+    let check_meta_ref = |r: &pb::MetadataRef, ctx: &str, errs: &mut Vec<String>| {
+        if !meta_decls.contains_key(r.name.as_str()) {
+            errs.push(format!("{ctx}: unknown metadata `{}`", r.name));
+        }
+    };
+
     fn walk_refs<'a>(e: &'a pb::Expr, out: &mut Vec<&'a pb::FieldRef>) {
         match &e.kind {
             Some(pb::expr::Kind::Field(r)) => out.push(r),
@@ -125,7 +153,24 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
         }
     }
 
-    // Field refs inside variable-length widths.
+    fn walk_meta_refs<'a>(e: &'a pb::Expr, out: &mut Vec<&'a pb::MetadataRef>) {
+        match &e.kind {
+            Some(pb::expr::Kind::Metadata(r)) => out.push(r),
+            Some(pb::expr::Kind::Bin(b)) => {
+                if let Some(l) = &b.lhs {
+                    walk_meta_refs(l, out);
+                }
+                if let Some(r) = &b.rhs {
+                    walk_meta_refs(r, out);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // Field refs inside variable-length widths. `byte_len` must not
+    // reference metadata (v1 restriction: metadata may not affect a
+    // header's extracted size, which would undermine pathid soundness).
     for ht in &parser.header_types {
         for f in &ht.fields {
             if let Some(pb::field_width::Width::ByteLen(e)) =
@@ -135,6 +180,14 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
                 walk_refs(e, &mut refs);
                 for r in refs {
                     check_ref(r, &format!("width of `{}.{}`", ht.name, f.name), &mut errs);
+                }
+                let mut meta_refs = Vec::new();
+                walk_meta_refs(e, &mut meta_refs);
+                if !meta_refs.is_empty() {
+                    errs.push(format!(
+                        "field `{}.{}`: byte_len must not reference metadata",
+                        ht.name, f.name
+                    ));
                 }
             }
         }
@@ -157,6 +210,26 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
 
     for s in &parser.states {
         let ctx = format!("state `{}`", s.name);
+
+        for a in &s.assigns {
+            if !meta_decls.contains_key(a.metadata.as_str()) {
+                errs.push(format!("{ctx}: unknown metadata `{}`", a.metadata));
+            }
+            if let Some(value) = &a.value {
+                let assign_ctx = format!("state `{}` assign `{}`", s.name, a.metadata);
+                let mut refs = Vec::new();
+                walk_refs(value, &mut refs);
+                for r in refs {
+                    check_ref(r, &assign_ctx, &mut errs);
+                }
+                let mut meta_refs = Vec::new();
+                walk_meta_refs(value, &mut meta_refs);
+                for r in meta_refs {
+                    check_meta_ref(r, &assign_ctx, &mut errs);
+                }
+            }
+        }
+
         let check_target = |t: &pb::Target, errs: &mut Vec<String>| match &t.kind {
             Some(pb::target::Kind::State(name)) => {
                 if !states.contains(name.as_str()) {
@@ -183,6 +256,11 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
                     walk_refs(k, &mut refs);
                     for r in refs {
                         check_ref(r, &ctx, &mut errs);
+                    }
+                    let mut meta_refs = Vec::new();
+                    walk_meta_refs(k, &mut meta_refs);
+                    for r in meta_refs {
+                        check_meta_ref(r, &ctx, &mut errs);
                     }
                 }
                 for arm in &sel.arms {
@@ -349,6 +427,18 @@ fn definite_extraction_errors(
                         );
                     }
                 }
+            }
+        }
+        // Assigns run after this state's extracts (and before its
+        // transition), so a field extracted in this state is legal here —
+        // same treatment as select keys, below.
+        for a in &s.assigns {
+            if let Some(value) = &a.value {
+                check_expr(
+                    value,
+                    &avail,
+                    &format!("state `{}` assign `{}`", s.name, a.metadata),
+                );
             }
         }
         if let Some(pb::transition::Kind::Select(sel)) =
@@ -606,5 +696,79 @@ mod tests {
             }],
         );
         assert_err_contains(&ir, "exceeds 8-bit key width");
+    }
+
+    #[test]
+    fn rejects_bad_metadata_decls() {
+        let mut ir = tiny();
+        let p = ir.parser.as_mut().unwrap();
+        p.metadata.push(pb::MetadataField {
+            name: "".into(),
+            bits: 0,
+            init: 0,
+            ..Default::default()
+        });
+        p.metadata.push(pb::MetadataField {
+            name: "m".into(),
+            bits: 65,
+            init: 0,
+            ..Default::default()
+        });
+        p.metadata.push(pb::MetadataField {
+            name: "m".into(),
+            bits: 4,
+            init: 16,
+            ..Default::default()
+        });
+        assert_err_contains(&ir, "metadata field with empty name");
+        assert_err_contains(&ir, "metadata `m` width 65 outside 1..=64");
+        assert_err_contains(&ir, "duplicate metadata `m`");
+        assert_err_contains(&ir, "metadata `m` init 16 does not fit in 4 bits");
+    }
+
+    #[test]
+    fn rejects_undeclared_metadata_refs() {
+        let mut ir = tiny();
+        let p = ir.parser.as_mut().unwrap();
+        // assign to undeclared target, RHS referencing undeclared metadata
+        p.states[0].assigns.push(pb::Assign {
+            metadata: "ghost".into(),
+            value: Some(pb::Expr {
+                kind: Some(pb::expr::Kind::Metadata(pb::MetadataRef {
+                    name: "ghost2".into(),
+                })),
+            }),
+        });
+        assert_err_contains(&ir, "unknown metadata `ghost`");
+        assert_err_contains(&ir, "unknown metadata `ghost2`");
+    }
+
+    #[test]
+    fn rejects_metadata_in_byte_len() {
+        // v1 restriction: byte_len must not reference metadata (pathid soundness).
+        let mut ir = tiny();
+        let p = ir.parser.as_mut().unwrap();
+        p.metadata.push(pb::MetadataField {
+            name: "n".into(),
+            bits: 8,
+            init: 0,
+            ..Default::default()
+        });
+        p.header_types.push(pb::HeaderType {
+            name: "h".into(),
+            fields: vec![pb::Field {
+                name: "body".into(),
+                width: Some(pb::FieldWidth {
+                    width: Some(pb::field_width::Width::ByteLen(pb::Expr {
+                        kind: Some(pb::expr::Kind::Metadata(pb::MetadataRef {
+                            name: "n".into(),
+                        })),
+                    })),
+                }),
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        assert_err_contains(&ir, "byte_len must not reference metadata");
     }
 }

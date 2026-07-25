@@ -22,6 +22,15 @@ pub fn f(header: &str, field: &str) -> pb::Expr {
     }
 }
 
+/// Metadata reference expression.
+pub fn m(name: &str) -> pb::Expr {
+    pb::Expr {
+        kind: Some(pb::expr::Kind::Metadata(pb::MetadataRef {
+            name: name.into(),
+        })),
+    }
+}
+
 fn bin(op: pb::BinOpKind, lhs: pb::Expr, rhs: pb::Expr) -> pb::Expr {
     pb::Expr {
         kind: Some(pb::expr::Kind::Bin(Box::new(pb::BinOp {
@@ -222,6 +231,16 @@ impl StateBuilder {
         self
     }
 
+    /// Append a metadata assignment, run after this state's extracts and
+    /// before its transition.
+    pub fn assign(mut self, name: &str, value: pb::Expr) -> Self {
+        self.state.assigns.push(pb::Assign {
+            metadata: name.into(),
+            value: Some(value),
+        });
+        self
+    }
+
     pub fn select(
         mut self,
         keys: Vec<pb::Expr>,
@@ -280,6 +299,17 @@ impl ParserBuilder {
         self
     }
 
+    /// Declare a metadata field: `bits`-wide, initialized to `init`.
+    pub fn meta(mut self, name: &str, bits: u32, init: u64) -> Self {
+        self.parser.metadata.push(pb::MetadataField {
+            name: name.into(),
+            bits,
+            init,
+            ..Default::default()
+        });
+        self
+    }
+
     pub fn state(mut self, s: StateBuilder) -> Self {
         self.parser.states.push(s.state);
         self
@@ -298,6 +328,37 @@ impl ParserBuilder {
         validate(&ir).map_err(|errs| anyhow::anyhow!("invalid IR:\n  {}", errs.join("\n  ")))?;
         Ok(ir)
     }
+}
+
+/// Shared metadata test IR (see the Interfaces block of the metadata-v1
+/// plan, Task 2): a count-prefixed accumulator loop with a constant write
+/// and select-on-metadata exits. Used by interp/symex/codegen tests.
+// Not yet called within this crate's current test suite — later tasks'
+// tests reuse it via `crate::builder::meta_loop()`.
+#[cfg(test)]
+#[allow(dead_code)]
+pub(crate) fn meta_loop() -> pb::Ir {
+    ParserBuilder::new("meta_loop", 6)
+        .meta("flag", 1, 0)
+        .meta("acc", 8, 0)
+        .header(HeaderTypeBuilder::new("h").bits("n", 8))
+        .header(HeaderTypeBuilder::new("i").bits("v", 8))
+        .state(
+            StateBuilder::new("s0")
+                .extract("h")
+                .assign("acc", f("h", "n"))
+                .assign("flag", c(1))
+                .select(vec![m("acc")], vec![arm(vec![v(0)], accept())], to("s1")),
+        )
+        .state(
+            StateBuilder::new("s1")
+                .extract("i")
+                .assign("acc", sub(m("acc"), c(1)))
+                .select(vec![m("acc")], vec![arm(vec![v(0)], accept())], to("s1")),
+        )
+        .start("s0")
+        .build()
+        .unwrap()
 }
 
 #[cfg(test)]
@@ -339,5 +400,26 @@ mod tests {
             .build()
             .unwrap_err();
         assert!(err.to_string().contains("unknown state `ghost`"));
+    }
+
+    #[test]
+    fn builds_metadata_parser() {
+        let ir = ParserBuilder::new("t", 3)
+            .meta("flag", 1, 0)
+            .meta("acc", 8, 5)
+            .header(HeaderTypeBuilder::new("h").bits("x", 8))
+            .state(
+                StateBuilder::new("s0")
+                    .extract("h")
+                    .assign("acc", sub(m("acc"), c(1)))
+                    .assign("flag", c(1))
+                    .select(vec![m("acc")], vec![arm(vec![v(0)], accept())], to("s0")),
+            )
+            .start("s0")
+            .build()
+            .unwrap();
+        let p = ir.parser.as_ref().unwrap();
+        assert_eq!(p.metadata.len(), 2);
+        assert_eq!(p.states[0].assigns.len(), 2);
     }
 }
