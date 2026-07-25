@@ -41,7 +41,8 @@ class Parser:
                 f"state {sname!r}: {what} {field.name!r} used but parser() has "
                 f"no metadata= declared"
             )
-        if field not in self._metadata._fields:  # type: ignore[attr-defined]
+        fields: list[MetaFieldSpec] = self._metadata._fields  # type: ignore[attr-defined]
+        if not any(field is f for f in fields):
             raise ValueError(
                 f"state {sname!r}: {what} {field.name!r} does not belong to "
                 f"the declared metadata class {self._metadata.__name__!r}"

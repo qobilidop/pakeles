@@ -45,7 +45,7 @@ def meta_bits(
     """A declared metadata scalar (1..64 bits, initialized to `init`)."""
     if not 1 <= width <= 64:
         raise ValueError(f"metadata width {width} outside 1..=64")
-    if init < 0 or (width < 64 and init >= 1 << width):
+    if init < 0 or init >= 1 << width:
         raise ValueError(f"metadata init {init} does not fit in {width} bits")
     return MetaFieldSpec(
         width_bits=width, init=init, display_name=display, format=format, doc=doc

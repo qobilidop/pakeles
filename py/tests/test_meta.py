@@ -1,3 +1,4 @@
+import pytest
 from google.protobuf import json_format
 
 from pakeles import Header, Meta, assign, bits, extract, meta_bits, parser
@@ -52,11 +53,36 @@ def test_select_on_metadata_key():
 
 
 def test_meta_validation_errors():
-    import pytest
-
     with pytest.raises(ValueError):
         meta_bits(0)
     with pytest.raises(ValueError):
         meta_bits(65)
     with pytest.raises(ValueError):
         meta_bits(4, init=16)
+
+
+def test_meta_validation_error_width_64_init_overflow():
+    # width == 64 is the boundary where a naive `width < 64` guard would
+    # skip the upper-bound check entirely (Python ints are unbounded, so
+    # 2**64 doesn't wrap or raise on its own — the check must be explicit).
+    with pytest.raises(ValueError):
+        meta_bits(64, init=2**64 + 5)
+
+
+def test_assign_rejects_field_from_a_different_metadata_class():
+    # Two Meta classes with structurally identical fields (same name,
+    # width, init) must still be distinguished by identity, not value
+    # equality — a dataclass `==` would incorrectly consider them
+    # interchangeable.
+    class OtherM(Meta):
+        flag = meta_bits(1)
+        acc = meta_bits(8, init=5)
+
+    with pytest.raises(ValueError):
+        parser(
+            "t2",
+            max_depth=4,
+            metadata=M,
+            start="s0",
+            states={"s0": assign(OtherM.flag, 1).accept()},
+        )
