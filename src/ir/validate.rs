@@ -194,18 +194,23 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
     }
 
     // Transitions: targets resolve, select arity matches, refs resolve,
-    // keyset entries fit the key's width when the key is a plain field ref.
+    // keyset entries fit the key's width when the key is a plain field ref
+    // or a metadata ref.
     let key_width = |e: &pb::Expr| -> Option<u32> {
-        if let Some(pb::expr::Kind::Field(r)) = &e.kind {
-            let ht = header_types.get(*instances.get(r.header.as_str())?)?;
-            let f = ht.fields.iter().find(|f| f.name == r.field)?;
-            if let Some(pb::field_width::Width::Bits(b)) =
-                f.width.as_ref().and_then(|w| w.width.as_ref())
-            {
-                return Some(*b);
+        match &e.kind {
+            Some(pb::expr::Kind::Field(r)) => {
+                let ht = header_types.get(*instances.get(r.header.as_str())?)?;
+                let f = ht.fields.iter().find(|f| f.name == r.field)?;
+                if let Some(pb::field_width::Width::Bits(b)) =
+                    f.width.as_ref().and_then(|w| w.width.as_ref())
+                {
+                    return Some(*b);
+                }
+                None
             }
+            Some(pb::expr::Kind::Metadata(r)) => meta_decls.get(r.name.as_str()).copied(),
+            _ => None,
         }
-        None
     };
 
     for s in &parser.states {
@@ -593,6 +598,21 @@ mod tests {
     }
 
     #[test]
+    fn rejects_unknown_metadata_select_key() {
+        let mut ir = tiny();
+        with_select(
+            &mut ir,
+            vec![pb::Expr {
+                kind: Some(pb::expr::Kind::Metadata(pb::MetadataRef {
+                    name: "ghost".into(),
+                })),
+            }],
+            vec![],
+        );
+        assert_err_contains(&ir, "unknown metadata `ghost`");
+    }
+
+    #[test]
     fn rejects_bad_severity() {
         let mut ir = tiny();
         parser(&mut ir).states[0].transition = Some(pb::Transition {
@@ -686,6 +706,35 @@ mod tests {
         with_select(
             &mut ir,
             vec![field_ref("h", "f")],
+            vec![pb::SelectArm {
+                entries: vec![pb::KeysetEntry {
+                    kind: Some(pb::keyset_entry::Kind::Value(256)),
+                }],
+                next: Some(pb::Target {
+                    kind: Some(pb::target::Kind::Accept(pb::Accept {})),
+                }),
+            }],
+        );
+        assert_err_contains(&ir, "exceeds 8-bit key width");
+    }
+
+    #[test]
+    fn rejects_oversized_metadata_keyset_value() {
+        let mut ir = tiny();
+        let p = ir.parser.as_mut().unwrap();
+        p.metadata.push(pb::MetadataField {
+            name: "m".into(),
+            bits: 8,
+            init: 0,
+            ..Default::default()
+        });
+        with_select(
+            &mut ir,
+            vec![pb::Expr {
+                kind: Some(pb::expr::Kind::Metadata(pb::MetadataRef {
+                    name: "m".into(),
+                })),
+            }],
             vec![pb::SelectArm {
                 entries: vec![pb::KeysetEntry {
                     kind: Some(pb::keyset_entry::Kind::Value(256)),

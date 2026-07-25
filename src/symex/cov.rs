@@ -76,15 +76,21 @@ mod tests {
     /// cross-validation of pathid against the engine.
     #[test]
     fn pathid_roundtrips_all_committed_vectors() {
-        let ir = eth_ipvx_l4();
-        let Some(suite) = crate::testvec::committed_suite_or_skip("eth_ipvx_l4") else {
-            return;
-        };
-        for v in &suite.vectors {
-            let (bits, _) = crate::testvec::Bits::from_pb(v.packet.as_ref().unwrap());
-            let result = crate::interp::run_bits(&ir, &bits).unwrap();
-            let id = path_id(&ir, &result).unwrap();
-            assert_eq!(id, v.id, "vector {} mapped to wrong path", v.id);
+        for name in ["eth_ipvx_l4", "counted_items"] {
+            let ir = match name {
+                "eth_ipvx_l4" => eth_ipvx_l4(),
+                "counted_items" => crate::examples::counted_items(),
+                _ => unreachable!(),
+            };
+            let Some(suite) = crate::testvec::committed_suite_or_skip(name) else {
+                continue;
+            };
+            for v in &suite.vectors {
+                let (bits, _) = crate::testvec::Bits::from_pb(v.packet.as_ref().unwrap());
+                let result = crate::interp::run_bits(&ir, &bits).unwrap();
+                let id = path_id(&ir, &result).unwrap();
+                assert_eq!(id, v.id, "[{name}] vector {} mapped to wrong path", v.id);
+            }
         }
     }
 }

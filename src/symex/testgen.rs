@@ -227,10 +227,17 @@ mod tests {
 
     #[test]
     fn committed_vectors_replay_green() {
-        let Some(suite) = crate::testvec::committed_suite_or_skip("eth_ipvx_l4") else {
-            return;
-        };
-        let mismatches = replay(&eth_ipvx_l4(), &suite).unwrap();
-        assert!(mismatches.is_empty(), "{mismatches:#?}");
+        for name in ["eth_ipvx_l4", "counted_items"] {
+            let ir = match name {
+                "eth_ipvx_l4" => eth_ipvx_l4(),
+                "counted_items" => crate::examples::counted_items(),
+                _ => unreachable!(),
+            };
+            let Some(suite) = crate::testvec::committed_suite_or_skip(name) else {
+                continue;
+            };
+            let mismatches = replay(&ir, &suite).unwrap();
+            assert!(mismatches.is_empty(), "[{name}] {mismatches:#?}");
+        }
     }
 }
