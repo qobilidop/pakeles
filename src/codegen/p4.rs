@@ -735,6 +735,7 @@ mod tests {
                 "linux_flow_dissector",
                 crate::examples::linux_flow_dissector(),
             ),
+            ("counted_items", crate::examples::counted_items()),
         ] {
             let p4 = generate_p4(&ir).unwrap();
             let committed =
@@ -785,6 +786,14 @@ mod tests {
     fn generated_p4_compiles_with_p4test() {
         let p4 = generate_p4(&crate::examples::eth_ipvx_l4()).unwrap();
         run_p4test(&p4, "pakeles_p4test", true);
+    }
+
+    #[test]
+    fn counted_items_p4_compiles_with_p4test() {
+        let p4 = generate_p4(&crate::examples::counted_items()).unwrap();
+        assert!(p4.contains("bit<8> remaining;"), "{p4}");
+        assert!(p4.contains("meta.remaining = "), "{p4}");
+        run_p4test(&p4, "pakeles_p4test_counted_items", true);
     }
 
     #[test]

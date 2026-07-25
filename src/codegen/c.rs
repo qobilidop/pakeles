@@ -690,7 +690,7 @@ pub fn generate_bpf(ir: &pb::Ir) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::examples::{eth_ipvx_l4, linux_flow_dissector};
+    use crate::examples::{counted_items, eth_ipvx_l4, linux_flow_dissector};
 
     #[test]
     fn metadata_c_emission_and_semantics() {
@@ -904,6 +904,11 @@ mod tests {
         c_backend_conformance(&linux_flow_dissector());
     }
 
+    #[test]
+    fn c_backend_conformance_full_suite_counted_items() {
+        c_backend_conformance(&counted_items());
+    }
+
     /// eBPF conformance: compile with clang -target bpf, extract
     /// .text, execute under the rbpf userspace VM per vector, compare
     /// the packed verdict (outcome | reason | consumed) against the
@@ -1008,6 +1013,7 @@ mod tests {
         for (name, ir) in [
             ("eth_ipvx_l4", eth_ipvx_l4()),
             ("linux_flow_dissector", linux_flow_dissector()),
+            ("counted_items", counted_items()),
         ] {
             let arts = generate_c(&ir).unwrap();
             let bpf = generate_bpf(&ir).unwrap();

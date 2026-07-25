@@ -49,7 +49,7 @@ fn regenerate(name: &str) -> anyhow::Result<()> {
 }
 
 fn main() -> anyhow::Result<()> {
-    for name in ["eth_ipvx_l4", "linux_flow_dissector"] {
+    for name in ["eth_ipvx_l4", "linux_flow_dissector", "counted_items"] {
         regenerate(name)?;
     }
     Ok(())

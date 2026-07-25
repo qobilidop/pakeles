@@ -1,0 +1,13 @@
+digraph "counted_items" {
+  rankdir=TB;
+  node [fontname="Helvetica"];
+  "parse_count" [shape=box, label="parse_count\nextract count"];
+  "parse_item" [shape=box, label="parse_item\nextract item"];
+  "mark_done" [shape=box, label="mark_done"];
+  "accept" [shape=doublecircle];
+  "parse_count" -> "mark_done" [label="meta.remaining == 0x0"];
+  "parse_count" -> "parse_item" [label="default", style=dashed];
+  "parse_item" -> "mark_done" [label="meta.remaining == 0x0"];
+  "parse_item" -> "parse_item" [label="default", style=dashed];
+  "mark_done" -> "accept";
+}

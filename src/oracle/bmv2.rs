@@ -399,4 +399,12 @@ mod tests {
         // whole byte-aligned set, not a sample.
         bmv2_conformance_byte_aligned(&crate::examples::linux_flow_dissector(), 90);
     }
+
+    #[test]
+    fn bmv2_conformance_byte_aligned_suite_counted_items() {
+        // BMv2 compares the header-presence bitmap only (documented v1
+        // boundary) — this still exercises the metadata-driven select
+        // loop's control flow, just not the metadata values themselves.
+        bmv2_conformance_byte_aligned(&crate::examples::counted_items(), 2);
+    }
 }

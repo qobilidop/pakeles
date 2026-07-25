@@ -752,7 +752,7 @@ fi"#;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::examples::{eth_ipvx_l4, linux_flow_dissector};
+    use crate::examples::{counted_items, eth_ipvx_l4, linux_flow_dissector};
 
     #[test]
     fn metadata_lua_emission() {
@@ -778,6 +778,7 @@ mod tests {
         for (name, ir) in [
             ("eth_ipvx_l4", eth_ipvx_l4()),
             ("linux_flow_dissector", linux_flow_dissector()),
+            ("counted_items", counted_items()),
         ] {
             let lua = generate_lua(&ir).unwrap();
             let committed =
@@ -993,6 +994,14 @@ mod tests {
     #[test]
     fn generated_dissector_conformance_flow_dissector() {
         generated_dissector_conformance_suite(&linux_flow_dissector(), 400);
+    }
+
+    #[test]
+    fn generated_dissector_conformance_counted_items() {
+        // Small toy suite: a handful of accept vectors, each comparing
+        // count/item fields plus meta.done/meta.remaining — floor guards
+        // against a silently-empty suite, not an exact count.
+        generated_dissector_conformance_suite(&counted_items(), 3);
     }
 
     type ExpectedFields = Vec<(String, Option<crate::testvec::pb::expected_field::Value>)>;
