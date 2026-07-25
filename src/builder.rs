@@ -333,10 +333,7 @@ impl ParserBuilder {
 /// Shared metadata test IR (see the Interfaces block of the metadata-v1
 /// plan, Task 2): a count-prefixed accumulator loop with a constant write
 /// and select-on-metadata exits. Used by interp/symex/codegen tests.
-// Not yet called within this crate's current test suite — later tasks'
-// tests reuse it via `crate::builder::meta_loop()`.
 #[cfg(test)]
-#[allow(dead_code)]
 pub(crate) fn meta_loop() -> pb::Ir {
     ParserBuilder::new("meta_loop", 6)
         .meta("flag", 1, 0)

@@ -4,6 +4,9 @@
 mod bits;
 mod eval;
 
+use anyhow::Context;
+use std::collections::HashMap;
+
 use crate::ir::pb;
 use bits::read_bits;
 use eval::{eval_entry, eval_expr, Env};
@@ -15,7 +18,9 @@ pub(crate) fn eval_expr_pub(
     e: &pb::Expr,
     env: &std::collections::HashMap<(String, String), u64>,
 ) -> anyhow::Result<u64> {
-    eval_expr(e, env)
+    // byte_len can't reference metadata (validator-enforced), so the
+    // store is always empty here.
+    eval_expr(e, env, &std::collections::HashMap::new())
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -91,6 +96,9 @@ pub struct ParseResult {
     /// Bits consumed when parsing stopped; payload/remainder is
     /// `consumed_bits..input.bit_len`.
     pub consumed_bits: usize,
+    /// Final metadata values in declared order; empty when the parser
+    /// declares none.
+    pub metadata: Vec<(String, u64)>,
 }
 
 /// Run the parser over one byte-aligned packet. `Err` means the IR
@@ -122,6 +130,17 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
     let mut depth = 0u32;
     let mut current = parser.start_state.as_str();
 
+    let mut meta: HashMap<String, u64> = parser
+        .metadata
+        .iter()
+        .map(|m| (m.name.clone(), m.init))
+        .collect();
+    let meta_bits: HashMap<&str, u32> = parser
+        .metadata
+        .iter()
+        .map(|m| (m.name.as_str(), m.bits))
+        .collect();
+
     struct RejectCtx {
         severity: Severity,
         instance: Option<String>,
@@ -133,7 +152,8 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                   state: &str,
                   bit_offset: usize,
                   headers: Vec<ParsedHeader>,
-                  trace: Vec<TraceStep>| {
+                  trace: Vec<TraceStep>,
+                  metadata: Vec<(String, u64)>| {
         Ok(ParseResult {
             outcome: Outcome::Reject {
                 reason: reason.into(),
@@ -149,6 +169,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                 severity: ctx.severity,
             }),
             consumed_bits: bit_offset,
+            metadata,
         })
     };
     let plain = |severity: Severity| RejectCtx {
@@ -171,6 +192,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                 cursor_bits,
                 headers,
                 trace,
+                final_meta(parser, &meta),
             );
         }
         let state = states
@@ -215,6 +237,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                                 cursor_bits,
                                 headers,
                                 trace,
+                                final_meta(parser, &meta),
                             );
                         };
                         env.insert((instance.clone(), field.name.clone()), value);
@@ -227,7 +250,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                         cursor_bits += n;
                     }
                     pb::field_width::Width::ByteLen(expr) => {
-                        let len_bytes = eval_expr(expr, &env)? as usize;
+                        let len_bytes = eval_expr(expr, &env, &meta)? as usize;
                         if !cursor_bits.is_multiple_of(8) {
                             anyhow::bail!(
                                 "var-length field `{}` at non-byte-aligned offset",
@@ -254,6 +277,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                                 cursor_bits,
                                 headers,
                                 trace,
+                                final_meta(parser, &meta),
                             );
                         }
                         let slice = &packet[start..start + len_bytes];
@@ -270,6 +294,21 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
             headers.push(parsed);
         }
 
+        for a in &state.assigns {
+            let v = eval_expr(
+                a.value.as_ref().context("assign without value")?,
+                &env,
+                &meta,
+            )?;
+            let bits = meta_bits[a.metadata.as_str()];
+            let masked = if bits >= 64 {
+                v
+            } else {
+                v & ((1u64 << bits) - 1)
+            };
+            meta.insert(a.metadata.clone(), masked);
+        }
+
         let target = match state.transition.as_ref().and_then(|t| t.kind.as_ref()) {
             None => anyhow::bail!("state `{current}` has no transition"),
             Some(pb::transition::Kind::Direct(t)) => {
@@ -279,7 +318,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
             Some(pb::transition::Kind::Select(sel)) => {
                 let mut keys = Vec::with_capacity(sel.keys.len());
                 for k in &sel.keys {
-                    keys.push(eval_expr(k, &env)?);
+                    keys.push(eval_expr(k, &env, &meta)?);
                 }
                 let hit = sel.arms.iter().position(|arm| {
                     arm.entries.len() == keys.len()
@@ -309,6 +348,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                                     cursor_bits,
                                     headers,
                                     trace,
+                                    final_meta(parser, &meta),
                                 )
                             }
                         }
@@ -326,6 +366,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                     trace,
                     error: None,
                     consumed_bits: cursor_bits,
+                    metadata: final_meta(parser, &meta),
                 })
             }
             Some(pb::target::Kind::Reject(r)) => {
@@ -340,6 +381,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                     cursor_bits,
                     headers,
                     trace,
+                    final_meta(parser, &meta),
                 );
             }
             None => anyhow::bail!("empty target"),
@@ -347,11 +389,21 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
     }
 }
 
+/// Declared-order snapshot of a parser's metadata store, for `ParseResult`.
+fn final_meta(parser: &pb::Parser, meta: &HashMap<String, u64>) -> Vec<(String, u64)> {
+    parser
+        .metadata
+        .iter()
+        .map(|m| (m.name.clone(), meta[m.name.as_str()]))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::builder::meta_loop; // shared test IR from Task 2
     use crate::builder::{
-        arm, f, reject_info, to, v, HeaderTypeBuilder, ParserBuilder, StateBuilder,
+        arm, c, f, reject_info, to, v, HeaderTypeBuilder, ParserBuilder, StateBuilder,
     };
     use crate::examples::eth_ipvx_l4;
     use crate::fixtures::*;
@@ -372,6 +424,54 @@ mod tests {
             .start("s0")
             .build()
             .unwrap()
+    }
+
+    #[test]
+    fn metadata_accumulator_loop() {
+        // n=2 -> two i-items then accept; flag set; acc counted down to 0.
+        let res = run(&meta_loop(), &[2, 0xAA, 0xBB]).unwrap();
+        assert_eq!(res.outcome, Outcome::Accept);
+        assert_eq!(
+            res.metadata,
+            vec![("flag".to_string(), 1), ("acc".to_string(), 0)]
+        );
+        assert_eq!(res.headers.len(), 3); // h, i, i
+    }
+
+    #[test]
+    fn metadata_init_and_zero_items() {
+        // n=0 -> immediate accept; flag still written, acc = 0 via assignment.
+        let res = run(&meta_loop(), &[0]).unwrap();
+        assert_eq!(res.outcome, Outcome::Accept);
+        assert_eq!(res.metadata[0], ("flag".to_string(), 1));
+    }
+
+    #[test]
+    fn metadata_truncates_on_write() {
+        // flag is 1 bit: writing 2 must store 0 (mod 2^1).
+        let ir = ParserBuilder::new("trunc", 2)
+            .meta("flag", 1, 0)
+            .header(HeaderTypeBuilder::new("h").bits("x", 8))
+            .state(
+                StateBuilder::new("s0")
+                    .extract("h")
+                    .assign("flag", c(2))
+                    .accept(),
+            )
+            .start("s0")
+            .build()
+            .unwrap();
+        let res = run(&ir, &[0]).unwrap();
+        assert_eq!(res.metadata, vec![("flag".to_string(), 0)]);
+    }
+
+    #[test]
+    fn metadata_loop_still_bounded_by_max_depth() {
+        // n=200 can never finish within max_depth=6: depth reject, not a hang.
+        let res = run(&meta_loop(), &[200, 0, 0, 0, 0, 0, 0, 0]).unwrap();
+        assert!(
+            matches!(res.outcome, Outcome::Reject { ref reason } if reason == "max depth exceeded")
+        );
     }
 
     #[test]

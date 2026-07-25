@@ -8,7 +8,11 @@ pub(crate) type Env = HashMap<(String, String), u64>;
 
 /// Evaluate an operator tree. Arithmetic wraps (u64). Errors indicate a
 /// malformed IR (unresolved ref, missing operand) — never packet content.
-pub(crate) fn eval_expr(e: &pb::Expr, env: &Env) -> anyhow::Result<u64> {
+pub(crate) fn eval_expr(
+    e: &pb::Expr,
+    env: &Env,
+    meta: &std::collections::HashMap<String, u64>,
+) -> anyhow::Result<u64> {
     match e.kind.as_ref() {
         Some(pb::expr::Kind::Constant(v)) => Ok(*v),
         Some(pb::expr::Kind::Field(r)) => env
@@ -21,12 +25,14 @@ pub(crate) fn eval_expr(e: &pb::Expr, env: &Env) -> anyhow::Result<u64> {
                     .as_deref()
                     .ok_or_else(|| anyhow::anyhow!("binop missing lhs"))?,
                 env,
+                meta,
             )?;
             let rhs = eval_expr(
                 b.rhs
                     .as_deref()
                     .ok_or_else(|| anyhow::anyhow!("binop missing rhs"))?,
                 env,
+                meta,
             )?;
             let op = pb::BinOpKind::try_from(b.op)
                 .map_err(|_| anyhow::anyhow!("unknown binop {}", b.op))?;
@@ -43,7 +49,10 @@ pub(crate) fn eval_expr(e: &pb::Expr, env: &Env) -> anyhow::Result<u64> {
                 }
             })
         }
-        Some(pb::expr::Kind::Metadata(_)) => anyhow::bail!("metadata refs not yet supported"),
+        Some(pb::expr::Kind::Metadata(r)) => meta
+            .get(&r.name)
+            .copied()
+            .ok_or_else(|| anyhow::anyhow!("unresolved metadata ref `{}`", r.name)),
         None => anyhow::bail!("empty expression"),
     }
 }
@@ -68,15 +77,19 @@ mod tests {
         e
     }
 
+    fn meta() -> std::collections::HashMap<String, u64> {
+        std::collections::HashMap::new()
+    }
+
     #[test]
     fn evals_ihl_options_len() {
         let expr = sub(mul(f("ipv4", "ihl"), c(4)), c(20));
-        assert_eq!(eval_expr(&expr, &env()).unwrap(), 4);
+        assert_eq!(eval_expr(&expr, &env(), &meta()).unwrap(), 4);
     }
 
     #[test]
     fn unresolved_ref_is_error() {
-        assert!(eval_expr(&f("ghost", "x"), &env()).is_err());
+        assert!(eval_expr(&f("ghost", "x"), &env(), &meta()).is_err());
     }
 
     #[test]
