@@ -60,7 +60,14 @@ fn vector_for(ir: &irpb::Ir, solver: &mut dyn Solver, path: &Path) -> Result<pb:
                             .collect(),
                     })
                     .collect(),
-                metadata: Vec::new(),
+                metadata: result
+                    .metadata
+                    .iter()
+                    .map(|(n, v)| pb::ExpectedMeta {
+                        name: n.clone(),
+                        value: *v,
+                    })
+                    .collect(),
             }),
         ),
         (PathKind::Reject { reason }, Outcome::Reject { reason: got }) if reason == got => (
@@ -133,6 +140,17 @@ pub fn replay(ir: &irpb::Ir, suite: &pb::TestSuite) -> Result<Vec<String>> {
                 if got != a.headers {
                     mismatches.push(format!("{}: field mismatch", v.id));
                 }
+                let got_meta: Vec<pb::ExpectedMeta> = result
+                    .metadata
+                    .iter()
+                    .map(|(n, v)| pb::ExpectedMeta {
+                        name: n.clone(),
+                        value: *v,
+                    })
+                    .collect();
+                if got_meta != a.metadata {
+                    mismatches.push(format!("{}: metadata mismatch", v.id));
+                }
             }
             (e, o) => mismatches.push(format!("{}: expected {e:?}, interpreter {o:?}", v.id)),
         }
@@ -170,6 +188,40 @@ mod tests {
         sorted.dedup();
         assert_eq!(ids, sorted);
         // Self-check: replay green.
+        assert!(replay(&ir, &suite).unwrap().is_empty());
+    }
+
+    #[test]
+    fn vectors_carry_and_replay_metadata() {
+        let ir = crate::builder::meta_loop(); // shared test IR from Task 2
+        let suite = generate(&ir).unwrap();
+        let accepts: Vec<_> = suite
+            .vectors
+            .iter()
+            .filter(|v| {
+                matches!(
+                    v.expected.as_ref().and_then(|e| e.outcome.as_ref()),
+                    Some(pb::expected::Outcome::Accept(_))
+                )
+            })
+            .collect();
+        assert!(!accepts.is_empty());
+        for v in &accepts {
+            let Some(pb::expected::Outcome::Accept(a)) =
+                v.expected.as_ref().and_then(|e| e.outcome.as_ref())
+            else {
+                unreachable!()
+            };
+            assert_eq!(
+                a.metadata
+                    .iter()
+                    .map(|em| em.name.as_str())
+                    .collect::<Vec<_>>(),
+                vec!["flag", "acc"], // declared order
+            );
+            assert_eq!(a.metadata[0].value, 1, "flag constant-written on s0");
+            assert_eq!(a.metadata[1].value, 0, "loop exits only at acc==0");
+        }
         assert!(replay(&ir, &suite).unwrap().is_empty());
     }
 

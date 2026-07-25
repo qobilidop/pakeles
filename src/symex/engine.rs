@@ -97,6 +97,9 @@ struct Ctx<'a> {
     /// var-length field on such a state forks only min+max witnesses so
     /// loop enumeration stays tractable (see `walk_extracts`).
     cyclic_states: HashSet<String>,
+    /// Declared metadata field widths, keyed by name — used to mask
+    /// assignment results to their declared width.
+    meta_bits: HashMap<String, u32>,
 }
 
 #[derive(Clone)]
@@ -111,6 +114,11 @@ struct Frame {
     depth: u32,
     /// Per-path entry count for each cyclic state (loop-unroll cap).
     loop_counts: HashMap<String, u32>,
+    /// Current symbolic value of each declared metadata field, by name.
+    /// Substitution store: assignment replaces the entry (masked to
+    /// width); reads clone the current term. Seeded from declared inits
+    /// at the root frame (see `enumerate`); `default()` stays empty.
+    meta: HashMap<String, Term>,
 }
 
 impl Default for Frame {
@@ -123,6 +131,7 @@ impl Default for Frame {
             segments: Vec::new(),
             depth: 0,
             loop_counts: HashMap::new(),
+            meta: HashMap::new(),
         }
     }
 }
@@ -144,8 +153,20 @@ pub(crate) fn enumerate(ir: &pb::Ir, solver: &mut dyn Solver) -> anyhow::Result<
         paths: Vec::new(),
         log: FeasibilityLog::default(),
         cyclic_states: cyclic_states(parser),
+        meta_bits: parser
+            .metadata
+            .iter()
+            .map(|md| (md.name.clone(), md.bits))
+            .collect(),
     };
-    let frame = Frame::default();
+    let frame = Frame {
+        meta: parser
+            .metadata
+            .iter()
+            .map(|md| (md.name.clone(), t_cst(md.init)))
+            .collect(),
+        ..Frame::default()
+    };
     walk_state(&mut ctx, &parser.start_state, frame)?;
     ctx.paths.sort_by(|a, b| a.id.cmp(&b.id));
     Ok(Enumeration {
@@ -242,7 +263,11 @@ fn term_of_expr(e: &pb::Expr, frame: &Frame) -> anyhow::Result<Term> {
             )?;
             Ok(Term::Bin(op, Box::new(l), Box::new(r)))
         }
-        Some(pb::expr::Kind::Metadata(_)) => anyhow::bail!("metadata refs not yet supported"),
+        Some(pb::expr::Kind::Metadata(r)) => frame
+            .meta
+            .get(&r.name)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("unresolved metadata ref `{}`", r.name)),
         None => anyhow::bail!("empty expression"),
     }
 }
@@ -471,7 +496,30 @@ fn walk_target(ctx: &mut Ctx, target: &pb::Target, frame: Frame) -> anyhow::Resu
     }
 }
 
-fn walk_transition(ctx: &mut Ctx, state: &pb::State, frame: Frame) -> anyhow::Result<()> {
+fn walk_transition(ctx: &mut Ctx, state: &pb::State, mut frame: Frame) -> anyhow::Result<()> {
+    // Assigns run after this state's extracts (already in `frame.placed`)
+    // and before its transition. Substitution store: replace the metadata
+    // term, masked to its declared width. No pathid change — assignments
+    // add no path segments.
+    for a in &state.assigns {
+        let rhs = term_of_expr(
+            a.value
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("assign without value"))?,
+            &frame,
+        )?;
+        let bits = ctx.meta_bits[a.metadata.as_str()];
+        let masked = if bits >= 64 {
+            rhs
+        } else {
+            Term::Bin(
+                pb::BinOpKind::And,
+                Box::new(rhs),
+                Box::new(Term::Const((1u64 << bits) - 1)),
+            )
+        };
+        frame.meta.insert(a.metadata.clone(), masked);
+    }
     match state.transition.as_ref().and_then(|t| t.kind.as_ref()) {
         None => anyhow::bail!("state `{}` has no transition", state.name),
         Some(pb::transition::Kind::Direct(t)) => walk_target(ctx, t, frame),
@@ -737,6 +785,21 @@ mod tests {
                 reason: "out of bounds".into()
             }
         );
+    }
+
+    #[test]
+    fn select_on_metadata_forks_by_substitution() {
+        let ir = crate::builder::meta_loop(); // shared test IR from Task 2
+        let e = enumerate_ir(&ir);
+        let ids: Vec<&str> = e.paths.iter().map(|p| p.id.as_str()).collect();
+        // s1 is cyclic: TESTGEN_LOOP_UNROLL=2 caps its unrollings. Expected feasible
+        // accepts: n=0 (arm0 at s0) and n=1, n=2 (arm0 after 1 or 2 s1 entries).
+        // Truncation forks per extract as usual.
+        assert!(ids.contains(&"s0/!trunc@h.n"));
+        assert!(ids.iter().any(|i| i.starts_with("s0/arm0"))); // n == 0
+        assert!(ids.iter().any(|i| i.contains("s0/default/s1/arm0"))); // n == 1
+                                                                       // z3 must prove n==0 infeasible on the default (loop) branch, i.e. no
+                                                                       // path both takes s0/default and asserts h.n == 0.
     }
 
     #[test]
