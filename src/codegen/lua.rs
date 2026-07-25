@@ -459,7 +459,17 @@ fn target_lua(
         Some(pb::target::Kind::Accept(_)) => {
             if has_meta {
                 for md in &parser.metadata {
-                    writeln!(w, "{indent}tree:add(f_meta_{}, meta.{})", md.name, md.name)?;
+                    // Wireshark's Lua binding requires a userdata Int64/
+                    // UInt64 for FT_UINT64 `add`; a bare Lua number
+                    // throws "bad self (userdata expected, got number)"
+                    // and aborts the rest of the accept branch (only one
+                    // Lua error fires per packet), silently dropping
+                    // add_payload below.
+                    writeln!(
+                        w,
+                        "{indent}tree:add(f_meta_{}, UInt64(meta.{}))",
+                        md.name, md.name
+                    )?;
                 }
             }
             writeln!(w, "{indent}add_payload(buf, tree, off)")?;
@@ -751,6 +761,10 @@ mod tests {
         assert!(lua.contains("f_meta_acc"));
         assert!(lua.contains("local meta = { flag = 0, acc = 0 }"));
         assert!(lua.contains("meta.acc = "));
+        // FT_UINT64 `add` needs a userdata Int64/UInt64, not a bare Lua
+        // number — see the comment in target_lua's Accept arm.
+        assert!(lua.contains("tree:add(f_meta_acc, UInt64(meta.acc))"));
+        assert!(lua.contains("tree:add(f_meta_flag, UInt64(meta.flag))"));
         let plain = generate_lua(&crate::examples::eth_ipvx_l4()).unwrap();
         assert!(!plain.contains("meta"));
     }
@@ -1020,6 +1034,42 @@ mod tests {
             .header(HeaderTypeBuilder::new("h").bits("f", 48))
             .state(StateBuilder::new("a").extract("h").select(
                 vec![f("h", "f")],
+                vec![arm(vec![masked(0, 0xFF)], to("b"))],
+                reject("no"),
+            ))
+            .state(StateBuilder::new("b").accept())
+            .start("a")
+            .build()
+            .unwrap();
+        let err = generate_lua(&ir).unwrap_err();
+        assert!(err.to_string().contains("wider than 32 bits"));
+    }
+
+    #[test]
+    fn masked_select_on_metadata_key_emits_band() {
+        use crate::builder::*;
+        let ir = ParserBuilder::new("meta_masked", 2)
+            .meta("tag", 8, 0)
+            .state(StateBuilder::new("a").select(
+                vec![m("tag")],
+                vec![arm(vec![masked(0x02, 0x0F)], to("b"))],
+                reject("no"),
+            ))
+            .state(StateBuilder::new("b").accept())
+            .start("a")
+            .build()
+            .unwrap();
+        let lua = generate_lua(&ir).unwrap();
+        assert!(lua.contains("bit32.band(meta.tag, 15) == 2"));
+    }
+
+    #[test]
+    fn masked_select_on_wide_metadata_key_is_generation_error() {
+        use crate::builder::*;
+        let ir = ParserBuilder::new("meta_masked_wide", 2)
+            .meta("tag", 40, 0)
+            .state(StateBuilder::new("a").select(
+                vec![m("tag")],
                 vec![arm(vec![masked(0, 0xFF)], to("b"))],
                 reject("no"),
             ))
