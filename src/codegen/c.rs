@@ -1009,6 +1009,11 @@ mod tests {
     }
 
     #[test]
+    fn bpf_backend_conformance_full_suite_counted_items() {
+        bpf_backend_conformance(&counted_items());
+    }
+
+    #[test]
     fn committed_c_artifacts_current() {
         for (name, ir) in [
             ("eth_ipvx_l4", eth_ipvx_l4()),
