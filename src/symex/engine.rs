@@ -4,7 +4,7 @@
 //! fields do NOT fork per length value. Field offsets and the per-path total
 //! length are symbolic `Term`s over one packet bitvector; a var-length field
 //! forks control flow only into {continue, body-truncation, out-of-bounds}.
-//! `testgen` solves one minimal witness per path. A concrete `cursor_max`
+//! `testgen` solves one small (length-bounded) witness per path. A concrete `cursor_max`
 //! width budget (via interval arithmetic) keeps each per-path solve tight.
 
 use super::solver::{Constraint, Solver, Term};
@@ -748,14 +748,14 @@ mod tests {
         let mut ids: Vec<&str> = e.paths.iter().map(|p| p.id.as_str()).collect();
         ids.sort_unstable();
         assert_eq!(ids, vec!["s", "s/!trunc@h.body", "s/!trunc@h.n"]);
-        // The accept witness solves to n=0 (minimized) -> just the 2-bit
-        // header, no body.
+        // The accept witness picks some n in 0..=3 -> the 2-bit header plus
+        // an n-byte body (small by the solver's length ladder, not minimal).
         let accept = e.paths.iter().find(|p| p.kind == PathKind::Accept).unwrap();
         let mut solver = Z3Solver::new();
         let (_b, bit_len) = solver
             .solve_witness(accept.width, &accept.constraints, &accept.bit_len)
             .unwrap();
-        assert_eq!(bit_len, 2);
+        assert!([2, 10, 18, 26].contains(&bit_len), "bit_len={bit_len}");
     }
 
     #[test]

@@ -46,9 +46,10 @@ pub(crate) trait Solver {
     /// packet comes from `solve_witness`.
     fn check(&mut self, packet_bits: usize, cs: &[Constraint]) -> Option<Vec<u8>>;
 
-    /// One minimal-length witness for a control-flow path: solve `cs` over
-    /// a `width`-bit packet MINIMIZING the total-length term `len`, then
-    /// return `(packet, actual_bits)` where `actual_bits` is `len` in the
+    /// One small-length witness for a control-flow path: solve `cs` over
+    /// a `width`-bit packet preferring a small total-length term `len`
+    /// (bounded, not necessarily minimal — see the z3 backend's ladder),
+    /// then return `(packet, actual_bits)` where `actual_bits` is `len` in the
     /// model and `packet` is exactly its top `actual_bits` bits (canonical,
     /// partial trailing byte zero-padded). `None` if UNSAT. `width` is the
     /// per-path upper bound on `len` (see engine `Frame::cursor_max`), so

@@ -97,8 +97,8 @@ impl Z3Solver {
     /// Read the top `n_bits` of the completed model byte by byte
     /// (MSB-first; a partial trailing byte lands in the high bits, pad bits
     /// zero — canonical form by construction). Indexing is anchored to the
-    /// packet BV's true size, so `n_bits < packet.get_size()` (a minimized
-    /// witness shorter than its width budget) reads the correct top bits.
+    /// packet BV's true size, so `n_bits < packet.get_size()` (a witness
+    /// shorter than its width budget) reads the correct top bits.
     fn model_packet(&self, model: &z3::Model, packet: &BV, n_bits: usize) -> Vec<u8> {
         let total = packet.get_size() as usize;
         let mut bytes = vec![0u8; n_bits.div_ceil(8)];
@@ -139,24 +139,33 @@ impl Solver for Z3Solver {
         cs: &[Constraint],
         len: &Term,
     ) -> Option<(Vec<u8>, usize)> {
+        // Small-not-minimal witness via a plain solver and a length ladder:
+        // try `len <= 128B`, then `<= 4KB`, then unbounded — first SAT wins.
+        // OMT `Optimize::minimize` solved the same queries 1.6x slower for a
+        // ~7% witness-size win (linux_flow_dissector, 779 paths: 38.6min ->
+        // 24.1min solve, 51KB -> 55KB total witness bytes; unbounded plain
+        // SAT is 2x faster again but bloats witnesses 22x — measured
+        // 2026-07-25). Assumptions (not asserts) keep learned clauses valid
+        // across rungs.
+        const LADDER_BITS: [Option<u64>; 3] = [Some(128 * 8), Some(4096 * 8), None];
         let packet = self.packet(width);
-        let opt = z3::Optimize::new(&self.ctx);
+        let solver = z3::Solver::new(&self.ctx);
         for c in cs {
-            opt.assert(&self.constraint(&packet, c));
+            solver.assert(&self.constraint(&packet, c));
         }
-        // Minimize the total-length term → smallest packet for this path.
-        // Lengths are small positive values (< 2^63), so unsigned vs.
-        // signed BV optimization coincide.
         let len_bv = self.term(&packet, len);
-        opt.minimize(&len_bv);
-        match opt.check(&[]) {
-            z3::SatResult::Sat => {
-                let model = opt.get_model().expect("model after sat");
+        for bound in LADDER_BITS {
+            let assumptions: Vec<z3::ast::Bool> = match bound {
+                Some(b) => vec![len_bv.bvule(&BV::from_u64(&self.ctx, b, 64))],
+                None => vec![],
+            };
+            if solver.check_assumptions(&assumptions) == z3::SatResult::Sat {
+                let model = solver.get_model().expect("model after sat");
                 let actual = model.eval(&len_bv, true).and_then(|b| b.as_u64())? as usize;
-                Some((self.model_packet(&model, &packet, actual), actual))
+                return Some((self.model_packet(&model, &packet, actual), actual));
             }
-            _ => None,
         }
+        None
     }
 }
 
@@ -240,20 +249,20 @@ mod tests {
     }
 
     #[test]
-    fn solve_witness_minimizes_length() {
-        // len term = ext(0,4) (a nibble length in [0,15]); minimizing over
-        // a 16-bit width picks the smallest feasible length. Unconstrained
-        // -> 0; constrained InRange[5,9] -> 5. The returned packet is
-        // exactly `actual` bits.
+    fn solve_witness_respects_len_and_unsat() {
+        // len term = ext(0,4) (a nibble length in [0,15]). The witness is
+        // small (first ladder rung covers all of [0,15]) but NOT minimal:
+        // any length satisfying the constraints is valid. The returned
+        // packet is exactly `actual` bits.
         let mut s = Z3Solver::new();
         let len = ext(0, 4);
         let (bytes, actual) = s.solve_witness(16, &[], &len).unwrap();
-        assert_eq!(actual, 0);
-        assert!(bytes.is_empty());
+        assert!(actual <= 15);
+        assert_eq!(bytes.len(), actual.div_ceil(8));
         let (_bytes, actual) = s
             .solve_witness(16, &[Constraint::InRange(len.clone(), 5, 9)], &len)
             .unwrap();
-        assert_eq!(actual, 5);
+        assert!((5..=9).contains(&actual));
         // UNSAT -> None.
         assert!(s
             .solve_witness(
@@ -265,6 +274,19 @@ mod tests {
                 &len,
             )
             .is_none());
+    }
+
+    #[test]
+    fn solve_witness_ladder_escalates_past_first_rung() {
+        // A length forced above the 128-byte first rung (but under the 4KB
+        // second rung) must still solve — the ladder falls through on the
+        // UNSAT first-rung assumption instead of giving up.
+        let mut s = Z3Solver::new();
+        let len = ext(0, 12); // up to 4095 bits
+        let (_bytes, actual) = s
+            .solve_witness(4096, &[Constraint::InRange(len.clone(), 2000, 2500)], &len)
+            .unwrap();
+        assert!((2000..=2500).contains(&actual));
     }
 
     #[test]
