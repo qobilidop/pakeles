@@ -26,6 +26,8 @@ pub struct FlowKeys {
     pub is_frag: bool,
     #[serde(default)]
     pub is_first_frag: bool,
+    #[serde(default)]
+    pub is_encap: bool,
 }
 
 /// Kernel verdict for a corpus packet: did the flow dissector produce a
@@ -55,18 +57,24 @@ pub struct GoldenFile {
     pub entries: Vec<GoldenEntry>,
 }
 
-/// Run the interpreter and project an Accept result to the rung-0
-/// `FlowKeys`. `None` if the parse rejects (no flow key).
+/// Run the interpreter and project an Accept result to `FlowKeys` under the
+/// positional-last principle: a field takes its value from the last
+/// extraction that would have written it, in parse order — the trace-order
+/// analog of upstream bpf_flow.c's overwrite semantics, where each PROG
+/// simply overwrites `keys` fields as parsing descends. Two fields are
+/// deliberately NOT last-writer: `nhoff` is never advanced past the outer
+/// L3 start once VLAN is consumed (bpf_flow.c PROG(IP) :291 advances thoff
+/// only), and `n_proto` keeps the outer family even for mixed-family tunnels
+/// (bpf_flow.c re-enters parse_eth_proto with a synthetic proto but only
+/// PROG(VLAN) rewrites keys->n_proto). `None` if the parse rejects (no flow key).
 #[allow(clippy::field_reassign_with_default)]
 pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Option<FlowKeys>> {
     let res = crate::interp::run(ir, packet)?;
     if !matches!(res.outcome, crate::interp::Outcome::Accept) {
         return Ok(None);
     }
-    let hdr = |inst: &str| res.headers.iter().find(|h| h.instance == inst);
-    let u = |inst: &str, f: &str| -> Option<u64> {
-        hdr(inst)?
-            .fields
+    let field_u = |h: &crate::interp::ParsedHeader, f: &str| -> Option<u64> {
+        h.fields
             .iter()
             .find(|x| x.name == f)
             .and_then(|x| match &x.value {
@@ -74,9 +82,8 @@ pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Option<FlowKeys>> {
                 _ => None,
             })
     };
-    let bytes = |inst: &str, f: &str| -> Option<Vec<u8>> {
-        hdr(inst)?
-            .fields
+    let field_bytes = |h: &crate::interp::ParsedHeader, f: &str| -> Option<Vec<u8>> {
+        h.fields
             .iter()
             .find(|x| x.name == f)
             .and_then(|x| match &x.value {
@@ -84,68 +91,121 @@ pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Option<FlowKeys>> {
                 _ => None,
             })
     };
-    // A stacked ext-header instance (`ext_opt`) is extracted once per option;
-    // `hdr`/`u` use `.find()` = FIRST match, but the chain's terminal
-    // next_header lives in the LAST link. `last`/`last_u` reverse-find it.
-    let last = |inst: &str| res.headers.iter().rev().find(|h| h.instance == inst);
-    let last_u = |inst: &str, f: &str| -> Option<u64> {
-        last(inst)?
-            .fields
-            .iter()
-            .find(|x| x.name == f)
-            .and_then(|x| match &x.value {
-                crate::interp::FieldValue::Uint(v) => Some(*v),
-                _ => None,
-            })
-    };
+
+    // One pass in extraction order, tracking the positional writers.
+    let mut first_ip: Option<&crate::interp::ParsedHeader> = None; // nhoff
+    let mut last_ip: Option<&crate::interp::ParsedHeader> = None; // addr_proto + addresses
+    let mut last_v6: Option<&crate::interp::ParsedHeader> = None; // flow_label (only PROG(IPV6) writes it)
+    let mut last_frag: Option<&crate::interp::ParsedHeader> = None; // frag stop
+    let mut last_next_proto: Option<u64> = None; // ip_proto
+    let mut mpls: Option<&crate::interp::ParsedHeader> = None;
+    for h in &res.headers {
+        match h.instance.as_str() {
+            "ipv4" => {
+                first_ip.get_or_insert(h);
+                last_ip = Some(h);
+                // bpf_flow.c PROG(IP): keys->ip_proto = iph->protocol.
+                last_next_proto = field_u(h, "protocol");
+            }
+            "ipv6" => {
+                first_ip.get_or_insert(h);
+                last_ip = Some(h);
+                last_v6 = Some(h);
+                // PROG(IPV6): keys->nhoff += sizeof(ip6h); ip_proto via
+                // parse_ipv6_proto(ip6h->nexthdr).
+                last_next_proto = field_u(h, "next_header");
+            }
+            // PROG(IPV6OP)/PROG(IPV6FR): each link's own next_header
+            // becomes the dispatched proto — last link wins.
+            "ext_opt" | "ext_frag" => {
+                last_next_proto = field_u(h, "next_header");
+                if h.instance == "ext_frag" {
+                    last_frag = Some(h);
+                }
+            }
+            "mpls" => mpls = Some(h),
+            _ => {}
+        }
+    }
+
     let mut k = FlowKeys::default();
     // Kernel PROG(VLAN) rewrites n_proto to the inner encapsulated proto;
-    // vlan_q is the final tag on every VLAN path (the AD path's C-tag or
-    // the single Q tag), so its encapsulated_proto is authoritative.
-    k.n_proto = u("vlan_q", "encapsulated_proto")
-        .or_else(|| u("ethernet", "ethertype"))
+    // vlan_q is the final tag on every VLAN path. On tunnel re-entry
+    // n_proto is NOT rewritten (parse_eth_proto is re-entered with a
+    // synthetic proto; only PROG(VLAN) touches keys->n_proto), so the
+    // OUTER family sticks — first-match here is exactly that.
+    k.n_proto = res
+        .headers
+        .iter()
+        .find(|h| h.instance == "vlan_q")
+        .and_then(|h| field_u(h, "encapsulated_proto"))
+        .or_else(|| {
+            res.headers
+                .iter()
+                .find(|h| h.instance == "ethernet")
+                .and_then(|h| field_u(h, "ethertype"))
+        })
         .unwrap_or(0) as u16;
-    if let Some(h) = hdr("ipv4") {
-        k.addr_proto = 0x0800;
-        k.nhoff = (h.start_bit / 8) as u16;
-        k.ip_proto = u("ipv4", "protocol").unwrap_or(0) as u8;
-        k.ipv4_src = format!("{:08x}", u("ipv4", "src").unwrap_or(0));
-        k.ipv4_dst = format!("{:08x}", u("ipv4", "dst").unwrap_or(0));
-    } else if let Some(h) = hdr("ipv6") {
-        k.addr_proto = 0x86DD;
-        k.nhoff = (h.start_bit / 8) as u16;
-        k.flow_label = u("ipv6", "flow_label").unwrap_or(0) as u32;
-        k.ipv6_src = bytes("ipv6", "src").map(hex).unwrap_or_default();
-        k.ipv6_dst = bytes("ipv6", "dst").map(hex).unwrap_or_default();
-        // ip_proto follows the ext-header chain: a Fragment's next_header wins
-        // (it is terminal under default flags), else the LAST option link's
-        // next_header, else the ipv6 header's own next_header.
-        k.ip_proto = last_u("ext_frag", "next_header")
-            .or_else(|| last_u("ext_opt", "next_header"))
-            .or_else(|| u("ipv6", "next_header"))
-            .unwrap_or(0) as u8;
-        // Fragment stop: under default flags a Fragment header is terminal.
-        // The kernel advances thoff past the 8-byte frag header but does not
-        // parse L4 ports (they stay 0).
-        if let Some(fr) = last("ext_frag") {
-            k.is_frag = true;
-            k.is_first_frag = last_u("ext_frag", "frag_off") == Some(0);
-            k.thoff = (fr.start_bit / 8) as u16 + 8;
+    // Declared, not inferred: bpf_flow_keys.is_encap comes from the
+    // program's metadata (the metadata-v1 consumer; kernel sets it in
+    // parse_ip_proto's IPPROTO_IPIP/IPPROTO_IPV6 arms).
+    k.is_encap = res.metadata.iter().any(|(n, v)| n == "is_encap" && *v != 0);
+
+    let Some(first) = first_ip else {
+        if let Some(h) = mpls {
+            // Kernel PROG(MPLS): single-entry read, no key updates — nhoff
+            // and thoff stay at the MPLS header start; addr_proto/ports 0.
+            k.nhoff = (h.start_bit / 8) as u16;
+            k.thoff = k.nhoff;
             return Ok(Some(k));
         }
-    } else if let Some(h) = hdr("mpls") {
-        // Kernel PROG(MPLS): single-entry read, no key updates — nhoff and
-        // thoff stay at the MPLS header start; addr_proto/ports stay 0.
-        k.nhoff = (h.start_bit / 8) as u16;
-        k.thoff = k.nhoff;
+        anyhow::bail!("accept with neither IP nor MPLS instance — unreachable by construction");
+    };
+    // nhoff: FIRST IP instance — the kernel never rewrites nhoff to an
+    // inner L3 start on re-entry (it advances thoff instead); verified
+    // against the tunnel golden matrix.
+    k.nhoff = (first.start_bit / 8) as u16;
+    // addr_proto + addresses: LAST IP-family instance, either family —
+    // PROG(IP) (bpf_flow.c:291-293) and PROG(IPV6) (:333-334) each
+    // overwrite addr_proto and the address union as parsing descends.
+    let last = last_ip.expect("first_ip set implies last_ip set");
+    if last.instance == "ipv4" {
+        k.addr_proto = 0x0800;
+        k.ipv4_src = format!("{:08x}", field_u(last, "src").unwrap_or(0));
+        k.ipv4_dst = format!("{:08x}", field_u(last, "dst").unwrap_or(0));
+    } else {
+        k.addr_proto = 0x86DD;
+        k.ipv6_src = field_bytes(last, "src").map(hex).unwrap_or_default();
+        k.ipv6_dst = field_bytes(last, "dst").map(hex).unwrap_or_default();
+    }
+    // flow_label: LAST ipv6 instance — only PROG(IPV6) writes it
+    // (bpf_flow.c:338), so an inner IPv4 leaves the outer v6 label behind.
+    if let Some(v6) = last_v6 {
+        k.flow_label = field_u(v6, "flow_label").unwrap_or(0) as u32;
+    }
+    // ip_proto: the last-extracted next-protocol field overall — the
+    // rung-2 "last link wins" ext-chain logic generalized by position.
+    k.ip_proto = last_next_proto.unwrap_or(0) as u8;
+    // Fragment stop: under default flags a Fragment header is terminal
+    // (PROG(IPV6FR) exports BPF_OK); the kernel advances thoff past the
+    // 8-byte frag header but never parses L4 ports.
+    if let Some(fr) = last_frag {
+        k.is_frag = true;
+        k.is_first_frag = field_u(fr, "frag_off") == Some(0);
+        k.thoff = (fr.start_bit / 8) as u16 + 8;
         return Ok(Some(k));
     }
-    // Reachability: Accept through an IP path implies exactly one of
-    // {tcp, udp} was extracted (unchanged from rung 0).
-    let t_inst = if hdr("tcp").is_some() { "tcp" } else { "udp" };
-    k.thoff = (hdr(t_inst).map(|h| h.start_bit).unwrap_or(0) / 8) as u16;
-    k.sport = u(t_inst, "sport").unwrap_or(0) as u16;
-    k.dport = u(t_inst, "dport").unwrap_or(0) as u16;
+    // Reachability: Accept through an IP path without a frag stop implies
+    // exactly one of {tcp, udp} was extracted (innermost L4).
+    let l4 = res
+        .headers
+        .iter()
+        .rev()
+        .find(|h| h.instance == "tcp" || h.instance == "udp")
+        .expect("IP-path accept implies an L4 instance");
+    k.thoff = (l4.start_bit / 8) as u16;
+    k.sport = field_u(l4, "sport").unwrap_or(0) as u16;
+    k.dport = field_u(l4, "dport").unwrap_or(0) as u16;
     Ok(Some(k))
 }
 
@@ -181,6 +241,7 @@ fn field_pair(name: &str, ours: &FlowKeys, golden: &FlowKeys) -> (String, String
             ours.is_first_frag.to_string(),
             golden.is_first_frag.to_string(),
         ),
+        "is_encap" => (ours.is_encap.to_string(), golden.is_encap.to_string()),
         _ => ("<unknown-field>".into(), name.into()),
     }
 }
@@ -532,6 +593,262 @@ mod project_tests {
         assert!(!k.is_frag);
         assert_eq!(k.sport, 12345);
         assert_eq!(k.dport, 443);
+    }
+
+    // ---- rung 4a: IPIP / IPv6-in-IP tunnel re-entrancy --------------------
+    // Each accept packet's hex below is the byte-identical twin of its
+    // rung-4a corpus line (the corpus replays these exact hexes against the
+    // real kernel). V4SRC/V4DST inner = c0a80001/c0a80002; outer v4 =
+    // 0a000001/0a000002; v6 outer pair ..0001/..0002, inner pair ..0003/..0004.
+
+    #[test]
+    fn projects_ipip_v4_in_v4() {
+        // eth/IPv4(proto=4)/IPv4(proto=6)/TCP — inner addresses win.
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff1122334455660800\
+             4500003c123440004004dead0a0000010a000002\
+             45000028123440004006deadc0a80001c0a80002\
+             303901bb00000001000000005018ffff00000000",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert!(k.is_encap);
+        assert_eq!(k.nhoff, 14); // OUTER L3 start — kernel never rewrites it
+        assert_eq!(k.thoff, 54); // 14 + 20 + 20
+        assert_eq!(k.n_proto, 0x0800);
+        assert_eq!(k.addr_proto, 0x0800);
+        assert_eq!(k.ip_proto, 6); // inner protocol, not 4
+        assert_eq!(k.ipv4_src, "c0a80001"); // INNER wins (bpf_flow.c:292-293)
+        assert_eq!(k.ipv4_dst, "c0a80002");
+        assert_eq!(k.sport, 12345);
+        assert_eq!(k.dport, 443);
+    }
+
+    #[test]
+    fn projects_ip6ip_v6_in_v4() {
+        // eth/IPv4(proto=41)/IPv6(nh=6)/TCP — mixed family: n_proto stays
+        // the OUTER family, addr_proto flips to the inner one.
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff1122334455660800\
+             45000050123440004029dead0a0000010a000002\
+             6000000000140640\
+             20010db8000000000000000000000001\
+             20010db8000000000000000000000002\
+             303901bb00000001000000005018ffff00000000",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert!(k.is_encap);
+        assert_eq!(k.nhoff, 14);
+        assert_eq!(k.thoff, 74); // 14 + 20 + 40
+        assert_eq!(k.n_proto, 0x0800); // outer family sticks
+        assert_eq!(k.addr_proto, 0x86DD); // inner family
+        assert_eq!(k.ip_proto, 6);
+        assert_eq!(k.ipv6_src, "20010db8000000000000000000000001");
+        assert_eq!(k.ipv6_dst, "20010db8000000000000000000000002");
+        assert_eq!(k.ipv4_src, ""); // v4 union bytes never printed for v6
+        assert_eq!(k.sport, 12345);
+        assert_eq!(k.dport, 443);
+    }
+
+    #[test]
+    fn projects_ipip_v4_in_v6_keeps_outer_flow_label() {
+        // eth/IPv6(fl=0x12345, nh=4)/IPv4(proto=17)/UDP — the inner v4
+        // overwrites the address union but NOT flow_label (only PROG(IPV6)
+        // writes it, bpf_flow.c:338).
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff11223344556686dd\
+             60012345001c0440\
+             20010db8000000000000000000000001\
+             20010db8000000000000000000000002\
+             4500001c123440004011deadc0a80001c0a80002\
+             303901bb00080000",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert!(k.is_encap);
+        assert_eq!(k.nhoff, 14);
+        assert_eq!(k.thoff, 74); // 14 + 40 + 20
+        assert_eq!(k.n_proto, 0x86DD); // outer
+        assert_eq!(k.addr_proto, 0x0800); // inner
+        assert_eq!(k.flow_label, 0x12345); // OUTER v6's label survives
+        assert_eq!(k.ip_proto, 17);
+        assert_eq!(k.ipv4_src, "c0a80001");
+        assert_eq!(k.ipv6_src, "");
+        assert_eq!(k.sport, 12345);
+        assert_eq!(k.dport, 443);
+    }
+
+    #[test]
+    fn projects_ip6ip_v6_in_v6_inner_wins() {
+        // eth/IPv6(fl=0x11111, nh=41, ..0001/..0002)/IPv6(fl=0x22222,
+        // nh=17, ..0003/..0004)/UDP — inner label AND inner addresses win.
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff11223344556686dd\
+             6001111100302940\
+             20010db8000000000000000000000001\
+             20010db8000000000000000000000002\
+             6002222200081140\
+             20010db8000000000000000000000003\
+             20010db8000000000000000000000004\
+             303901bb00080000",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert!(k.is_encap);
+        assert_eq!(k.thoff, 94); // 14 + 40 + 40
+        assert_eq!(k.addr_proto, 0x86DD);
+        assert_eq!(k.flow_label, 0x22222); // inner
+        assert_eq!(k.ipv6_src, "20010db8000000000000000000000003");
+        assert_eq!(k.ipv6_dst, "20010db8000000000000000000000004");
+        assert_eq!(k.ip_proto, 17);
+    }
+
+    #[test]
+    fn projects_double_encap_innermost_wins() {
+        // eth/IPv4(p=4, 0a..)/IPv4(p=4, ac10..)/IPv4(p=6, c0a8..)/TCP —
+        // three stacked ipv4 instances; the innermost writes last.
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff1122334455660800\
+             45000050123440004004dead0a0000010a000002\
+             4500003c123440004004deadac100001ac100002\
+             45000028123440004006deadc0a80001c0a80002\
+             303901bb00000001000000005018ffff00000000",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert!(k.is_encap);
+        assert_eq!(k.nhoff, 14);
+        assert_eq!(k.thoff, 74); // 14 + 20*3
+        assert_eq!(k.ipv4_src, "c0a80001");
+        assert_eq!(k.ipv4_dst, "c0a80002");
+        assert_eq!(k.ip_proto, 6);
+    }
+
+    #[test]
+    fn projects_tunnel_behind_ext_chain() {
+        // eth/IPv6(nh=0)/HopByHop(nh=4)/IPv4/TCP — the chain's LAST link
+        // carries the tunnel proto; re-entry from parse_ipv6_opt.
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff11223344556686dd\
+             6000000000300040\
+             20010db8000000000000000000000001\
+             20010db8000000000000000000000002\
+             0400000000000000\
+             45000028123440004006deadc0a80001c0a80002\
+             303901bb00000001000000005018ffff00000000",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert!(k.is_encap);
+        assert_eq!(k.nhoff, 14);
+        assert_eq!(k.thoff, 82); // 14 + 40 + 8 + 20
+        assert_eq!(k.addr_proto, 0x0800);
+        assert_eq!(k.ipv4_src, "c0a80001");
+        assert_eq!(k.ip_proto, 6);
+        assert_eq!(k.sport, 12345);
+    }
+
+    #[test]
+    fn projects_tunnel_behind_qinq() {
+        // eth/AD/Q/IPv4(p=4)/IPv4/TCP — nhoff stays at the OUTER L3 start
+        // past both tags; n_proto from the final tag.
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff11223344556688a80064810000650800\
+             4500003c123440004004dead0a0000010a000002\
+             45000028123440004006deadc0a80001c0a80002\
+             303901bb00000001000000005018ffff00000000",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert!(k.is_encap);
+        assert_eq!(k.nhoff, 22); // 14 + two 4-byte tags
+        assert_eq!(k.thoff, 62); // 22 + 20 + 20
+        assert_eq!(k.n_proto, 0x0800);
+        assert_eq!(k.ipv4_src, "c0a80001");
+    }
+
+    #[test]
+    fn projects_fragmented_outer_stops_before_reentry() {
+        // eth/IPv6(nh=44)/Frag(nh=41, off=0) — the fragment is terminal
+        // under default flags: the tunnel arm is never reached, so
+        // is_encap stays FALSE while ip_proto records 41.
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff11223344556686dd\
+             6000000000082c40\
+             20010db8000000000000000000000001\
+             20010db8000000000000000000000002\
+             2900000000000001",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert!(!k.is_encap); // frag stopped before the encap arm
+        assert!(k.is_frag);
+        assert!(k.is_first_frag);
+        assert_eq!(k.ip_proto, 41);
+        assert_eq!(k.thoff, 62); // 14 + 40 + 8
+        assert_eq!(k.addr_proto, 0x86DD);
+        assert_eq!(k.sport, 0);
+        assert_eq!(k.dport, 0);
+    }
+
+    #[test]
+    fn projects_fragmented_inner() {
+        // eth/IPv4(p=41)/IPv6(nh=44)/Frag(nh=6) — encap happened, THEN the
+        // inner fragment stopped: is_encap AND is_frag.
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff1122334455660800\
+             45000044123440004029dead0a0000010a000002\
+             6000000000082c40\
+             20010db8000000000000000000000001\
+             20010db8000000000000000000000002\
+             0600000000000001",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert!(k.is_encap);
+        assert!(k.is_frag);
+        assert!(k.is_first_frag);
+        assert_eq!(k.nhoff, 14);
+        assert_eq!(k.thoff, 82); // 14 + 20 + 40 + 8
+        assert_eq!(k.addr_proto, 0x86DD);
+        assert_eq!(k.ip_proto, 6);
+        assert_eq!(k.sport, 0);
+    }
+
+    #[test]
+    fn projects_inner_ext_chain() {
+        // eth/IPv4(p=41)/IPv6(nh=0)/HopByHop(nh=6)/TCP — ext-chain walk
+        // inside the tunnel.
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff1122334455660800\
+             45000058123440004029dead0a0000010a000002\
+             60000000001c0040\
+             20010db8000000000000000000000001\
+             20010db8000000000000000000000002\
+             0600000000000000\
+             303901bb00000001000000005018ffff00000000",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert!(k.is_encap);
+        assert_eq!(k.nhoff, 14);
+        assert_eq!(k.thoff, 82); // 14 + 20 + 40 + 8
+        assert_eq!(k.n_proto, 0x0800);
+        assert_eq!(k.addr_proto, 0x86DD);
+        assert_eq!(k.ip_proto, 6);
+        assert_eq!(k.sport, 12345);
+        assert_eq!(k.dport, 443);
+    }
+
+    #[test]
+    fn non_tunnel_parses_report_no_encap() {
+        // Regression guard: the plain fixture path never sets is_encap.
+        let ir = crate::examples::linux_flow_dissector();
+        let k = project(&ir, &crate::fixtures::tcp_packet())
+            .unwrap()
+            .unwrap();
+        assert!(!k.is_encap);
     }
 }
 
