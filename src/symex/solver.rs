@@ -46,26 +46,62 @@ pub(crate) enum Constraint {
 }
 
 pub(crate) trait Solver {
-    /// Path feasibility: SAT/UNSAT only, no witness — used by the engine
-    /// to prune infeasible forks. Backends may decide this over any
-    /// equisatisfiable encoding (the z3 backend uses per-region field
-    /// variables, no packet bitvector). `packet_bits` is the path's
-    /// width budget; the field encoding ignores it, but it feeds the
-    /// packet-encoding cross-check (`PAKELES_SYMEX_XCHECK=1`).
+    /// One-shot path feasibility: SAT/UNSAT of `cs` — the stateless
+    /// twin of `Session::check`, kept as the encoding's directly-
+    /// testable surface (production enumeration always goes through a
+    /// session). `packet_bits` only feeds the packet-encoding
+    /// cross-check (`PAKELES_SYMEX_XCHECK=1`).
+    #[cfg_attr(not(test), allow(dead_code))]
     fn feasible(&mut self, packet_bits: usize, cs: &[Constraint]) -> bool;
 
-    /// One small-length witness for a control-flow path: solve `cs` over
-    /// a `width`-bit packet preferring a small total-length term `len`
-    /// (bounded, not necessarily minimal — see the z3 backend's ladder),
-    /// then return `(packet, actual_bits)` where `actual_bits` is `len` in the
-    /// model and `packet` is exactly its top `actual_bits` bits (canonical,
-    /// partial trailing byte zero-padded). `None` if UNSAT. `width` is the
-    /// per-path upper bound on `len` (see engine `Frame::cursor_max`), so
-    /// every read fits inside the packet BV.
+    /// Open an incremental session whose push/pop scopes mirror the
+    /// engine's DFS: each fork asserts only its constraint delta, checks
+    /// against the accumulated stack, and witnesses are extracted from
+    /// the hot solver state at path-emit time.
+    fn session<'s>(&'s mut self) -> Box<dyn Session + 's>;
+
+    /// One-shot small-length witness for a constraint set: the stateless
+    /// twin of `Session::witness` (same ladder, same constructed-packet
+    /// semantics), kept as the directly-testable surface. `(packet,
+    /// actual_bits)` with the packet exactly `actual_bits` bits
+    /// (canonical, partial trailing byte zero-padded); `None` if UNSAT.
+    /// `width` is obsolete in the field-variable backend.
+    #[cfg_attr(not(test), allow(dead_code))]
     fn solve_witness(
         &mut self,
         width: usize,
         cs: &[Constraint],
         len: &Term,
     ) -> Option<(Vec<u8>, usize)>;
+}
+
+/// Incremental solving over the engine's DFS. Scope discipline: the
+/// engine pushes a scope, asserts the fork's constraint delta, checks
+/// and/or recurses, then pops — so the solver stack always equals the
+/// current frame's constraint vector, and z3 reuses learned state
+/// across the (sibling- and prefix-heavy) query stream.
+pub(crate) trait Session {
+    fn push(&mut self);
+    fn pop(&mut self);
+    /// Assert `delta` in the current scope.
+    fn assert_cs(&mut self, delta: &[Constraint]);
+    /// SAT/UNSAT of the current stack. `packet_bits` and `full_cs`
+    /// (the frame's complete constraint vector, equal to the stack)
+    /// only feed the packet-encoding cross-check.
+    fn check(&mut self, packet_bits: usize, full_cs: &[Constraint]) -> bool;
+    /// Witness for the current stack, preferring a small `len` (same
+    /// ladder as `solve_witness`): `(packet, actual_bits)`. Only regions
+    /// reachable from `full_cs` + `len` are materialized — the session's
+    /// variable cache may hold sibling branches' regions, which must not
+    /// leak into this path's packet. `None` = UNSAT (an engine bug at
+    /// emit time: every emitted path's stack was checked feasible).
+    /// Also returns how many ladder rungs were attempted (telemetry).
+    /// `min_bits` is a static lower bound on `len` — rungs below it are
+    /// skipped without a solver call (they are provably UNSAT).
+    fn witness(
+        &mut self,
+        full_cs: &[Constraint],
+        len: &Term,
+        min_bits: usize,
+    ) -> (Option<(Vec<u8>, usize)>, u8);
 }

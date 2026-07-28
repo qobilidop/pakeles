@@ -2,12 +2,18 @@
 //!
 //! Control-flow *path* is decoupled from concrete *layout*: variable-length
 //! fields do NOT fork per length value. Field offsets and the per-path total
-//! length are symbolic `Term`s over one packet bitvector; a var-length field
-//! forks control flow only into {continue, body-truncation, out-of-bounds}.
-//! `testgen` solves one small (length-bounded) witness per path. A concrete `cursor_max`
-//! width budget (via interval arithmetic) keeps each per-path solve tight.
+//! length are symbolic `Term`s; a var-length field forks control flow only
+//! into {continue, body-truncation, out-of-bounds}.
+//!
+//! Solving is INCREMENTAL: one `Session` mirrors the DFS — every fork
+//! pushes a scope, asserts its constraint delta, and pops on backtrack,
+//! so the solver stack always equals the current frame's constraint
+//! vector and z3 reuses learned state across the prefix-heavy query
+//! stream. Each emitted path's witness (small by the length ladder) is
+//! extracted at emit time from the hot stack; `testgen` only assembles
+//! vectors and interp-verifies.
 
-use super::solver::{Constraint, Solver, Term};
+use super::solver::{Constraint, Session, Solver, Term};
 use crate::codegen::p4::expr_max;
 use crate::ir::pb;
 use std::collections::{HashMap, HashSet};
@@ -45,14 +51,12 @@ pub enum PathKind {
 pub struct Path {
     pub id: String,
     pub kind: PathKind,
-    /// Symbolic total packet length for this path (bits). Solved (and
-    /// minimized) into a concrete length by `testgen`.
-    pub(crate) bit_len: Term,
-    /// Concrete upper bound on `bit_len` (bits) — the packet-BV width the
-    /// witness solve runs over. Sound because every var-length is bounded
-    /// by its expression's interval max.
-    pub(crate) width: usize,
-    pub(crate) constraints: Vec<Constraint>,
+    /// `(packet_bytes, bit_len)` solved at emit time from the session's
+    /// hot stack (the path's symbolic bit-length term, minimized by the
+    /// ladder, evaluated in the model). Always `Some` for a correctly-
+    /// enumerated path (the stack was feasible at emit); `testgen` bails
+    /// otherwise.
+    pub(crate) witness: Option<(Vec<u8>, usize)>,
 }
 
 // Term arithmetic helpers for building symbolic offsets / lengths.
@@ -101,6 +105,66 @@ pub struct EnumStats {
     pub unsat: u64,
     /// Check-duration histogram: <1ms, <10ms, <100ms, <1s, <10s, >=10s.
     pub hist: [u64; 6],
+    /// Emit-time witness solves: count, wall, and how many ladder rungs
+    /// were burned on UNSAT before the succeeding one (rung-skipping
+    /// telemetry).
+    pub witnesses: u64,
+    pub witness_wall: std::time::Duration,
+    pub witness_unsat_rungs: u64,
+}
+
+/// Wrap-safe interval of a term's value: reads span their declared
+/// width, and any node where 64-bit wrapping is possible collapses to
+/// `(0, u64::MAX)` — wrapping can make large operands produce SMALL
+/// values, so a potential wrap invalidates a positive lower bound (a
+/// lower bound of 0 is always safe; the min feeds witness-ladder rung
+/// skipping, where an under-estimate only costs a doomed rung attempt).
+fn term_interval(t: &Term) -> (u64, u64) {
+    const WRAPPED: (u64, u64) = (0, u64::MAX);
+    let cap = |min: u128, max: u128| {
+        if max > u64::MAX as u128 {
+            WRAPPED
+        } else {
+            (min as u64, max as u64)
+        }
+    };
+    match t {
+        Term::Const(v) => (*v, *v),
+        Term::Extract { len, .. } | Term::ExtractAt { len, .. } => {
+            if *len >= 64 {
+                (0, u64::MAX)
+            } else {
+                (0, (1u64 << len) - 1)
+            }
+        }
+        Term::Bin(op, l, r) => {
+            let (lmin, lmax) = term_interval(l);
+            let (rmin, rmax) = term_interval(r);
+            let (lmin, lmax, rmin, rmax) = (lmin as u128, lmax as u128, rmin as u128, rmax as u128);
+            match op {
+                pb::BinOpKind::Add => cap(lmin + rmin, lmax + rmax),
+                pb::BinOpKind::Sub => {
+                    if lmin >= rmax {
+                        (lmin as u64 - rmax as u64, lmax as u64 - rmin as u64)
+                    } else {
+                        WRAPPED // underflow possible
+                    }
+                }
+                pb::BinOpKind::Mul => cap(lmin * rmin, lmax * rmax),
+                pb::BinOpKind::Shl => match lmax.checked_shl(rmax.min(127) as u32) {
+                    Some(max) => cap(lmin << rmin.min(127), max),
+                    None => WRAPPED,
+                },
+                pb::BinOpKind::Shr => (
+                    (lmin >> rmax.min(127)) as u64,
+                    (lmax >> rmin.min(127)) as u64,
+                ),
+                pb::BinOpKind::And => (0, lmax.min(rmax) as u64),
+                pb::BinOpKind::Or => cap(lmin.max(rmin), lmax + rmax),
+                pb::BinOpKind::Unspecified => unreachable!("validated IR"),
+            }
+        }
+    }
 }
 
 fn term_has_extract_at(t: &Term) -> bool {
@@ -125,7 +189,7 @@ struct Ctx<'a> {
     parser: &'a pb::Parser,
     states: HashMap<&'a str, &'a pb::State>,
     header_types: HashMap<&'a str, &'a pb::HeaderType>,
-    solver: &'a mut dyn Solver,
+    session: Box<dyn Session + 'a>,
     paths: Vec<Path>,
     log: FeasibilityLog,
     /// States reachable from themselves via the transition graph. A
@@ -139,10 +203,12 @@ struct Ctx<'a> {
 }
 
 impl Ctx<'_> {
-    /// All feasibility checks go through here so the stats see every call.
+    /// All feasibility checks go through here so the stats see every
+    /// call. The session stack already holds `cs` (scope discipline);
+    /// `cs`/`packet_bits` feed classification and the cross-check.
     fn check(&mut self, packet_bits: usize, cs: &[Constraint]) -> bool {
         let t0 = std::time::Instant::now();
-        let sat = self.solver.feasible(packet_bits, cs);
+        let sat = self.session.check(packet_bits, cs);
         let dt = t0.elapsed();
         let s = &mut self.stats;
         s.checks += 1;
@@ -176,6 +242,12 @@ struct Frame {
     cursor: Term,
     /// Concrete upper bound on `cursor` (bits) — the width budget.
     cursor_max: usize,
+    /// Concrete LOWER bound on `cursor` (bits): fixed widths only, var
+    /// bodies count 0. Lets the witness ladder skip statically-doomed
+    /// small rungs (a deep tunnel prefix's fixed headers alone can
+    /// exceed the 128B first rung). An under-estimate is safe — it only
+    /// costs a provably-UNSAT rung attempt.
+    cursor_min: usize,
     placed: HashMap<(String, String), (Term, usize)>, // (inst,field) -> (off_term, len)
     constraints: Vec<Constraint>,
     segments: Vec<String>,
@@ -194,6 +266,7 @@ impl Default for Frame {
         Frame {
             cursor: t_cst(0),
             cursor_max: 0,
+            cursor_min: 0,
             placed: HashMap::new(),
             constraints: Vec::new(),
             segments: Vec::new(),
@@ -217,7 +290,7 @@ pub(crate) fn enumerate(ir: &pb::Ir, solver: &mut dyn Solver) -> anyhow::Result<
             .iter()
             .map(|h| (h.name.as_str(), h))
             .collect(),
-        solver,
+        session: solver.session(),
         paths: Vec::new(),
         log: FeasibilityLog::default(),
         cyclic_states: cyclic_states(parser),
@@ -352,13 +425,18 @@ fn entry_constraint(entry: &pb::KeysetEntry, key: Term) -> Constraint {
     }
 }
 
-fn emit(ctx: &mut Ctx, frame: &Frame, kind: PathKind, bit_len: Term, width: usize) {
+fn emit(ctx: &mut Ctx, frame: &Frame, kind: PathKind, bit_len: Term, min_bits: usize) {
+    // The session stack equals `frame.constraints` here (scope
+    // discipline), so the witness comes from hot solver state.
+    let t0 = std::time::Instant::now();
+    let (witness, rungs_tried) = ctx.session.witness(&frame.constraints, &bit_len, min_bits);
+    ctx.stats.witnesses += 1;
+    ctx.stats.witness_wall += t0.elapsed();
+    ctx.stats.witness_unsat_rungs += rungs_tried.saturating_sub(1) as u64;
     ctx.paths.push(Path {
         id: frame.segments.join("/"),
         kind,
-        bit_len,
-        width,
-        constraints: frame.constraints.clone(),
+        witness,
     });
     // Progress heartbeat for long regens (stderr; cargo test captures it).
     // Tunnel-scale enumerations run for hours — silence reads as a hang.
@@ -378,7 +456,7 @@ fn walk_state(ctx: &mut Ctx, state_name: &str, mut frame: Frame) -> anyhow::Resu
                 reason: "max depth exceeded".into(),
             },
             frame.cursor.clone(),
-            frame.cursor_max,
+            frame.cursor_min,
         );
         return Ok(());
     }
@@ -444,7 +522,7 @@ fn walk_extracts(
                     &t,
                     PathKind::Truncation,
                     t_add(frame.cursor.clone(), t_cst((n - 1) as u64)),
-                    frame.cursor_max + n,
+                    frame.cursor_min + n - 1,
                 );
             }
             frame.placed.insert(
@@ -453,6 +531,7 @@ fn walk_extracts(
             );
             frame.cursor = t_add(frame.cursor, t_cst(n as u64));
             frame.cursor_max += n;
+            frame.cursor_min += n;
             walk_extracts(ctx, state, items, idx + 1, frame)
         }
         Some(pb::field_width::Width::ByteLen(expr)) => {
@@ -479,11 +558,10 @@ fn walk_extracts(
             // "out of bounds".
             {
                 let mut oob = frame.clone();
-                oob.constraints.push(Constraint::InRange(
-                    len_term.clone(),
-                    bound_bytes + 1,
-                    u64::MAX,
-                ));
+                let delta = Constraint::InRange(len_term.clone(), bound_bytes + 1, u64::MAX);
+                oob.constraints.push(delta.clone());
+                ctx.session.push();
+                ctx.session.assert_cs(std::slice::from_ref(&delta));
                 if ctx.check(oob.cursor_max.max(1), &oob.constraints) {
                     oob.segments.push(format!("!oob@{inst}.{}", field.name));
                     emit(
@@ -493,21 +571,31 @@ fn walk_extracts(
                             reason: "out of bounds".into(),
                         },
                         frame.cursor.clone(),
-                        frame.cursor_max,
+                        frame.cursor_min,
                     );
                 }
+                ctx.session.pop();
             }
 
+            // Interval min of the body length (bytes) — 0 unless the
+            // length expr provably floors higher (e.g. (hdrlen+1)*8).
+            // Feeds cursor_min so the witness ladder skips doomed rungs.
+            let min_bytes = term_interval(&len_term).0.min(bound_bytes);
+
             // The continue world is the non-wrapping, within-bound lengths.
-            frame
-                .constraints
-                .push(Constraint::InRange(len_term.clone(), 0, bound_bytes));
+            // Its scope wraps the rest of this state's walk.
+            let cont = Constraint::InRange(len_term.clone(), 0, bound_bytes);
+            frame.constraints.push(cont.clone());
+            ctx.session.push();
+            ctx.session.assert_cs(std::slice::from_ref(&cont));
 
             // Body-truncation: packet ends inside a non-empty body.
             {
                 let mut t = frame.clone();
-                t.constraints
-                    .push(Constraint::InRange(len_term.clone(), 1, bound_bytes));
+                let delta = Constraint::InRange(len_term.clone(), 1, bound_bytes);
+                t.constraints.push(delta.clone());
+                ctx.session.push();
+                ctx.session.assert_cs(std::slice::from_ref(&delta));
                 if ctx.check(t.cursor_max.max(1), &t.constraints) {
                     t.segments.push(format!("!trunc@{inst}.{}", field.name));
                     // avail = cursor + 8*len - 1: one bit short of the body.
@@ -515,20 +603,25 @@ fn walk_extracts(
                         t_add(frame.cursor.clone(), t_mul(t_cst(8), len_term.clone())),
                         t_cst(1),
                     );
+                    // len >= max(1, interval min) in this fork.
                     emit(
                         ctx,
                         &t,
                         PathKind::Truncation,
                         bl,
-                        frame.cursor_max + bound_bits,
+                        frame.cursor_min + 8 * min_bytes.max(1) as usize - 1,
                     );
                 }
+                ctx.session.pop();
             }
 
             // Continue: consume the opaque body (not placeable for refs).
             frame.cursor = t_add(frame.cursor, t_mul(t_cst(8), len_term));
             frame.cursor_max += bound_bits;
-            walk_extracts(ctx, state, items, idx + 1, frame)
+            frame.cursor_min += 8 * min_bytes as usize;
+            let r = walk_extracts(ctx, state, items, idx + 1, frame);
+            ctx.session.pop();
+            r
         }
         None => anyhow::bail!("field `{}` has no width", field.name),
     }
@@ -543,7 +636,7 @@ fn walk_target(ctx: &mut Ctx, target: &pb::Target, frame: Frame) -> anyhow::Resu
                 &frame,
                 PathKind::Accept,
                 frame.cursor.clone(),
-                frame.cursor_max,
+                frame.cursor_min,
             );
             Ok(())
         }
@@ -555,7 +648,7 @@ fn walk_target(ctx: &mut Ctx, target: &pb::Target, frame: Frame) -> anyhow::Resu
                     reason: r.reason.clone(),
                 },
                 frame.cursor.clone(),
-                frame.cursor_max,
+                frame.cursor_min,
             );
             Ok(())
         }
@@ -612,34 +705,39 @@ fn walk_transition(ctx: &mut Ctx, state: &pb::State, mut frame: Frame) -> anyhow
             for (i, arm) in sel.arms.iter().enumerate() {
                 ctx.log.attempted_arms.insert((state.name.clone(), i));
                 let mut child = frame.clone();
-                child.constraints.push(arm_conds[i].clone());
+                let mut delta = vec![arm_conds[i].clone()];
                 for cond in arm_conds.iter().take(i) {
-                    child
-                        .constraints
-                        .push(Constraint::Not(Box::new(cond.clone())));
+                    delta.push(Constraint::Not(Box::new(cond.clone())));
                 }
-                if !ctx.check(child.cursor_max.max(1), &child.constraints) {
-                    continue; // infeasible in this context; lint sees it via the log
-                }
-                ctx.log.feasible_arms.insert((state.name.clone(), i));
-                child.segments.push(format!("arm{i}"));
-                let target = arm
-                    .next
-                    .as_ref()
-                    .ok_or_else(|| anyhow::anyhow!("select arm has no target"))?;
-                walk_target(ctx, target, child)?;
+                child.constraints.extend(delta.iter().cloned());
+                ctx.session.push();
+                ctx.session.assert_cs(&delta);
+                let r = if ctx.check(child.cursor_max.max(1), &child.constraints) {
+                    ctx.log.feasible_arms.insert((state.name.clone(), i));
+                    child.segments.push(format!("arm{i}"));
+                    match arm.next.as_ref() {
+                        Some(target) => walk_target(ctx, target, child),
+                        None => Err(anyhow::anyhow!("select arm has no target")),
+                    }
+                } else {
+                    Ok(()) // infeasible in this context; lint sees it via the log
+                };
+                ctx.session.pop();
+                r?;
             }
             // Default: all arms negated.
             let mut child = frame;
-            for cond in &arm_conds {
-                child
-                    .constraints
-                    .push(Constraint::Not(Box::new(cond.clone())));
-            }
-            if ctx.check(child.cursor_max.max(1), &child.constraints) {
+            let delta: Vec<Constraint> = arm_conds
+                .iter()
+                .map(|cond| Constraint::Not(Box::new(cond.clone())))
+                .collect();
+            child.constraints.extend(delta.iter().cloned());
+            ctx.session.push();
+            ctx.session.assert_cs(&delta);
+            let r = if ctx.check(child.cursor_max.max(1), &child.constraints) {
                 child.segments.push("default".into());
                 match sel.default_target.as_ref() {
-                    Some(t) => walk_target(ctx, t, child)?,
+                    Some(t) => walk_target(ctx, t, child),
                     None => {
                         emit(
                             ctx,
@@ -648,12 +746,16 @@ fn walk_transition(ctx: &mut Ctx, state: &pb::State, mut frame: Frame) -> anyhow
                                 reason: "no matching select arm".into(),
                             },
                             child.cursor.clone(),
-                            child.cursor_max,
+                            child.cursor_min,
                         );
+                        Ok(())
                     }
                 }
-            }
-            Ok(())
+            } else {
+                Ok(())
+            };
+            ctx.session.pop();
+            r
         }
     }
 }
@@ -687,11 +789,8 @@ mod tests {
         assert_eq!(count(&e.paths, |k| *k == PathKind::Truncation), 1);
         let accept = e.paths.iter().find(|p| p.kind == PathKind::Accept).unwrap();
         assert_eq!(accept.id, "s");
-        // Symbolic bit_len solves to the concrete 8-bit length.
-        let mut solver = Z3Solver::new();
-        let (_b, bit_len) = solver
-            .solve_witness(accept.width, &accept.constraints, &accept.bit_len)
-            .unwrap();
+        // The emit-time witness solved the symbolic bit_len to 8 bits.
+        let (_b, bit_len) = accept.witness.clone().unwrap();
         assert_eq!(bit_len, 8);
     }
 
@@ -810,10 +909,7 @@ mod tests {
         // The accept witness picks some n in 0..=3 -> the 2-bit header plus
         // an n-byte body (small by the solver's length ladder, not minimal).
         let accept = e.paths.iter().find(|p| p.kind == PathKind::Accept).unwrap();
-        let mut solver = Z3Solver::new();
-        let (_b, bit_len) = solver
-            .solve_witness(accept.width, &accept.constraints, &accept.bit_len)
-            .unwrap();
+        let (_b, bit_len) = accept.witness.clone().unwrap();
         assert!([2, 10, 18, 26].contains(&bit_len), "bit_len={bit_len}");
     }
 

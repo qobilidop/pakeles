@@ -1,10 +1,10 @@
-//! Witness construction and suite assembly. Witnesses are raw z3
-//! models (completion on, no post-processing — decided 2026-07-19);
-//! expected outputs come from the reference interpreter, so the suite
-//! is self-checking against normative semantics by construction.
+//! Vector assembly over enumerated paths. Witnesses are solved at emit
+//! time by the engine's incremental session (constructed packets, free
+//! bits zero); expected outputs come from the reference interpreter, so
+//! the suite is self-checking against normative semantics by
+//! construction.
 
 use super::engine::{enumerate, Enumeration, Path, PathKind};
-use super::solver::Solver;
 use super::z3solver::Z3Solver;
 use crate::interp::{run_bits, FieldValue, Outcome};
 use crate::ir::pb as irpb;
@@ -30,55 +30,18 @@ pub fn enumerate_paths(ir: &irpb::Ir) -> Result<Enumeration> {
     enumerate(ir, &mut solver)
 }
 
-/// Per-path witness solves are independent and z3-bound, so run them on a
-/// thread pool pulling from a shared index queue (dynamic balancing: the
-/// wide ~33k-bit loop paths cluster, so static striping would skew). One
-/// `Z3Solver` per worker — z3 contexts are not thread-safe. Vector order
-/// stays path order; on failure the earliest path's error wins.
-/// Public alongside `enumerate_paths` so the bench can time phases apart.
+/// Assemble vectors from the witnesses the engine solved at emit time
+/// (no z3 here — just the interp round-trip per path). Public alongside
+/// `enumerate_paths` so the bench can time phases apart.
 pub fn solve_all(ir: &irpb::Ir, paths: &[Path]) -> Result<Vec<pb::TestVector>> {
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    let workers = std::thread::available_parallelism()
-        .map(|p| p.get())
-        .unwrap_or(1)
-        .min(paths.len().max(1));
-    let next = AtomicUsize::new(0);
-    // Progress heartbeat for long regens (stderr; cargo test captures it).
-    let done = AtomicUsize::new(0);
-    let mut results: Vec<(usize, Result<pb::TestVector>)> = std::thread::scope(|s| {
-        let handles: Vec<_> = (0..workers)
-            .map(|_| {
-                s.spawn(|| {
-                    let mut solver = Z3Solver::new();
-                    let mut out = Vec::new();
-                    loop {
-                        let i = next.fetch_add(1, Ordering::Relaxed);
-                        let Some(path) = paths.get(i) else { break };
-                        out.push((
-                            i,
-                            vector_for(ir, &mut solver, path).with_context(|| path.id.clone()),
-                        ));
-                        let d = done.fetch_add(1, Ordering::Relaxed) + 1;
-                        if d.is_multiple_of(50) {
-                            eprintln!("SOLVE PROGRESS: {d}/{} paths", paths.len());
-                        }
-                    }
-                    out
-                })
-            })
-            .collect();
-        handles
-            .into_iter()
-            .flat_map(|h| h.join().expect("witness-solver worker panicked"))
-            .collect()
-    });
-    results.sort_by_key(|(i, _)| *i);
-    results.into_iter().map(|(_, r)| r).collect()
+    paths
+        .iter()
+        .map(|path| vector_for(ir, path).with_context(|| path.id.clone()))
+        .collect()
 }
 
-fn vector_for(ir: &irpb::Ir, solver: &mut dyn Solver, path: &Path) -> Result<pb::TestVector> {
-    let Some((bytes, bit_len)) = solver.solve_witness(path.width, &path.constraints, &path.bit_len)
-    else {
+fn vector_for(ir: &irpb::Ir, path: &Path) -> Result<pb::TestVector> {
+    let Some((bytes, bit_len)) = path.witness.clone() else {
         bail!("engine bug: enumerated path is UNSAT");
     };
     let bits = Bits { bytes, bit_len };

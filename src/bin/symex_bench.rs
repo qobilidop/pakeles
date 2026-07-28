@@ -59,6 +59,12 @@ fn report_enum(e: &Enumeration, wall: std::time::Duration) {
         .map(|(l, n)| format!("{l}:{n}"))
         .collect();
     println!("CHECKS histogram: {}", hist.join(" "));
+    println!(
+        "WITNESSES: {} solves, wall {:.3}s, {} UNSAT ladder rungs burned",
+        s.witnesses,
+        s.witness_wall.as_secs_f64(),
+        s.witness_unsat_rungs,
+    );
 }
 
 fn main() -> anyhow::Result<()> {
