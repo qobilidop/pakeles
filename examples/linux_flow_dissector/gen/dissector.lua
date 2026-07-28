@@ -33,7 +33,7 @@ local f_ipv4_id = ProtoField.uint16("pakeles_linux_flow_dissector.ipv4.id", "Ide
 local f_ipv4_flags = ProtoField.uint8("pakeles_linux_flow_dissector.ipv4.flags", "Flags", base.HEX)
 local f_ipv4_frag_offset = ProtoField.uint16("pakeles_linux_flow_dissector.ipv4.frag_offset", "Fragment Offset", base.DEC)
 local f_ipv4_ttl = ProtoField.uint8("pakeles_linux_flow_dissector.ipv4.ttl", "Time to Live", base.DEC)
-local f_ipv4_protocol = ProtoField.uint8("pakeles_linux_flow_dissector.ipv4.protocol", "Protocol", base.DEC, { [1] = "ICMP", [6] = "TCP", [17] = "UDP" })
+local f_ipv4_protocol = ProtoField.uint8("pakeles_linux_flow_dissector.ipv4.protocol", "Protocol", base.DEC, { [1] = "ICMP", [4] = "IPIP", [6] = "TCP", [17] = "UDP", [41] = "IPv6-in-IP" })
 local f_ipv4_checksum = ProtoField.uint16("pakeles_linux_flow_dissector.ipv4.checksum", "Header Checksum", base.HEX)
 local f_ipv4_src = ProtoField.ipv4("pakeles_linux_flow_dissector.ipv4.src", "Source Address")
 local f_ipv4_dst = ProtoField.ipv4("pakeles_linux_flow_dissector.ipv4.dst", "Destination Address")
@@ -43,7 +43,7 @@ local f_ipv6_version = ProtoField.uint8("pakeles_linux_flow_dissector.ipv6.versi
 local f_ipv6_traffic_class = ProtoField.uint8("pakeles_linux_flow_dissector.ipv6.traffic_class", "Traffic Class", base.HEX)
 local f_ipv6_flow_label = ProtoField.uint24("pakeles_linux_flow_dissector.ipv6.flow_label", "Flow Label", base.HEX)
 local f_ipv6_payload_length = ProtoField.uint16("pakeles_linux_flow_dissector.ipv6.payload_length", "Payload Length", base.DEC)
-local f_ipv6_next_header = ProtoField.uint8("pakeles_linux_flow_dissector.ipv6.next_header", "Next Header", base.DEC, { [1] = "ICMP", [6] = "TCP", [17] = "UDP" })
+local f_ipv6_next_header = ProtoField.uint8("pakeles_linux_flow_dissector.ipv6.next_header", "Next Header", base.DEC, { [1] = "ICMP", [4] = "IPIP", [6] = "TCP", [17] = "UDP", [41] = "IPv6-in-IP" })
 local f_ipv6_hop_limit = ProtoField.uint8("pakeles_linux_flow_dissector.ipv6.hop_limit", "Hop Limit", base.DEC)
 local f_ipv6_src = ProtoField.bytes("pakeles_linux_flow_dissector.ipv6.src", "src")
 local f_ipv6_dst = ProtoField.bytes("pakeles_linux_flow_dissector.ipv6.dst", "dst")
@@ -80,8 +80,9 @@ local f_udp_sport = ProtoField.uint16("pakeles_linux_flow_dissector.udp.sport", 
 local f_udp_dport = ProtoField.uint16("pakeles_linux_flow_dissector.udp.dport", "Destination Port", base.DEC)
 local f_udp_length = ProtoField.uint16("pakeles_linux_flow_dissector.udp.length", "Length", base.DEC)
 local f_udp_checksum = ProtoField.uint16("pakeles_linux_flow_dissector.udp.checksum", "Checksum", base.HEX)
+local f_meta_is_encap = ProtoField.uint64("pakeles_linux_flow_dissector.meta.is_encap", "Encapsulated")
 local f_payload = ProtoField.bytes("pakeles_linux_flow_dissector.payload", "Payload")
-p.fields = { f_hdr_ethernet, f_ethernet_dst, f_ethernet_src, f_ethernet_ethertype, f_hdr_vlan_ad, f_vlan_ad_pcp, f_vlan_ad_dei, f_vlan_ad_vid, f_vlan_ad_encapsulated_proto, f_hdr_vlan_q, f_vlan_q_pcp, f_vlan_q_dei, f_vlan_q_vid, f_vlan_q_encapsulated_proto, f_hdr_ipv4, f_ipv4_version, f_ipv4_ihl, f_ipv4_dscp, f_ipv4_ecn, f_ipv4_total_len, f_ipv4_id, f_ipv4_flags, f_ipv4_frag_offset, f_ipv4_ttl, f_ipv4_protocol, f_ipv4_checksum, f_ipv4_src, f_ipv4_dst, f_ipv4_options, f_hdr_ipv6, f_ipv6_version, f_ipv6_traffic_class, f_ipv6_flow_label, f_ipv6_payload_length, f_ipv6_next_header, f_ipv6_hop_limit, f_ipv6_src, f_ipv6_dst, f_hdr_ext_opt, f_ext_opt_next_header, f_ext_opt_hdr_ext_len, f_ext_opt_body, f_hdr_ext_frag, f_ext_frag_next_header, f_ext_frag_reserved, f_ext_frag_frag_off, f_ext_frag_res2, f_ext_frag_m_flag, f_ext_frag_identification, f_hdr_mpls, f_mpls_label, f_mpls_tc, f_mpls_s, f_mpls_ttl, f_hdr_tcp, f_tcp_sport, f_tcp_dport, f_tcp_seq, f_tcp_ack, f_tcp_data_offset, f_tcp_reserved, f_tcp_flags, f_tcp_window, f_tcp_checksum, f_tcp_urgent, f_tcp_options, f_hdr_udp, f_udp_sport, f_udp_dport, f_udp_length, f_udp_checksum, f_payload }
+p.fields = { f_hdr_ethernet, f_ethernet_dst, f_ethernet_src, f_ethernet_ethertype, f_hdr_vlan_ad, f_vlan_ad_pcp, f_vlan_ad_dei, f_vlan_ad_vid, f_vlan_ad_encapsulated_proto, f_hdr_vlan_q, f_vlan_q_pcp, f_vlan_q_dei, f_vlan_q_vid, f_vlan_q_encapsulated_proto, f_hdr_ipv4, f_ipv4_version, f_ipv4_ihl, f_ipv4_dscp, f_ipv4_ecn, f_ipv4_total_len, f_ipv4_id, f_ipv4_flags, f_ipv4_frag_offset, f_ipv4_ttl, f_ipv4_protocol, f_ipv4_checksum, f_ipv4_src, f_ipv4_dst, f_ipv4_options, f_hdr_ipv6, f_ipv6_version, f_ipv6_traffic_class, f_ipv6_flow_label, f_ipv6_payload_length, f_ipv6_next_header, f_ipv6_hop_limit, f_ipv6_src, f_ipv6_dst, f_hdr_ext_opt, f_ext_opt_next_header, f_ext_opt_hdr_ext_len, f_ext_opt_body, f_hdr_ext_frag, f_ext_frag_next_header, f_ext_frag_reserved, f_ext_frag_frag_off, f_ext_frag_res2, f_ext_frag_m_flag, f_ext_frag_identification, f_hdr_mpls, f_mpls_label, f_mpls_tc, f_mpls_s, f_mpls_ttl, f_hdr_tcp, f_tcp_sport, f_tcp_dport, f_tcp_seq, f_tcp_ack, f_tcp_data_offset, f_tcp_reserved, f_tcp_flags, f_tcp_window, f_tcp_checksum, f_tcp_urgent, f_tcp_options, f_hdr_udp, f_udp_sport, f_udp_dport, f_udp_length, f_udp_checksum, f_meta_is_encap, f_payload }
 
 local states = {}
 
@@ -91,7 +92,7 @@ local function add_payload(buf, tree, off)
   end
 end
 
-function states.parse_ethernet(buf, pinfo, tree, off, depth)
+function states.parse_ethernet(buf, pinfo, tree, off, depth, meta)
   depth = depth + 1
   if depth > 10 then
     tree:add_proto_expert_info(ef_error, "max depth exceeded")
@@ -119,17 +120,17 @@ function states.parse_ethernet(buf, pinfo, tree, off, depth)
   hdr_ethernet:add(f_ethernet_ethertype, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v_ethernet_ethertype)
   off = off + 16
   if v_ethernet_ethertype == 2048 then
-    return states.parse_ipv4(buf, pinfo, tree, off, depth)
+    return states.parse_ipv4(buf, pinfo, tree, off, depth, meta)
   elseif v_ethernet_ethertype == 34525 then
-    return states.parse_ipv6(buf, pinfo, tree, off, depth)
+    return states.parse_ipv6(buf, pinfo, tree, off, depth, meta)
   elseif v_ethernet_ethertype == 33024 then
-    return states.parse_vlan_q(buf, pinfo, tree, off, depth)
+    return states.parse_vlan_q(buf, pinfo, tree, off, depth, meta)
   elseif v_ethernet_ethertype == 34984 then
-    return states.parse_vlan_ad(buf, pinfo, tree, off, depth)
+    return states.parse_vlan_ad(buf, pinfo, tree, off, depth, meta)
   elseif v_ethernet_ethertype == 34887 then
-    return states.parse_mpls(buf, pinfo, tree, off, depth)
+    return states.parse_mpls(buf, pinfo, tree, off, depth, meta)
   elseif v_ethernet_ethertype == 34888 then
-    return states.parse_mpls(buf, pinfo, tree, off, depth)
+    return states.parse_mpls(buf, pinfo, tree, off, depth, meta)
   else
     add_payload(buf, tree, off)
     tree:add_proto_expert_info(ef_info, "unsupported ethertype")
@@ -137,7 +138,7 @@ function states.parse_ethernet(buf, pinfo, tree, off, depth)
   end
 end
 
-function states.parse_vlan_ad(buf, pinfo, tree, off, depth)
+function states.parse_vlan_ad(buf, pinfo, tree, off, depth, meta)
   depth = depth + 1
   if depth > 10 then
     tree:add_proto_expert_info(ef_error, "max depth exceeded")
@@ -171,14 +172,14 @@ function states.parse_vlan_ad(buf, pinfo, tree, off, depth)
   hdr_vlan_ad:add(f_vlan_ad_encapsulated_proto, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v_vlan_ad_encapsulated_proto)
   off = off + 16
   if v_vlan_ad_encapsulated_proto == 33024 then
-    return states.parse_vlan_q(buf, pinfo, tree, off, depth)
+    return states.parse_vlan_q(buf, pinfo, tree, off, depth, meta)
   else
     tree:add_proto_expert_info(ef_error, "802.1AD must be followed by 802.1Q")
     return off
   end
 end
 
-function states.parse_vlan_q(buf, pinfo, tree, off, depth)
+function states.parse_vlan_q(buf, pinfo, tree, off, depth, meta)
   depth = depth + 1
   if depth > 10 then
     tree:add_proto_expert_info(ef_error, "max depth exceeded")
@@ -212,13 +213,13 @@ function states.parse_vlan_q(buf, pinfo, tree, off, depth)
   hdr_vlan_q:add(f_vlan_q_encapsulated_proto, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v_vlan_q_encapsulated_proto)
   off = off + 16
   if v_vlan_q_encapsulated_proto == 2048 then
-    return states.parse_ipv4(buf, pinfo, tree, off, depth)
+    return states.parse_ipv4(buf, pinfo, tree, off, depth, meta)
   elseif v_vlan_q_encapsulated_proto == 34525 then
-    return states.parse_ipv6(buf, pinfo, tree, off, depth)
+    return states.parse_ipv6(buf, pinfo, tree, off, depth, meta)
   elseif v_vlan_q_encapsulated_proto == 34887 then
-    return states.parse_mpls(buf, pinfo, tree, off, depth)
+    return states.parse_mpls(buf, pinfo, tree, off, depth, meta)
   elseif v_vlan_q_encapsulated_proto == 34888 then
-    return states.parse_mpls(buf, pinfo, tree, off, depth)
+    return states.parse_mpls(buf, pinfo, tree, off, depth, meta)
   elseif v_vlan_q_encapsulated_proto == 33024 then
     tree:add_proto_expert_info(ef_error, "vlan stacking beyond kernel depth")
     return off
@@ -232,7 +233,7 @@ function states.parse_vlan_q(buf, pinfo, tree, off, depth)
   end
 end
 
-function states.parse_ipv4(buf, pinfo, tree, off, depth)
+function states.parse_ipv4(buf, pinfo, tree, off, depth, meta)
   depth = depth + 1
   if depth > 10 then
     tree:add_proto_expert_info(ef_error, "max depth exceeded")
@@ -329,10 +330,14 @@ function states.parse_ipv4(buf, pinfo, tree, off, depth)
     hdr_ipv4:add(f_ipv4_options, buf(math.floor(off / 8), len_ipv4_options))
   end
   off = off + len_ipv4_options * 8
-  if v_ipv4_protocol == 6 then
-    return states.parse_tcp(buf, pinfo, tree, off, depth)
+  if v_ipv4_protocol == 4 then
+    return states.parse_ipip(buf, pinfo, tree, off, depth, meta)
+  elseif v_ipv4_protocol == 6 then
+    return states.parse_tcp(buf, pinfo, tree, off, depth, meta)
   elseif v_ipv4_protocol == 17 then
-    return states.parse_udp(buf, pinfo, tree, off, depth)
+    return states.parse_udp(buf, pinfo, tree, off, depth, meta)
+  elseif v_ipv4_protocol == 41 then
+    return states.parse_ip6ip(buf, pinfo, tree, off, depth, meta)
   else
     add_payload(buf, tree, off)
     tree:add_proto_expert_info(ef_info, "unsupported ip protocol")
@@ -340,7 +345,7 @@ function states.parse_ipv4(buf, pinfo, tree, off, depth)
   end
 end
 
-function states.parse_ipv6(buf, pinfo, tree, off, depth)
+function states.parse_ipv6(buf, pinfo, tree, off, depth, meta)
   depth = depth + 1
   if depth > 10 then
     tree:add_proto_expert_info(ef_error, "max depth exceeded")
@@ -404,15 +409,19 @@ function states.parse_ipv6(buf, pinfo, tree, off, depth)
   end
   off = off + len_ipv6_dst * 8
   if v_ipv6_next_header == 0 then
-    return states.parse_ipv6_opt(buf, pinfo, tree, off, depth)
+    return states.parse_ipv6_opt(buf, pinfo, tree, off, depth, meta)
   elseif v_ipv6_next_header == 60 then
-    return states.parse_ipv6_opt(buf, pinfo, tree, off, depth)
+    return states.parse_ipv6_opt(buf, pinfo, tree, off, depth, meta)
   elseif v_ipv6_next_header == 44 then
-    return states.parse_ipv6_frag(buf, pinfo, tree, off, depth)
+    return states.parse_ipv6_frag(buf, pinfo, tree, off, depth, meta)
+  elseif v_ipv6_next_header == 4 then
+    return states.parse_ipip(buf, pinfo, tree, off, depth, meta)
   elseif v_ipv6_next_header == 6 then
-    return states.parse_tcp(buf, pinfo, tree, off, depth)
+    return states.parse_tcp(buf, pinfo, tree, off, depth, meta)
   elseif v_ipv6_next_header == 17 then
-    return states.parse_udp(buf, pinfo, tree, off, depth)
+    return states.parse_udp(buf, pinfo, tree, off, depth, meta)
+  elseif v_ipv6_next_header == 41 then
+    return states.parse_ip6ip(buf, pinfo, tree, off, depth, meta)
   else
     add_payload(buf, tree, off)
     tree:add_proto_expert_info(ef_info, "unsupported ip protocol")
@@ -420,7 +429,7 @@ function states.parse_ipv6(buf, pinfo, tree, off, depth)
   end
 end
 
-function states.parse_ipv6_opt(buf, pinfo, tree, off, depth)
+function states.parse_ipv6_opt(buf, pinfo, tree, off, depth, meta)
   depth = depth + 1
   if depth > 10 then
     tree:add_proto_expert_info(ef_error, "max depth exceeded")
@@ -452,15 +461,19 @@ function states.parse_ipv6_opt(buf, pinfo, tree, off, depth)
   end
   off = off + len_ext_opt_body * 8
   if v_ext_opt_next_header == 0 then
-    return states.parse_ipv6_opt(buf, pinfo, tree, off, depth)
+    return states.parse_ipv6_opt(buf, pinfo, tree, off, depth, meta)
   elseif v_ext_opt_next_header == 60 then
-    return states.parse_ipv6_opt(buf, pinfo, tree, off, depth)
+    return states.parse_ipv6_opt(buf, pinfo, tree, off, depth, meta)
   elseif v_ext_opt_next_header == 44 then
-    return states.parse_ipv6_frag(buf, pinfo, tree, off, depth)
+    return states.parse_ipv6_frag(buf, pinfo, tree, off, depth, meta)
+  elseif v_ext_opt_next_header == 4 then
+    return states.parse_ipip(buf, pinfo, tree, off, depth, meta)
   elseif v_ext_opt_next_header == 6 then
-    return states.parse_tcp(buf, pinfo, tree, off, depth)
+    return states.parse_tcp(buf, pinfo, tree, off, depth, meta)
   elseif v_ext_opt_next_header == 17 then
-    return states.parse_udp(buf, pinfo, tree, off, depth)
+    return states.parse_udp(buf, pinfo, tree, off, depth, meta)
+  elseif v_ext_opt_next_header == 41 then
+    return states.parse_ip6ip(buf, pinfo, tree, off, depth, meta)
   else
     add_payload(buf, tree, off)
     tree:add_proto_expert_info(ef_info, "unsupported ip protocol")
@@ -468,7 +481,29 @@ function states.parse_ipv6_opt(buf, pinfo, tree, off, depth)
   end
 end
 
-function states.parse_ipv6_frag(buf, pinfo, tree, off, depth)
+function states.parse_ipip(buf, pinfo, tree, off, depth, meta)
+  depth = depth + 1
+  if depth > 10 then
+    tree:add_proto_expert_info(ef_error, "max depth exceeded")
+    return off
+  end
+  local avail = buf:len() * 8
+  meta.is_encap = (1) % 2^1
+  return states.parse_ipv4(buf, pinfo, tree, off, depth, meta)
+end
+
+function states.parse_ip6ip(buf, pinfo, tree, off, depth, meta)
+  depth = depth + 1
+  if depth > 10 then
+    tree:add_proto_expert_info(ef_error, "max depth exceeded")
+    return off
+  end
+  local avail = buf:len() * 8
+  meta.is_encap = (1) % 2^1
+  return states.parse_ipv6(buf, pinfo, tree, off, depth, meta)
+end
+
+function states.parse_ipv6_frag(buf, pinfo, tree, off, depth, meta)
   depth = depth + 1
   if depth > 10 then
     tree:add_proto_expert_info(ef_error, "max depth exceeded")
@@ -512,11 +547,12 @@ function states.parse_ipv6_frag(buf, pinfo, tree, off, depth)
   end
   hdr_ext_frag:add(f_ext_frag_identification, buf(math.floor(off / 8), math.floor((off % 8 + 32 + 7) / 8)), buf():bitfield(off, 32))
   off = off + 32
+  tree:add(f_meta_is_encap, UInt64(meta.is_encap))
   add_payload(buf, tree, off)
   return off
 end
 
-function states.parse_mpls(buf, pinfo, tree, off, depth)
+function states.parse_mpls(buf, pinfo, tree, off, depth, meta)
   depth = depth + 1
   if depth > 10 then
     tree:add_proto_expert_info(ef_error, "max depth exceeded")
@@ -548,11 +584,12 @@ function states.parse_mpls(buf, pinfo, tree, off, depth)
   end
   hdr_mpls:add(f_mpls_ttl, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), buf():bitfield(off, 8))
   off = off + 8
+  tree:add(f_meta_is_encap, UInt64(meta.is_encap))
   add_payload(buf, tree, off)
   return off
 end
 
-function states.parse_tcp(buf, pinfo, tree, off, depth)
+function states.parse_tcp(buf, pinfo, tree, off, depth, meta)
   depth = depth + 1
   if depth > 10 then
     tree:add_proto_expert_info(ef_error, "max depth exceeded")
@@ -630,11 +667,12 @@ function states.parse_tcp(buf, pinfo, tree, off, depth)
     hdr_tcp:add(f_tcp_options, buf(math.floor(off / 8), len_tcp_options))
   end
   off = off + len_tcp_options * 8
+  tree:add(f_meta_is_encap, UInt64(meta.is_encap))
   add_payload(buf, tree, off)
   return off
 end
 
-function states.parse_udp(buf, pinfo, tree, off, depth)
+function states.parse_udp(buf, pinfo, tree, off, depth, meta)
   depth = depth + 1
   if depth > 10 then
     tree:add_proto_expert_info(ef_error, "max depth exceeded")
@@ -666,13 +704,15 @@ function states.parse_udp(buf, pinfo, tree, off, depth)
   end
   hdr_udp:add(f_udp_checksum, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), buf():bitfield(off, 16))
   off = off + 16
+  tree:add(f_meta_is_encap, UInt64(meta.is_encap))
   add_payload(buf, tree, off)
   return off
 end
 
 function p.dissector(buf, pinfo, tree)
   local root = tree:add(p, buf())
-  states.parse_ethernet(buf, pinfo, root, 0, 0)
+  local meta = { is_encap = 0 }
+  states.parse_ethernet(buf, pinfo, root, 0, 0, meta)
 end
 
 -- Postdissector: runs on every frame after built-in dissection,

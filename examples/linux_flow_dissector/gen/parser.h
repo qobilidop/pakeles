@@ -139,6 +139,7 @@ typedef struct {
   pk_linux_flow_dissector_tcp_t tcp;
   uint8_t udp_present;
   pk_linux_flow_dissector_udp_t udp;
+  uint64_t m_is_encap;
 } pk_linux_flow_dissector_result_t;
 
 /* Parse `bit_len` bits of `buf` (reject mode). Returns outcome. */

@@ -22,9 +22,31 @@ the committed gallery `ir.json`.
 
 IPv6 addresses are 128-bit, above the fixed-`bits` ceiling, so they are
 `var_bytes` opaque runs (rendered as hex; not tshark-diffed).
+
+Rung 4a adds IPIP (proto 4) and IPv6-in-IP (proto 41) tunnel re-entrancy
+mirroring upstream `parse_ip_proto`'s encap arms: two pass-through states
+(`parse_ipip`, `parse_ip6ip`) set the declared `FlowMeta.is_encap` bit and
+re-enter the matching IP state — encap is "more back edges", bounded like
+every cycle by `max_depth` (10: covers the deepest golden chain, 7 state
+entries, and rung 4b's TEB chains; measured symex cost rules out a more
+generous budget). The kernel reaches its encap arms from three
+places (IPv4's protocol, IPv6's next_header, and the ext-header chain's
+last link), so all three demux selects grow the two tunnel arms; a
+Fragment header still stops unconditionally (kernel PROG(IPV6FR)).
 """
 
-from pakeles import Header, Parser, bits, extract, parser, reject, var_bytes
+from pakeles import (
+    Header,
+    Meta,
+    Parser,
+    assign,
+    bits,
+    extract,
+    meta_bits,
+    parser,
+    reject,
+    var_bytes,
+)
 from pakeles.fmt import DEC, ETHER, HEX, IPV4
 
 
@@ -88,7 +110,7 @@ class IPv4(Header):
         "Protocol",
         DEC,
         tshark="ip.proto",
-        labels={1: "ICMP", 6: "TCP", 17: "UDP"},
+        labels={1: "ICMP", 4: "IPIP", 6: "TCP", 17: "UDP", 41: "IPv6-in-IP"},
     )
     checksum = bits(16, "Header Checksum", HEX, tshark="ip.checksum")
     src = bits(32, "Source Address", IPV4, tshark="ip.src")
@@ -106,7 +128,7 @@ class IPv6(Header):
         "Next Header",
         DEC,
         tshark="ipv6.nxt",
-        labels={1: "ICMP", 6: "TCP", 17: "UDP"},
+        labels={1: "ICMP", 4: "IPIP", 6: "TCP", 17: "UDP", 41: "IPv6-in-IP"},
     )
     hop_limit = bits(8, "Hop Limit", DEC, tshark="ipv6.hlim")
     # 128-bit addresses exceed the fixed-`bits` ceiling: opaque 16-byte runs.
@@ -154,10 +176,20 @@ class UDP(Header):
     checksum = bits(16, "Checksum", HEX)
 
 
+class FlowMeta(Meta):
+    is_encap = meta_bits(
+        1,
+        "Encapsulated",
+        DEC,
+        doc="set on tunnel re-entry (IPIP / IPv6-in-IP), mirroring bpf_flow_keys.is_encap",
+    )
+
+
 def linux_flow_dissector() -> Parser:
     return parser(
         "linux_flow_dissector",
         max_depth=10,
+        metadata=FlowMeta,
         start="parse_ethernet",
         states={
             "parse_ethernet": extract(Ethernet).select(
@@ -196,7 +228,12 @@ def linux_flow_dissector() -> Parser:
             ),
             "parse_ipv4": extract(IPv4).select(
                 IPv4.protocol,
-                {6: "parse_tcp", 17: "parse_udp"},
+                {
+                    4: "parse_ipip",
+                    6: "parse_tcp",
+                    17: "parse_udp",
+                    41: "parse_ip6ip",
+                },
                 default=reject("unsupported ip protocol", info=True),
             ),
             "parse_ipv6": extract(IPv6).select(
@@ -205,8 +242,10 @@ def linux_flow_dissector() -> Parser:
                     0x00: "parse_ipv6_opt",  # HopByHop
                     0x3C: "parse_ipv6_opt",  # DestOpts (60)
                     0x2C: "parse_ipv6_frag",  # Fragment (44)
+                    4: "parse_ipip",
                     6: "parse_tcp",
                     17: "parse_udp",
+                    41: "parse_ip6ip",
                 },
                 default=reject("unsupported ip protocol", info=True),
             ),
@@ -218,11 +257,19 @@ def linux_flow_dissector() -> Parser:
                     0x00: "parse_ipv6_opt",
                     0x3C: "parse_ipv6_opt",
                     0x2C: "parse_ipv6_frag",
+                    4: "parse_ipip",
                     6: "parse_tcp",
                     17: "parse_udp",
+                    41: "parse_ip6ip",
                 },
                 default=reject("unsupported ip protocol", info=True),
             ),
+            # Kernel parse_ip_proto encap arms (IPPROTO_IPIP / IPPROTO_IPV6,
+            # default flags: STOP_AT_ENCAP off): mark is_encap and re-enter
+            # the state machine as the inner family — pure back edges, no
+            # header read; the max_depth budget bounds the nesting.
+            "parse_ipip": assign(FlowMeta.is_encap, 1).then("parse_ipv4"),
+            "parse_ip6ip": assign(FlowMeta.is_encap, 1).then("parse_ipv6"),
             # Kernel PROG(IPV6FR) under default flags: read the fragment
             # header and stop (BPF_OK), always.
             "parse_ipv6_frag": extract(IPv6Frag["ext_frag"]).accept(),

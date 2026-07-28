@@ -269,12 +269,20 @@
                   "label": "ICMP"
                 },
                 {
+                  "value": "4",
+                  "label": "IPIP"
+                },
+                {
                   "value": "6",
                   "label": "TCP"
                 },
                 {
                   "value": "17",
                   "label": "UDP"
+                },
+                {
+                  "value": "41",
+                  "label": "IPv6-in-IP"
                 }
               ]
             },
@@ -413,12 +421,20 @@
                   "label": "ICMP"
                 },
                 {
+                  "value": "4",
+                  "label": "IPIP"
+                },
+                {
                   "value": "6",
                   "label": "TCP"
                 },
                 {
                   "value": "17",
                   "label": "UDP"
+                },
+                {
+                  "value": "41",
+                  "label": "IPv6-in-IP"
                 }
               ]
             },
@@ -1083,6 +1099,16 @@
               {
                 "entries": [
                   {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipip"
+                }
+              },
+              {
+                "entries": [
+                  {
                     "value": "6"
                   }
                 ],
@@ -1098,6 +1124,16 @@
                 ],
                 "next": {
                   "state": "parse_udp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "41"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ip6ip"
                 }
               }
             ],
@@ -1163,6 +1199,16 @@
               {
                 "entries": [
                   {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipip"
+                }
+              },
+              {
+                "entries": [
+                  {
                     "value": "6"
                   }
                 ],
@@ -1178,6 +1224,16 @@
                 ],
                 "next": {
                   "state": "parse_udp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "41"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ip6ip"
                 }
               }
             ],
@@ -1244,6 +1300,16 @@
               {
                 "entries": [
                   {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipip"
+                }
+              },
+              {
+                "entries": [
+                  {
                     "value": "6"
                   }
                 ],
@@ -1260,6 +1326,16 @@
                 "next": {
                   "state": "parse_udp"
                 }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "41"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ip6ip"
+                }
               }
             ],
             "defaultTarget": {
@@ -1272,6 +1348,38 @@
             }
           }
         }
+      },
+      {
+        "name": "parse_ipip",
+        "transition": {
+          "direct": {
+            "state": "parse_ipv4"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "is_encap",
+            "value": {
+              "constant": "1"
+            }
+          }
+        ]
+      },
+      {
+        "name": "parse_ip6ip",
+        "transition": {
+          "direct": {
+            "state": "parse_ipv6"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "is_encap",
+            "value": {
+              "constant": "1"
+            }
+          }
+        ]
       },
       {
         "name": "parse_ipv6_frag",
@@ -1328,6 +1436,17 @@
       }
     ],
     "startState": "parse_ethernet",
-    "maxDepth": 10
+    "maxDepth": 10,
+    "metadata": [
+      {
+        "name": "is_encap",
+        "bits": 1,
+        "display": {
+          "name": "Encapsulated",
+          "format": "DISPLAY_FORMAT_DEC",
+          "doc": "set on tunnel re-entry (IPIP / IPv6-in-IP), mirroring bpf_flow_keys.is_encap"
+        }
+      }
+    ]
   }
 }

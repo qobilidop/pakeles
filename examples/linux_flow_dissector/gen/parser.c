@@ -18,15 +18,18 @@ static uint64_t pk_read_bits(const uint8_t *buf, uint64_t off, uint32_t n) {
 #define PK_S_PARSE_IPV4 3
 #define PK_S_PARSE_IPV6 4
 #define PK_S_PARSE_IPV6_OPT 5
-#define PK_S_PARSE_IPV6_FRAG 6
-#define PK_S_PARSE_MPLS 7
-#define PK_S_PARSE_TCP 8
-#define PK_S_PARSE_UDP 9
+#define PK_S_PARSE_IPIP 6
+#define PK_S_PARSE_IP6IP 7
+#define PK_S_PARSE_IPV6_FRAG 8
+#define PK_S_PARSE_MPLS 9
+#define PK_S_PARSE_TCP 10
+#define PK_S_PARSE_UDP 11
 
 static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_len, pk_linux_flow_dissector_result_t *out) {
   uint64_t off = 0;
   uint32_t state = PK_S_PARSE_ETHERNET;
   uint32_t depth;
+  out->m_is_encap = 0ULL;
   for (depth = 0; depth < 10u; depth++) {
     switch (state) {
     case PK_S_PARSE_ETHERNET: {
@@ -309,11 +312,17 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         off += vlen * 8;
       }
       uint64_t key0 = (uint64_t)out->ipv4.protocol;
-      if (key0 == 6ULL) {
+      if (key0 == 4ULL) {
+        state = PK_S_PARSE_IPIP;
+        continue;
+      } else if (key0 == 6ULL) {
         state = PK_S_PARSE_TCP;
         continue;
       } else if (key0 == 17ULL) {
         state = PK_S_PARSE_UDP;
+        continue;
+      } else if (key0 == 41ULL) {
+        state = PK_S_PARSE_IP6IP;
         continue;
       } else {
         out->outcome = 1;
@@ -406,11 +415,17 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
       } else if (key0 == 44ULL) {
         state = PK_S_PARSE_IPV6_FRAG;
         continue;
+      } else if (key0 == 4ULL) {
+        state = PK_S_PARSE_IPIP;
+        continue;
       } else if (key0 == 6ULL) {
         state = PK_S_PARSE_TCP;
         continue;
       } else if (key0 == 17ULL) {
         state = PK_S_PARSE_UDP;
+        continue;
+      } else if (key0 == 41ULL) {
+        state = PK_S_PARSE_IP6IP;
         continue;
       } else {
         out->outcome = 1;
@@ -459,11 +474,17 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
       } else if (key0 == 44ULL) {
         state = PK_S_PARSE_IPV6_FRAG;
         continue;
+      } else if (key0 == 4ULL) {
+        state = PK_S_PARSE_IPIP;
+        continue;
       } else if (key0 == 6ULL) {
         state = PK_S_PARSE_TCP;
         continue;
       } else if (key0 == 17ULL) {
         state = PK_S_PARSE_UDP;
+        continue;
+      } else if (key0 == 41ULL) {
+        state = PK_S_PARSE_IP6IP;
         continue;
       } else {
         out->outcome = 1;
@@ -471,6 +492,16 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
+    }
+    case PK_S_PARSE_IPIP: {
+      out->m_is_encap = (1ULL) & 0x1ULL;
+      state = PK_S_PARSE_IPV4;
+      continue;
+    }
+    case PK_S_PARSE_IP6IP: {
+      out->m_is_encap = (1ULL) & 0x1ULL;
+      state = PK_S_PARSE_IPV6;
+      continue;
     }
     case PK_S_PARSE_IPV6_FRAG: {
       out->ext_frag_present = 1;
