@@ -6,7 +6,13 @@
 use crate::ir::pb;
 
 /// A 64-bit term over the symbolic packet.
-#[derive(Debug, Clone, PartialEq)]
+///
+/// `Eq + Hash` because the field-variable encoding keys per-region
+/// variables by structural term identity: the engine only ever builds
+/// `Extract`/`ExtractAt` from its placed map, so structurally equal
+/// read terms denote the same placement (region) and distinct ones
+/// denote disjoint regions (the cursor only advances).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Term {
     /// Zero-extended extract of `len` bits (MSB-first) at a CONCRETE
     /// `bit_off`. The common case (fields before any var-length region).
@@ -28,7 +34,7 @@ pub(crate) enum Term {
     Bin(pb::BinOpKind, Box<Term>, Box<Term>),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Constraint {
     Eq(Term, u64),
     /// key & mask == value & mask
@@ -40,11 +46,13 @@ pub(crate) enum Constraint {
 }
 
 pub(crate) trait Solver {
-    /// SAT: a completed packet of exactly ceil(packet_bits/8) bytes
-    /// (unconstrained bits filled by solver model completion).
-    /// None: UNSAT. Used only for feasibility (path pruning); the witness
-    /// packet comes from `solve_witness`.
-    fn check(&mut self, packet_bits: usize, cs: &[Constraint]) -> Option<Vec<u8>>;
+    /// Path feasibility: SAT/UNSAT only, no witness — used by the engine
+    /// to prune infeasible forks. Backends may decide this over any
+    /// equisatisfiable encoding (the z3 backend uses per-region field
+    /// variables, no packet bitvector). `packet_bits` is the path's
+    /// width budget; the field encoding ignores it, but it feeds the
+    /// packet-encoding cross-check (`PAKELES_SYMEX_XCHECK=1`).
+    fn feasible(&mut self, packet_bits: usize, cs: &[Constraint]) -> bool;
 
     /// One small-length witness for a control-flow path: solve `cs` over
     /// a `width`-bit packet preferring a small total-length term `len`

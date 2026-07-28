@@ -142,7 +142,7 @@ impl Ctx<'_> {
     /// All feasibility checks go through here so the stats see every call.
     fn check(&mut self, packet_bits: usize, cs: &[Constraint]) -> bool {
         let t0 = std::time::Instant::now();
-        let sat = self.solver.check(packet_bits, cs).is_some();
+        let sat = self.solver.feasible(packet_bits, cs);
         let dt = t0.elapsed();
         let s = &mut self.stats;
         s.checks += 1;

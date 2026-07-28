@@ -6,12 +6,25 @@ use z3::ast::{Ast, BV};
 
 pub(crate) struct Z3Solver {
     ctx: z3::Context,
+    /// `PAKELES_SYMEX_XCHECK=1`: decide every `feasible` under BOTH the
+    /// field-variable and the packet encoding and panic on disagreement.
+    xcheck: bool,
+}
+
+/// Per-region field variables for the feasibility encoding: one fresh
+/// 64-bit variable per structurally-distinct read term, bounded to the
+/// read's width. Equisatisfiable with the packet encoding because read
+/// regions within a path are pairwise disjoint (see `Term`'s doc).
+struct FieldVars<'a> {
+    vars: std::collections::HashMap<Term, BV<'a>>,
+    bounds: Vec<z3::ast::Bool<'a>>,
 }
 
 impl Z3Solver {
     pub(crate) fn new() -> Self {
         Self {
             ctx: z3::Context::new(&z3::Config::new()),
+            xcheck: std::env::var_os("PAKELES_SYMEX_XCHECK").is_some_and(|v| v == "1"),
         }
     }
 
@@ -94,6 +107,81 @@ impl Z3Solver {
         }
     }
 
+    /// Field-variable translation of a term: reads become per-region
+    /// 64-bit variables, arithmetic mirrors `term` (same wrapping 64-bit
+    /// semantics), and no packet bitvector exists — checks stay
+    /// width-independent with no shifters to bit-blast.
+    fn feas_term<'a>(&'a self, fv: &mut FieldVars<'a>, t: &Term) -> BV<'a> {
+        match t {
+            Term::Const(v) => BV::from_u64(&self.ctx, *v, 64),
+            Term::Extract { len, .. } | Term::ExtractAt { len, .. } => {
+                if let Some(v) = fv.vars.get(t) {
+                    return v.clone();
+                }
+                let var = BV::new_const(&self.ctx, format!("f{}", fv.vars.len()), 64);
+                if *len < 64 {
+                    fv.bounds
+                        .push(var.bvule(&BV::from_u64(&self.ctx, (1u64 << len) - 1, 64)));
+                }
+                fv.vars.insert(t.clone(), var.clone());
+                var
+            }
+            Term::Bin(op, l, r) => {
+                let l = self.feas_term(fv, l);
+                let r = self.feas_term(fv, r);
+                match op {
+                    pb::BinOpKind::Add => l.bvadd(&r),
+                    pb::BinOpKind::Sub => l.bvsub(&r),
+                    pb::BinOpKind::Mul => l.bvmul(&r),
+                    pb::BinOpKind::Shl => l.bvshl(&r),
+                    pb::BinOpKind::Shr => l.bvlshr(&r),
+                    pb::BinOpKind::And => l.bvand(&r),
+                    pb::BinOpKind::Or => l.bvor(&r),
+                    pb::BinOpKind::Unspecified => unreachable!("validated IR"),
+                }
+            }
+        }
+    }
+
+    fn feas_constraint<'a>(&'a self, fv: &mut FieldVars<'a>, c: &Constraint) -> z3::ast::Bool<'a> {
+        match c {
+            Constraint::Eq(t, v) => self.feas_term(fv, t)._eq(&BV::from_u64(&self.ctx, *v, 64)),
+            Constraint::Masked(t, value, mask) => {
+                let m = BV::from_u64(&self.ctx, *mask, 64);
+                self.feas_term(fv, t)
+                    .bvand(&m)
+                    ._eq(&BV::from_u64(&self.ctx, value & mask, 64))
+            }
+            Constraint::InRange(t, lo, hi) => {
+                let t = self.feas_term(fv, t);
+                z3::ast::Bool::and(
+                    &self.ctx,
+                    &[
+                        &t.bvuge(&BV::from_u64(&self.ctx, *lo, 64)),
+                        &t.bvule(&BV::from_u64(&self.ctx, *hi, 64)),
+                    ],
+                )
+            }
+            Constraint::Not(inner) => self.feas_constraint(fv, inner).not(),
+            Constraint::And(cs) => {
+                let bools: Vec<_> = cs.iter().map(|c| self.feas_constraint(fv, c)).collect();
+                let refs: Vec<_> = bools.iter().collect();
+                z3::ast::Bool::and(&self.ctx, &refs)
+            }
+        }
+    }
+
+    /// The pre-lever packet-BV feasibility decision, kept as the
+    /// cross-check oracle for the field-variable encoding.
+    fn packet_feasible(&self, packet_bits: usize, cs: &[Constraint]) -> bool {
+        let packet = self.packet(packet_bits);
+        let solver = z3::Solver::new(&self.ctx);
+        for c in cs {
+            solver.assert(&self.constraint(&packet, c));
+        }
+        solver.check() == z3::SatResult::Sat
+    }
+
     /// Read the top `n_bits` of the completed model byte by byte
     /// (MSB-first; a partial trailing byte lands in the high bits, pad bits
     /// zero — canonical form by construction). Indexing is anchored to the
@@ -118,19 +206,28 @@ impl Z3Solver {
 }
 
 impl Solver for Z3Solver {
-    fn check(&mut self, packet_bits: usize, cs: &[Constraint]) -> Option<Vec<u8>> {
-        let packet = self.packet(packet_bits);
+    fn feasible(&mut self, packet_bits: usize, cs: &[Constraint]) -> bool {
+        let mut fv = FieldVars {
+            vars: std::collections::HashMap::new(),
+            bounds: Vec::new(),
+        };
         let solver = z3::Solver::new(&self.ctx);
         for c in cs {
-            solver.assert(&self.constraint(&packet, c));
+            let b = self.feas_constraint(&mut fv, c);
+            solver.assert(&b);
         }
-        match solver.check() {
-            z3::SatResult::Sat => {
-                let model = solver.get_model().expect("model after sat");
-                Some(self.model_packet(&model, &packet, packet_bits))
-            }
-            _ => None,
+        for b in &fv.bounds {
+            solver.assert(b);
         }
+        let sat = solver.check() == z3::SatResult::Sat;
+        if self.xcheck {
+            let psat = self.packet_feasible(packet_bits, cs);
+            assert_eq!(
+                sat, psat,
+                "encoding disagreement (field={sat}, packet={psat}) on {cs:#?}"
+            );
+        }
+        sat
     }
 
     fn solve_witness(
@@ -178,26 +275,33 @@ mod tests {
         Term::Extract { bit_off, len }
     }
 
+    /// Packet-encoding witness bytes for a fully-`w`-bit packet — the
+    /// old `check` surface the byte-semantics tests were written
+    /// against, now reached through `solve_witness`.
+    fn packet_bytes(s: &mut Z3Solver, w: usize, cs: &[Constraint]) -> Option<Vec<u8>> {
+        s.solve_witness(w, cs, &Term::Const(w as u64))
+            .map(|(b, _)| b)
+    }
+
     #[test]
     fn trivial_sat_and_unsat() {
         let mut s = Z3Solver::new();
-        let sat = s.check(16, &[Constraint::Eq(ext(0, 8), 0xAB)]);
+        let sat = packet_bytes(&mut s, 16, &[Constraint::Eq(ext(0, 8), 0xAB)]);
         assert_eq!(sat.unwrap()[0], 0xAB);
-        let unsat = s.check(
-            16,
-            &[
-                Constraint::Eq(ext(0, 8), 1),
-                Constraint::Not(Box::new(Constraint::Eq(ext(0, 8), 1))),
-            ],
-        );
-        assert!(unsat.is_none());
+        let contradiction = [
+            Constraint::Eq(ext(0, 8), 1),
+            Constraint::Not(Box::new(Constraint::Eq(ext(0, 8), 1))),
+        ];
+        assert!(packet_bytes(&mut s, 16, &contradiction).is_none());
+        assert!(s.feasible(16, &[Constraint::Eq(ext(0, 8), 0xAB)]));
+        assert!(!s.feasible(16, &contradiction));
     }
 
     #[test]
     fn extract_is_msb_first() {
         let mut s = Z3Solver::new();
         // Constrain bits 4..12 (the middle byte-straddling 8 bits).
-        let bytes = s.check(16, &[Constraint::Eq(ext(4, 8), 0xBC)]).unwrap();
+        let bytes = packet_bytes(&mut s, 16, &[Constraint::Eq(ext(4, 8), 0xBC)]).unwrap();
         let val = (u16::from_be_bytes([bytes[0], bytes[1]]) >> 4) & 0xFF;
         assert_eq!(val, 0xBC);
     }
@@ -215,7 +319,7 @@ mod tests {
             )),
             Box::new(Term::Const(20)),
         );
-        let bytes = s.check(8, &[Constraint::Eq(term, 4)]).unwrap();
+        let bytes = packet_bytes(&mut s, 8, &[Constraint::Eq(term, 4)]).unwrap();
         assert_eq!(bytes[0] >> 4, 6);
     }
 
@@ -230,22 +334,101 @@ mod tests {
             off: Box::new(off.clone()),
             len: 8,
         };
-        let bytes = s
-            .check(
-                24,
-                &[
-                    Constraint::Eq(off.clone(), 8),
-                    Constraint::Eq(read.clone(), 0xBC),
-                ],
-            )
-            .unwrap();
+        let bytes = packet_bytes(
+            &mut s,
+            24,
+            &[
+                Constraint::Eq(off.clone(), 8),
+                Constraint::Eq(read.clone(), 0xBC),
+            ],
+        )
+        .unwrap();
         assert_eq!(bytes[0], 8);
         assert_eq!(bytes[1], 0xBC);
-        let bytes = s
-            .check(24, &[Constraint::Eq(off, 16), Constraint::Eq(read, 0xBC)])
-            .unwrap();
+        let bytes = packet_bytes(
+            &mut s,
+            24,
+            &[Constraint::Eq(off, 16), Constraint::Eq(read, 0xBC)],
+        )
+        .unwrap();
         assert_eq!(bytes[0], 16);
         assert_eq!(bytes[2], 0xBC);
+    }
+
+    #[test]
+    fn feasible_field_encoding_semantics() {
+        let mut s = Z3Solver::new();
+        // Same read term = same region variable: contradictions stay UNSAT.
+        let read = Term::ExtractAt {
+            off: Box::new(ext(0, 8)),
+            len: 8,
+        };
+        assert!(!s.feasible(
+            24,
+            &[
+                Constraint::Eq(read.clone(), 1),
+                Constraint::Not(Box::new(Constraint::Eq(read.clone(), 1))),
+            ],
+        ));
+        // Distinct read terms are independent regions.
+        let other = Term::ExtractAt {
+            off: Box::new(ext(8, 8)),
+            len: 8,
+        };
+        assert!(s.feasible(32, &[Constraint::Eq(read, 1), Constraint::Eq(other, 2)],));
+        // Region variables carry the read's width bound.
+        assert!(!s.feasible(16, &[Constraint::Eq(ext(0, 8), 256)]));
+        assert!(s.feasible(16, &[Constraint::Eq(ext(0, 8), 255)]));
+    }
+
+    #[test]
+    fn feasible_agrees_with_packet_encoding() {
+        // Forced cross-check: every query below runs under BOTH encodings
+        // and the assertion inside `feasible` panics on disagreement. The
+        // battery stays within engine-shaped constraints (offsets bounded
+        // so off + len <= width, as path constraints guarantee).
+        let mut s = Z3Solver::new();
+        s.xcheck = true;
+        let off = ext(0, 8);
+        let read = Term::ExtractAt {
+            off: Box::new(off.clone()),
+            len: 8,
+        };
+        let queries: Vec<(Vec<Constraint>, bool)> = vec![
+            (vec![Constraint::Eq(ext(0, 8), 0xAB)], true),
+            (
+                vec![
+                    Constraint::Eq(ext(0, 8), 1),
+                    Constraint::Not(Box::new(Constraint::Eq(ext(0, 8), 1))),
+                ],
+                false,
+            ),
+            (
+                vec![
+                    Constraint::InRange(off.clone(), 8, 16),
+                    Constraint::Eq(read.clone(), 0xBC),
+                ],
+                true,
+            ),
+            (
+                vec![
+                    Constraint::InRange(off.clone(), 8, 16),
+                    Constraint::Masked(read.clone(), 0xF0, 0xF0),
+                    Constraint::InRange(read.clone(), 0, 0x0F),
+                ],
+                false,
+            ),
+            (
+                vec![Constraint::And(vec![
+                    Constraint::InRange(off, 8, 16),
+                    Constraint::Not(Box::new(Constraint::Eq(read, 0))),
+                ])],
+                true,
+            ),
+        ];
+        for (cs, want) in queries {
+            assert_eq!(s.feasible(32, &cs), want, "query {cs:?}");
+        }
     }
 
     #[test]
@@ -292,11 +475,9 @@ mod tests {
     #[test]
     fn masked_and_range_semantics() {
         let mut s = Z3Solver::new();
-        let m = s
-            .check(8, &[Constraint::Masked(ext(0, 8), 0xA0, 0xF0)])
-            .unwrap();
+        let m = packet_bytes(&mut s, 8, &[Constraint::Masked(ext(0, 8), 0xA0, 0xF0)]).unwrap();
         assert_eq!(m[0] & 0xF0, 0xA0);
-        let r = s.check(8, &[Constraint::InRange(ext(0, 8), 5, 7)]).unwrap();
+        let r = packet_bytes(&mut s, 8, &[Constraint::InRange(ext(0, 8), 5, 7)]).unwrap();
         assert!((5..=7).contains(&r[0]));
     }
 }
