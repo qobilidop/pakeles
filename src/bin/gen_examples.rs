@@ -49,7 +49,17 @@ fn regenerate(name: &str) -> anyhow::Result<()> {
 }
 
 fn main() -> anyhow::Result<()> {
-    for name in ["eth_ipvx_l4", "linux_flow_dissector", "counted_items"] {
+    let all = ["eth_ipvx_l4", "linux_flow_dissector", "counted_items"];
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let names: Vec<&str> = if args.is_empty() {
+        all.to_vec()
+    } else {
+        for a in &args {
+            anyhow::ensure!(all.contains(&a.as_str()), "unknown example `{a}`");
+        }
+        args.iter().map(|s| s.as_str()).collect()
+    };
+    for name in names {
         regenerate(name)?;
     }
     Ok(())
