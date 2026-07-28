@@ -57,69 +57,75 @@ Pathological clusters are chained symbolic offsets (ipv4.options → tunnel
 - **Target:** rung-4a `linux_flow_dissector` full regen < 1 min wall
   (enumeration well under that). Interim milestones: enum < 3 min after
   levers 1–2, < 1 min after lever 3.
-- **Lever order:** (1) ground/constructive feasibility fast path →
-  (2) incremental z3 push/pop → (3) parallel enumeration →
-  (4) constructive witness synthesis. Measured effect after each; a lever
-  that lands < 1.5× may be reverted to keep the code simple.
-- **Cross-check mode:** while any fast path is under development, a
-  debug/feature-gated mode asserts fast-path SAT/UNSAT verdicts against
-  z3 on every query; the full gallery runs under it at least once before
-  the lever's commit. The mode stays in-tree (cheap insurance for future
-  IR features that widen the ground fragment).
-- **Width anchoring (lever 2 prerequisite):** MSB-first `Term::Extract`
-  offsets are anchored to the packet BV's total width, which grows with
-  `cursor_max` along a path — naive push/pop breaks anchoring. Resolve by
-  one of: (a) LSB-anchored internal offsets (translate at model-read
-  time), or (b) a fixed per-path width bound (allocate the BV at the
-  path's `expr_max`-derived cap up front). Decide by measuring which keeps
-  z3 queries cheap; document the choice in the design notes of the
-  implementing commit.
-- **Parallel enumeration (lever 3):** DFS children at a select are
-  independent; the only obstacle is the shared `&mut dyn Solver`.
+- **Lever order (AMENDED 2026-07-28 after Task-1 measurement).** The
+  `encap_proxy` baseline (137 paths, 147 checks, enum 124.5s) shows
+  **100.0% of check wall in ExtractAt-bearing checks** — past the first
+  var-length region every downstream check carries a symbolic offset, so
+  the originally-planned ground fast path has ~no headroom on tunnel
+  IRs. The cost is the ENCODING: every check bit-blasts full-packet-width
+  barrel shifters in a fresh solver. Replaced lever order:
+  1. **Field-variable feasibility encoding.** Every `Term` atom reads a
+     placed field region (engine only builds `Extract`/`ExtractAt` from
+     the placed map); within a path, placements are pairwise disjoint
+     (the cursor advances by each fixed width; bodies are non-negative),
+     and structurally equal terms denote the same placement. So mapping
+     each distinct read term to a fresh 64-bit variable (bounded
+     `< 2^len`) is equisatisfiable with the packet encoding: a field
+     model extends to a packet (disjoint regions, values fit widths),
+     a packet model restricts to field values, and every constraint
+     atom evaluates identically. Feasibility answers are IDENTICAL by
+     construction — path-set identity is a theorem, not a hope — and
+     checks become width-independent 64-bit arithmetic (no packet BV,
+     no shifters).
+  2. **Field-variable witness synthesis** (subsumes the old constructive
+     lever): solve the small field system, then CONSTRUCT packet bytes
+     by concatenation — lengths are concrete in the model, offsets
+     follow, body bytes free. z3 solves tiny systems; the packet BV
+     disappears from testgen entirely. Interp round-trip stays the
+     correctness gate.
+  3. **Incremental push/pop** along the DFS — only if still needed once
+     checks are field-variable (they may drop to µs each).
+  4. **Parallel enumeration** — only if still needed.
+  Measured effect after each; a lever that lands < 1.5× may be reverted
+  to keep the code simple.
+- **Cross-check mode:** while the encoding change is under development,
+  an env-gated mode (`PAKELES_SYMEX_XCHECK=1`) answers every feasibility
+  query under BOTH encodings and panics on disagreement; the proxy and
+  full gallery run under it at least once before the lever's commit. The
+  mode stays in-tree (cheap insurance for future IR features that could
+  violate the disjoint-regions premise, e.g. overlapping reads).
+- **Parallel enumeration (lever 4, if needed):** DFS children at a select
+  are independent; the only obstacle is the shared `&mut dyn Solver`.
   Per-worker solvers, work-queue pattern mirroring `solve_all` in
   `testgen.rs`. Paths are sorted by ID at the end of `enumerate`, so
   output determinism survives. `FeasibilityLog` merges as set unions.
-- **Constructive witness synthesis (lever 4):** a path whose constraints
-  are all ground (concrete offsets, `Value`/`Masked`/`Range` entries on
-  disjoint fields) gets its packet bytes built directly — keyset values
-  written at field offsets, free bits zero, length from the solved-free
-  ladder floor. z3 remains the fallback for symbolic-offset paths.
-  Generated vectors stay interp-checked (`vector_for` already
-  round-trips through `run_bits`), so a synthesis bug cannot produce a
-  wrong vector, only a bailed generation.
 
 ## Tasks
 
-- [ ] **1. Bench harness + instrumentation baseline.** Add a
-  `--features symex` bench/bin that times enumeration and solve phases
-  separately for a named example; add per-check instrumentation
-  (count, ground-vs-symbolic classification, time histogram) behind a
-  flag. Pick/build a mid-size proxy IR that enumerates in seconds and
-  exhibits tunnel-style symbolic-offset checks (candidate: a trimmed
-  two-level encap parser) for inner-loop iteration. Kick off ONE
-  background baseline run on rung-4a capturing (a) phase timings,
-  (b) the full path inventory (IDs + kinds) to a scratch file — this is
-  the identity reference for every later lever. Commit the harness.
-- [ ] **2. Lever 1 — ground/constructive feasibility fast path.**
-  Classify `Term`s: ground (Const, concrete-offset Extract chains over
-  otherwise-unconstrained disjoint fields, post-substitution metadata
-  constants) vs symbolic (`ExtractAt`, computed metadata). Answer ground
-  checks in Rust (constant eval + per-field keyset set-algebra including
-  first-match negation); fall through to z3 otherwise. Land with
-  cross-check mode green over the gallery + proxy. Record check-count
-  reduction and proxy/rung-4a timings.
-- [ ] **3. Lever 2 — incremental z3 along the DFS.** Resolve the width
-  anchoring decision, then restructure enumeration to one solver with
-  push/pop at fork points (or prefix-assert + `check_assumptions`, the
-  pattern already in `solve_witness`). Verify path-set identity vs the
-  Task-1 inventory. Record timings.
-- [ ] **4. Lever 3 — parallel enumeration.** Per-worker solvers +
-  work queue; deterministic output (sort preserved, log merged as
-  unions). Verify path-set identity. Record timings; check wall ≪ CPU.
-- [ ] **5. Lever 4 — constructive witness synthesis.** Ground-path
-  packet building with z3 fallback; interp round-trip stays the
-  correctness gate. Record solve-phase timings and the synthesized/z3
-  split.
+- [x] **1. Bench harness + instrumentation baseline.** DONE (951b9e5):
+  `symex_bench` bin (phase timings, inventory dump), `EnumStats`
+  check telemetry (always-on), `builder::encap_proxy` (137 paths,
+  enum 124.5s, 100.0% of check wall symbolic — the measurement that
+  amended the lever order). Rung-4a background baseline launched
+  (full run: phase timings + `.bench/baseline-rung4a.inv` identity
+  reference, inventory written before the solve phase starts).
+- [ ] **2. Lever 1 — field-variable feasibility encoding.** New
+  `Solver::feasible(cs) -> bool` decided over per-region 64-bit
+  variables (fresh var per structurally-distinct read term, bounded
+  `< 2^len`); engine checks drop the packet BV and width argument.
+  Cross-check mode (`PAKELES_SYMEX_XCHECK=1`) runs both encodings and
+  panics on disagreement — proxy + gallery green under it before
+  commit. Verify path-set identity (proxy inventory; rung-4a inventory
+  when the baseline lands). Record proxy timings.
+- [ ] **3. Lever 2 — field-variable witness synthesis.** Solve the
+  field system, evaluate lengths from the model, construct packet
+  bytes by concatenation (free bits zero); z3 only ever sees the small
+  field system. Witness BYTES may change (allowed); interp round-trip
+  in `vector_for` stays the correctness gate; committed suites replay
+  green. Record solve-phase timings.
+- [ ] **4. Levers 3–4 if still needed — incremental checks, parallel
+  enumeration.** Only if the field-variable encoding leaves the target
+  unmet; re-measure first, per-lever commits as above.
 - [ ] **6. Proof + docs.** One clean timed full regen of rung-4a from
   scratch: report enumeration wall, solve wall, total; compare to the
   55-min/4.4-min baselines; confirm path-set identity, gallery gate
