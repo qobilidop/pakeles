@@ -55,7 +55,13 @@ Depends on metadata v1 (landed 2026-07-25).
   for. README's option-chain numbers therefore stay as-is. Incremental
   enumeration solving (symex-perf lever 2) is the prerequisite for ever
   raising it — and for regenerating this example's vectors in reasonable
-  time.
+  time. **ADDENDUM 2026-07-28 (later same day): that prerequisite has
+  landed** — the symex-enum-perf plan (field-variable encoding +
+  incremental session, commits 91772dd/cdcc725/2bfb84e) takes this
+  example's FULL regen from could-not-finish to 7.8s (12,993 paths).
+  Raising max_depth is no longer perf-gated; the decision is now purely
+  about corpus need (a raise re-opens the path-count question at
+  seconds-per-regen cost, not days). Vectors minting is unblocked.
 - **Projection = positional-last** (design doc table): walk
   `res.headers` in extraction order; `addr_proto`/addresses from the LAST
   IP-family instance (either family); `ip_proto` from the last-extracted

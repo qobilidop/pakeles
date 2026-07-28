@@ -106,32 +106,41 @@ Pathological clusters are chained symbolic offsets (ipv4.options → tunnel
   `symex_bench` bin (phase timings, inventory dump), `EnumStats`
   check telemetry (always-on), `builder::encap_proxy` (137 paths,
   enum 124.5s, 100.0% of check wall symbolic — the measurement that
-  amended the lever order). Rung-4a background baseline launched
-  (full run: phase timings + `.bench/baseline-rung4a.inv` identity
-  reference, inventory written before the solve phase starts).
-- [ ] **2. Lever 1 — field-variable feasibility encoding.** New
-  `Solver::feasible(cs) -> bool` decided over per-region 64-bit
-  variables (fresh var per structurally-distinct read term, bounded
-  `< 2^len`); engine checks drop the packet BV and width argument.
-  Cross-check mode (`PAKELES_SYMEX_XCHECK=1`) runs both encodings and
-  panics on disagreement — proxy + gallery green under it before
-  commit. Verify path-set identity (proxy inventory; rung-4a inventory
-  when the baseline lands). Record proxy timings.
-- [ ] **3. Lever 2 — field-variable witness synthesis.** Solve the
-  field system, evaluate lengths from the model, construct packet
-  bytes by concatenation (free bits zero); z3 only ever sees the small
-  field system. Witness BYTES may change (allowed); interp round-trip
-  in `vector_for` stays the correctness gate; committed suites replay
-  green. Record solve-phase timings.
-- [ ] **4. Levers 3–4 if still needed — incremental checks, parallel
-  enumeration.** Only if the field-variable encoding leaves the target
-  unmet; re-measure first, per-lever commits as above.
-- [ ] **6. Proof + docs.** One clean timed full regen of rung-4a from
-  scratch: report enumeration wall, solve wall, total; compare to the
-  55-min/4.4-min baselines; confirm path-set identity, gallery gate
-  green, committed suites replay green. Update `memory` symex-perf notes
-  and the rung-4a plan's max_depth decision note (incremental lever now
-  landed — record what a `max_depth` raise would newly cost). If the
-  <1 min target was NOT reached, write the impossibility analysis
-  (per-lever measured effects, profile of the residue, why it is
-  irreducible) as a spec-style note in `docs/superpowers/specs/`.
+  amended the lever order). **Deviation:** the rung-4a OLD-encoding
+  baseline proved computationally infeasible — 125 of 12,993 paths in
+  ~105 min (projected ~1 week); killed. No old-encoding rung-4a
+  inventory can exist (that intractability IS the bug being fixed).
+  Identity evidence substitutes a chain: (a) encap_proxy + small
+  gallery inventories captured under the old encoding, byte-identical
+  under every lever; (b) per-query xcheck (field vs packet encoding)
+  green over proxy + eth_ipvx_l4 + counted_items; (c) the rung-4a
+  inventory (first ever produced, lever 2) byte-identical across all
+  subsequent levers; (d) the equisatisfiability theorem.
+- [x] **2. Lever 1 — field-variable feasibility encoding.** DONE
+  (91772dd): proxy enum 124.5s -> 0.68s (183x), all 147 checks <10ms,
+  inventory identical, xcheck green. Unlocked the first-ever complete
+  rung-4a enumeration: 12,993 paths (~860 accept / 1,972 reject /
+  10,161 trunc), enum 52.2s, full regen 133.4s.
+- [x] **3. Lever 2 — field-variable witness synthesis.** DONE
+  (cdcc725): proxy solve 16.2s -> 0.42s (38x), full proxy regen
+  137.7s -> 1.12s; all vectors interp-round-tripped; free bytes now
+  zeros by construction.
+- [x] **4. Levers 3–4 — incremental session (needed; parallel was
+  not).** DONE (2bfb84e): session push/pop mirrors the DFS; witnesses
+  solve at emit time on the hot stack; epoch-keyed model cache (SAT
+  checks cache their proof model; sibling emits reuse it under a
+  small-enough acceptance rule bounded by the ladder's guarantee);
+  wrap-safe `term_interval` lower bound skips doomed rungs. Rung-4a
+  checks 49.6s -> ~1s, witness solving 81.1s -> ~3s, full regen
+  133.4s -> 7.8s. Parallel enumeration never needed.
+- [x] **6. Proof + docs.** Final clean run (2026-07-28): rung-4a
+  `linux_flow_dissector` FULL regen **7.83s** (12,993 paths; checks
+  1.1s, witnesses 3.1s / 14 UNSAT rungs, assembly 0.26s) vs a baseline
+  that could not finish (~125 paths/105 min; historical ~55-min runs
+  also never completed — they were partial). Target <1 min beaten 7x.
+  encap_proxy: 137.7s -> 0.037s. Full gate green (fmt, clippy, 167
+  Rust tests, buf lint, ruff, pyright, 41 pytest); committed suites
+  replay green (in-gate); inventory identity verified on every lever.
+  No impossibility analysis needed. Follow-up unblocked: rung-4a
+  vectors minting + revisiting max_depth (a raise now costs seconds,
+  not days — see the amended note in the rung-4a plan).
