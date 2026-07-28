@@ -181,28 +181,70 @@ impl Z3Solver {
         }
         solver.check() == z3::SatResult::Sat
     }
+}
 
-    /// Read the top `n_bits` of the completed model byte by byte
-    /// (MSB-first; a partial trailing byte lands in the high bits, pad bits
-    /// zero — canonical form by construction). Indexing is anchored to the
-    /// packet BV's true size, so `n_bits < packet.get_size()` (a witness
-    /// shorter than its width budget) reads the correct top bits.
-    fn model_packet(&self, model: &z3::Model, packet: &BV, n_bits: usize) -> Vec<u8> {
-        let total = packet.get_size() as usize;
-        let mut bytes = vec![0u8; n_bits.div_ceil(8)];
-        for (i, byte) in bytes.iter_mut().enumerate() {
-            let msb_off = 8 * i;
-            let width = 8.min(n_bits - msb_off);
-            let hi = (total - 1 - msb_off) as u32;
-            let lo = (total - msb_off - width) as u32;
-            let v = model
-                .eval(&packet.extract(hi, lo), true)
-                .and_then(|b| b.as_u64())
-                .unwrap_or(0);
-            *byte = (v as u8) << (8 - width);
+/// Evaluate a term under concrete region values, mirroring the z3
+/// 64-bit wrapping semantics of `feas_term`/`term` exactly (bvshl/bvlshr
+/// zero out at shift >= 64; add/sub/mul wrap). Reads absent from `vals`
+/// were unconstrained — model completion would give 0; so do we.
+fn eval_term(vals: &std::collections::HashMap<Term, u64>, t: &Term) -> u64 {
+    match t {
+        Term::Const(v) => *v,
+        Term::Extract { .. } | Term::ExtractAt { .. } => vals.get(t).copied().unwrap_or(0),
+        Term::Bin(op, l, r) => {
+            let l = eval_term(vals, l);
+            let r = eval_term(vals, r);
+            match op {
+                pb::BinOpKind::Add => l.wrapping_add(r),
+                pb::BinOpKind::Sub => l.wrapping_sub(r),
+                pb::BinOpKind::Mul => l.wrapping_mul(r),
+                pb::BinOpKind::Shl => {
+                    if r >= 64 {
+                        0
+                    } else {
+                        l << r
+                    }
+                }
+                pb::BinOpKind::Shr => {
+                    if r >= 64 {
+                        0
+                    } else {
+                        l >> r
+                    }
+                }
+                pb::BinOpKind::And => l & r,
+                pb::BinOpKind::Or => l | r,
+                pb::BinOpKind::Unspecified => unreachable!("validated IR"),
+            }
         }
-        bytes
     }
+}
+
+/// Construct the witness packet from solved region values: each read
+/// region's bits land at its (model-concrete) offset MSB-first; every
+/// other bit — bodies, never-read fields, pad — is zero. Disjointness of
+/// regions under the path constraints (see `Term`'s doc) makes the
+/// writes conflict-free; bits at/after `n_bits` (a region cut by a
+/// truncation path's length) are skipped.
+fn build_packet(vals: &std::collections::HashMap<Term, u64>, n_bits: usize) -> Vec<u8> {
+    let mut bytes = vec![0u8; n_bits.div_ceil(8)];
+    for (t, v) in vals {
+        let (off, len) = match t {
+            Term::Extract { bit_off, len } => (*bit_off as u64, *len),
+            Term::ExtractAt { off, len } => (eval_term(vals, off), *len),
+            _ => unreachable!("vals keys are read terms"),
+        };
+        for i in 0..len {
+            let bit = (off as usize).saturating_add(i);
+            if bit >= n_bits {
+                continue;
+            }
+            if (v >> (len - 1 - i)) & 1 == 1 {
+                bytes[bit / 8] |= 1 << (7 - (bit % 8));
+            }
+        }
+    }
+    bytes
 }
 
 impl Solver for Z3Solver {
@@ -232,25 +274,34 @@ impl Solver for Z3Solver {
 
     fn solve_witness(
         &mut self,
-        width: usize,
+        _width: usize,
         cs: &[Constraint],
         len: &Term,
     ) -> Option<(Vec<u8>, usize)> {
-        // Small-not-minimal witness via a plain solver and a length ladder:
-        // try `len <= 128B`, then `<= 4KB`, then unbounded — first SAT wins.
-        // OMT `Optimize::minimize` solved the same queries 1.6x slower for a
-        // ~7% witness-size win (linux_flow_dissector, 779 paths: 38.6min ->
-        // 24.1min solve, 51KB -> 55KB total witness bytes; unbounded plain
-        // SAT is 2x faster again but bloats witnesses 22x — measured
-        // 2026-07-25). Assumptions (not asserts) keep learned clauses valid
-        // across rungs.
+        // Field-variable witness: solve the small per-region system (the
+        // same encoding as `feasible`), then CONSTRUCT the packet — region
+        // values at model-concrete offsets, everything else zero. z3 never
+        // sees a packet bitvector; the `_width` budget is obsolete here.
+        //
+        // Small-not-minimal length via a plain solver and a ladder:
+        // try `len <= 128B`, then `<= 4KB`, then unbounded — first SAT
+        // wins. (OMT minimize was 1.6x slower for ~7% size; measured
+        // 2026-07-25.) Assumptions (not asserts) keep learned clauses
+        // valid across rungs.
         const LADDER_BITS: [Option<u64>; 3] = [Some(128 * 8), Some(4096 * 8), None];
-        let packet = self.packet(width);
+        let mut fv = FieldVars {
+            vars: std::collections::HashMap::new(),
+            bounds: Vec::new(),
+        };
         let solver = z3::Solver::new(&self.ctx);
         for c in cs {
-            solver.assert(&self.constraint(&packet, c));
+            let b = self.feas_constraint(&mut fv, c);
+            solver.assert(&b);
         }
-        let len_bv = self.term(&packet, len);
+        let len_bv = self.feas_term(&mut fv, len);
+        for b in &fv.bounds {
+            solver.assert(b);
+        }
         for bound in LADDER_BITS {
             let assumptions: Vec<z3::ast::Bool> = match bound {
                 Some(b) => vec![len_bv.bvule(&BV::from_u64(&self.ctx, b, 64))],
@@ -258,8 +309,16 @@ impl Solver for Z3Solver {
             };
             if solver.check_assumptions(&assumptions) == z3::SatResult::Sat {
                 let model = solver.get_model().expect("model after sat");
-                let actual = model.eval(&len_bv, true).and_then(|b| b.as_u64())? as usize;
-                return Some((self.model_packet(&model, &packet, actual), actual));
+                let vals: std::collections::HashMap<Term, u64> = fv
+                    .vars
+                    .iter()
+                    .map(|(t, bv)| {
+                        let v = model.eval(bv, true).and_then(|b| b.as_u64()).unwrap_or(0);
+                        (t.clone(), v)
+                    })
+                    .collect();
+                let actual = eval_term(&vals, len) as usize;
+                return Some((build_packet(&vals, actual), actual));
             }
         }
         None
