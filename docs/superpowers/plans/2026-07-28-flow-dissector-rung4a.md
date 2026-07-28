@@ -43,12 +43,19 @@ Depends on metadata v1 (landed 2026-07-25).
 - **State names:** `parse_ipip` (proto 4 → re-enter `parse_ipv4`) and
   `parse_ip6ip` (proto 41 → re-enter `parse_ipv6`), matching the
   `parse_*` convention.
-- **`max_depth` = 16.** Deepest tunnel-matrix chain is 7 state entries
-  (double-encap; QinQ+tunnel); 16 covers it with headroom for rung 4b's
-  GRE+TEB chains (~8) without inviting symex blowup (path length is
-  governed by the per-cyclic-state unroll cap of 2, not max_depth).
-  Documented as a fidelity boundary: the README's option-chain numbers
-  (depth ~5→~13 behind eth/IPv6) must be recomputed in Task 5.
+- **`max_depth` = 10 (AMENDED from 16 after measurement).** The plan first
+  chose 16 for headroom, but enumeration proved computationally infeasible
+  there (<250 paths in 45+ min; deeper budgets widen every fork-site z3
+  check). Measurement at 10 still shows ~45-min pathological clusters
+  (chained symbolic offsets: ipv4.options → tunnel → ext_opt bodies blast
+  multiple full-width barrel shifters per fresh-solver check) but
+  converges. The corpus's deepest chain is 7 entries (double-encap;
+  QinQ+tunnel) and 4b's TEB chains fit in 10, so 10 is the
+  corpus-need-not-generosity choice the design doc's risk section asked
+  for. README's option-chain numbers therefore stay as-is. Incremental
+  enumeration solving (symex-perf lever 2) is the prerequisite for ever
+  raising it — and for regenerating this example's vectors in reasonable
+  time.
 - **Projection = positional-last** (design doc table): walk
   `res.headers` in extraction order; `addr_proto`/addresses from the LAST
   IP-family instance (either family); `ip_proto` from the last-extracted
@@ -97,7 +104,7 @@ IPv4 headers in vectors use ihl=5; IPv6 `plen` consistent with payload.)
 **Files:** `py/src/pakeles/examples/linux_flow_dissector.py`;
 regenerated `examples/linux_flow_dissector/{linux_flow_dissector.ir.json,linux_flow_dissector.py,gen/*,conformance/vectors.json,conformance/vectors.pcap}`.
 
-- [ ] Add to the example (docstring gains a rung-4a paragraph):
+- [x] Add to the example (docstring gains a rung-4a paragraph):
 
 ```python
 from pakeles import ..., Meta, assign, meta_bits
@@ -123,7 +130,7 @@ if there is no `.goto`, use the existing spelling for an unconditional
 transition, e.g. a default-only select or `.then()`; match `counted_items`'
 `mark_done` pattern adapted to a non-accept target.)
 
-- [ ] Quick checks before paying for regen: `./dev.sh sh -c 'cd py && pytest && ruff check . && pyright'`;
+- [x] Quick checks before paying for regen: `./dev.sh sh -c 'cd py && pytest && ruff check . && pyright'`;
   then enumeration-only path count (e.g. via `cargo run -- testgen` dry
   path or a small rust test printing `enumerate_ir(&ir).paths.len()`) —
   proceed if < ~3000.
@@ -139,11 +146,11 @@ transition, e.g. a default-only select or `.then()`; match `counted_items`'
 
 **Files:** `src/oracle/flow_dissector.rs`.
 
-- [ ] `FlowKeys` gains `#[serde(default)] pub is_encap: bool`; `field_pair`
+- [x] `FlowKeys` gains `#[serde(default)] pub is_encap: bool`; `field_pair`
   arm; `committed_goldens_agree` required-subset list gains `"is_encap"`
   ONLY in Task 4 (the committed golden predates it until re-mint — the
   test asserts subset contents, so adding the name now would go red).
-- [ ] Rework `project()` per the Decisions table. Implementation shape:
+- [x] Rework `project()` per the Decisions table. Implementation shape:
   one pass over `res.headers` in order, tracking:
   `first_ip: Option<(family, start_bit)>`, `last_ip: Option<(family, idx)>`,
   `last_next_proto: Option<u64>` (updated at every `ipv4.protocol`,
@@ -152,7 +159,7 @@ transition, e.g. a default-only select or `.then()`; match `counted_items`'
   (thoff = frag start + 8, ports 0) and MPLS stop keep their existing
   shapes. `is_encap` from `res.metadata` (name `"is_encap"`).
   Per-field `bpf_flow.c` citations in comments (design-doc table).
-- [ ] New `project_tests` (hexes double as Task-4 corpus lines, byte-identical
+- [x] New `project_tests` (hexes double as Task-4 corpus lines, byte-identical
   twins — same discipline as rung 2): the 10-vector matrix above,
   asserting per vector: `is_encap`, `addr_proto`/addresses = inner family,
   `nhoff` = outer L3 start, `n_proto` = outer family, `ip_proto` = last
@@ -168,7 +175,7 @@ transition, e.g. a default-only select or `.then()`; match `counted_items`'
 
 **Files:** `oracle/flow_dissector/factory/capture.c`.
 
-- [ ] Address family by `k->addr_proto` (not `n_proto`); `"is_encap"`
+- [x] Address family by `k->addr_proto` (not `n_proto`); `"is_encap"`
   appended to `keys_subset` and each ok-entry (`k->is_encap ? "true" : "false"`).
 - [ ] Compile check (no BPF needed to build the userspace half):
   `./dev.sh sh -c 'cc -O2 -c oracle/flow_dissector/factory/capture.c -o /dev/null -lbpf 2>&1 || cc -O2 -fsyntax-only oracle/flow_dissector/factory/capture.c'`
@@ -181,7 +188,7 @@ transition, e.g. a default-only select or `.then()`; match `counted_items`'
 `examples/linux_flow_dissector/conformance/flow_keys.linux-*.golden.json`
 (minted), `src/oracle/flow_dissector.rs` (floors + required subset).
 
-- [ ] Append `# --- rung 4a: IPIP / IPv6-in-IP tunnels ---` section: the
+- [x] Append `# --- rung 4a: IPIP / IPv6-in-IP tunnels ---` section: the
   10 matrix vectors (byte-identical to Task 2's test hexes), plus drops:
   truncated inner IPv4 (extract-fail both sides), tunnel to an
   unsupported inner proto (e.g. inner protocol 89 → both drop).

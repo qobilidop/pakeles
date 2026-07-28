@@ -68,6 +68,28 @@ drop == our wrapped-length reject), truncated options (kernel
 `tcp+doff*4>data_end` drop == our truncation), and options-present accepts
 with ports read. No new IR — the same sized-region `var_bytes` mechanism.
 
+**Handled as of rung 4a — IPIP / IPv6-in-IP tunnels.** The kernel
+implements encapsulation by re-entering its own state machine
+(`parse_ip_proto`'s proto-4/proto-41 arms tail-call back with a synthetic
+EtherType); this parser mirrors that with two pass-through states
+(`parse_ipip`, `parse_ip6ip`) that set the declared `FlowMeta.is_encap`
+metadata bit — the first kernel-facing consumer of metadata v1 — and
+re-enter `parse_ipv4`/`parse_ipv6` as bounded back edges (rung-2 cycle
+semantics; `max_depth` 10 is the sole budget). The projection follows the
+**positional-last principle**: a `flow_keys` field takes the value of the
+last extraction that would have written it, replaying the kernel's
+overwrite order — so `addr_proto`/addresses come from the *innermost* IP
+layer (either family), `ip_proto` from the last next-protocol field, and
+`flow_label` from the last IPv6 header, while `nhoff` (outer L3 start) and
+`n_proto` (outer family) are deliberately written-once, exactly as
+`bpf_flow.c` behaves. The corpus carries the full mixed-family matrix —
+{v4,v6}×{v4,v6}, double encap, tunnels behind QinQ and behind ext-header
+chains, fragmented outer (stops both sides before re-entry, `is_encap`
+stays false) and fragmented inner (`is_encap` *and* `is_frag`) — with
+projection unit tests on byte-identical twins of every vector; the
+kernel-agreement claim over these vectors activates with the rung-4a
+golden re-mint (goldens CI workflow, fixed capture.c).
+
 **Boundary of the agreement claim:** the reject⇔drop agreement above is
 proven over the committed corpus, no further. There are known divergence
 classes *outside this rung's scope* where upstream `bpf_flow.c` **accepts**
@@ -81,7 +103,11 @@ rung boundaries, not bugs:
   (kernel accepts; we reject) — plus the encap cases below. IP protocols
   outside the kernel's dissected set are dropped by both sides, so that
   direction already agrees.
-- **GRE/IPIP encapsulation** — not yet modeled.
+- **GRE encapsulation (rung 4b)** — proto-47 packets are accepted (and
+  dissected into) by the kernel but rejected by this parser until rung 4b
+  models GRE's flag-sized optional region and TEB re-entry; same
+  documented-asymmetry treatment as ICMP/UDP-Lite. IPIP/IPv6-in-IP landed
+  in rung 4a.
 - **IPv6 extension headers (default flags):** we model `flags == 0` (what
   `BPF_PROG_TEST_RUN` produces). `flow_label` is recorded but never triggers
   an early stop (`STOP_AT_FLOW_LABEL` off); a Fragment header always stops
@@ -91,7 +117,17 @@ rung boundaries, not bugs:
   headers behind an Ethernet/IPv6 prefix, up to ~7 with no VLAN prefix,
   fewer behind QinQ). The kernel bounds it by the tail-call limit (~30).
   Chains of 6–~30 option headers are a known divergence: the kernel
-  accepts, we reject. Not in the agreement corpus by construction.
+  accepts, we reject. Not in the agreement corpus by construction. As of
+  rung 4a the same budget also bounds tunnel nesting (each crossing costs
+  2 entries — the corpus's deepest chain spends 7 of the 10) vs the
+  kernel's tail-call limit — differently-shaped global budgets, same
+  documented-boundary treatment.
+  Note this bound is per-backend: the interpreter, C, BPF, and Lua count
+  *every* state entered against `max_depth`, whereas the P4 backend's only
+  loop bound is its option-header stack size (which counts *only* option
+  pushes). So for a deep plain-IPv6 option chain the P4 datapath accepts a
+  few more options than the others (and there agrees with the kernel) —
+  a seam that lives entirely in this untested divergence zone.
   Note this bound is per-backend: the interpreter, C, BPF, and Lua count
   *every* state entered against `max_depth`, whereas the P4 backend's only
   loop bound is its option-header stack size (which counts *only* option
@@ -116,7 +152,11 @@ CI can also refresh them via `.github/workflows/flow-dissector-goldens.yml`
 Agreement = matching the subset of `bpf_flow_keys` fields the covered
 protocols populate, growing per rung. Rung-0 subset: `{ nhoff, thoff,
 n_proto, addr_proto, ip_proto, sport, dport, ipv4_src, ipv4_dst, ipv6_src,
-ipv6_dst }`. Fields outside the current rung's subset are not compared
+ipv6_dst }`; rung 2 added `{ flow_label, is_frag, is_first_frag }`; rung 4a
+adds `is_encap` (declared program metadata — enters the compared subset
+when the rung-4a goldens are minted with the fixed capture.c; until that
+re-mint the committed golden predates the field and the gate compares the
+rung-2 subset). Fields outside the current rung's subset are not compared
 (documented in each golden file's `keys_subset`, never silently skipped).
 
 ## Files
