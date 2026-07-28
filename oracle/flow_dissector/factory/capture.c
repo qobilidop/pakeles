@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
     printf("{\n  \"kernel_version\": \"%s\",\n", un.release);
     printf("  \"keys_subset\": [\"nhoff\",\"thoff\",\"n_proto\",\"addr_proto\",\"ip_proto\","
            "\"sport\",\"dport\",\"ipv4_src\",\"ipv4_dst\",\"ipv6_src\",\"ipv6_dst\","
-           "\"flow_label\",\"is_frag\",\"is_first_frag\"],\n");
+           "\"flow_label\",\"is_frag\",\"is_first_frag\",\"is_encap\"],\n");
     printf("  \"entries\": [\n");
 
     FILE *cf = fopen(argv[2], "r");
@@ -110,10 +110,14 @@ int main(int argc, char **argv) {
         }
         struct bpf_flow_keys *k = (struct bpf_flow_keys *)out;
         char v4s[9] = "", v4d[9] = "", v6s[33] = "", v6d[33] = "";
-        if (ntohs(k->n_proto) == 0x0800) {
+        // The address union holds whichever family was written LAST —
+        // keyed by addr_proto (host-order, set in PROG(IP)/PROG(IPV6)),
+        // NOT n_proto: under encap re-entry n_proto keeps the OUTER
+        // family while the union holds the inner addresses.
+        if (k->addr_proto == 0x0800) {
             hexcat(v4s, (unsigned char *)&k->ipv4_src, 4);
             hexcat(v4d, (unsigned char *)&k->ipv4_dst, 4);
-        } else if (ntohs(k->n_proto) == 0x86dd) {
+        } else if (k->addr_proto == 0x86dd) {
             hexcat(v6s, (unsigned char *)k->ipv6_src, 16);
             hexcat(v6d, (unsigned char *)k->ipv6_dst, 16);
         }
@@ -126,14 +130,16 @@ int main(int argc, char **argv) {
                "\"ip_proto\": %u, \"sport\": %u, \"dport\": %u, "
                "\"ipv4_src\": \"%s\", \"ipv4_dst\": \"%s\", "
                "\"ipv6_src\": \"%s\", \"ipv6_dst\": \"%s\", "
-               "\"flow_label\": %u, \"is_frag\": %s, \"is_first_frag\": %s}}",
+               "\"flow_label\": %u, \"is_frag\": %s, \"is_first_frag\": %s, "
+               "\"is_encap\": %s}}",
                first ? "" : ",\n", phex,
                k->nhoff, k->thoff, ntohs(k->n_proto), k->addr_proto,
                k->ip_proto, ntohs(k->sport), ntohs(k->dport),
                v4s, v4d, v6s, v6d,
                ntohl(k->flow_label),
                k->is_frag ? "true" : "false",
-               k->is_first_frag ? "true" : "false");
+               k->is_first_frag ? "true" : "false",
+               k->is_encap ? "true" : "false");
         first = 0;
     }
     fclose(cf);
