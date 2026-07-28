@@ -15,15 +15,57 @@ pub fn generate(ir: &irpb::Ir) -> Result<pb::TestSuite> {
     let mut solver = Z3Solver::new();
     let enumeration = enumerate(ir, &mut solver)?;
     let parser = ir.parser.as_ref().expect("validated");
-    let mut vectors = Vec::with_capacity(enumeration.paths.len());
-    for path in &enumeration.paths {
-        vectors.push(vector_for(ir, &mut solver, path).with_context(|| path.id.clone())?);
-    }
+    let vectors = solve_all(ir, &enumeration.paths)?;
     Ok(pb::TestSuite {
         parser_name: parser.name.clone(),
         ir_version: ir.ir_version.clone(),
         vectors,
     })
+}
+
+/// Per-path witness solves are independent and z3-bound, so run them on a
+/// thread pool pulling from a shared index queue (dynamic balancing: the
+/// wide ~33k-bit loop paths cluster, so static striping would skew). One
+/// `Z3Solver` per worker — z3 contexts are not thread-safe. Vector order
+/// stays path order; on failure the earliest path's error wins.
+fn solve_all(ir: &irpb::Ir, paths: &[Path]) -> Result<Vec<pb::TestVector>> {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let workers = std::thread::available_parallelism()
+        .map(|p| p.get())
+        .unwrap_or(1)
+        .min(paths.len().max(1));
+    let next = AtomicUsize::new(0);
+    // Progress heartbeat for long regens (stderr; cargo test captures it).
+    let done = AtomicUsize::new(0);
+    let mut results: Vec<(usize, Result<pb::TestVector>)> = std::thread::scope(|s| {
+        let handles: Vec<_> = (0..workers)
+            .map(|_| {
+                s.spawn(|| {
+                    let mut solver = Z3Solver::new();
+                    let mut out = Vec::new();
+                    loop {
+                        let i = next.fetch_add(1, Ordering::Relaxed);
+                        let Some(path) = paths.get(i) else { break };
+                        out.push((
+                            i,
+                            vector_for(ir, &mut solver, path).with_context(|| path.id.clone()),
+                        ));
+                        let d = done.fetch_add(1, Ordering::Relaxed) + 1;
+                        if d.is_multiple_of(50) {
+                            eprintln!("SOLVE PROGRESS: {d}/{} paths", paths.len());
+                        }
+                    }
+                    out
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .flat_map(|h| h.join().expect("witness-solver worker panicked"))
+            .collect()
+    });
+    results.sort_by_key(|(i, _)| *i);
+    results.into_iter().map(|(_, r)| r).collect()
 }
 
 fn vector_for(ir: &irpb::Ir, solver: &mut dyn Solver, path: &Path) -> Result<pb::TestVector> {

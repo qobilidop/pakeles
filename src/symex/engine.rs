@@ -290,6 +290,11 @@ fn emit(ctx: &mut Ctx, frame: &Frame, kind: PathKind, bit_len: Term, width: usiz
         width,
         constraints: frame.constraints.clone(),
     });
+    // Progress heartbeat for long regens (stderr; cargo test captures it).
+    // Tunnel-scale enumerations run for hours — silence reads as a hang.
+    if ctx.paths.len().is_multiple_of(25) {
+        eprintln!("ENUM PROGRESS: {} paths", ctx.paths.len());
+    }
 }
 
 fn walk_state(ctx: &mut Ctx, state_name: &str, mut frame: Frame) -> anyhow::Result<()> {
