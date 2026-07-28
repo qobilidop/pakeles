@@ -330,6 +330,65 @@ impl ParserBuilder {
     }
 }
 
+/// Mid-size symex perf proxy: the rung-4a cost shape at a seconds scale.
+/// A var-length options region ahead of each select puts every later
+/// extract at a symbolic offset (`ExtractAt` chains), and the proto-4 arm
+/// re-enters `parse_ip4` (an encap back edge, bounded by the testgen
+/// loop-unroll cap), so feasibility checks deepen exactly like the tunnel
+/// clusters. Perf-lever comparisons iterate here, not on the 4a IR.
+pub fn encap_proxy() -> pb::Ir {
+    ParserBuilder::new("encap_proxy", 6)
+        .header(HeaderTypeBuilder::new("eth").bits("proto", 16))
+        .header(
+            HeaderTypeBuilder::new("ip4m")
+                .bits("ver", 4)
+                .bits("ihl", 4)
+                .bits("proto", 8)
+                .var_bytes("options", mul(f("ip4m", "ihl"), c(4))),
+        )
+        .header(
+            HeaderTypeBuilder::new("ip6m")
+                .bits("nh", 8)
+                .bits("elen", 8)
+                .var_bytes("exts", f("ip6m", "elen")),
+        )
+        .header(HeaderTypeBuilder::new("l4m").bits("sport", 16))
+        .state(StateBuilder::new("parse_eth").extract("eth").select(
+            vec![f("eth", "proto")],
+            vec![
+                arm(vec![v(0x0800)], to("parse_ip4")),
+                arm(vec![v(0x86dd)], to("parse_ip6")),
+            ],
+            reject("unsupported ethertype"),
+        ))
+        .state(StateBuilder::new("parse_ip4").extract("ip4m").select(
+            vec![f("ip4m", "proto")],
+            vec![
+                arm(vec![v(4)], to("parse_ip4")),
+                arm(vec![v(41)], to("parse_ip6")),
+                arm(vec![v(6)], to("parse_l4")),
+            ],
+            reject("unsupported proto"),
+        ))
+        .state(StateBuilder::new("parse_ip6").extract("ip6m").select(
+            vec![f("ip6m", "nh")],
+            vec![
+                arm(vec![v(0)], to("parse_ip6")),
+                arm(vec![v(4)], to("parse_ip4")),
+                arm(vec![v(6)], to("parse_l4")),
+            ],
+            reject("unsupported next header"),
+        ))
+        .state(StateBuilder::new("parse_l4").extract("l4m").select(
+            vec![f("l4m", "sport")],
+            vec![arm(vec![v(80)], accept())],
+            accept(),
+        ))
+        .start("parse_eth")
+        .build()
+        .unwrap()
+}
+
 /// Shared metadata test IR (see the Interfaces block of the metadata-v1
 /// plan, Task 2): a count-prefixed accumulator loop with a constant write
 /// and select-on-metadata exits. Used by interp/symex/codegen tests.

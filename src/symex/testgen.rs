@@ -3,7 +3,7 @@
 //! expected outputs come from the reference interpreter, so the suite
 //! is self-checking against normative semantics by construction.
 
-use super::engine::{enumerate, Path, PathKind};
+use super::engine::{enumerate, Enumeration, Path, PathKind};
 use super::solver::Solver;
 use super::z3solver::Z3Solver;
 use crate::interp::{run_bits, FieldValue, Outcome};
@@ -12,8 +12,7 @@ use crate::testvec::{pb, Bits};
 use anyhow::{bail, Context, Result};
 
 pub fn generate(ir: &irpb::Ir) -> Result<pb::TestSuite> {
-    let mut solver = Z3Solver::new();
-    let enumeration = enumerate(ir, &mut solver)?;
+    let enumeration = enumerate_paths(ir)?;
     let parser = ir.parser.as_ref().expect("validated");
     let vectors = solve_all(ir, &enumeration.paths)?;
     Ok(pb::TestSuite {
@@ -23,12 +22,21 @@ pub fn generate(ir: &irpb::Ir) -> Result<pb::TestSuite> {
     })
 }
 
+/// Enumeration phase only — the bench / phase-timing entry point, and the
+/// source of the path inventory the perf plan uses as its identity
+/// reference (see docs/superpowers/plans/2026-07-28-symex-enum-perf.md).
+pub fn enumerate_paths(ir: &irpb::Ir) -> Result<Enumeration> {
+    let mut solver = Z3Solver::new();
+    enumerate(ir, &mut solver)
+}
+
 /// Per-path witness solves are independent and z3-bound, so run them on a
 /// thread pool pulling from a shared index queue (dynamic balancing: the
 /// wide ~33k-bit loop paths cluster, so static striping would skew). One
 /// `Z3Solver` per worker — z3 contexts are not thread-safe. Vector order
 /// stays path order; on failure the earliest path's error wins.
-fn solve_all(ir: &irpb::Ir, paths: &[Path]) -> Result<Vec<pb::TestVector>> {
+/// Public alongside `enumerate_paths` so the bench can time phases apart.
+pub fn solve_all(ir: &irpb::Ir, paths: &[Path]) -> Result<Vec<pb::TestVector>> {
     use std::sync::atomic::{AtomicUsize, Ordering};
     let workers = std::thread::available_parallelism()
         .map(|p| p.get())

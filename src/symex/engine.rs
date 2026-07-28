@@ -84,6 +84,41 @@ pub struct FeasibilityLog {
 pub struct Enumeration {
     pub paths: Vec<Path>,
     pub log: FeasibilityLog,
+    pub stats: EnumStats,
+}
+
+/// Feasibility-check telemetry for the perf work (always collected; the
+/// bookkeeping is nanoseconds against solver calls that run µs–minutes).
+/// "Symbolic" = the constraint set contains an `ExtractAt` (a read at a
+/// symbolic offset) — the fragment a ground fast path cannot decide.
+#[derive(Debug, Default)]
+pub struct EnumStats {
+    pub checks: u64,
+    pub check_wall: std::time::Duration,
+    pub symbolic_checks: u64,
+    pub symbolic_wall: std::time::Duration,
+    pub sat: u64,
+    pub unsat: u64,
+    /// Check-duration histogram: <1ms, <10ms, <100ms, <1s, <10s, >=10s.
+    pub hist: [u64; 6],
+}
+
+fn term_has_extract_at(t: &Term) -> bool {
+    match t {
+        Term::ExtractAt { .. } => true,
+        Term::Bin(_, l, r) => term_has_extract_at(l) || term_has_extract_at(r),
+        Term::Const(_) | Term::Extract { .. } => false,
+    }
+}
+
+fn constraint_has_extract_at(c: &Constraint) -> bool {
+    match c {
+        Constraint::Eq(t, _) | Constraint::Masked(t, _, _) | Constraint::InRange(t, _, _) => {
+            term_has_extract_at(t)
+        }
+        Constraint::Not(inner) => constraint_has_extract_at(inner),
+        Constraint::And(cs) => cs.iter().any(constraint_has_extract_at),
+    }
 }
 
 struct Ctx<'a> {
@@ -100,6 +135,39 @@ struct Ctx<'a> {
     /// Declared metadata field widths, keyed by name — used to mask
     /// assignment results to their declared width.
     meta_bits: HashMap<String, u32>,
+    stats: EnumStats,
+}
+
+impl Ctx<'_> {
+    /// All feasibility checks go through here so the stats see every call.
+    fn check(&mut self, packet_bits: usize, cs: &[Constraint]) -> bool {
+        let t0 = std::time::Instant::now();
+        let sat = self.solver.check(packet_bits, cs).is_some();
+        let dt = t0.elapsed();
+        let s = &mut self.stats;
+        s.checks += 1;
+        s.check_wall += dt;
+        if cs.iter().any(constraint_has_extract_at) {
+            s.symbolic_checks += 1;
+            s.symbolic_wall += dt;
+        }
+        if sat {
+            s.sat += 1;
+        } else {
+            s.unsat += 1;
+        }
+        let ms = dt.as_millis();
+        let bucket = match ms {
+            0 => 0,
+            1..=9 => 1,
+            10..=99 => 2,
+            100..=999 => 3,
+            1000..=9999 => 4,
+            _ => 5,
+        };
+        s.hist[bucket] += 1;
+        sat
+    }
 }
 
 #[derive(Clone)]
@@ -158,6 +226,7 @@ pub(crate) fn enumerate(ir: &pb::Ir, solver: &mut dyn Solver) -> anyhow::Result<
             .iter()
             .map(|md| (md.name.clone(), md.bits))
             .collect(),
+        stats: EnumStats::default(),
     };
     let frame = Frame {
         meta: parser
@@ -172,6 +241,7 @@ pub(crate) fn enumerate(ir: &pb::Ir, solver: &mut dyn Solver) -> anyhow::Result<
     Ok(Enumeration {
         paths: ctx.paths,
         log: ctx.log,
+        stats: ctx.stats,
     })
 }
 
@@ -414,11 +484,7 @@ fn walk_extracts(
                     bound_bytes + 1,
                     u64::MAX,
                 ));
-                if ctx
-                    .solver
-                    .check(oob.cursor_max.max(1), &oob.constraints)
-                    .is_some()
-                {
+                if ctx.check(oob.cursor_max.max(1), &oob.constraints) {
                     oob.segments.push(format!("!oob@{inst}.{}", field.name));
                     emit(
                         ctx,
@@ -442,11 +508,7 @@ fn walk_extracts(
                 let mut t = frame.clone();
                 t.constraints
                     .push(Constraint::InRange(len_term.clone(), 1, bound_bytes));
-                if ctx
-                    .solver
-                    .check(t.cursor_max.max(1), &t.constraints)
-                    .is_some()
-                {
+                if ctx.check(t.cursor_max.max(1), &t.constraints) {
                     t.segments.push(format!("!trunc@{inst}.{}", field.name));
                     // avail = cursor + 8*len - 1: one bit short of the body.
                     let bl = t_sub(
@@ -556,11 +618,7 @@ fn walk_transition(ctx: &mut Ctx, state: &pb::State, mut frame: Frame) -> anyhow
                         .constraints
                         .push(Constraint::Not(Box::new(cond.clone())));
                 }
-                if ctx
-                    .solver
-                    .check(child.cursor_max.max(1), &child.constraints)
-                    .is_none()
-                {
+                if !ctx.check(child.cursor_max.max(1), &child.constraints) {
                     continue; // infeasible in this context; lint sees it via the log
                 }
                 ctx.log.feasible_arms.insert((state.name.clone(), i));
@@ -578,11 +636,7 @@ fn walk_transition(ctx: &mut Ctx, state: &pb::State, mut frame: Frame) -> anyhow
                     .constraints
                     .push(Constraint::Not(Box::new(cond.clone())));
             }
-            if ctx
-                .solver
-                .check(child.cursor_max.max(1), &child.constraints)
-                .is_some()
-            {
+            if ctx.check(child.cursor_max.max(1), &child.constraints) {
                 child.segments.push("default".into());
                 match sel.default_target.as_ref() {
                     Some(t) => walk_target(ctx, t, child)?,

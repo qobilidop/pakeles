@@ -8,3 +8,6 @@ __pycache__/
 # with ./dev.sh scripts/gen-examples.sh). Re-committed when the codebase stabilizes.
 examples/*/conformance/vectors.json
 examples/*/conformance/vectors.pcap
+
+# symex perf bench outputs (baselines, inventories)
+/.bench/

@@ -31,6 +31,10 @@ symex = ["dep:z3"]
 name = "gen_examples"
 required-features = ["symex"]
 
+[[bin]]
+name = "symex_bench"
+required-features = ["symex"]
+
 [dev-dependencies]
 rbpf = "0.2"
 
