@@ -100,12 +100,35 @@ verdict.
   0xFF cid-version sentinel.
 - `pkt_bytes` recorded from tot_len/payload_len without validation.
 
-## 4. Next (phase 1 remainder)
+## 4. Phase-1 harness status (2026-07-29)
 
-Read handle_icmp.h line-by-line; enumerate build flavors actually used
-by katran's own tests; get their program loaded + TEST_RUN-executed in
-the dev-priv container (their BUCK/CMake fetch may be avoidable —
-clang -target bpf on balancer.bpf.c with pinned includes); solve
-observation via flow_debug vs patch; smoke-test; then finish this doc
-(coverage map §, projection + laxness §, example scope §, gate shape §,
-out-of-scope §) and mark it binding.
+DONE — `oracle/katran/factory/{fetch.sh,capture.c,capture.sh}`:
+
+- The pinned balancer compiles with plain `clang -target bpf` against
+  the fetched tree plus a 7-line pakeles shim for the Meta-internal
+  `common/bpf/bpf_net_helpers.h` (OSS tree includes it but does not
+  ship it; only `BE_ETH_P_IP`/`BE_ETH_P_IPV6` are needed). Default
+  flavor (no #ifdefs).
+- Loads + runs under BPF_PROG_TEST_RUN in dev-priv (kernel 6.8.0,
+  BTF-defined maps fine). With ALL MAPS EMPTY the whole parse path is
+  exercisable: smoke run confirmed no-vip v4/v6 TCP → XDP_PASS, IPv4
+  options (ihl=6) → XDP_DROP, v4 MF frag → XDP_DROP, v6 Fragment
+  nexthdr → XDP_DROP, ARP → XDP_PASS, ICMP echo → XDP_TX with the
+  correctly mutated in-place reply (MAC/IP swap, type flip, checksum
+  adjust) — echo replies are observable through data_out.
+- Harness constraint: XDP TEST_RUN rejects data_in < 14 bytes at the
+  syscall level (EINVAL, not a verdict) — sub-Ethernet truncation lines
+  are untestable against this incumbent; corpus + laxness rule must
+  treat < 14B as out of oracle reach (document, don't fabricate).
+
+## 5. Next (phase 1 remainder → phase 2)
+
+Solve flow-key observation (verdicts + echo mutation are visible;
+src/dst/ports/flags are not): try a flow_debug/RECORD_FLOW_DEBUG build
+first, else a pinned instrumentation patch exporting
+packet_description via a map before the LB stage. Pin the vip/real/
+server-id map config (config C) that turns on the QUIC/stable-rt/TPR
+hint arms and makes them observable (distinct real per server-id makes
+the parsed id visible in the encap output). Then finish this doc
+(projection + laxness §, example scope §, gate shape §, out-of-scope §)
+and mark it binding.
