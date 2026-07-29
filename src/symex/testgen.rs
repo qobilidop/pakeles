@@ -24,7 +24,7 @@ pub fn generate(ir: &irpb::Ir) -> Result<pb::TestSuite> {
 
 /// Enumeration phase only — the bench / phase-timing entry point, and the
 /// source of the path inventory the perf plan uses as its identity
-/// reference (see docs/superpowers/plans/2026-07-28-symex-enum-perf.md).
+/// reference (see docs/plans/2026-07-28-symex-enum-perf.md).
 pub fn enumerate_paths(ir: &irpb::Ir) -> Result<Enumeration> {
     let mut solver = Z3Solver::new();
     enumerate(ir, &mut solver)

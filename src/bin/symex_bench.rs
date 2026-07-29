@@ -2,7 +2,7 @@
 //! feasibility-check telemetry from `EnumStats` and an optional path
 //! inventory dump (kind + id per line) — the identity reference every
 //! perf lever is verified against. Plan:
-//! docs/superpowers/plans/2026-07-28-symex-enum-perf.md.
+//! docs/plans/2026-07-28-symex-enum-perf.md.
 //!
 //! Usage: symex_bench <example> [--enum-only] [--inventory PATH]
 

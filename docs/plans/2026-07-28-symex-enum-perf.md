@@ -14,7 +14,7 @@ measured effect of each, why the residue is irreducible z3 work).
 
 **Why:** Rung-4a vectors regen and any future `max_depth` raise are blocked
 on this (see the amended max_depth decision in
-`2026-07-28-flow-dissector-rung4a.md`); rung 4b (GRE) multiplies the path
+`../superpowers/plans/2026-07-28-flow-dissector-rung4a.md`); rung 4b (GRE) multiplies the path
 space again. Incremental enumeration was flagged as the critical lever —
 this plan executes it plus the cheaper levers around it.
 
