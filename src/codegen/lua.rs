@@ -126,6 +126,18 @@ pub fn generate_lua(ir: &pb::Ir) -> Result<String> {
     writeln!(w)?;
     writeln!(w, "local states = {{}}")?;
     writeln!(w)?;
+    // Parsed-value variables shared across state functions: a select key
+    // or length expression may reference a field extracted in an EARLIER
+    // state (e.g. the GRE flag bits sizing gre_opt.body), so these live
+    // at chunk scope as upvalues of every state function. Re-extraction
+    // of a cyclic instance overwrites — last extraction wins, matching
+    // the reference interpreter's environment.
+    if !referenced.is_empty() {
+        let mut vars: Vec<String> = referenced.iter().map(|(i, f)| val_var(i, f)).collect();
+        vars.sort();
+        writeln!(w, "local {}", vars.join(", "))?;
+        writeln!(w)?;
+    }
     writeln!(w, "local function add_payload(buf, tree, off)")?;
     writeln!(w, "  if off < buf:len() * 8 then")?;
     writeln!(w, "    tree:add(f_payload, buf(math.floor(off / 8)))")?;
@@ -567,7 +579,7 @@ fn emit_state(
                             || n > 32);
                     if is_ref {
                         let v = val_var(inst, &field.name);
-                        writeln!(w, "  local {v} = buf():bitfield(off, {n})")?;
+                        writeln!(w, "  {v} = buf():bitfield(off, {n})")?;
                         writeln!(w, "  hdr_{inst}:add({pf}, {cover}, {v})")?;
                     } else if typed_range_add {
                         // Byte-aligned: exact range, Wireshark decodes.

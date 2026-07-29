@@ -20,6 +20,8 @@ p.fields = { f_hdr_count, f_count_n, f_hdr_item, f_item_v, f_meta_done, f_meta_r
 
 local states = {}
 
+local v_count_n
+
 local function add_payload(buf, tree, off)
   if off < buf:len() * 8 then
     tree:add(f_payload, buf(math.floor(off / 8)))
@@ -38,7 +40,7 @@ function states.parse_count(buf, pinfo, tree, off, depth, meta)
     hdr_count:add_proto_expert_info(ef_error, "out of bounds in count.n")
     return off
   end
-  local v_count_n = buf():bitfield(off, 8)
+  v_count_n = buf():bitfield(off, 8)
   hdr_count:add(f_count_n, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v_count_n)
   off = off + 8
   meta.remaining = (v_count_n) % 2^8

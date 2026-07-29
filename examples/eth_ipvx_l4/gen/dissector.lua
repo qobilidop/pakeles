@@ -58,6 +58,8 @@ p.fields = { f_hdr_ethernet, f_ethernet_dst, f_ethernet_src, f_ethernet_ethertyp
 
 local states = {}
 
+local v_ethernet_ethertype, v_ipv4_ihl, v_ipv4_protocol, v_ipv6_next_header
+
 local function add_payload(buf, tree, off)
   if off < buf:len() * 8 then
     tree:add(f_payload, buf(math.floor(off / 8)))
@@ -88,7 +90,7 @@ function states.parse_ethernet(buf, pinfo, tree, off, depth)
     hdr_ethernet:add_proto_expert_info(ef_error, "out of bounds in ethernet.ethertype")
     return off
   end
-  local v_ethernet_ethertype = buf():bitfield(off, 16)
+  v_ethernet_ethertype = buf():bitfield(off, 16)
   hdr_ethernet:add(f_ethernet_ethertype, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v_ethernet_ethertype)
   off = off + 16
   if v_ethernet_ethertype == 2048 then
@@ -120,7 +122,7 @@ function states.parse_ipv4(buf, pinfo, tree, off, depth)
     hdr_ipv4:add_proto_expert_info(ef_error, "out of bounds in ipv4.ihl")
     return off
   end
-  local v_ipv4_ihl = buf():bitfield(off, 4)
+  v_ipv4_ihl = buf():bitfield(off, 4)
   hdr_ipv4:add(f_ipv4_ihl, buf(math.floor(off / 8), math.floor((off % 8 + 4 + 7) / 8)), v_ipv4_ihl)
   off = off + 4
   if off + 6 > avail then
@@ -169,7 +171,7 @@ function states.parse_ipv4(buf, pinfo, tree, off, depth)
     hdr_ipv4:add_proto_expert_info(ef_error, "out of bounds in ipv4.protocol")
     return off
   end
-  local v_ipv4_protocol = buf():bitfield(off, 8)
+  v_ipv4_protocol = buf():bitfield(off, 8)
   hdr_ipv4:add(f_ipv4_protocol, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v_ipv4_protocol)
   off = off + 8
   if off + 16 > avail then
@@ -246,7 +248,7 @@ function states.parse_ipv6(buf, pinfo, tree, off, depth)
     hdr_ipv6:add_proto_expert_info(ef_error, "out of bounds in ipv6.next_header")
     return off
   end
-  local v_ipv6_next_header = buf():bitfield(off, 8)
+  v_ipv6_next_header = buf():bitfield(off, 8)
   hdr_ipv6:add(f_ipv6_next_header, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v_ipv6_next_header)
   off = off + 8
   if off + 8 > avail then
