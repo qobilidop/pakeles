@@ -430,6 +430,11 @@ mod tests {
     }
 
     #[test]
+    fn bmv2_conformance_byte_aligned_suite_katran_flow() {
+        bmv2_conformance_byte_aligned(&crate::examples::katran_flow(), 12);
+    }
+
+    #[test]
     fn bmv2_conformance_byte_aligned_suite_counted_items() {
         // BMv2 compares the header-presence bitmap only (documented v1
         // boundary) — this still exercises the metadata-driven select

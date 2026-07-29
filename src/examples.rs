@@ -33,6 +33,13 @@ pub fn dpdk_ptype() -> pb::Ir {
         .expect("committed dpdk_ptype IR must parse")
 }
 
+/// The katran_flow example (Katran XDP parse-path agreement), parsed
+/// from its committed IR.
+pub fn katran_flow() -> pb::Ir {
+    crate::ir::from_json(include_str!("../examples/katran_flow/katran_flow.ir.json"))
+        .expect("committed katran_flow IR must parse")
+}
+
 /// The metadata-v1 toy example, parsed from the embedded committed IR.
 pub fn counted_items() -> pb::Ir {
     crate::ir::from_json(include_str!(
@@ -129,6 +136,32 @@ mod tests {
     fn dpdk_ptype_committed_py_example_current() {
         let canonical = std::fs::read_to_string("py/src/pakeles/examples/dpdk_ptype.py").unwrap();
         let mirrored = std::fs::read_to_string("examples/dpdk_ptype/dpdk_ptype.py").unwrap();
+        assert_eq!(
+            canonical, mirrored,
+            "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
+    #[test]
+    fn katran_flow_embedded_ir_parses_and_validates() {
+        crate::ir::validate::validate(&katran_flow()).unwrap();
+    }
+
+    #[test]
+    fn katran_flow_committed_ir_json_is_canonical() {
+        let committed =
+            std::fs::read_to_string("examples/katran_flow/katran_flow.ir.json").unwrap();
+        let round = crate::ir::to_json(&crate::ir::from_json(&committed).unwrap()).unwrap();
+        assert_eq!(
+            round, committed,
+            "committed ir.json is not in canonical form; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
+    #[test]
+    fn katran_flow_committed_py_example_current() {
+        let canonical = std::fs::read_to_string("py/src/pakeles/examples/katran_flow.py").unwrap();
+        let mirrored = std::fs::read_to_string("examples/katran_flow/katran_flow.py").unwrap();
         assert_eq!(
             canonical, mirrored,
             "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"

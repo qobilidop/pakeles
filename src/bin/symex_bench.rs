@@ -16,6 +16,7 @@ fn ir_for(name: &str) -> anyhow::Result<pakeles::ir::pb::Ir> {
         "linux_flow_dissector" => pakeles::examples::linux_flow_dissector(),
         "counted_items" => pakeles::examples::counted_items(),
         "dpdk_ptype" => pakeles::examples::dpdk_ptype(),
+        "katran_flow" => pakeles::examples::katran_flow(),
         "encap_proxy" => pakeles::builder::encap_proxy(),
         _ => anyhow::bail!("unknown example `{name}` (gallery names or `encap_proxy`)"),
     })

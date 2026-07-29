@@ -690,7 +690,9 @@ pub fn generate_bpf(ir: &pb::Ir) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::examples::{counted_items, dpdk_ptype, eth_ipvx_l4, linux_flow_dissector};
+    use crate::examples::{
+        counted_items, dpdk_ptype, eth_ipvx_l4, katran_flow, linux_flow_dissector,
+    };
 
     #[test]
     fn metadata_c_emission_and_semantics() {
@@ -1039,12 +1041,23 @@ mod tests {
     }
 
     #[test]
+    fn c_backend_conformance_full_suite_katran_flow() {
+        c_backend_conformance(&katran_flow());
+    }
+
+    #[test]
+    fn bpf_backend_conformance_full_suite_katran_flow() {
+        bpf_backend_conformance(&katran_flow());
+    }
+
+    #[test]
     fn committed_c_artifacts_current() {
         for (name, ir) in [
             ("eth_ipvx_l4", eth_ipvx_l4()),
             ("linux_flow_dissector", linux_flow_dissector()),
             ("counted_items", counted_items()),
             ("dpdk_ptype", dpdk_ptype()),
+            ("katran_flow", katran_flow()),
         ] {
             let arts = generate_c(&ir).unwrap();
             let bpf = generate_bpf(&ir).unwrap();
