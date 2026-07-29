@@ -1,7 +1,7 @@
 # `linux_flow_dissector` rung 4b: GRE encapsulation (design-lite)
 
 **Date:** 2026-07-28
-**Status:** design draft; implementation pending (starts after rung 4a lands)
+**Status:** implemented 2026-07-29 (plan: `docs/superpowers/plans/2026-07-29-flow-dissector-rung4b.md`); the TEB spelling question resolved as leaned — no `parse_gre_teb` state
 **Depends on:** rung 4a (encap re-entrancy + `FlowMeta.is_encap` +
 positional-last projection).
 **Scope:** GRE (proto 47) per upstream `bpf_flow.c`'s `IPPROTO_GRE` arm:

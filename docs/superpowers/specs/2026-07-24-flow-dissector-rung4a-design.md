@@ -1,7 +1,7 @@
 # `linux_flow_dissector` rung 4a: IPIP / IPv6-in-IP encap re-entrancy
 
 **Date:** 2026-07-24
-**Status:** design approved; implementation pending
+**Status:** implemented 2026-07-28 (goldens minted + floors ratcheted 2026-07-29)
 **Depends on:** metadata v1 (`2026-07-24-metadata-v1-design.md`) — rung 4a is
 its first gallery consumer.
 **Scope split:** rung 4 lands in two halves. **4a** (this doc): IPIP (proto 4)

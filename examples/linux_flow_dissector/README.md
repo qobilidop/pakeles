@@ -20,7 +20,8 @@ IR capability. Rung 0's contribution is the *oracle*, not the parse.
 
 **In scope** (across all rungs): the structurally-clean, bounded core of
 flow dissection — Ethernet, VLAN/MPLS stacks, IPv4/IPv6 (incl. extension
-headers), IPv4/TCP options, one tunnel (GRE or IPIP), TCP/UDP.
+headers), IPv4/TCP options, tunnels (IPIP, IPv6-in-IP, GRE incl. TEB),
+TCP/UDP.
 
 **Explicitly out of scope:** the heuristic / rare tail of `flow_dissector`
 — PPPoE, batman-adv, PPTP-GRE quirks, and the long grab-bag of
@@ -68,6 +69,30 @@ drop == our wrapped-length reject), truncated options (kernel
 `tcp+doff*4>data_end` drop == our truncation), and options-present accepts
 with ports read. No new IR — the same sized-region `var_bytes` mechanism.
 
+**Handled as of rung 4b — GRE.** The kernel's `IPPROTO_GRE` arm is
+order-sensitive and the parser mirrors it structurally: the 4-byte GRE
+base and the C/K/S-sized optional region are *separate* states, so a
+version≠0 packet is accepted immediately — `thoff` still at the GRE base,
+no `is_encap`, the optionals never read even if the flags promise bytes
+the packet doesn't have (the corpus proves this with a version=1,
+all-flags, truncated-tail accept). Version-0 packets skip the flag-sized
+optional region (a cross-header `var_bytes` over the GRE flag bits), set
+`is_encap`, and dispatch: IPv4/IPv6 re-enter the IP states, and TEB
+(0x6558) re-enters `parse_ethernet` itself — the kernel runs its full
+`parse_eth_proto` dispatcher on the inner Ethernet, so inner VLAN
+(rewriting `n_proto` and advancing `nhoff`, exactly as `PROG(VLAN)`
+always does), inner MPLS (read-and-stop behind the tunnel), and nested
+GRE/IPIP all compose. With this rung the bounded-core ladder is
+complete: proto-47 leaves the excluded set below, and kernel agreement
+is proven over the full committed corpus.
+
+Two GRE fidelity boundaries (faithful by construction, not divergences):
+the kernel masks only C/K/S/version, so the RFC 1701 R (routing) bit is
+ignored by both sides — an R=1 packet parses as plain version-0 GRE with
+no routing-field skip; and PPTP (version 1) is *parsed* no further than
+the kernel's own accept-stop — its enhanced-GRE header lives in the
+heuristic tail that is out of scope by charter.
+
 **Handled as of rung 4a — IPIP / IPv6-in-IP tunnels.** The kernel
 implements encapsulation by re-entering its own state machine
 (`parse_ip_proto`'s proto-4/proto-41 arms tail-call back with a synthetic
@@ -101,14 +126,9 @@ rung boundaries, not bugs:
   when `MF`/frag-off is set, returning `BPF_OK` with zero ports; this
   parser would instead read TCP/UDP ports off fragment data or reject.
 - **IP protocols the kernel dissects beyond TCP/UDP** — ICMP and UDP-Lite
-  (kernel accepts; we reject) — plus the encap cases below. IP protocols
+  (kernel accepts; we reject). IP protocols
   outside the kernel's dissected set are dropped by both sides, so that
   direction already agrees.
-- **GRE encapsulation (rung 4b)** — proto-47 packets are accepted (and
-  dissected into) by the kernel but rejected by this parser until rung 4b
-  models GRE's flag-sized optional region and TEB re-entry; same
-  documented-asymmetry treatment as ICMP/UDP-Lite. IPIP/IPv6-in-IP landed
-  in rung 4a.
 - **IPv6 extension headers (default flags):** we model `flags == 0` (what
   `BPF_PROG_TEST_RUN` produces). `flow_label` is recorded but never triggers
   an early stop (`STOP_AT_FLOW_LABEL` off); a Fragment header always stops

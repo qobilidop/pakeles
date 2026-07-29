@@ -26,9 +26,9 @@ This example is a **north-star that guides development**: it does not land whole
 | **1** | VLAN + MPLS stacks | counted header loops / header stacks | `nhoff` past the stack |
 | **2** | IPv6 extension-header chain | loop-until-terminal over next-header | `thoff, ip_proto, is_frag` |
 | **3** | IPv4/TCP options | TLV / sized regions (extends today's varbit) | `thoff` correctness |
-| **4** | one tunnel (GRE or IPIP) | encap re-entrancy, depth-capped | `is_encap`, inner addrs (`FLOW_DIS_ENCAP_LEVEL`) |
+| **4** | tunnels: 4a = IPIP/IPv6-in-IP, 4b = GRE (incl. TEB) | encap re-entrancy, depth-capped | `is_encap`, inner addrs (`FLOW_DIS_ENCAP_LEVEL`) |
 
-Rungs 1–4 are precisely Pakeles's deferred TLV / header-stack / sized-region IR work — now each has a concrete, kernel-authoritative driver. Rung 4 (tunnel re-entrancy) is the deepest structural change and the real research milestone. **All of rungs 1–4 are deferred roadmap in this doc.**
+Rungs 1–4 are precisely Pakeles's deferred TLV / header-stack / sized-region IR work — now each has a concrete, kernel-authoritative driver. Rung 4 (tunnel re-entrancy) is the deepest structural change and the real research milestone. **Status: all of rungs 0–4 have landed** (rung 4a on 2026-07-28, rung 4b on 2026-07-29) — the bounded-core ladder is complete, with kernel agreement proven over the full committed corpus.
 
 ## Oracle architecture (settled; feasibility demonstrated)
 

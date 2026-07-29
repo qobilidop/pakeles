@@ -1,6 +1,6 @@
 # `linux_flow_dissector` rung 4b Implementation Plan
 
-> **For agentic workers:** Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** Steps use checkbox (`- [x]`) syntax for tracking.
 > Execute task-by-task; every task ends with the repo green.
 
 **Goal:** GRE (proto 47) in `linux_flow_dissector`, agreeing with upstream
@@ -100,53 +100,76 @@ Drops (4):
 `examples/linux_flow_dissector/*` (ir.json, py copy, `gen/*`,
 conformance vectors).
 
-- [ ] Example changes per Decisions (docstring gains the rung-4b
+- [x] Example changes per Decisions (docstring gains the rung-4b
   paragraph; `47: "GRE"` labels on `IPv4.protocol`/`IPv6.next_header`;
   `47: "parse_gre"` arms on `parse_ipv4`/`parse_ipv6`/`parse_ipv6_opt`
   — NOT `parse_ipv6_frag`).
-- [ ] Full regen `./dev.sh scripts/gen-examples.sh`; inspect `gen/doc.md`
+- [x] Full regen `./dev.sh scripts/gen-examples.sh`; inspect `gen/doc.md`
   (GRE states, metadata), `graph.svg`, vectors carry gre paths.
-- [ ] Full gate. `committed_goldens_agree` stays green (corpus has no GRE
+- [x] Full gate. `committed_goldens_agree` stays green (corpus has no GRE
   yet; existing projection untouched).
-- [ ] Commit: `feat(example): linux_flow_dissector rung 4b — GRE base/optionals split, version gate, TEB re-entry`
+- [x] Commit: `feat(example): linux_flow_dissector rung 4b — GRE base/optionals split, version gate, TEB re-entry`
 
 ### Task 2: Projection — n_proto positional-last + GRE-stop accept
 
 **Files:** `src/oracle/flow_dissector.rs`.
 
-- [ ] `n_proto`: LAST `vlan_q` instance's encapsulated proto, else first
+- [x] `n_proto`: LAST `vlan_q` instance's encapsulated proto, else first
   `ethernet` — kernel PROG(VLAN) rewrites `n_proto` for inner tags
   behind TEB; identical results pre-4b (only one vlan_q possible).
-- [ ] GRE-stop accept (version≠0): last instance `gre` with no following
+- [x] GRE-stop accept (version≠0): last instance `gre` with no following
   L4/frag → `thoff` = gre.start_bit/8, ports 0, stop; `ip_proto` = 47
   falls out of positional-last; `is_encap` false (never assigned).
-- [ ] TEB inner-Ethernet: no flow_keys writes of its own; inner
+- [x] TEB inner-Ethernet: no flow_keys writes of its own; inner
   VLAN/MPLS/IP inherit by position (MPLS stop keeps its shape).
-- [ ] `project_tests` for the 14-vector matrix (hexes byte-identical to
+- [x] `project_tests` for the 14-vector matrix (hexes byte-identical to
   Task 3 corpus lines); all existing tests green unmodified.
-- [ ] Commit: `feat(oracle): GRE flow_keys projection — version-stop thoff, last-vlan_q n_proto`
+- [x] Commit: `feat(oracle): GRE flow_keys projection — version-stop thoff, last-vlan_q n_proto`
 
 ### Task 3: Corpus
 
 **Files:** `oracle/flow_dissector/factory/corpus.txt`.
 
-- [ ] Append `# --- rung 4b: GRE ---` section: the 14 matrix vectors,
+- [x] Append `# --- rung 4b: GRE ---` section: the 14 matrix vectors,
   byte-identical to Task 2's test hexes.
-- [ ] Full gate (goldens not yet re-minted: gate compares only committed
+- [x] Full gate (goldens not yet re-minted: gate compares only committed
   golden entries, count floors unaffected).
-- [ ] Commit: `test(oracle): rung-4b GRE corpus vectors`
+- [x] Commit: `test(oracle): rung-4b GRE corpus vectors`
 
 ### Task 4: Goldens + floors + README + docs
 
-- [ ] Privileged re-mint (`./dev-priv.sh .../capture.sh`, kernel 6.8.0);
+- [x] Privileged re-mint (`./dev-priv.sh .../capture.sh`, kernel 6.8.0);
   HARD GATE: all 43 pre-existing entries byte-identical; commit golden.
-- [ ] Separate commit: floors ratchet by the minted counts
+- [x] Separate commit: floors ratchet by the minted counts
   (43 + 10 ok + 4 drop → ok ≥ 39 / drop ≥ 18).
-- [ ] README: delete the GRE divergence bullet (proto-47 leaves the
+- [x] README: delete the GRE divergence bullet (proto-47 leaves the
   excluded set); add R-bit + PPTP fidelity-boundary notes; ladder-table
   status updates in the two design docs (4b implemented).
-- [ ] Full gate incl. env-gated conformance; fresh vector regen.
-- [ ] Commit: `docs(example): rung 4b closes the GRE divergence — R-bit/PPTP fidelity boundaries`
+- [x] Full gate incl. env-gated conformance; fresh vector regen.
+- [x] Commit: `docs(example): rung 4b closes the GRE divergence — R-bit/PPTP fidelity boundaries`
+
+## Build notes (2026-07-29, post-hoc)
+
+Three latent issues surfaced and were fixed as their own commits, each a
+first-exercise of machinery the GRE cycle composes:
+
+- **Lua codegen:** parsed-value variables were per-state-function locals;
+  cross-state reads (gre.proto / the GRE flag bits in parse_gre_opt) were
+  nil and killed the dissector mid-tree. Now chunk-scope upvalues,
+  last-extraction-wins.
+- **BMv2 differential:** depth-rejected vectors are now explicitly
+  skipped — the P4 backend has no max_depth counter (documented README
+  seam); 4b's extra cycle produced the first suite paths that cross
+  depth 10 (the unroll-2 cap kept pre-4b paths under it).
+- **Projection nhoff (caught by the golden mint, vector "TEB + inner
+  802.1Q"):** kernel PROG(VLAN) advances nhoff unconditionally, inner
+  tags included — nhoff = first-IP start + 4 x (tags after it); kernel
+  says 18, the rung-4a first-IP rule said 14. Golden untouched, our
+  projection fixed.
+
+Symex full-regen actual: ~6 min debug wall (projection from the gate
+measurement held). Suite: 57,311 paths, 2,832+ byte-aligned through
+BMv2, all conformance suites green.
 
 ## Definition of done
 
