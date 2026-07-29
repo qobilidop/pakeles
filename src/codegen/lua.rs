@@ -765,7 +765,7 @@ fi"#;
 mod tests {
     use super::*;
     use crate::examples::{
-        counted_items, dpdk_ptype, eth_ipvx_l4, katran_flow, linux_flow_dissector,
+        counted_items, dpdk_ptype, eth_ipvx_l4, katran_flow, linux_flow_dissector, sai_parser,
     };
 
     #[test]
@@ -795,6 +795,7 @@ mod tests {
             ("counted_items", counted_items()),
             ("dpdk_ptype", dpdk_ptype()),
             ("katran_flow", katran_flow()),
+            ("sai_parser", sai_parser()),
         ] {
             let lua = generate_lua(&ir).unwrap();
             let committed =
@@ -1020,6 +1021,11 @@ mod tests {
     #[test]
     fn generated_dissector_conformance_katran_flow() {
         generated_dissector_conformance_suite(&katran_flow(), 20);
+    }
+
+    #[test]
+    fn generated_dissector_conformance_sai_parser() {
+        generated_dissector_conformance_suite(&sai_parser(), 20);
     }
 
     #[test]

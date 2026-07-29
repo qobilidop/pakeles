@@ -759,6 +759,7 @@ mod tests {
             ("counted_items", crate::examples::counted_items()),
             ("dpdk_ptype", crate::examples::dpdk_ptype()),
             ("katran_flow", crate::examples::katran_flow()),
+            ("sai_parser", crate::examples::sai_parser()),
         ] {
             let p4 = generate_p4(&ir).unwrap();
             let committed =

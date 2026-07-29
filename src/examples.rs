@@ -40,6 +40,13 @@ pub fn katran_flow() -> pb::Ir {
         .expect("committed katran_flow IR must parse")
 }
 
+/// The sai_parser example (SONiC PINS parser agreement), parsed from
+/// its committed IR.
+pub fn sai_parser() -> pb::Ir {
+    crate::ir::from_json(include_str!("../examples/sai_parser/sai_parser.ir.json"))
+        .expect("committed sai_parser IR must parse")
+}
+
 /// The metadata-v1 toy example, parsed from the embedded committed IR.
 pub fn counted_items() -> pb::Ir {
     crate::ir::from_json(include_str!(
@@ -162,6 +169,31 @@ mod tests {
     fn katran_flow_committed_py_example_current() {
         let canonical = std::fs::read_to_string("py/src/pakeles/examples/katran_flow.py").unwrap();
         let mirrored = std::fs::read_to_string("examples/katran_flow/katran_flow.py").unwrap();
+        assert_eq!(
+            canonical, mirrored,
+            "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
+    #[test]
+    fn sai_parser_embedded_ir_parses_and_validates() {
+        crate::ir::validate::validate(&sai_parser()).unwrap();
+    }
+
+    #[test]
+    fn sai_parser_committed_ir_json_is_canonical() {
+        let committed = std::fs::read_to_string("examples/sai_parser/sai_parser.ir.json").unwrap();
+        let round = crate::ir::to_json(&crate::ir::from_json(&committed).unwrap()).unwrap();
+        assert_eq!(
+            round, committed,
+            "committed ir.json is not in canonical form; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
+    #[test]
+    fn sai_parser_committed_py_example_current() {
+        let canonical = std::fs::read_to_string("py/src/pakeles/examples/sai_parser.py").unwrap();
+        let mirrored = std::fs::read_to_string("examples/sai_parser/sai_parser.py").unwrap();
         assert_eq!(
             canonical, mirrored,
             "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"

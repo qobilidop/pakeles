@@ -1,0 +1,34 @@
+digraph "sai_parser" {
+  rankdir=TB;
+  node [fontname="Helvetica"];
+  "parse_ethernet" [shape=box, label="parse_ethernet\nextract ethernet"];
+  "parse_vlan" [shape=box, label="parse_vlan\nextract vlan"];
+  "parse_ipv4" [shape=box, label="parse_ipv4\nextract ipv4"];
+  "parse_ipv6" [shape=box, label="parse_ipv6\nextract ipv6"];
+  "parse_arp" [shape=box, label="parse_arp\nextract arp"];
+  "parse_icmp" [shape=box, label="parse_icmp\nextract icmp"];
+  "parse_tcp" [shape=box, label="parse_tcp\nextract tcp"];
+  "parse_udp" [shape=box, label="parse_udp\nextract udp"];
+  "accept" [shape=doublecircle];
+  "parse_ethernet" -> "parse_ipv4" [label="ethernet.ether_type == 0x800"];
+  "parse_ethernet" -> "parse_ipv6" [label="ethernet.ether_type == 0x86dd"];
+  "parse_ethernet" -> "parse_arp" [label="ethernet.ether_type == 0x806"];
+  "parse_ethernet" -> "parse_vlan" [label="ethernet.ether_type == 0x8100"];
+  "parse_ethernet" -> "accept" [label="default", style=dashed];
+  "parse_vlan" -> "parse_ipv4" [label="vlan.ether_type == 0x800"];
+  "parse_vlan" -> "parse_ipv6" [label="vlan.ether_type == 0x86dd"];
+  "parse_vlan" -> "parse_arp" [label="vlan.ether_type == 0x806"];
+  "parse_vlan" -> "accept" [label="default", style=dashed];
+  "parse_ipv4" -> "parse_icmp" [label="ipv4.protocol == 0x1"];
+  "parse_ipv4" -> "parse_tcp" [label="ipv4.protocol == 0x6"];
+  "parse_ipv4" -> "parse_udp" [label="ipv4.protocol == 0x11"];
+  "parse_ipv4" -> "accept" [label="default", style=dashed];
+  "parse_ipv6" -> "parse_icmp" [label="ipv6.next_header == 0x3a"];
+  "parse_ipv6" -> "parse_tcp" [label="ipv6.next_header == 0x6"];
+  "parse_ipv6" -> "parse_udp" [label="ipv6.next_header == 0x11"];
+  "parse_ipv6" -> "accept" [label="default", style=dashed];
+  "parse_arp" -> "accept";
+  "parse_icmp" -> "accept";
+  "parse_tcp" -> "accept";
+  "parse_udp" -> "accept";
+}

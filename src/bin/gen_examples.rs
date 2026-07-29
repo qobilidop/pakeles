@@ -55,6 +55,7 @@ fn main() -> anyhow::Result<()> {
         "counted_items",
         "dpdk_ptype",
         "katran_flow",
+        "sai_parser",
     ];
     let args: Vec<String> = std::env::args().skip(1).collect();
     let names: Vec<&str> = if args.is_empty() {
