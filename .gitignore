@@ -18,3 +18,5 @@ oracle/katran/factory/witnesses.txt
 /oracle/katran/spike/build/
 /oracle/sai_p4/factory/build/
 oracle/sai_p4/factory/witnesses.txt
+/oracle/tls_clienthello/factory/target/
+oracle/tls_clienthello/factory/witnesses.txt

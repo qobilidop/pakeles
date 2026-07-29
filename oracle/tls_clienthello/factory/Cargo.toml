@@ -1,0 +1,20 @@
+# The tls_clienthello golden factory: a standalone harness crate (NOT a
+# member of the root package) that parses byte strings as TLS
+# ClientHello via a pinned rustls and emits the projection golden.
+# Unprivileged; runs in the normal dev container. Cargo.lock is
+# COMMITTED — it is the incumbent pin the agreement claim cites.
+[package]
+name = "tls-clienthello-factory"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+serde_json = "1"
+anyhow = "1"
+
+[profile.release]
+debug = false
