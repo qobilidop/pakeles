@@ -51,11 +51,11 @@ int main(int argc, char **argv) {
 
     printf("{\n  \"dpdk_version\": \"%s\",\n  \"entries\": [\n", rte_version());
 
-    char line[8192];
+    char line[262144];
     int first = 1;
     while (fgets(line, sizeof line, cf)) {
         if (line[0] == '\n' || line[0] == '#' || line[0] == 0) continue;
-        unsigned char pkt[2048];
+        unsigned char pkt[65535];
         int plen = unhex(line, pkt, sizeof pkt);
         if (plen <= 0) { fprintf(stderr, "bad corpus line: %s", line); return 1; }
 
@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
         if (rte_get_ptype_name(ptype, name, sizeof name) < 0)
             snprintf(name, sizeof name, "?");
 
-        char phex[4200];
+        static char phex[131072];
         hexcat(phex, pkt, plen);
         printf("%s    {\"packet_hex\": \"%s\", \"ptype\": %u, \"ptype_name\": \"%s\", "
                "\"hdr_lens\": {\"l2_len\": %u, \"l3_len\": %u, \"l4_len\": %u, "
