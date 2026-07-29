@@ -289,6 +289,12 @@ pub fn expected(ir: &pb::Ir, bits: &crate::testvec::Bits) -> Result<Expectation>
 pub struct DiffReport {
     pub compared: usize,
     pub skipped_bit_granular: usize,
+    /// Vectors the interpreter rejects with "max depth exceeded". The P4
+    /// backend's only loop bound is per-instance stack capacity (it has no
+    /// `max_depth` counter), so BMv2 keeps parsing where the other
+    /// backends stop — the documented per-backend divergence seam (see
+    /// the linux_flow_dissector README). Skipped, not compared.
+    pub skipped_depth_bound: usize,
     pub mismatches: Vec<String>,
 }
 
@@ -306,6 +312,7 @@ pub fn diff_suite(ir: &pb::Ir, suite: &tvpb::TestSuite) -> Result<DiffReport> {
     let mut report = DiffReport {
         compared: 0,
         skipped_bit_granular: suite.vectors.len() - byte_aligned,
+        skipped_depth_bound: 0,
         mismatches: Vec::new(),
     };
     // One batched simple_switch run over every byte-aligned vector — no
@@ -315,6 +322,13 @@ pub fn diff_suite(ir: &pb::Ir, suite: &tvpb::TestSuite) -> Result<DiffReport> {
         let vector = &suite.vectors[vi];
         let bs = vector.packet.as_ref().context("vector has no packet")?;
         let (bits, _) = crate::testvec::Bits::from_pb(bs);
+        let res = crate::interp::run_bits(ir, &bits)?;
+        if matches!(&res.outcome,
+            crate::interp::Outcome::Reject { reason } if reason == "max depth exceeded")
+        {
+            report.skipped_depth_bound += 1;
+            continue;
+        }
         let want = expected(ir, &bits)?;
         report.compared += 1;
         if !got.delivered {
@@ -333,8 +347,9 @@ pub fn diff_suite(ir: &pb::Ir, suite: &tvpb::TestSuite) -> Result<DiffReport> {
     }
     let _ = std::fs::remove_dir_all(&workdir);
     eprintln!(
-        "bmv2: compared all {} byte-aligned vectors in one simple_switch run",
-        report.compared
+        "bmv2: compared all {} byte-aligned vectors in one simple_switch run \
+         ({} depth-bound vectors skipped — P4 has no max_depth counter)",
+        report.compared, report.skipped_depth_bound
     );
     Ok(report)
 }

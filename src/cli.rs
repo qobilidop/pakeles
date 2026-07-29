@@ -248,9 +248,10 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             let suite = crate::testvec::suite_from_json(&std::fs::read_to_string(&vectors)?)?;
             let report = crate::oracle::bmv2::diff_suite(&ir, &suite)?;
             println!(
-                "{} vectors compared ({} bit-granular skipped), {} mismatches",
+                "{} vectors compared ({} bit-granular skipped, {} depth-bound skipped), {} mismatches",
                 report.compared,
                 report.skipped_bit_granular,
+                report.skipped_depth_bound,
                 report.mismatches.len()
             );
             for m in &report.mismatches {
