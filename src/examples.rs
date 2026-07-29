@@ -26,6 +26,13 @@ pub fn linux_flow_dissector() -> pb::Ir {
     .expect("committed linux_flow_dissector IR must parse")
 }
 
+/// The dpdk_ptype example (DPDK rte_net_get_ptype agreement), parsed
+/// from its committed IR.
+pub fn dpdk_ptype() -> pb::Ir {
+    crate::ir::from_json(include_str!("../examples/dpdk_ptype/dpdk_ptype.ir.json"))
+        .expect("committed dpdk_ptype IR must parse")
+}
+
 /// The metadata-v1 toy example, parsed from the embedded committed IR.
 pub fn counted_items() -> pb::Ir {
     crate::ir::from_json(include_str!(
@@ -94,6 +101,34 @@ mod tests {
         let mirrored =
             std::fs::read_to_string("examples/linux_flow_dissector/linux_flow_dissector.py")
                 .unwrap();
+        assert_eq!(
+            canonical, mirrored,
+            "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
+    #[test]
+    fn dpdk_ptype_embedded_ir_parses_and_validates() {
+        crate::ir::validate::validate(&dpdk_ptype()).unwrap();
+    }
+
+    #[test]
+    fn dpdk_ptype_committed_ir_json_is_canonical() {
+        // The committed file must already be exactly what the Rust
+        // canonical serializer emits — the anti-drift "canonical form"
+        // guard (replaces the old builder-vs-committed check).
+        let committed = std::fs::read_to_string("examples/dpdk_ptype/dpdk_ptype.ir.json").unwrap();
+        let round = crate::ir::to_json(&crate::ir::from_json(&committed).unwrap()).unwrap();
+        assert_eq!(
+            round, committed,
+            "committed ir.json is not in canonical form; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
+    #[test]
+    fn dpdk_ptype_committed_py_example_current() {
+        let canonical = std::fs::read_to_string("py/src/pakeles/examples/dpdk_ptype.py").unwrap();
+        let mirrored = std::fs::read_to_string("examples/dpdk_ptype/dpdk_ptype.py").unwrap();
         assert_eq!(
             canonical, mirrored,
             "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"

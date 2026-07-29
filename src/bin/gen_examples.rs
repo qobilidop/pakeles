@@ -49,7 +49,12 @@ fn regenerate(name: &str) -> anyhow::Result<()> {
 }
 
 fn main() -> anyhow::Result<()> {
-    let all = ["eth_ipvx_l4", "linux_flow_dissector", "counted_items"];
+    let all = [
+        "eth_ipvx_l4",
+        "linux_flow_dissector",
+        "counted_items",
+        "dpdk_ptype",
+    ];
     let args: Vec<String> = std::env::args().skip(1).collect();
     let names: Vec<&str> = if args.is_empty() {
         all.to_vec()

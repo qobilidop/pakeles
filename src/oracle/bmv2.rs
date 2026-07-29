@@ -425,6 +425,11 @@ mod tests {
     }
 
     #[test]
+    fn bmv2_conformance_byte_aligned_suite_dpdk_ptype() {
+        bmv2_conformance_byte_aligned(&crate::examples::dpdk_ptype(), 50);
+    }
+
+    #[test]
     fn bmv2_conformance_byte_aligned_suite_counted_items() {
         // BMv2 compares the header-presence bitmap only (documented v1
         // boundary) — this still exercises the metadata-driven select

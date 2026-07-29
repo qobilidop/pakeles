@@ -1,0 +1,2752 @@
+{
+  "irVersion": "0.1.0",
+  "parser": {
+    "name": "dpdk_ptype",
+    "headerTypes": [
+      {
+        "name": "ethernet",
+        "fields": [
+          {
+            "name": "dst",
+            "width": {
+              "bits": 48
+            },
+            "display": {
+              "name": "Destination",
+              "format": "DISPLAY_FORMAT_ETHER"
+            }
+          },
+          {
+            "name": "src",
+            "width": {
+              "bits": 48
+            },
+            "display": {
+              "name": "Source",
+              "format": "DISPLAY_FORMAT_ETHER"
+            }
+          },
+          {
+            "name": "ethertype",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Type",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "2048",
+                  "label": "IPv4"
+                },
+                {
+                  "value": "2054",
+                  "label": "ARP"
+                },
+                {
+                  "value": "33024",
+                  "label": "802.1Q VLAN"
+                },
+                {
+                  "value": "34525",
+                  "label": "IPv6"
+                },
+                {
+                  "value": "34984",
+                  "label": "802.1AD (QinQ)"
+                },
+                {
+                  "value": "34887",
+                  "label": "MPLS unicast"
+                },
+                {
+                  "value": "34888",
+                  "label": "MPLS multicast"
+                },
+                {
+                  "value": "25944",
+                  "label": "TEB"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "vlan",
+        "fields": [
+          {
+            "name": "pcp",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "Priority",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "dei",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "DEI",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "vid",
+            "width": {
+              "bits": 12
+            },
+            "display": {
+              "name": "VLAN ID",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "proto",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Type",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "2048",
+                  "label": "IPv4"
+                },
+                {
+                  "value": "2054",
+                  "label": "ARP"
+                },
+                {
+                  "value": "33024",
+                  "label": "802.1Q VLAN"
+                },
+                {
+                  "value": "34525",
+                  "label": "IPv6"
+                },
+                {
+                  "value": "34984",
+                  "label": "802.1AD (QinQ)"
+                },
+                {
+                  "value": "34887",
+                  "label": "MPLS unicast"
+                },
+                {
+                  "value": "34888",
+                  "label": "MPLS multicast"
+                },
+                {
+                  "value": "25944",
+                  "label": "TEB"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "qinq",
+        "fields": [
+          {
+            "name": "first_tag",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "First Tag (blind)",
+              "format": "DISPLAY_FORMAT_HEX",
+              "doc": "never examined by DPDK"
+            }
+          },
+          {
+            "name": "tci",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Second Tag TCI",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "proto",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Type",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "2048",
+                  "label": "IPv4"
+                },
+                {
+                  "value": "2054",
+                  "label": "ARP"
+                },
+                {
+                  "value": "33024",
+                  "label": "802.1Q VLAN"
+                },
+                {
+                  "value": "34525",
+                  "label": "IPv6"
+                },
+                {
+                  "value": "34984",
+                  "label": "802.1AD (QinQ)"
+                },
+                {
+                  "value": "34887",
+                  "label": "MPLS unicast"
+                },
+                {
+                  "value": "34888",
+                  "label": "MPLS multicast"
+                },
+                {
+                  "value": "25944",
+                  "label": "TEB"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "ipv4",
+        "fields": [
+          {
+            "name": "version",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Version",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ihl",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Header Length",
+              "format": "DISPLAY_FORMAT_DEC",
+              "doc": "in 32-bit words"
+            }
+          },
+          {
+            "name": "dscp",
+            "width": {
+              "bits": 6
+            },
+            "display": {
+              "name": "DSCP",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ecn",
+            "width": {
+              "bits": 2
+            },
+            "display": {
+              "name": "ECN",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "total_len",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Total Length",
+              "format": "DISPLAY_FORMAT_DEC",
+              "doc": "never validated by DPDK"
+            }
+          },
+          {
+            "name": "id",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Identification",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "flags_res_df",
+            "width": {
+              "bits": 2
+            },
+            "display": {
+              "name": "Reserved/DF",
+              "format": "DISPLAY_FORMAT_HEX",
+              "doc": "outside DPDK's 0x3FFF fragment mask"
+            }
+          },
+          {
+            "name": "mf_frag_off",
+            "width": {
+              "bits": 14
+            },
+            "display": {
+              "name": "MF + Fragment Offset",
+              "format": "DISPLAY_FORMAT_HEX",
+              "doc": "DPDK's frag test: != 0"
+            }
+          },
+          {
+            "name": "ttl",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Time to Live",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "protocol",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Protocol",
+              "format": "DISPLAY_FORMAT_DEC",
+              "valueLabels": [
+                {
+                  "value": "4",
+                  "label": "IPIP"
+                },
+                {
+                  "value": "6",
+                  "label": "TCP"
+                },
+                {
+                  "value": "17",
+                  "label": "UDP"
+                },
+                {
+                  "value": "41",
+                  "label": "IPv6-in-IP"
+                },
+                {
+                  "value": "47",
+                  "label": "GRE"
+                },
+                {
+                  "value": "132",
+                  "label": "SCTP"
+                }
+              ]
+            }
+          },
+          {
+            "name": "checksum",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Header Checksum",
+              "format": "DISPLAY_FORMAT_HEX",
+              "doc": "never validated by DPDK"
+            }
+          },
+          {
+            "name": "src",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Source Address",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "dst",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Destination Address",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "options",
+            "width": {
+              "byteLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_SUB",
+                  "lhs": {
+                    "bin": {
+                      "op": "BIN_OP_KIND_MUL",
+                      "lhs": {
+                        "field": {
+                          "header": "ipv4",
+                          "field": "ihl"
+                        }
+                      },
+                      "rhs": {
+                        "constant": "4"
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "constant": "20"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "ipv6",
+        "fields": [
+          {
+            "name": "version",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Version",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "traffic_class",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Traffic Class",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "flow_label",
+            "width": {
+              "bits": 20
+            },
+            "display": {
+              "name": "Flow Label",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "payload_length",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Payload Length",
+              "format": "DISPLAY_FORMAT_DEC",
+              "doc": "never validated by DPDK"
+            }
+          },
+          {
+            "name": "next_header",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Next Header",
+              "format": "DISPLAY_FORMAT_DEC",
+              "valueLabels": [
+                {
+                  "value": "4",
+                  "label": "IPIP"
+                },
+                {
+                  "value": "6",
+                  "label": "TCP"
+                },
+                {
+                  "value": "17",
+                  "label": "UDP"
+                },
+                {
+                  "value": "41",
+                  "label": "IPv6-in-IP"
+                },
+                {
+                  "value": "47",
+                  "label": "GRE"
+                },
+                {
+                  "value": "132",
+                  "label": "SCTP"
+                }
+              ]
+            }
+          },
+          {
+            "name": "hop_limit",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Hop Limit",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "src",
+            "width": {
+              "byteLen": {
+                "constant": "16"
+              }
+            }
+          },
+          {
+            "name": "dst",
+            "width": {
+              "byteLen": {
+                "constant": "16"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "ipv6_ext_opt",
+        "fields": [
+          {
+            "name": "next_header",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Next Header",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "hdr_ext_len",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Hdr Ext Len",
+              "format": "DISPLAY_FORMAT_DEC",
+              "doc": "in 8-octet units, excl. first 8"
+            }
+          },
+          {
+            "name": "body",
+            "width": {
+              "byteLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_SUB",
+                  "lhs": {
+                    "bin": {
+                      "op": "BIN_OP_KIND_SHL",
+                      "lhs": {
+                        "bin": {
+                          "op": "BIN_OP_KIND_ADD",
+                          "lhs": {
+                            "constant": "1"
+                          },
+                          "rhs": {
+                            "field": {
+                              "header": "ipv6_ext_opt",
+                              "field": "hdr_ext_len"
+                            }
+                          }
+                        }
+                      },
+                      "rhs": {
+                        "constant": "3"
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "constant": "2"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "ipv6_frag",
+        "fields": [
+          {
+            "name": "next_header",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Next Header",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "reserved",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Reserved",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "frag_off",
+            "width": {
+              "bits": 13
+            },
+            "display": {
+              "name": "Fragment Offset",
+              "format": "DISPLAY_FORMAT_DEC",
+              "doc": "in 8-octet units"
+            }
+          },
+          {
+            "name": "res2",
+            "width": {
+              "bits": 2
+            },
+            "display": {
+              "name": "Res",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "m_flag",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "More Fragments",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "identification",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Identification",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
+      },
+      {
+        "name": "gre",
+        "fields": [
+          {
+            "name": "c",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Checksum Present",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "r",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Routing Present",
+              "format": "DISPLAY_FORMAT_DEC",
+              "doc": "R=1 -> not a tunnel to DPDK (opt_len 0)"
+            }
+          },
+          {
+            "name": "k",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Key Present",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "s",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Sequence Present",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "reserved",
+            "width": {
+              "bits": 9
+            },
+            "display": {
+              "name": "Reserved0",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "version",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "Version",
+              "format": "DISPLAY_FORMAT_DEC",
+              "doc": "ignored by DPDK"
+            }
+          },
+          {
+            "name": "proto",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Protocol Type",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "2048",
+                  "label": "IPv4"
+                },
+                {
+                  "value": "34525",
+                  "label": "IPv6"
+                },
+                {
+                  "value": "25944",
+                  "label": "TEB"
+                },
+                {
+                  "value": "33024",
+                  "label": "802.1Q VLAN"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "gre_opt",
+        "fields": [
+          {
+            "name": "body",
+            "width": {
+              "byteLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_ADD",
+                  "lhs": {
+                    "bin": {
+                      "op": "BIN_OP_KIND_ADD",
+                      "lhs": {
+                        "bin": {
+                          "op": "BIN_OP_KIND_MUL",
+                          "lhs": {
+                            "field": {
+                              "header": "gre",
+                              "field": "c"
+                            }
+                          },
+                          "rhs": {
+                            "constant": "4"
+                          }
+                        }
+                      },
+                      "rhs": {
+                        "bin": {
+                          "op": "BIN_OP_KIND_MUL",
+                          "lhs": {
+                            "field": {
+                              "header": "gre",
+                              "field": "k"
+                            }
+                          },
+                          "rhs": {
+                            "constant": "4"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "bin": {
+                      "op": "BIN_OP_KIND_MUL",
+                      "lhs": {
+                        "field": {
+                          "header": "gre",
+                          "field": "s"
+                        }
+                      },
+                      "rhs": {
+                        "constant": "4"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "tcp",
+        "fields": [
+          {
+            "name": "sport",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Source Port",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "dport",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Destination Port",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "seq",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Sequence Number",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ack",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Acknowledgment Number",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "data_offset",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Data Offset",
+              "format": "DISPLAY_FORMAT_DEC",
+              "doc": "in 32-bit words; unvalidated"
+            }
+          },
+          {
+            "name": "reserved",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Reserved",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "flags",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Flags",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "window",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Window",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "checksum",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Checksum",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "urgent",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Urgent Pointer",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      }
+    ],
+    "states": [
+      {
+        "name": "parse_ethernet",
+        "extracts": [
+          {
+            "headerType": "ethernet"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ethernet",
+                  "field": "ethertype"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "33024"
+                  }
+                ],
+                "next": {
+                  "state": "parse_vlan"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34984"
+                  }
+                ],
+                "next": {
+                  "state": "parse_qinq"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34887"
+                  }
+                ],
+                "next": {
+                  "accept": {}
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34888"
+                  }
+                ],
+                "next": {
+                  "accept": {}
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "25944"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ethernet"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1024"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "10496"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "12032"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_vlan",
+        "extracts": [
+          {
+            "headerType": "vlan"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "vlan",
+                  "field": "proto"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "25944"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ethernet"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "33024"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_vlan"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34984"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_qinq"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1024"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "10496"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "12032"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_qinq",
+        "extracts": [
+          {
+            "headerType": "qinq"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "qinq",
+                  "field": "proto"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "25944"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ethernet"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "33024"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_vlan"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34984"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_qinq"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1024"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "10496"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "12032"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_ipv4",
+        "extracts": [
+          {
+            "headerType": "ipv4"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv4",
+                  "field": "mf_frag_off"
+                }
+              },
+              {
+                "field": {
+                  "header": "ipv4",
+                  "field": "protocol"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "41"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "47"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "8"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "129"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_vlan"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_ipv6",
+        "extracts": [
+          {
+            "headerType": "ipv6"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv6",
+                  "field": "next_header"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ext_opt1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "43"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ext_opt1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "60"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ext_opt1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "44"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ext_frag"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "41"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "47"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "8"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "129"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_vlan"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_ext_opt1",
+        "extracts": [
+          {
+            "headerType": "ipv6_ext_opt"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv6_ext_opt",
+                  "field": "next_header"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ext_opt2"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "43"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ext_opt2"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "60"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ext_opt2"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "44"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ext_frag"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "41"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "47"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "8"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "129"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_vlan"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_ext_opt2",
+        "extracts": [
+          {
+            "headerType": "ipv6_ext_opt"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv6_ext_opt",
+                  "field": "next_header"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ext_opt3"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "43"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ext_opt3"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "60"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ext_opt3"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "44"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ext_frag"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "41"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "47"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "8"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "129"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_vlan"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_ext_opt3",
+        "extracts": [
+          {
+            "headerType": "ipv6_ext_opt"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv6_ext_opt",
+                  "field": "next_header"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ext_opt4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "43"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ext_opt4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "60"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ext_opt4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "44"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ext_frag"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "41"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "47"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "8"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "129"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_vlan"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_ext_opt4",
+        "extracts": [
+          {
+            "headerType": "ipv6_ext_opt"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv6_ext_opt",
+                  "field": "next_header"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ext_opt5"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "43"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ext_opt5"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "60"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ext_opt5"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "44"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ext_frag"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "41"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "47"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "8"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "129"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_vlan"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_ext_opt5",
+        "extracts": [
+          {
+            "headerType": "ipv6_ext_opt"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        }
+      },
+      {
+        "name": "parse_ext_frag",
+        "extracts": [
+          {
+            "headerType": "ipv6_frag"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        }
+      },
+      {
+        "name": "parse_gre",
+        "extracts": [
+          {
+            "headerType": "gre"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "r"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre_opt"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_gre_opt",
+        "extracts": [
+          {
+            "headerType": "gre_opt"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "proto"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "25944"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ethernet"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "33024"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_vlan"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34984"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_qinq"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_tcp",
+        "extracts": [
+          {
+            "headerType": "tcp"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        }
+      },
+      {
+        "name": "parse_inner_ethernet",
+        "extracts": [
+          {
+            "headerType": "ethernet"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ethernet",
+                  "field": "ethertype"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "33024"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_vlan"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34984"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_qinq"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_inner_vlan",
+        "extracts": [
+          {
+            "headerType": "vlan"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "vlan",
+                  "field": "proto"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv6"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_inner_qinq",
+        "extracts": [
+          {
+            "headerType": "qinq"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "qinq",
+                  "field": "proto"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv6"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_inner_ipv4",
+        "extracts": [
+          {
+            "headerType": "ipv4"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv4",
+                  "field": "mf_frag_off"
+                }
+              },
+              {
+                "field": {
+                  "header": "ipv4",
+                  "field": "protocol"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_tcp"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_inner_ipv6",
+        "extracts": [
+          {
+            "headerType": "ipv6"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv6",
+                  "field": "next_header"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ext_opt1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "43"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ext_opt1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "60"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ext_opt1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "44"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ext_frag"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_tcp"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_inner_ext_opt1",
+        "extracts": [
+          {
+            "headerType": "ipv6_ext_opt"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv6_ext_opt",
+                  "field": "next_header"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ext_opt2"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "43"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ext_opt2"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "60"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ext_opt2"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "44"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ext_frag"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_tcp"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_inner_ext_opt2",
+        "extracts": [
+          {
+            "headerType": "ipv6_ext_opt"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv6_ext_opt",
+                  "field": "next_header"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ext_opt3"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "43"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ext_opt3"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "60"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ext_opt3"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "44"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ext_frag"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_tcp"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_inner_ext_opt3",
+        "extracts": [
+          {
+            "headerType": "ipv6_ext_opt"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv6_ext_opt",
+                  "field": "next_header"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ext_opt4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "43"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ext_opt4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "60"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ext_opt4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "44"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ext_frag"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_tcp"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_inner_ext_opt4",
+        "extracts": [
+          {
+            "headerType": "ipv6_ext_opt"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv6_ext_opt",
+                  "field": "next_header"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ext_opt5"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "43"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ext_opt5"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "60"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ext_opt5"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "44"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ext_frag"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_tcp"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_inner_ext_opt5",
+        "extracts": [
+          {
+            "headerType": "ipv6_ext_opt"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        }
+      },
+      {
+        "name": "parse_inner_ext_frag",
+        "extracts": [
+          {
+            "headerType": "ipv6_frag"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        }
+      },
+      {
+        "name": "parse_inner_tcp",
+        "extracts": [
+          {
+            "headerType": "tcp"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        }
+      }
+    ],
+    "startState": "parse_ethernet",
+    "maxDepth": 20
+  }
+}

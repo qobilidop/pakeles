@@ -12,6 +12,7 @@ from google.protobuf import json_format
 
 from pakeles._pb import ir_pb2
 from pakeles.examples.counted_items import counted_items
+from pakeles.examples.dpdk_ptype import dpdk_ptype
 from pakeles.examples.eth_ipvx_l4 import eth_ipvx_l4
 from pakeles.examples.linux_flow_dissector import linux_flow_dissector
 
@@ -22,10 +23,13 @@ BUILDERS = {
     "eth_ipvx_l4": eth_ipvx_l4,
     "linux_flow_dissector": linux_flow_dissector,
     "counted_items": counted_items,
+    "dpdk_ptype": dpdk_ptype,
 }
 
+ALL_EXAMPLES = ["eth_ipvx_l4", "linux_flow_dissector", "counted_items", "dpdk_ptype"]
 
-@pytest.mark.parametrize("name", ["eth_ipvx_l4", "linux_flow_dissector", "counted_items"])
+
+@pytest.mark.parametrize("name", ALL_EXAMPLES)
 def test_python_authoring_matches_gallery(name: str) -> None:
     gallery = ROOT / f"examples/{name}/{name}.ir.json"
     ours = BUILDERS[name]().to_pb()
@@ -33,7 +37,7 @@ def test_python_authoring_matches_gallery(name: str) -> None:
     assert ours == committed
 
 
-@pytest.mark.parametrize("name", ["eth_ipvx_l4", "linux_flow_dissector", "counted_items"])
+@pytest.mark.parametrize("name", ALL_EXAMPLES)
 def test_own_json_roundtrips_to_same_proto(name: str) -> None:
     p = BUILDERS[name]()
     assert json_format.Parse(p.to_json(), ir_pb2.Ir()) == p.to_pb()
