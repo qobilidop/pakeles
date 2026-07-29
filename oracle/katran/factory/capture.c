@@ -1,22 +1,47 @@
-// Katran golden factory (phase-1 smoke harness): load the pinned
-// upstream balancer.bpf.o (GPL — fetched+built at capture time, never
-// committed) and BPF_PROG_TEST_RUN each corpus packet through the XDP
-// entry, emitting verdict + output packet per line as JSON.
+// Katran golden factory: load the pinned upstream balancer.bpf.o (GPL —
+// fetched+built at capture time, never committed) with the pakeles
+// observation patch, BPF_PROG_TEST_RUN each corpus packet through the
+// XDP entry, and emit per line: the XDP verdict, the mutated output
+// packet (TX only), and the parsed katran flow keys read back from
+// pk_export_map (src/dst, ports, proto, flags, tos + QUIC parse result).
 //
-// Map state: everything starts empty (array maps zero-initialized) —
-// enough for the whole parse path: no-vip TCP/UDP -> XDP_PASS,
-// malformed/frag/options -> XDP_DROP, ICMP echo -> XDP_TX with the
-// mutated reply. The phase-2 design pins the vip/real/server-id config
-// that turns on the hint-parse arms.
+// The export runs BEFORE any vip/LB stage, so the core parse (L3 + ICMP
+// inner + L4 ports/flags) is observable with all maps empty. The
+// QUIC/stable-rt/TPR hint arms need the phase-2 vip config (config C) to
+// fire — their export bit stays 0 until then.
 //
 // Usage: capture <balancer.o> <corpus.txt>
 #include <bpf/libbpf.h>
 #include <bpf/bpf.h>
+#include <arpa/inet.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <sys/utsname.h>
+
+// Mirrors of the patched structs (balancer_structs.h flow_key /
+// packet_description + the pakeles pk_export). Kept in sync by the
+// pinned-source assertion in fetch.sh.
+struct flow_key {
+    uint32_t src[4];
+    uint32_t dst[4];
+    uint16_t port16[2];
+    uint8_t proto;
+};
+struct packet_description {
+    struct flow_key flow;
+    uint32_t real_index;
+    uint8_t flags;
+    uint8_t tos;
+};
+struct pk_export {
+    struct packet_description pckt;
+    int32_t quic_server_id;
+    uint8_t quic_cid_version;
+    uint8_t quic_is_initial;
+    uint8_t stage;
+};
 
 static int is_hex(char c) {
     return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
@@ -62,6 +87,10 @@ int main(int argc, char **argv) {
     if (!entry) { fprintf(stderr, "missing program balancer_ingress — pin drift?\n"); return 1; }
     int prog_fd = bpf_program__fd(entry);
 
+    struct bpf_map *xmap = bpf_object__find_map_by_name(obj, "pk_export_map");
+    if (!xmap) { fprintf(stderr, "missing pk_export_map — observation patch not applied?\n"); return 1; }
+    int xmap_fd = bpf_map__fd(xmap);
+
     struct utsname un; uname(&un);
     printf("{\n  \"kernel_version\": \"%s\",\n  \"map_config\": \"empty (phase-1 smoke)\",\n  \"entries\": [\n", un.release);
 
@@ -75,6 +104,15 @@ int main(int argc, char **argv) {
         int plen = unhex(line, pkt, sizeof pkt);
         if (plen <= 0) { fprintf(stderr, "bad corpus line\n"); return 1; }
 
+        // Zero the export slot before each run so a skipped export reads
+        // as stage 0 (keys not reached), never stale from a prior packet.
+        uint32_t zero = 0;
+        struct pk_export ex;
+        memset(&ex, 0, sizeof ex);
+        if (bpf_map_update_elem(xmap_fd, &zero, &ex, BPF_ANY)) {
+            fprintf(stderr, "pk_export_map reset failed\n"); return 1;
+        }
+
         unsigned char out[8192];
         LIBBPF_OPTS(bpf_test_run_opts, topts,
             .data_in = pkt, .data_size_in = (uint32_t)plen,
@@ -85,17 +123,42 @@ int main(int argc, char **argv) {
             fprintf(stderr, "TEST_RUN failed (packet len %d)\n", plen);
             return 1;
         }
+        if (bpf_map_lookup_elem(xmap_fd, &zero, &ex)) {
+            fprintf(stderr, "pk_export_map lookup failed\n"); return 1;
+        }
+
         char phex[8300], ohex[16500];
         hexcat(phex, pkt, plen);
-        // Output packet only when the program mutated/kept it (TX);
-        // PASS/DROP outputs are the input echoed back — elide for size.
         if (topts.retval == 3) {
             hexcat(ohex, out, topts.data_size_out);
         } else {
             ohex[0] = 0;
         }
-        printf("%s    {\"packet_hex\": \"%s\", \"verdict\": \"%s\", \"out_hex\": \"%s\"}",
-               first ? "" : ",\n", phex, verdict_str(topts.retval), ohex);
+
+        printf("%s    {\"packet_hex\": \"%s\", \"verdict\": \"%s\", \"out_hex\": \"%s\", "
+               "\"stage\": %u",
+               first ? "" : ",\n", phex, verdict_str(topts.retval), ohex, ex.stage);
+        // Flow keys are meaningful only once the parse reached the export
+        // point (stage bit 1). proto decides v4 vs v6 address width.
+        if (ex.stage & 1) {
+            char src[33] = "", dst[33] = "";
+            hexcat(src, (unsigned char *)ex.pckt.flow.src, 16);
+            hexcat(dst, (unsigned char *)ex.pckt.flow.dst, 16);
+            printf(", \"flow\": {\"src\": \"%s\", \"dst\": \"%s\", "
+                   "\"sport\": %u, \"dport\": %u, \"proto\": %u, "
+                   "\"flags\": %u, \"tos\": %u, \"l4_reached\": %s}",
+                   src, dst,
+                   ntohs(ex.pckt.flow.port16[0]), ntohs(ex.pckt.flow.port16[1]),
+                   ex.pckt.flow.proto, ex.pckt.flags, ex.pckt.tos,
+                   (ex.stage & 2) ? "true" : "false");
+        }
+        if (ex.stage & 4) {
+            printf(", \"quic\": {\"server_id\": %d, \"cid_version\": %u, "
+                   "\"is_initial\": %s}",
+                   ex.quic_server_id, ex.quic_cid_version,
+                   ex.quic_is_initial ? "true" : "false");
+        }
+        printf("}");
         first = 0;
     }
     fclose(cf);
