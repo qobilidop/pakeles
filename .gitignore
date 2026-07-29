@@ -15,3 +15,4 @@ examples/*/conformance/vectors.pcap
 /oracle/dpdk_ptype/spike/build/
 /oracle/katran/factory/build/
 oracle/katran/factory/witnesses.txt
+/oracle/katran/spike/build/
