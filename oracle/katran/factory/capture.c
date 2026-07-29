@@ -92,7 +92,10 @@ int main(int argc, char **argv) {
     int xmap_fd = bpf_map__fd(xmap);
 
     struct utsname un; uname(&un);
-    printf("{\n  \"kernel_version\": \"%s\",\n  \"map_config\": \"empty (phase-1 smoke)\",\n  \"entries\": [\n", un.release);
+    const char *pin = getenv("KATRAN_PIN");
+    printf("{\n  \"katran_commit\": \"%s\",\n  \"kernel_version\": \"%s\",\n"
+           "  \"map_config\": \"empty (default build)\",\n  \"entries\": [\n",
+           pin ? pin : "unknown", un.release);
 
     FILE *cf = fopen(argv[2], "r");
     if (!cf) { perror("fopen corpus"); return 1; }
