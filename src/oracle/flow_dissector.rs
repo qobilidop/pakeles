@@ -1296,7 +1296,7 @@ mod gate_tests {
             .count();
         let drop = g.entries.len() - ok;
         assert!(
-            ok >= 29 && drop >= 14,
+            ok >= 39 && drop >= 18,
             "corpus shape shrank: {ok} ok / {drop} drop entries"
         );
         for name in [
