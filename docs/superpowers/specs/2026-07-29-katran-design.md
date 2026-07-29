@@ -25,14 +25,16 @@ else XDP_PASS). The PARSE portion, in order:
      PCKT_FRAGMENTED → XDP_DROP`; ICMP → ICMP path; else record
      src/dst. `tot_len`/`payload_len` recorded as `pkt_bytes` (not
      validated against data_end).
-2. `handle_if_icmp` (handle_icmp.h): ICMP/ICMPv6 "packet too big" /
-   "dest unreachable & fragmentation needed" → parse the EMBEDDED inner
-   IP header at a FIXED offset (`calc_offset` assumes eth + ip +
-   icmp + inner-ip, no inner options), set F_ICMP, and re-read
-   flow keys from the inner packet with src/dst SWAPPED; other ICMP
-   types → XDP_PASS (echo handled separately upstream of this).
-   [VERIFY against handle_icmp.h in phase 2 — this is the recollected
-   shape; read line-by-line before binding.]
+2. `handle_if_icmp` (handle_icmp.h, read line-by-line): ICMP/ICMPv6
+   echo request → **XDP_TX of an in-place mutated echo reply** (MAC/IP
+   swap, type flip, checksum adjust) — the program answers pings; a
+   parse-relevant verdict class of its own. v4 type == DEST_UNREACH
+   (any code; FRAG_NEEDED only bumps stats) and v6 type ∈ {PKT_TOOBIG,
+   DEST_UNREACH} → parse the EMBEDDED inner IP header at the fixed
+   icmp+inner offset, set F_ICMP, take src/dst from the inner packet
+   SWAPPED (inner daddr→flow.src, saddr→flow.dst; inner v4 ihl != 5 →
+   DROP), then L4 ports read from the inner transport header with the
+   same swap. Every other ICMP type/code → XDP_PASS.
 3. L4 by `flow.proto`: TCP (`parse_tcp`: fixed 20B struct read; SYN →
    F_SYN_SET, RST → F_RST_SET; ports, SWAPPED under F_ICMP), UDP
    (`parse_udp`: 8B; ports, swapped under F_ICMP), anything else →
