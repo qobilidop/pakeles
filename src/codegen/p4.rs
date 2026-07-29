@@ -328,6 +328,27 @@ pub(crate) fn stacked_instances(parser: &pb::Parser) -> std::collections::HashSe
             }
         }
     }
+    // An instance with more than one static extract site also needs the
+    // stack realization even in an acyclic graph: re-extracting a plain
+    // P4 header cannot represent both extractions (first exercised by
+    // dpdk_ptype's outer/inner section mirror, where `ipv4` is extracted
+    // by parse_ipv4 AND parse_inner_ipv4).
+    let mut sites: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for s in &parser.states {
+        for ex in &s.extracts {
+            let inst = if ex.instance.is_empty() {
+                ex.header_type.clone()
+            } else {
+                ex.instance.clone()
+            };
+            *sites.entry(inst).or_default() += 1;
+        }
+    }
+    for (inst, n) in sites {
+        if n > 1 {
+            out.insert(inst);
+        }
+    }
     out
 }
 
@@ -736,6 +757,7 @@ mod tests {
                 crate::examples::linux_flow_dissector(),
             ),
             ("counted_items", crate::examples::counted_items()),
+            ("dpdk_ptype", crate::examples::dpdk_ptype()),
         ] {
             let p4 = generate_p4(&ir).unwrap();
             let committed =
