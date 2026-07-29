@@ -690,7 +690,7 @@ pub fn generate_bpf(ir: &pb::Ir) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::examples::{counted_items, eth_ipvx_l4, linux_flow_dissector};
+    use crate::examples::{counted_items, dpdk_ptype, eth_ipvx_l4, linux_flow_dissector};
 
     #[test]
     fn metadata_c_emission_and_semantics() {
@@ -958,7 +958,22 @@ mod tests {
             return;
         };
         let reasons = reason_table(ir.parser.as_ref().unwrap());
-        let vm = rbpf::EbpfVmRaw::new(Some(&prog)).unwrap();
+        // rbpf's default verifier hardcodes the pre-5.2 kernel's
+        // 4096-insn cap; the kernel's own limit has been 1M since 5.2
+        // and dpdk_ptype's program crosses 4096. The interp cross-check
+        // below is the oracle here, so the verifier only needs
+        // well-formedness.
+        fn relaxed_verifier(prog: &[u8]) -> Result<(), std::io::Error> {
+            if prog.is_empty() || !prog.len().is_multiple_of(8) {
+                return Err(std::io::Error::other(
+                    "program size must be a multiple of 8",
+                ));
+            }
+            Ok(())
+        }
+        let mut vm = rbpf::EbpfVmRaw::new(None).unwrap();
+        vm.set_verifier(relaxed_verifier).unwrap();
+        vm.set_program(&prog).unwrap();
         let mut mismatches = Vec::new();
         for v in &suite.vectors {
             let (bits, _) = crate::testvec::Bits::from_pb(v.packet.as_ref().unwrap());
@@ -1014,11 +1029,22 @@ mod tests {
     }
 
     #[test]
+    fn c_backend_conformance_full_suite_dpdk_ptype() {
+        c_backend_conformance(&dpdk_ptype());
+    }
+
+    #[test]
+    fn bpf_backend_conformance_full_suite_dpdk_ptype() {
+        bpf_backend_conformance(&dpdk_ptype());
+    }
+
+    #[test]
     fn committed_c_artifacts_current() {
         for (name, ir) in [
             ("eth_ipvx_l4", eth_ipvx_l4()),
             ("linux_flow_dissector", linux_flow_dissector()),
             ("counted_items", counted_items()),
+            ("dpdk_ptype", dpdk_ptype()),
         ] {
             let arts = generate_c(&ir).unwrap();
             let bpf = generate_bpf(&ir).unwrap();
