@@ -157,6 +157,28 @@ a hard error for these, so a corpus line in an excluded class fails the
 gate rather than passing silently. Phase 5 still *catalogs* DPDK's
 behavior on these packets via the harness (observed, not gate-checked).
 
+### 2b. Addendum (2026-07-29, during build): the byte-swap quirks
+
+rte_net.c mixes endianness in two comparisons, discovered while writing
+the projection and verified with six harness probes (all matched):
+
+- `ptype_tunnel` (:132) switches the **big-endian** leftover proto
+  against **host** `IPPROTO_*` case values. On little-endian hosts,
+  EtherTypes **0x0400 / 0x2900 / 0x2F00** (BE bytes 04-00 / 29-00 /
+  2F-00 read as host 4 / 41 / 47) classify as IPIP / IPv6-in-IP / GRE
+  tunnels — e.g. `eth[0x0400]/IPv4/TCP` yields `TUNNEL_IP
+  INNER_L3_IPV4 INNER_L4_TCP`.
+- The inner-L2/L3 section compares the **host** u8 IP proto against
+  **big-endian** EtherType constants: protocol **8** (EGP) == 
+  `be16(0x0800)` parses an inner IPv4, protocol **129** ==
+  `be16(0x8100)` parses an inner VLAN — both with NO tunnel bit
+  (`ptype_tunnel` missed them).
+
+Modeled with extra select arms on the L2 states (0x0400/0x2900/0x2F00)
+and the outer IP/ext states (8/129). The agreement claim is therefore
+**little-endian-host DPDK** (arm64/x86-64 — every mainstream DPDK
+deployment); a big-endian build would classify these differently.
+
 ## 4. Example scope + name
 
 New example **`dpdk_ptype`** — a field-for-field model of rte_net.c's

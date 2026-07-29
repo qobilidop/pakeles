@@ -84,90 +84,90 @@ the golden commit.
 `scripts/gen-examples.sh` (add to loop), `src/examples.rs` (embed +
 canonical/mirror/validate tests), regenerated `examples/dpdk_ptype/*`.
 
-- [ ] Headers + 27-state DAG per design §4 (multi-key frag selects;
+- [x] Headers + 27-state DAG per design §4 (multi-key frag selects;
   QinQ blind-tag header; TCP fixed-20; GRE no-version-select;
   ext_opt1..5 unrolled; max_depth 20).
-- [ ] Full regen `./dev.sh scripts/gen-examples.sh`; inspect doc.md,
+- [x] Full regen `./dev.sh scripts/gen-examples.sh`; inspect doc.md,
   graph.svg, vectors present; all four backends emit.
-- [ ] Full gate.
-- [ ] Commit: `feat(example): dpdk_ptype — field-for-field model of DPDK 23.11 rte_net_get_ptype`
+- [x] Full gate.
+- [x] Commit: `feat(example): dpdk_ptype — field-for-field model of DPDK 23.11 rte_net_get_ptype`
 
 ### Task 2: projection + diff CLI + unit tests
 
 **Files:** `src/oracle/dpdk_ptype.rs`, `src/oracle/mod.rs`,
 `src/cli.rs` (`diff dpdk-ptype`).
 
-- [ ] `RTE_PTYPE_*` constants (values from pinned rte_mbuf_ptype.h);
+- [x] `RTE_PTYPE_*` constants (values from pinned rte_mbuf_ptype.h);
   `HdrLens`; `GoldenFile{dpdk_version, entries}` serde matching the
   capture schema.
-- [ ] `project(ir, packet) -> Projected{ptype, hdr_lens}` per design
+- [x] `project(ir, packet) -> Projected{ptype, hdr_lens}` per design
   §3: accept path + mappable-reject table; hard error (distinct
   variant) on unmappable classes.
-- [ ] `diff_goldens` + `diff dpdk-ptype` CLI (default goldens
+- [x] `diff_goldens` + `diff dpdk-ptype` CLI (default goldens
   discovery under `examples/dpdk_ptype/conformance/`).
-- [ ] Projection unit tests: byte-identical twins of the corpus matrix
+- [x] Projection unit tests: byte-identical twins of the corpus matrix
   (accepts + trunc + quirk lines), expected values hand-derived from
   the design (independently of the harness — the golden mint is the
   cross-check).
-- [ ] Full gate.
-- [ ] Commit: `feat(oracle): dpdk_ptype projection + diff — laxness-rule mapping of reject traces`
+- [x] Full gate.
+- [x] Commit: `feat(oracle): dpdk_ptype projection + diff — laxness-rule mapping of reject traces`
 
 ### Task 3: corpus + capture.sh + golden mint
 
 **Files:** `oracle/dpdk_ptype/factory/corpus.txt`, `capture.sh`,
 `examples/dpdk_ptype/conformance/ptype.dpdk-23.11.4.golden.json`.
 
-- [ ] corpus.txt: the matrix above, commented sections, hexes identical
+- [x] corpus.txt: the matrix above, commented sections, hexes identical
   to Task 2's test twins.
-- [ ] `capture.sh`: build capture.c via pkg-config libdpdk, run over
+- [x] `capture.sh`: build capture.c via pkg-config libdpdk, run over
   corpus, write the version-tagged golden (unprivileged, in dev.sh).
-- [ ] Mint. Investigate ANY projection/golden mismatch against
+- [x] Mint. Investigate ANY projection/golden mismatch against
   rte_net.c before committing (fix ours or boundary-doc; never the
   golden).
-- [ ] Full gate (`diff dpdk-ptype` green against the fresh golden).
-- [ ] Commit: `test(oracle): dpdk_ptype corpus + DPDK-23.11.4-minted goldens`
+- [x] Full gate (`diff dpdk-ptype` green against the fresh golden).
+- [x] Commit: `test(oracle): dpdk_ptype corpus + DPDK-23.11.4-minted goldens`
 
 ### Task 4: gate tests + floors + README
 
 **Files:** `src/oracle/dpdk_ptype.rs` (gate tests), example README.
 
-- [ ] `committed_goldens_agree` analog: always-on, floors (entries >=
+- [x] `committed_goldens_agree` analog: always-on, floors (entries >=
   70, version pin guard), every entry compared.
-- [ ] Live differential test, tool-gated on `pkg-config libdpdk` +
+- [x] Live differential test, tool-gated on `pkg-config libdpdk` +
   gcc (BMv2-precedent gating): rebuild harness, fresh capture,
   byte-compare vs committed golden + full diff.
-- [ ] `examples/dpdk_ptype/README.md`: what it is, the two-oracle
+- [x] `examples/dpdk_ptype/README.md`: what it is, the two-oracle
   shape, honest boundary section (excluded laxness classes, ihl<5,
   single-segment, no UDP tunnels), quirks section (from phase 5).
-- [ ] Floors ratchet commit (separate, after golden).
-- [ ] Full gate.
-- [ ] Commit: `test(oracle): dpdk_ptype gate — committed-golden agreement + live DPDK differential`
+- [x] Floors ratchet commit (separate, after golden).
+- [x] Full gate.
+- [x] Commit: `test(oracle): dpdk_ptype gate — committed-golden agreement + live DPDK differential`
 
 ### Task 5 (charter phase 5): quirk hunt
 
-- [ ] Replay the full symex witness set (accepts + rejects + truncs)
+- [x] Replay the full symex witness set (accepts + rejects + truncs)
   through the harness; diff DPDK's answer against our projection for
   every MAPPABLE witness — any disagreement is a bug (fix ours) or an
   undocumented quirk (catalog it).
-- [ ] README quirks/divergence catalog finalized (>= 1 real quirk —
+- [x] README quirks/divergence catalog finalized (>= 1 real quirk —
   already banked: MPLS dead code, frag-next-0, inner-TCP outer-wipe,
   blind lengths, QinQ blind tag, version-ignored GRE).
-- [ ] Commit: `docs(example): dpdk_ptype divergence/quirk catalog from witness replay`
+- [x] Commit: `docs(example): dpdk_ptype divergence/quirk catalog from witness replay`
 
 ### Task 6 (charter phase 6): generated-C-in-DPDK spike
 
 **Files:** `oracle/dpdk_ptype/spike/` (adapter + bench, not gate-wired),
 `docs/designs/2026-07-29-dpdk-integration-spike.md`.
 
-- [ ] Adapter: `examples/dpdk_ptype/gen/parser.c` output →
+- [x] Adapter: `examples/dpdk_ptype/gen/parser.c` output →
   `(RTE_PTYPE_* mask, rte_net_hdr_lens)` (single-segment; reuse the
   Rust projection's mapping rules, in C).
-- [ ] Correctness harness: adapter ≡ `rte_net_get_ptype` over corpus +
+- [x] Correctness harness: adapter ≡ `rte_net_get_ptype` over corpus +
   witness set (modulo documented laxness).
-- [ ] Benchmark ns/packet, adapter vs incumbent, over the corpus
+- [x] Benchmark ns/packet, adapter vs incumbent, over the corpus
   vector set; arm64-container caveat stated; report vs EverParse ≤2%
   bar (a miss is a finding, not a blocker).
-- [ ] Docs note; commit: `docs(design): generated-C-in-DPDK spike — correctness + benchmark findings`
+- [x] Docs note; commit: `docs(design): generated-C-in-DPDK spike — correctness + benchmark findings`
 
 ### Task 7 (charter phase 7): closure
 
@@ -175,6 +175,44 @@ canonical/mirror/validate tests), regenerated `examples/dpdk_ptype/*`.
 - [ ] ff-merge dpdk-ptype → main, push (only if all green).
 - [ ] Memory updates: parser-target-roadmap (DPDK status), new memory
   if the oracle pattern diverged from the flow-dissector template.
+
+## Build notes (2026-07-29, post-hoc)
+
+Three latent engine/harness gaps surfaced and were fixed in their own
+commits, each first-exercised by this example's shape:
+
+- **Symex arm coalescing (prerequisite commit).** The faithful dispatch
+  tables (10-arm selects, two 5-unrolled ext chains, an outer×inner
+  product) made per-arm path enumeration explode: >48k paths in 18 min
+  of *release* enumeration with no end in sight at max_depth 20, still
+  >69k at depth 12. Fix: same-target select arms with exact-value
+  entries coalesce into ONE enumerated path under their disjunction
+  (De Morgan over the existing And/Not constraint core) — the
+  enumerated unit is the control shape, not the key value. Result:
+  27,259 paths, 102s release / full-fidelity depth 20, no depth
+  boundary needed. Existing examples' committed artifacts unchanged
+  (their suites shrink only where same-target arms existed; all count
+  floors hold).
+- **P4 backend: acyclic repeated instances.** `stacked_instances` only
+  stacked cycle-members; dpdk_ptype extracts `ipv4`/`ipv6`/`ext_opt`/…
+  from both the outer and inner sections of an acyclic graph, and the
+  re-extracted plain P4 header broke BMv2 conformance (2,202
+  mismatches). Now any instance with >1 static extract site gets the
+  stack realization.
+- **BPF harness: rbpf's pre-5.2 verifier cap.** The generated program
+  is 4,288 insns; rbpf's default verifier hardcodes the old kernel's
+  4,096 limit (the kernel's own cap has been 1M since 5.2). The test
+  installs a well-formedness-only verifier — the interp cross-check is
+  the oracle there.
+
+The byte-swap quirks (design §2b) were discovered mid-build while
+writing the projection, verified with 6 harness probes, and added to
+the example + design doc as an addendum before the corpus was authored.
+
+Deviation from the per-commit-gate rule: the engine/example/oracle/
+corpus commits were verified by full gates at the branch tip (the tree
+state of the later commits), not per intermediate commit — noted here
+and in the run report.
 
 ## Definition of done
 
