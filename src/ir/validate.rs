@@ -168,17 +168,6 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
         }
     }
 
-    fn contains_remaining(e: &pb::Expr) -> bool {
-        match &e.kind {
-            Some(pb::expr::Kind::Remaining(_)) => true,
-            Some(pb::expr::Kind::Bin(b)) => {
-                b.lhs.as_deref().is_some_and(contains_remaining)
-                    || b.rhs.as_deref().is_some_and(contains_remaining)
-            }
-            _ => false,
-        }
-    }
-
     // Field refs inside variable-length widths. `byte_len` must not
     // reference metadata (v1 restriction: metadata may not affect a
     // header's extracted size, which would undermine pathid soundness)
@@ -249,6 +238,11 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
                         errs.push(format!(
                             "{push_ctx}: push length must not reference metadata"
                         ));
+                    }
+                    if contains_remaining(e) {
+                        // v1: keeps pathid's push-length replay a plain
+                        // env evaluation (no remaining() context).
+                        errs.push(format!("{push_ctx}: push length must not use remaining()"));
                     }
                 }
                 Some(pb::region_op::Kind::Pop(_)) => {}
@@ -363,6 +357,9 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
 /// propagate depths from the start state and flag pops on an empty
 /// stack and depth mismatches. Consistency subsumes boundedness — a
 /// net-positive cycle would revisit a state at a different depth.
+/// Also enforces that `remaining()` is only used with a region open
+/// (assigns: entry depth; push #i: depth before that op; select keys:
+/// post-ops depth) — it is structural, undefined outside a region.
 fn region_depth_errors(parser: &pb::Parser, errs: &mut Vec<String>) {
     use std::collections::HashMap;
 
@@ -374,9 +371,28 @@ fn region_depth_errors(parser: &pb::Parser, errs: &mut Vec<String>) {
     while let Some(name) = work.pop() {
         let s = states[name];
         let mut cur = depth[name];
+        if cur == 0 {
+            for a in &s.assigns {
+                if a.value.as_ref().is_some_and(contains_remaining) {
+                    errs.push(format!(
+                        "state `{name}` assign `{}`: remaining() with no open region",
+                        a.metadata
+                    ));
+                    return;
+                }
+            }
+        }
         for (i, op) in s.region_ops.iter().enumerate() {
             match &op.kind {
-                Some(pb::region_op::Kind::Push(_)) => cur += 1,
+                Some(pb::region_op::Kind::Push(e)) => {
+                    if cur == 0 && contains_remaining(e) {
+                        errs.push(format!(
+                            "state `{name}` region push #{i}: remaining() with no open region"
+                        ));
+                        return;
+                    }
+                    cur += 1;
+                }
                 Some(pb::region_op::Kind::Pop(_)) => {
                     cur -= 1;
                     if cur < 0 {
@@ -387,6 +403,18 @@ fn region_depth_errors(parser: &pb::Parser, errs: &mut Vec<String>) {
                     }
                 }
                 None => {}
+            }
+        }
+        if cur == 0 {
+            if let Some(pb::transition::Kind::Select(sel)) =
+                s.transition.as_ref().and_then(|t| t.kind.as_ref())
+            {
+                if sel.keys.iter().any(contains_remaining) {
+                    errs.push(format!(
+                        "state `{name}` select key: remaining() with no open region"
+                    ));
+                    return;
+                }
             }
         }
         let mut visit = |t: &pb::Target| {
@@ -425,6 +453,17 @@ fn region_depth_errors(parser: &pb::Parser, errs: &mut Vec<String>) {
         if !errs.is_empty() {
             return;
         }
+    }
+}
+
+fn contains_remaining(e: &pb::Expr) -> bool {
+    match &e.kind {
+        Some(pb::expr::Kind::Remaining(_)) => true,
+        Some(pb::expr::Kind::Bin(b)) => {
+            b.lhs.as_deref().is_some_and(contains_remaining)
+                || b.rhs.as_deref().is_some_and(contains_remaining)
+        }
+        _ => false,
     }
 }
 
@@ -949,6 +988,22 @@ mod tests {
         assert!(err
             .to_string()
             .contains("byte_len must not use remaining()"));
+    }
+
+    #[test]
+    fn rejects_remaining_with_no_open_region() {
+        use crate::builder::*;
+        let err = ParserBuilder::new("rootless_rem", 2)
+            .header(HeaderTypeBuilder::new("h").bits("x", 8))
+            .state(StateBuilder::new("s").extract("h").select(
+                vec![remaining()],
+                vec![arm(vec![v(0)], accept())],
+                reject("r"),
+            ))
+            .start("s")
+            .build()
+            .unwrap_err();
+        assert!(err.to_string().contains("remaining() with no open region"));
     }
 
     #[test]

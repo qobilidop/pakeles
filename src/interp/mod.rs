@@ -225,15 +225,17 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                     .and_then(|w| w.width.as_ref())
                     .ok_or_else(|| anyhow::anyhow!("field `{}` has no width", field.name))?;
                 // Reads are bounded by the innermost region end AND the
-                // buffer. Crossing a region end that lies within the
-                // buffer is structural ("out of region bounds"); running
-                // past the buffer is the truncation-class "out of
-                // bounds" (a region end beyond the buffer never fires —
-                // the buffer is the smaller bound).
+                // buffer. The reason rule is avail-free (design doc,
+                // build-time refinements): crossing the region end (a
+                // wrapped length crosses everything) is structural
+                // ("out of region bounds"); any other failing read is
+                // the truncation-class "out of bounds".
                 let bound_bits = regions.last().map_or(avail_bits, |e| (*e).min(avail_bits));
                 let oob_reason = |end_bits: Option<usize>| {
-                    let region_bound = regions.last().copied().unwrap_or(usize::MAX);
-                    if region_bound <= avail_bits && end_bits.is_none_or(|e| e > region_bound) {
+                    let crosses_region = regions
+                        .last()
+                        .is_some_and(|top| end_bits.is_none_or(|e| e > *top));
+                    if crosses_region {
                         "out of region bounds"
                     } else {
                         "out of bounds"
@@ -314,13 +316,15 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
         }
 
         // remaining() at this state's use points (assigns, region
-        // pushes, select keys): bytes to the effective bound. `None`
-        // (-> eval error) at a non-byte-aligned cursor.
+        // pushes, select keys): STRUCTURAL bytes to the innermost
+        // region end — no buffer clamp (design doc, build-time
+        // refinements). `None` (-> eval error) when no region is open
+        // (validator-enforced) or at a non-byte-aligned cursor.
         let remaining_here = |regions: &[usize], cursor_bits: usize| -> Option<u64> {
-            let bound = regions.last().map_or(avail_bits, |e| (*e).min(avail_bits));
+            let top = *regions.last()?;
             cursor_bits
                 .is_multiple_of(8)
-                .then(|| (bound.saturating_sub(cursor_bits) / 8) as u64)
+                .then(|| (top.saturating_sub(cursor_bits) / 8) as u64)
         };
 
         for a in &state.assigns {
@@ -379,16 +383,11 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                         .pop()
                         .ok_or_else(|| anyhow::anyhow!("region pop with no open region"))?;
                     if cursor_bits < end {
-                        // Exact-mode pop. A region end beyond the buffer
-                        // can never be reached, so that shortfall is the
-                        // truncation class, not a structural one.
-                        let reason = if end <= avail_bits {
-                            "region not exhausted"
-                        } else {
-                            "out of bounds"
-                        };
+                        // Exact-mode pop; with structural remaining()
+                        // a short buffer dies at a read first, so this
+                        // shortfall is always structural.
                         return reject(
-                            reason,
+                            "region not exhausted",
                             plain(Severity::Error),
                             current,
                             cursor_bits,
@@ -639,35 +638,7 @@ mod tests {
         assert_eq!(accepts, vec![true, true, true, false]);
     }
 
-    /// Region-bearing TLV mini-IR: `h.total` bounds a region holding
-    /// items (t:u8, l:u8, v:bytes[l]); loop on remaining()==0 -> pop.
-    fn tlv_mini() -> pb::Ir {
-        use crate::builder::remaining;
-        ParserBuilder::new("tlv_mini", 8)
-            .header(HeaderTypeBuilder::new("h").bits("total", 8))
-            .header(
-                HeaderTypeBuilder::new("item")
-                    .bits("t", 8)
-                    .bits("l", 8)
-                    .var_bytes("val", f("item", "l")),
-            )
-            .state(
-                StateBuilder::new("s0")
-                    .extract("h")
-                    .push_region(f("h", "total"))
-                    .goto_(to("tlv")),
-            )
-            .state(StateBuilder::new("tlv").select(
-                vec![remaining()],
-                vec![arm(vec![v(0)], to("done"))],
-                to("item_s"),
-            ))
-            .state(StateBuilder::new("item_s").extract("item").goto_(to("tlv")))
-            .state(StateBuilder::new("done").pop_region().accept())
-            .start("s0")
-            .build()
-            .unwrap()
-    }
+    use crate::builder::tlv_mini;
 
     #[test]
     fn region_tlv_loop_accepts_exact_fill() {
@@ -708,9 +679,10 @@ mod tests {
 
     #[test]
     fn region_past_buffer_is_truncation_class() {
-        // total=5 but the buffer ends after one item: remaining() clamps
-        // to the buffer, the loop exits, and the exact-pop shortfall is
-        // the truncation-class "out of bounds" (rustls: incomplete).
+        // total=5 but the buffer ends after one item: structural
+        // remaining()=3 keeps the loop going and the next read dies at
+        // the BUFFER end (within the region), so this is the
+        // truncation-class "out of bounds" (rustls: incomplete).
         let res = run(&tlv_mini(), &[5, 1, 0]).unwrap();
         assert_eq!(
             res.outcome,
@@ -718,6 +690,7 @@ mod tests {
                 reason: "out of bounds".into()
             }
         );
+        assert_eq!(res.error.unwrap().field.as_deref(), Some("t"));
     }
 
     #[test]
@@ -769,29 +742,6 @@ mod tests {
             res.outcome,
             Outcome::Reject {
                 reason: "region out of bounds".into()
-            }
-        );
-    }
-
-    #[test]
-    fn remaining_without_region_is_buffer_remaining() {
-        use crate::builder::{accept, reject, remaining};
-        // select on remaining() with no region open: bytes left in buffer.
-        let ir = ParserBuilder::new("buf_rem", 2)
-            .header(HeaderTypeBuilder::new("h").bits("x", 8))
-            .state(StateBuilder::new("s0").extract("h").select(
-                vec![remaining()],
-                vec![arm(vec![v(2)], accept())],
-                reject("wrong remaining"),
-            ))
-            .start("s0")
-            .build()
-            .unwrap();
-        assert_eq!(run(&ir, &[1, 2, 3]).unwrap().outcome, Outcome::Accept);
-        assert_eq!(
-            run(&ir, &[1, 2]).unwrap().outcome,
-            Outcome::Reject {
-                reason: "wrong remaining".into()
             }
         );
     }

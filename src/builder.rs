@@ -443,6 +443,38 @@ pub(crate) fn meta_loop() -> pb::Ir {
         .unwrap()
 }
 
+/// Shared sized-region test IR (see the sized-region design doc's
+/// micro-example): `h.total` bounds a region of TLV items
+/// (t:u8, l:u8, val:bytes[l]); loop exits on remaining()==0 -> exact
+/// pop -> accept. Used by interp/symex/codegen tests.
+#[cfg(test)]
+pub(crate) fn tlv_mini() -> pb::Ir {
+    ParserBuilder::new("tlv_mini", 8)
+        .header(HeaderTypeBuilder::new("h").bits("total", 8))
+        .header(
+            HeaderTypeBuilder::new("item")
+                .bits("t", 8)
+                .bits("l", 8)
+                .var_bytes("val", f("item", "l")),
+        )
+        .state(
+            StateBuilder::new("s0")
+                .extract("h")
+                .push_region(f("h", "total"))
+                .goto_(to("tlv")),
+        )
+        .state(StateBuilder::new("tlv").select(
+            vec![remaining()],
+            vec![arm(vec![v(0)], to("done"))],
+            to("item_s"),
+        ))
+        .state(StateBuilder::new("item_s").extract("item").goto_(to("tlv")))
+        .state(StateBuilder::new("done").pop_region().accept())
+        .start("s0")
+        .build()
+        .unwrap()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -178,6 +178,40 @@ push region, loop {`remaining()==0` → pop+accept; extract `t:u8`,
 select, per-item region-oob reject, and the O(N²) loop enumeration —
 committed with vectors + all backends BEFORE the flagship example.
 
+## Build-time refinements (binding; supersede the sections above where
+they conflict)
+
+Discovered wiring symex: the engine deliberately keeps the packet
+length OUT of the constraint system (per-path witness lengths come
+from the emit-time ladder; constraints only range over field
+variables). A buffer-clamped `remaining()` would force `avail` into
+the constraints — a whole new solver dimension. Instead:
+
+1. **`remaining()` is STRUCTURAL**: `(top − cursor)/8`, no buffer
+   clamp, and it REQUIRES an open region — the validator's depth
+   fixpoint rejects `remaining()` at region depth 0 (assigns check the
+   state's entry depth; select keys the post-ops depth; push length
+   exprs the depth before that op). Buffer-remaining never existed in
+   any target's need; a truncated buffer inside a region now surfaces
+   at the next read as ordinary truncation, which is exactly rustls's
+   `incomplete`.
+2. **Avail-free read-failure reasons**: a failing read (or a
+   wrapped/oversized var_bytes length) is "out of region bounds" iff a
+   region is open and the read's end crosses the innermost region end
+   (wrapped lengths cross everything); otherwise it is the
+   truncation-class "out of bounds". No comparison with the buffer
+   length is involved in choosing the reason.
+3. **Pop simplifies**: `cursor < end` → "region not exhausted",
+   unconditionally (the end-past-buffer case is unreachable once
+   `remaining()` is structural — a short buffer dies at a read first).
+4. **Symex read trichotomy inside a region**: {crosses region end →
+   reject "out of region bounds", fits region but buffer ends mid-read
+   → Truncation (asserts it does NOT cross the region end), fits →
+   continue}. Push forks {wrap/oversize → "region out of bounds",
+   structural lie vs enclosing (wrap-window compare) → same reason,
+   continue}; pop forks {exhausted (Eq diff 0) → continue, shortfall →
+   "region not exhausted"}.
+
 ## Out of scope (named)
 
 - **Peek/lookahead:** TLS ClientHello does not need it (every branch

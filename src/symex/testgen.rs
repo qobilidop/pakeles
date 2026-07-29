@@ -239,6 +239,37 @@ mod tests {
     }
 
     #[test]
+    fn region_tlv_suite_replays_green_and_mirrors_pathid() {
+        let ir = crate::builder::tlv_mini();
+        let suite = generate(&ir).unwrap();
+        assert!(replay(&ir, &suite).unwrap().is_empty());
+        let ids: Vec<&str> = suite.vectors.iter().map(|v| v.id.as_str()).collect();
+        // The region path families all enumerate: a fixed-width read
+        // crossing the region end, a var-length body crossing it, and
+        // exact-fill accepts through the pop.
+        assert!(
+            ids.iter()
+                .any(|i| i.contains("!roob@item.t") || i.contains("!roob@item.l")),
+            "missing fixed-read region-oob path: {ids:?}"
+        );
+        assert!(
+            ids.iter().any(|i| i.contains("!roob@item.val")),
+            "missing var-body region-oob path: {ids:?}"
+        );
+        assert!(
+            ids.iter().any(|i| i.ends_with("done")),
+            "missing exact-fill accept through pop: {ids:?}"
+        );
+        // pathid mirrors the engine's segments over every witness.
+        for v in &suite.vectors {
+            let (bits, _) = Bits::from_pb(v.packet.as_ref().unwrap());
+            let res = run_bits(&ir, &bits).unwrap();
+            let pid = crate::symex::pathid::path_id(&ir, &res).unwrap();
+            assert_eq!(pid, v.id, "pathid diverges from engine on {}", v.id);
+        }
+    }
+
+    #[test]
     fn committed_vectors_replay_green() {
         for name in ["eth_ipvx_l4", "counted_items"] {
             let ir = match name {

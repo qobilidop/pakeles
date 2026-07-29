@@ -75,6 +75,28 @@ fn t_mul(a: Term, b: Term) -> Term {
     Term::Bin(pb::BinOpKind::Mul, Box::new(a), Box::new(b))
 }
 
+/// `a > b` over cursor/region-end terms via the wrap window: both sides
+/// are bounded far below 2^32 under the path constraints (cursor_max <=
+/// SANITY_BITS, region ends <= cursor + 8*SANITY_BYTES), so `a - b`
+/// lands in [1, WINDOW] exactly when a > b and wraps to >= 2^64 - WINDOW
+/// otherwise. Same idiom as the wrapped-var_bytes oob split.
+const REGION_CMP_WINDOW: u64 = 1 << 32;
+fn t_gt(a: Term, b: Term) -> Constraint {
+    Constraint::InRange(t_sub(a, b), 1, REGION_CMP_WINDOW)
+}
+
+/// OR of constraints via De Morgan (the solver core stays And/Not).
+fn c_or(mut cs: Vec<Constraint>) -> Constraint {
+    if cs.len() == 1 {
+        return cs.pop().expect("len checked");
+    }
+    Constraint::Not(Box::new(Constraint::And(
+        cs.into_iter()
+            .map(|c| Constraint::Not(Box::new(c)))
+            .collect(),
+    )))
+}
+
 /// Feasibility byproducts consumed by lint.
 #[derive(Debug, Default)]
 pub struct FeasibilityLog {
@@ -259,6 +281,9 @@ struct Frame {
     /// width); reads clone the current term. Seeded from declared inits
     /// at the root frame (see `enumerate`); `default()` stays empty.
     meta: HashMap<String, Term>,
+    /// Sized-region stack: symbolic end bit offsets, innermost last
+    /// (see the sized-region design doc, build-time refinements).
+    regions: Vec<Term>,
 }
 
 impl Default for Frame {
@@ -273,6 +298,7 @@ impl Default for Frame {
             depth: 0,
             loop_counts: HashMap::new(),
             meta: HashMap::new(),
+            regions: Vec::new(),
         }
     }
 }
@@ -282,11 +308,6 @@ pub(crate) fn enumerate(ir: &pb::Ir, solver: &mut dyn Solver) -> anyhow::Result<
         .parser
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("ir has no parser"))?;
-    // Wired up by the sized-region symex task; loud until then
-    // (silently ignoring region ops would enumerate wrong paths).
-    if parser.states.iter().any(|s| !s.region_ops.is_empty()) {
-        anyhow::bail!("sized regions not yet supported in symex");
-    }
     let mut ctx = Ctx {
         parser,
         states: parser.states.iter().map(|s| (s.name.as_str(), s)).collect(),
@@ -373,9 +394,18 @@ fn cyclic_states(parser: &pb::Parser) -> HashSet<String> {
 
 fn term_of_expr(e: &pb::Expr, frame: &Frame) -> anyhow::Result<Term> {
     match e.kind.as_ref() {
-        // Wired up by the sized-region symex task; loud until then.
+        // Structural: (top - cursor) / 8, exact because both are
+        // byte-aligned sums and cursor <= top holds on continue worlds.
         Some(pb::expr::Kind::Remaining(_)) => {
-            anyhow::bail!("remaining() not yet supported in symex")
+            let top = frame
+                .regions
+                .last()
+                .ok_or_else(|| anyhow::anyhow!("remaining() with no open region"))?;
+            Ok(Term::Bin(
+                pb::BinOpKind::Shr,
+                Box::new(t_sub(top.clone(), frame.cursor.clone())),
+                Box::new(t_cst(3)),
+            ))
         }
         Some(pb::expr::Kind::Constant(v)) => Ok(Term::Const(*v)),
         Some(pb::expr::Kind::Field(r)) => {
@@ -521,6 +551,40 @@ fn walk_extracts(
     match field.width.as_ref().and_then(|w| w.width.as_ref()) {
         Some(pb::field_width::Width::Bits(n)) => {
             let n = *n as usize;
+            // Region trichotomy (design doc, build-time refinements):
+            // {crosses the innermost region end -> structural reject,
+            // fits the region but the buffer ends mid-field ->
+            // truncation, fits -> continue}. Without a region, only the
+            // latter two exist.
+            let mut scoped = false;
+            if let Some(top) = frame.regions.last().cloned() {
+                let end = t_add(frame.cursor.clone(), t_cst(n as u64));
+                let cross = t_gt(end, top);
+                {
+                    let mut f = frame.clone();
+                    f.constraints.push(cross.clone());
+                    ctx.session.push();
+                    ctx.session.assert_cs(std::slice::from_ref(&cross));
+                    if ctx.check(f.cursor_max.max(1), &f.constraints) {
+                        f.segments.push(format!("!roob@{inst}.{}", field.name));
+                        emit(
+                            ctx,
+                            &f,
+                            PathKind::Reject {
+                                reason: "out of region bounds".into(),
+                            },
+                            f.cursor.clone(),
+                            f.cursor_min,
+                        );
+                    }
+                    ctx.session.pop();
+                }
+                let fits = Constraint::Not(Box::new(cross));
+                frame.constraints.push(fits.clone());
+                ctx.session.push();
+                ctx.session.assert_cs(std::slice::from_ref(&fits));
+                scoped = true;
+            }
             // Truncation fork: packet ends before this field is fully read.
             {
                 let mut t = frame.clone();
@@ -541,7 +605,11 @@ fn walk_extracts(
             frame.cursor = t_add(frame.cursor, t_cst(n as u64));
             frame.cursor_max += n;
             frame.cursor_min += n;
-            walk_extracts(ctx, state, items, idx + 1, frame)
+            let r = walk_extracts(ctx, state, items, idx + 1, frame);
+            if scoped {
+                ctx.session.pop();
+            }
+            r
         }
         Some(pb::field_width::Width::ByteLen(expr)) => {
             // No per-value forking: the body length stays symbolic. Fork
@@ -564,20 +632,46 @@ fn walk_extracts(
             // Out-of-bounds reject: length wraps / exceeds `bound_bytes`
             // (feasible only when the expr can wrap, e.g. ihl<5, or exceed the
             // sane cap; z3 prunes it otherwise). Short witness -> interp
-            // "out of bounds".
+            // "out of bounds". Inside a region the failure set widens to
+            // include the body end crossing the region end, and the
+            // reason/segment become the structural ones (a wrapped
+            // length crosses everything, so one unified fork suffices —
+            // matching the interp's avail-free reason rule).
+            let region_top = frame.regions.last().cloned();
+            let body_end = t_add(frame.cursor.clone(), t_mul(t_cst(8), len_term.clone()));
             {
                 let mut oob = frame.clone();
-                let delta = Constraint::InRange(len_term.clone(), bound_bytes + 1, u64::MAX);
+                let mut fails = vec![Constraint::InRange(
+                    len_term.clone(),
+                    bound_bytes + 1,
+                    u64::MAX,
+                )];
+                if let Some(top) = &region_top {
+                    fails.push(t_gt(body_end.clone(), top.clone()));
+                }
+                let (delta, seg, reason) = if region_top.is_some() {
+                    (
+                        c_or(fails),
+                        format!("!roob@{inst}.{}", field.name),
+                        "out of region bounds",
+                    )
+                } else {
+                    (
+                        fails.pop().expect("one element"),
+                        format!("!oob@{inst}.{}", field.name),
+                        "out of bounds",
+                    )
+                };
                 oob.constraints.push(delta.clone());
                 ctx.session.push();
                 ctx.session.assert_cs(std::slice::from_ref(&delta));
                 if ctx.check(oob.cursor_max.max(1), &oob.constraints) {
-                    oob.segments.push(format!("!oob@{inst}.{}", field.name));
+                    oob.segments.push(seg);
                     emit(
                         ctx,
                         &oob,
                         PathKind::Reject {
-                            reason: "out of bounds".into(),
+                            reason: reason.into(),
                         },
                         frame.cursor.clone(),
                         frame.cursor_min,
@@ -591,12 +685,16 @@ fn walk_extracts(
             // Feeds cursor_min so the witness ladder skips doomed rungs.
             let min_bytes = term_interval(&len_term).0.min(bound_bytes);
 
-            // The continue world is the non-wrapping, within-bound lengths.
-            // Its scope wraps the rest of this state's walk.
-            let cont = Constraint::InRange(len_term.clone(), 0, bound_bytes);
-            frame.constraints.push(cont.clone());
+            // The continue world is the non-wrapping, within-bound lengths
+            // that also fit the innermost region, if one is open. Its
+            // scope wraps the rest of this state's walk.
+            let mut cont = vec![Constraint::InRange(len_term.clone(), 0, bound_bytes)];
+            if let Some(top) = &region_top {
+                cont.push(Constraint::Not(Box::new(t_gt(body_end, top.clone()))));
+            }
+            frame.constraints.extend(cont.iter().cloned());
             ctx.session.push();
-            ctx.session.assert_cs(std::slice::from_ref(&cont));
+            ctx.session.assert_cs(&cont);
 
             // Body-truncation: packet ends inside a non-empty body.
             {
@@ -689,6 +787,108 @@ fn walk_transition(ctx: &mut Ctx, state: &pb::State, mut frame: Frame) -> anyhow
         };
         frame.meta.insert(a.metadata.clone(), masked);
     }
+    walk_region_ops(ctx, state, 0, frame)
+}
+
+/// Process `state.region_ops[idx..]` (each op forks like a var-length
+/// field: structural-failure reject + constrained continue), then hand
+/// off to the transition dispatch. Scope discipline mirrors
+/// `walk_extracts`: each continue pushes one session scope, popped
+/// after the recursion returns.
+fn walk_region_ops(
+    ctx: &mut Ctx,
+    state: &pb::State,
+    idx: usize,
+    mut frame: Frame,
+) -> anyhow::Result<()> {
+    let Some(op) = state.region_ops.get(idx) else {
+        return walk_dispatch(ctx, state, frame);
+    };
+    match op.kind.as_ref() {
+        Some(pb::region_op::Kind::Push(e)) => {
+            let len_term = term_of_expr(e, &frame)?;
+            let bound_bytes: u64 = expr_max(e, ctx.parser)?.min(SANITY_BYTES as u128) as u64;
+            let end_term = t_add(frame.cursor.clone(), t_mul(t_cst(8), len_term.clone()));
+            // Failure fork: wrapped/oversized length, or (nested) the new
+            // end crossing the enclosing region end. One fork, one
+            // reason — matching the interp's "region out of bounds".
+            let mut fails = vec![Constraint::InRange(
+                len_term.clone(),
+                bound_bytes + 1,
+                u64::MAX,
+            )];
+            if let Some(top) = frame.regions.last() {
+                fails.push(t_gt(end_term.clone(), top.clone()));
+            }
+            let fail = c_or(fails);
+            {
+                let mut f = frame.clone();
+                f.constraints.push(fail.clone());
+                ctx.session.push();
+                ctx.session.assert_cs(std::slice::from_ref(&fail));
+                if ctx.check(f.cursor_max.max(1), &f.constraints) {
+                    f.segments.push(format!("!rpush@{}#{idx}", state.name));
+                    emit(
+                        ctx,
+                        &f,
+                        PathKind::Reject {
+                            reason: "region out of bounds".into(),
+                        },
+                        f.cursor.clone(),
+                        f.cursor_min,
+                    );
+                }
+                ctx.session.pop();
+            }
+            let ok = Constraint::Not(Box::new(fail));
+            frame.constraints.push(ok.clone());
+            ctx.session.push();
+            ctx.session.assert_cs(std::slice::from_ref(&ok));
+            frame.regions.push(end_term);
+            let r = walk_region_ops(ctx, state, idx + 1, frame);
+            ctx.session.pop();
+            r
+        }
+        Some(pb::region_op::Kind::Pop(_)) => {
+            let end = frame
+                .regions
+                .pop()
+                .ok_or_else(|| anyhow::anyhow!("region pop with no open region"))?;
+            // Shortfall fork: exact-mode pop with the cursor short of
+            // the region end -> "region not exhausted".
+            let short = t_gt(end.clone(), frame.cursor.clone());
+            {
+                let mut f = frame.clone();
+                f.constraints.push(short.clone());
+                ctx.session.push();
+                ctx.session.assert_cs(std::slice::from_ref(&short));
+                if ctx.check(f.cursor_max.max(1), &f.constraints) {
+                    f.segments.push(format!("!rtrail@{}#{idx}", state.name));
+                    emit(
+                        ctx,
+                        &f,
+                        PathKind::Reject {
+                            reason: "region not exhausted".into(),
+                        },
+                        f.cursor.clone(),
+                        f.cursor_min,
+                    );
+                }
+                ctx.session.pop();
+            }
+            let exact = Constraint::Eq(t_sub(end, frame.cursor.clone()), 0);
+            frame.constraints.push(exact.clone());
+            ctx.session.push();
+            ctx.session.assert_cs(std::slice::from_ref(&exact));
+            let r = walk_region_ops(ctx, state, idx + 1, frame);
+            ctx.session.pop();
+            r
+        }
+        None => anyhow::bail!("empty region op"),
+    }
+}
+
+fn walk_dispatch(ctx: &mut Ctx, state: &pb::State, frame: Frame) -> anyhow::Result<()> {
     fn target_group_key(t: &pb::Target) -> Option<String> {
         match t.kind.as_ref()? {
             pb::target::Kind::State(s) => Some(format!("state:{s}")),
