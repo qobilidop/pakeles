@@ -20,6 +20,10 @@ RUN echo "wireshark-common wireshark-common/install-setuid boolean false" | debc
       ca-certificates curl build-essential git \
       protobuf-compiler tshark graphviz \
       libz3-dev libclang-dev clang llvm libbpf-dev \
+      # DPDK for the dpdk_ptype oracle (rte_net_get_ptype); noble ships
+      # 23.11.x — the version tag in the committed goldens. Costs ~image
+      # size only: the dev package pulls every librte PMD.
+      libdpdk-dev pkg-config \
  && rm -rf /var/lib/apt/lists/*
 
 # buf CLI (pinned)

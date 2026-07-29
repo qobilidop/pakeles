@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 *.egg-info/
 /oracle/flow_dissector/factory/build/
+/oracle/dpdk_ptype/factory/build/
 
 # Generated conformance suites (churn on every IR/testgen change; regenerate
 # with ./dev.sh scripts/gen-examples.sh). Re-committed when the codebase stabilizes.
