@@ -2,7 +2,7 @@
 # Regenerate the gallery from its single source of truth, the Python eDSL.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-for name in eth_ipvx_l4 linux_flow_dissector counted_items dpdk_ptype katran_flow sai_parser; do
+for name in eth_ipvx_l4 linux_flow_dissector counted_items tlv_items dpdk_ptype katran_flow sai_parser; do
   ir="examples/$name/$name.ir.json"
   mkdir -p "examples/$name"
   tmp="$(mktemp)"

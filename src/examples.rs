@@ -55,6 +55,13 @@ pub fn counted_items() -> pb::Ir {
     .expect("committed example IR must parse")
 }
 
+/// The sized-region toy example (length-bounded TLV items), parsed
+/// from the embedded committed IR.
+pub fn tlv_items() -> pb::Ir {
+    crate::ir::from_json(include_str!("../examples/tlv_items/tlv_items.ir.json"))
+        .expect("committed example IR must parse")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -224,6 +231,31 @@ mod tests {
         let canonical =
             std::fs::read_to_string("py/src/pakeles/examples/counted_items.py").unwrap();
         let mirrored = std::fs::read_to_string("examples/counted_items/counted_items.py").unwrap();
+        assert_eq!(
+            canonical, mirrored,
+            "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
+    #[test]
+    fn tlv_items_embedded_ir_parses_and_validates() {
+        crate::ir::validate::validate(&tlv_items()).unwrap();
+    }
+
+    #[test]
+    fn tlv_items_committed_ir_json_is_canonical() {
+        let committed = std::fs::read_to_string("examples/tlv_items/tlv_items.ir.json").unwrap();
+        let round = crate::ir::to_json(&crate::ir::from_json(&committed).unwrap()).unwrap();
+        assert_eq!(
+            round, committed,
+            "committed ir.json is not in canonical form; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
+    #[test]
+    fn tlv_items_committed_py_example_current() {
+        let canonical = std::fs::read_to_string("py/src/pakeles/examples/tlv_items.py").unwrap();
+        let mirrored = std::fs::read_to_string("examples/tlv_items/tlv_items.py").unwrap();
         assert_eq!(
             canonical, mirrored,
             "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"

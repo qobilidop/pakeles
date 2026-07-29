@@ -783,6 +783,19 @@ mod tests {
         }
     }
 
+    #[test]
+    fn sized_region_ir_is_refused_by_design() {
+        // The parity-plus boundary: a P4-16 parser cannot parse inside
+        // a length-bounded window, so gen p4 refuses region IR loudly
+        // (the gallery commits gen/P4-UNSUPPORTED.txt instead).
+        let err = generate_p4(&crate::examples::tlv_items()).unwrap_err();
+        assert!(err.to_string().contains("P4-16 parser expressiveness"));
+        assert!(
+            std::path::Path::new("examples/tlv_items/gen/P4-UNSUPPORTED.txt").exists(),
+            "marker artifact missing; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
     /// Runs p4test against `p4`, skipping (with a stderr note) when p4test
     /// isn't installed locally — it runs in the CI container. Asserts a
     /// clean compile (and, if `deny_warnings`, no warnings); returns

@@ -1,0 +1,14 @@
+digraph "tlv_items" {
+  rankdir=TB;
+  node [fontname="Helvetica"];
+  "parse_total" [shape=box, label="parse_total\nextract total_len"];
+  "tlv_loop" [shape=box, label="tlv_loop"];
+  "parse_item" [shape=box, label="parse_item\nextract item"];
+  "close" [shape=box, label="close"];
+  "accept" [shape=doublecircle];
+  "parse_total" -> "tlv_loop";
+  "tlv_loop" -> "close" [label="remaining() == 0x0"];
+  "tlv_loop" -> "parse_item" [label="default", style=dashed];
+  "parse_item" -> "tlv_loop";
+  "close" -> "accept";
+}

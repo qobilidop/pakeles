@@ -235,6 +235,11 @@ fn referenced_fields(parser: &pb::Parser) -> HashSet<(String, String)> {
                 walk(v);
             }
         }
+        for op in &s.region_ops {
+            if let Some(pb::region_op::Kind::Push(e)) = &op.kind {
+                walk(e);
+            }
+        }
     }
     out
 }
@@ -875,6 +880,7 @@ mod tests {
             ("eth_ipvx_l4", eth_ipvx_l4()),
             ("linux_flow_dissector", linux_flow_dissector()),
             ("counted_items", counted_items()),
+            ("tlv_items", crate::examples::tlv_items()),
             ("dpdk_ptype", dpdk_ptype()),
             ("katran_flow", katran_flow()),
             ("sai_parser", sai_parser()),
@@ -1123,6 +1129,11 @@ mod tests {
         // Sized-region loop in real tshark: exact-fill accepts (0/1/2
         // items) compare item fields through the region machinery.
         generated_dissector_conformance_suite(&crate::builder::tlv_mini(), 3);
+    }
+
+    #[test]
+    fn generated_dissector_conformance_tlv_items() {
+        generated_dissector_conformance_suite(&crate::examples::tlv_items(), 3);
     }
 
     type ExpectedFields = Vec<(String, Option<crate::testvec::pb::expected_field::Value>)>;

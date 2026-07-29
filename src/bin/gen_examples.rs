@@ -27,10 +27,19 @@ fn regenerate(name: &str) -> anyhow::Result<()> {
         gen.join("parser.bpf.c"),
         pakeles::codegen::c::generate_bpf(&ir)?,
     )?;
-    std::fs::write(
-        gen.join("parser.p4"),
-        pakeles::codegen::p4::generate_p4(&ir)?,
-    )?;
+    // gen p4 refuses sized-region IR by design (a P4-16 parser cannot
+    // parse inside a length-bounded window) — commit the refusal as a
+    // marker artifact instead of a parser.p4.
+    match pakeles::codegen::p4::generate_p4(&ir) {
+        Ok(p4) => std::fs::write(gen.join("parser.p4"), p4)?,
+        Err(e) if e.to_string().contains("P4-16 parser expressiveness") => {
+            std::fs::write(
+                gen.join("P4-UNSUPPORTED.txt"),
+                format!("gen p4: {e}\n(see docs/superpowers/specs/2026-07-29-sized-region-tlv-ir-design.md)\n"),
+            )?;
+        }
+        Err(e) => return Err(e),
+    }
     let suite = pakeles::symex::testgen::generate(&ir)?;
     std::fs::write(
         conformance.join("vectors.json"),
@@ -53,6 +62,7 @@ fn main() -> anyhow::Result<()> {
         "eth_ipvx_l4",
         "linux_flow_dissector",
         "counted_items",
+        "tlv_items",
         "dpdk_ptype",
         "katran_flow",
         "sai_parser",

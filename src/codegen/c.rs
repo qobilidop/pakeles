@@ -516,10 +516,7 @@ impl<'a> Emit<'a> {
                     self.emit_reject(w, "        ", "region not exhausted")?;
                     writeln!(w, "      }}")?;
                     writeln!(w, "      pk_rsp--;")?;
-                    writeln!(
-                        w,
-                        "      if (off < pk_region_end[pk_rsp & PK_RMASK]) {{"
-                    )?;
+                    writeln!(w, "      if (off < pk_region_end[pk_rsp & PK_RMASK]) {{")?;
                     self.emit_reject(w, "        ", "region not exhausted")?;
                     writeln!(w, "      }}")?;
                 }
@@ -1014,6 +1011,11 @@ mod tests {
         c_backend_conformance(&crate::builder::tlv_mini());
     }
 
+    #[test]
+    fn c_backend_conformance_full_suite_tlv_items() {
+        c_backend_conformance(&crate::examples::tlv_items());
+    }
+
     /// eBPF conformance: compile with clang -target bpf, extract
     /// .text, execute under the rbpf userspace VM per vector, compare
     /// the packed verdict (outcome | reason | consumed) against the
@@ -1139,6 +1141,11 @@ mod tests {
     }
 
     #[test]
+    fn bpf_backend_conformance_full_suite_tlv_items() {
+        bpf_backend_conformance(&crate::examples::tlv_items());
+    }
+
+    #[test]
     fn c_backend_conformance_full_suite_dpdk_ptype() {
         c_backend_conformance(&dpdk_ptype());
     }
@@ -1174,6 +1181,7 @@ mod tests {
             ("eth_ipvx_l4", eth_ipvx_l4()),
             ("linux_flow_dissector", linux_flow_dissector()),
             ("counted_items", counted_items()),
+            ("tlv_items", crate::examples::tlv_items()),
             ("dpdk_ptype", dpdk_ptype()),
             ("katran_flow", katran_flow()),
             ("sai_parser", sai_parser()),
