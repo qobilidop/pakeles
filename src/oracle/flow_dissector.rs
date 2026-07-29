@@ -975,7 +975,7 @@ mod gate_tests {
             .count();
         let drop = g.entries.len() - ok;
         assert!(
-            ok >= 17 && drop >= 10,
+            ok >= 29 && drop >= 14,
             "corpus shape shrank: {ok} ok / {drop} drop entries"
         );
         for name in [
@@ -993,11 +993,12 @@ mod gate_tests {
             "flow_label",
             "is_frag",
             "is_first_frag",
+            "is_encap",
         ] {
             assert!(
                 g.keys_subset.iter().any(|s| s == name),
-                "golden keys_subset missing `{name}` — re-mint with the rung-2 capture.c \
-                 (a subset-stale golden would silently skip the new v3 fields)"
+                "golden keys_subset missing `{name}` — re-mint with the rung-4a capture.c \
+                 (a subset-stale golden would silently skip the newer fields)"
             );
         }
         assert_eq!(report.compared, g.entries.len());

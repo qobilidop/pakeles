@@ -86,9 +86,10 @@ layer (either family), `ip_proto` from the last next-protocol field, and
 {v4,v6}×{v4,v6}, double encap, tunnels behind QinQ and behind ext-header
 chains, fragmented outer (stops both sides before re-entry, `is_encap`
 stays false) and fragmented inner (`is_encap` *and* `is_frag`) — with
-projection unit tests on byte-identical twins of every vector; the
-kernel-agreement claim over these vectors activates with the rung-4a
-golden re-mint (goldens CI workflow, fixed capture.c).
+projection unit tests on byte-identical twins of every vector, and
+kernel agreement proven over all of them: the committed golden is
+minted with the rung-4a capture.c, so `is_encap` and inner addresses
+are compared, not excluded.
 
 **Boundary of the agreement claim:** the reject⇔drop agreement above is
 proven over the committed corpus, no further. There are known divergence
@@ -128,12 +129,6 @@ rung boundaries, not bugs:
   pushes). So for a deep plain-IPv6 option chain the P4 datapath accepts a
   few more options than the others (and there agrees with the kernel) —
   a seam that lives entirely in this untested divergence zone.
-  Note this bound is per-backend: the interpreter, C, BPF, and Lua count
-  *every* state entered against `max_depth`, whereas the P4 backend's only
-  loop bound is its option-header stack size (which counts *only* option
-  pushes). So for a deep plain-IPv6 option chain the P4 datapath accepts a
-  few more options than the others (and there agrees with the kernel) —
-  a seam that lives entirely in this untested divergence zone.
 
 Adding any of these as a corpus vector would make the gate legitimately
 red until a future rung models them.
@@ -153,10 +148,9 @@ Agreement = matching the subset of `bpf_flow_keys` fields the covered
 protocols populate, growing per rung. Rung-0 subset: `{ nhoff, thoff,
 n_proto, addr_proto, ip_proto, sport, dport, ipv4_src, ipv4_dst, ipv6_src,
 ipv6_dst }`; rung 2 added `{ flow_label, is_frag, is_first_frag }`; rung 4a
-adds `is_encap` (declared program metadata — enters the compared subset
-when the rung-4a goldens are minted with the fixed capture.c; until that
-re-mint the committed golden predates the field and the gate compares the
-rung-2 subset). Fields outside the current rung's subset are not compared
+adds `is_encap` (declared program metadata, compared like any other
+field — the committed golden is minted with the rung-4a capture.c and
+carries it for every ok entry). Fields outside the current rung's subset are not compared
 (documented in each golden file's `keys_subset`, never silently skipped).
 
 ## Files
