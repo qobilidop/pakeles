@@ -16,3 +16,4 @@ examples/*/conformance/vectors.pcap
 /oracle/katran/factory/build/
 oracle/katran/factory/witnesses.txt
 /oracle/katran/spike/build/
+/oracle/sai_p4/factory/build/
