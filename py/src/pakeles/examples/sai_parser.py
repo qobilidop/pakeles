@@ -34,6 +34,7 @@ from pakeles import (
     parser,
     var_bytes,
 )
+from pakeles._states import ArmKey, Target
 from pakeles.fmt import DEC, ETHER, HEX, IPV4
 
 _ETHERTYPE = {0x0800: "IPv4", 0x0806: "ARP", 0x8100: "802.1Q VLAN", 0x86DD: "IPv6"}
@@ -119,7 +120,7 @@ class UDP(Header):
     checksum = bits(16, "Checksum", HEX)
 
 
-def _l3_arms() -> dict:
+def _l3_arms() -> dict[ArmKey, Target]:
     return {0x0800: "parse_ipv4", 0x86DD: "parse_ipv6", 0x0806: "parse_arp"}
 
 

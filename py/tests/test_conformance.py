@@ -15,8 +15,8 @@ from pakeles.examples.counted_items import counted_items
 from pakeles.examples.dpdk_ptype import dpdk_ptype
 from pakeles.examples.eth_ipvx_l4 import eth_ipvx_l4
 from pakeles.examples.katran_flow import katran_flow
-from pakeles.examples.sai_parser import sai_parser
 from pakeles.examples.linux_flow_dissector import linux_flow_dissector
+from pakeles.examples.sai_parser import sai_parser
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = Path(__file__).resolve().parents[1] / "src"
