@@ -138,6 +138,9 @@ typedef enum {
   PK_R_OUT_OF_BOUNDS = 1,
   PK_R_MAX_DEPTH_EXCEEDED = 2,
   PK_R_NO_MATCHING_SELECT_ARM = 3,
+  PK_R_OUT_OF_REGION_BOUNDS = 4,
+  PK_R_REGION_OUT_OF_BOUNDS = 5,
+  PK_R_REGION_NOT_EXHAUSTED = 6,
 } pk_dpdk_ptype_reason_t;
 
 static __attribute__((always_inline)) uint64_t pk_read_bits(const uint8_t *buf, uint64_t off, uint32_t n) {

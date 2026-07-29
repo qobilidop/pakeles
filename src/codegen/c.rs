@@ -72,6 +72,9 @@ fn reason_table(parser: &pb::Parser) -> Vec<(String, u32)> {
         ("out of bounds".to_string(), 1),
         ("max depth exceeded".to_string(), 2),
         ("no matching select arm".to_string(), 3),
+        ("out of region bounds".to_string(), 4),
+        ("region out of bounds".to_string(), 5),
+        ("region not exhausted".to_string(), 6),
     ];
     let mut next = 16u32;
     for r in authored {
@@ -125,10 +128,12 @@ fn instances(parser: &pb::Parser) -> Vec<(String, String)> {
 
 fn expr_c(e: &pb::Expr) -> Result<String> {
     match e.kind.as_ref() {
-        // Lowered by the sized-region backend task; loud until then.
-        Some(pb::expr::Kind::Remaining(_)) => {
-            anyhow::bail!("remaining() not yet lowered in the C backend")
-        }
+        // Structural bytes to the innermost region end. Only legal
+        // with a region open (validator), so rsp >= 1 here; the mask
+        // keeps the index verifier-bounded (see `region_locals`).
+        Some(pb::expr::Kind::Remaining(_)) => Ok(format!(
+            "((pk_region_end[(pk_rsp - 1u) & PK_RMASK] - off) >> 3)"
+        )),
         Some(pb::expr::Kind::Constant(v)) => Ok(format!("{v}ULL")),
         Some(pb::expr::Kind::Field(r)) => Ok(format!("(uint64_t)out->{}.{}", r.header, r.field)),
         Some(pb::expr::Kind::Bin(b)) => {
@@ -312,6 +317,15 @@ impl<'a> Emit<'a> {
             self.parser.start_state.to_uppercase()
         )?;
         writeln!(w, "  uint32_t depth;")?;
+        let rcap = self.region_cap();
+        if rcap > 0 {
+            // PK_RMASK bounds every index for the eBPF verifier; the
+            // validator's depth consistency makes the clamps dead code.
+            let mask = rcap.next_power_of_two() - 1;
+            writeln!(w, "#define PK_RMASK {mask}u")?;
+            writeln!(w, "  uint64_t pk_region_end[{}];", mask + 1)?;
+            writeln!(w, "  uint32_t pk_rsp = 0;")?;
+        }
         for md in &self.parser.metadata {
             writeln!(w, "  out->m_{} = {}ULL;", md.name, md.init)?;
         }
@@ -334,6 +348,18 @@ impl<'a> Emit<'a> {
         writeln!(w, "  return 1;")?;
         writeln!(w, "}}")?;
         Ok(w)
+    }
+
+    /// Static sized-region capacity: total pushes across all states is
+    /// a sound (if loose) bound on the nesting depth the validator
+    /// enforces. 0 = the parser uses no regions (emit no locals).
+    fn region_cap(&self) -> usize {
+        self.parser
+            .states
+            .iter()
+            .flat_map(|s| &s.region_ops)
+            .filter(|op| matches!(op.kind, Some(pb::region_op::Kind::Push(_))))
+            .count()
     }
 
     fn meta_bits(&self, name: &str) -> u32 {
@@ -387,9 +413,21 @@ impl<'a> Emit<'a> {
                 &ex.instance
             };
             writeln!(w, "      out->{inst}_present = 1;")?;
+            let regions = self.region_cap() > 0;
             for f in &ht.fields {
                 match f.width.as_ref().and_then(|x| x.width.as_ref()) {
                     Some(pb::field_width::Width::Bits(n)) => {
+                        // Region end first: crossing the innermost region
+                        // is structural regardless of the buffer (the
+                        // interp's avail-free reason rule).
+                        if regions {
+                            writeln!(
+                                w,
+                                "      if (pk_rsp && off + {n} > pk_region_end[(pk_rsp - 1u) & PK_RMASK]) {{"
+                            )?;
+                            self.emit_reject(w, "        ", "out of region bounds")?;
+                            writeln!(w, "      }}")?;
+                        }
                         writeln!(w, "      if (off + {n} > bit_len) {{")?;
                         self.emit_reject(w, "        ", "out of bounds")?;
                         writeln!(w, "      }}")?;
@@ -405,7 +443,15 @@ impl<'a> Emit<'a> {
                         writeln!(w, "      {{")?;
                         writeln!(w, "        uint64_t vlen = {};", expr_c(expr)?)?;
                         // Division form: immune to u64 overflow on
-                        // wrapped lengths; off <= bit_len holds here.
+                        // wrapped lengths; off <= bound holds here.
+                        if regions {
+                            writeln!(
+                                w,
+                                "        if (pk_rsp && vlen > (pk_region_end[(pk_rsp - 1u) & PK_RMASK] - off) / 8) {{"
+                            )?;
+                            self.emit_reject(w, "          ", "out of region bounds")?;
+                            writeln!(w, "        }}")?;
+                        }
                         writeln!(w, "        if (vlen > (bit_len - off) / 8) {{")?;
                         self.emit_reject(w, "          ", "out of bounds")?;
                         writeln!(w, "        }}")?;
@@ -430,6 +476,54 @@ impl<'a> Emit<'a> {
                     a.metadata,
                     (1u64 << bits) - 1
                 )?;
+            }
+        }
+        for op in &s.region_ops {
+            match op.kind.as_ref() {
+                Some(pb::region_op::Kind::Push(e)) => {
+                    writeln!(w, "      {{")?;
+                    writeln!(w, "        uint64_t rlen = {};", expr_c(e)?)?;
+                    // Structural check against the enclosing region only
+                    // (division form, overflow-immune); at depth 0 just
+                    // guard the end arithmetic itself.
+                    writeln!(w, "        if (pk_rsp) {{")?;
+                    writeln!(
+                        w,
+                        "          if (rlen > (pk_region_end[(pk_rsp - 1u) & PK_RMASK] - off) / 8) {{"
+                    )?;
+                    self.emit_reject(w, "            ", "region out of bounds")?;
+                    writeln!(w, "          }}")?;
+                    writeln!(
+                        w,
+                        "        }} else if (rlen > (0xffffffffffffffffULL - off) / 8) {{"
+                    )?;
+                    self.emit_reject(w, "          ", "region out of bounds")?;
+                    writeln!(w, "        }}")?;
+                    writeln!(w, "        if (pk_rsp > PK_RMASK) {{")?;
+                    self.emit_reject(w, "          ", "region out of bounds")?;
+                    writeln!(w, "        }}")?;
+                    writeln!(
+                        w,
+                        "        pk_region_end[pk_rsp & PK_RMASK] = off + rlen * 8;"
+                    )?;
+                    writeln!(w, "        pk_rsp++;")?;
+                    writeln!(w, "      }}")?;
+                }
+                Some(pb::region_op::Kind::Pop(_)) => {
+                    // Balance is validator-enforced; the rsp guard is
+                    // dead code that keeps the eBPF verifier happy.
+                    writeln!(w, "      if (!pk_rsp) {{")?;
+                    self.emit_reject(w, "        ", "region not exhausted")?;
+                    writeln!(w, "      }}")?;
+                    writeln!(w, "      pk_rsp--;")?;
+                    writeln!(
+                        w,
+                        "      if (off < pk_region_end[pk_rsp & PK_RMASK]) {{"
+                    )?;
+                    self.emit_reject(w, "        ", "region not exhausted")?;
+                    writeln!(w, "      }}")?;
+                }
+                None => bail!("empty region op"),
             }
         }
         match s.transition.as_ref().and_then(|t| t.kind.as_ref()) {
@@ -514,9 +608,6 @@ pub fn generate_c(ir: &pb::Ir) -> Result<CArtifacts> {
         .parser
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("ir has no parser"))?;
-    if super::has_region_ops(parser) {
-        anyhow::bail!("sized regions not yet lowered in the C backend");
-    }
     let emit = Emit::new(parser);
     Ok(CArtifacts {
         header: emit.header()?,
@@ -629,9 +720,6 @@ pub fn generate_bpf(ir: &pb::Ir) -> Result<String> {
         .parser
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("ir has no parser"))?;
-    if super::has_region_ops(parser) {
-        anyhow::bail!("sized regions not yet lowered in the eBPF backend");
-    }
     let emit = Emit::new(parser);
     let p = &emit.prefix;
     let mut w = String::new();
@@ -921,6 +1009,11 @@ mod tests {
         c_backend_conformance(&counted_items());
     }
 
+    #[test]
+    fn c_backend_conformance_full_suite_tlv_mini() {
+        c_backend_conformance(&crate::builder::tlv_mini());
+    }
+
     /// eBPF conformance: compile with clang -target bpf, extract
     /// .text, execute under the rbpf userspace VM per vector, compare
     /// the packed verdict (outcome | reason | consumed) against the
@@ -1038,6 +1131,11 @@ mod tests {
     #[test]
     fn bpf_backend_conformance_full_suite_counted_items() {
         bpf_backend_conformance(&counted_items());
+    }
+
+    #[test]
+    fn bpf_backend_conformance_full_suite_tlv_mini() {
+        bpf_backend_conformance(&crate::builder::tlv_mini());
     }
 
     #[test]

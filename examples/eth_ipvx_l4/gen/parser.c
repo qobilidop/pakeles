@@ -429,6 +429,9 @@ const char *pk_eth_ipvx_l4_reason_str(uint16_t reason) {
   case 1: return "out of bounds";
   case 2: return "max depth exceeded";
   case 3: return "no matching select arm";
+  case 4: return "out of region bounds";
+  case 5: return "region out of bounds";
+  case 6: return "region not exhausted";
   case 16: return "unsupported ethertype";
   case 17: return "unsupported ip protocol";
   default: return "";

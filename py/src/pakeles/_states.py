@@ -10,7 +10,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from dataclasses import field as dc_field
 
-from pakeles._expr import BoundField, Expr, FieldSpec, Operand, coerce_expr
+from pakeles._expr import (
+    BoundField,
+    Expr,
+    FieldSpec,
+    Operand,
+    RemainingSpec,
+    coerce_expr,
+)
 from pakeles._header import Header, Instance
 from pakeles._meta import MetaFieldSpec
 
@@ -38,7 +45,8 @@ def reject(reason: str, *, info: bool = False) -> Reject:
 
 Target = str | Accept | Reject
 ArmKey = int | tuple[int, ...]
-SelectKey = FieldSpec | BoundField | MetaFieldSpec
+SelectKey = FieldSpec | BoundField | MetaFieldSpec | RemainingSpec
+RegionOp = tuple[str, Expr | None]  # ("push", len_expr) | ("pop", None)
 
 
 def _resolve(header: type[Header] | Instance, instance: str | None) -> tuple[type[Header], str | None]:
@@ -66,6 +74,7 @@ class StateChain:
     assigns: list[tuple[MetaFieldSpec, Expr]] = dc_field(
         default_factory=list[tuple[MetaFieldSpec, Expr]]
     )
+    region_ops: list[RegionOp] = dc_field(default_factory=list[RegionOp])
     transition: SelectSpec | Target | None = None
 
     def _need_open(self) -> None:
@@ -82,6 +91,20 @@ class StateChain:
     def assign(self, target: MetaFieldSpec, value: Expr | Operand | int) -> StateChain:
         self._need_open()
         self.assigns.append((target, coerce_expr(value)))
+        return self
+
+    def push_region(self, length: Expr | Operand | int) -> StateChain:
+        """Open a sized region of `length` BYTES at the cursor (region
+        ops run after assigns, before the transition, in call order)."""
+        self._need_open()
+        self.region_ops.append(("push", coerce_expr(length)))
+        return self
+
+    def pop_region(self) -> StateChain:
+        """Close the innermost sized region (exact-mode: the cursor
+        must sit at the region end)."""
+        self._need_open()
+        self.region_ops.append(("pop", None))
         return self
 
     def select(

@@ -13,6 +13,9 @@ typedef enum {
   PK_R_OUT_OF_BOUNDS = 1, /* "out of bounds" */
   PK_R_MAX_DEPTH_EXCEEDED = 2, /* "max depth exceeded" */
   PK_R_NO_MATCHING_SELECT_ARM = 3, /* "no matching select arm" */
+  PK_R_OUT_OF_REGION_BOUNDS = 4, /* "out of region bounds" */
+  PK_R_REGION_OUT_OF_BOUNDS = 5, /* "region out of bounds" */
+  PK_R_REGION_NOT_EXHAUSTED = 6, /* "region not exhausted" */
 } pk_sai_parser_reason_t;
 
 typedef struct {

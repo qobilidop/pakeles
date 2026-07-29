@@ -21,9 +21,6 @@ pub fn generate_lua(ir: &pb::Ir) -> Result<String> {
         .parser
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("ir has no parser"))?;
-    if super::has_region_ops(parser) {
-        bail!("sized regions not yet lowered in the Lua backend");
-    }
     let proto = format!("pakeles_{}", parser.name);
     let header_types: HashMap<&str, &pb::HeaderType> = parser
         .header_types
@@ -154,6 +151,11 @@ pub fn generate_lua(ir: &pb::Ir) -> Result<String> {
 
     writeln!(w, "function p.dissector(buf, pinfo, tree)")?;
     writeln!(w, "  local root = tree:add(p, buf())")?;
+    let regions_arg = if super::has_region_ops(parser) {
+        ", {}"
+    } else {
+        ""
+    };
     if has_meta {
         let inits: Vec<String> = parser
             .metadata
@@ -163,11 +165,15 @@ pub fn generate_lua(ir: &pb::Ir) -> Result<String> {
         writeln!(w, "  local meta = {{ {} }}", inits.join(", "))?;
         writeln!(
             w,
-            "  states.{}(buf, pinfo, root, 0, 0, meta)",
+            "  states.{}(buf, pinfo, root, 0, 0, meta{regions_arg})",
             parser.start_state
         )?;
     } else {
-        writeln!(w, "  states.{}(buf, pinfo, root, 0, 0)", parser.start_state)?;
+        writeln!(
+            w,
+            "  states.{}(buf, pinfo, root, 0, 0{regions_arg})",
+            parser.start_state
+        )?;
     }
     writeln!(w, "end")?;
     writeln!(w)?;
@@ -406,9 +412,10 @@ fn protofield_decl(
 
 fn expr_lua(e: &pb::Expr, referenced: &HashSet<(String, String)>) -> Result<String> {
     match e.kind.as_ref() {
-        // Lowered by the sized-region backend task; loud until then.
+        // Structural bytes to the innermost region end; only legal
+        // with a region open (validator), so regions[#regions] exists.
         Some(pb::expr::Kind::Remaining(_)) => {
-            bail!("remaining() not yet lowered in the Lua backend")
+            Ok("math.floor((regions[#regions] - off) / 8)".to_string())
         }
         Some(pb::expr::Kind::Constant(v)) => {
             if *v > (1u64 << 53) {
@@ -470,9 +477,14 @@ fn target_lua(
     match target.kind.as_ref() {
         Some(pb::target::Kind::State(name)) => {
             let meta_arg = if has_meta { ", meta" } else { "" };
+            let regions_arg = if super::has_region_ops(parser) {
+                ", regions"
+            } else {
+                ""
+            };
             writeln!(
                 w,
-                "{indent}return states.{name}(buf, pinfo, tree, off, depth{meta_arg})"
+                "{indent}return states.{name}(buf, pinfo, tree, off, depth{meta_arg}{regions_arg})"
             )?;
         }
         Some(pb::target::Kind::Accept(_)) => {
@@ -527,9 +539,11 @@ fn emit_state(
 ) -> Result<()> {
     let has_meta = !parser.metadata.is_empty();
     let meta_param = if has_meta { ", meta" } else { "" };
+    let has_regions = crate::codegen::has_region_ops(parser);
+    let regions_param = if has_regions { ", regions" } else { "" };
     writeln!(
         w,
-        "function states.{}(buf, pinfo, tree, off, depth{meta_param})",
+        "function states.{}(buf, pinfo, tree, off, depth{meta_param}{regions_param})",
         state.name
     )?;
     writeln!(w, "  depth = depth + 1")?;
@@ -556,6 +570,20 @@ fn emit_state(
             match field.width.as_ref().and_then(|x| x.width.as_ref()) {
                 Some(pb::field_width::Width::Bits(n)) => {
                     let n = *n;
+                    if has_regions {
+                        // Region end first (avail-free reason rule).
+                        writeln!(
+                            w,
+                            "  if regions[#regions] and off + {n} > regions[#regions] then"
+                        )?;
+                        writeln!(
+                            w,
+                            "    hdr_{inst}:add_proto_expert_info(ef_error, \"out of region bounds in {inst}.{}\")",
+                            field.name
+                        )?;
+                        writeln!(w, "    return off")?;
+                        writeln!(w, "  end")?;
+                    }
                     writeln!(w, "  if off + {n} > avail then")?;
                     writeln!(
                         w,
@@ -614,6 +642,19 @@ fn emit_state(
                     }
                     let len = format!("len_{inst}_{}", field.name);
                     writeln!(w, "  local {len} = {}", expr_lua(expr, referenced)?)?;
+                    if has_regions {
+                        writeln!(
+                            w,
+                            "  if regions[#regions] and ({len} < 0 or off + {len} * 8 > regions[#regions]) then"
+                        )?;
+                        writeln!(
+                            w,
+                            "    hdr_{inst}:add_proto_expert_info(ef_error, \"out of region bounds in {inst}.{}\")",
+                            field.name
+                        )?;
+                        writeln!(w, "    return off")?;
+                        writeln!(w, "  end")?;
+                    }
                     writeln!(w, "  if {len} < 0 or off + {len} * 8 > avail then")?;
                     writeln!(
                         w,
@@ -656,6 +697,40 @@ fn emit_state(
                 "  meta.{} = ({}) -- wrap elided: >53-bit metadata exceeds Lua number precision",
                 a.metadata, rhs
             )?;
+        }
+    }
+
+    for op in &state.region_ops {
+        match op.kind.as_ref() {
+            Some(pb::region_op::Kind::Push(e)) => {
+                writeln!(w, "  do")?;
+                writeln!(w, "    local rlen = {}", expr_lua(e, referenced)?)?;
+                writeln!(
+                    w,
+                    "    if rlen < 0 or (regions[#regions] and off + rlen * 8 > regions[#regions]) then"
+                )?;
+                writeln!(
+                    w,
+                    "      tree:add_proto_expert_info(ef_error, \"region out of bounds\")"
+                )?;
+                writeln!(w, "      return off")?;
+                writeln!(w, "    end")?;
+                writeln!(w, "    regions[#regions + 1] = off + rlen * 8")?;
+                writeln!(w, "  end")?;
+            }
+            Some(pb::region_op::Kind::Pop(_)) => {
+                writeln!(w, "  do")?;
+                writeln!(w, "    local rend = table.remove(regions)")?;
+                writeln!(w, "    if off < rend then")?;
+                writeln!(
+                    w,
+                    "      tree:add_proto_expert_info(ef_error, \"region not exhausted\")"
+                )?;
+                writeln!(w, "      return off")?;
+                writeln!(w, "    end")?;
+                writeln!(w, "  end")?;
+            }
+            None => bail!("empty region op"),
         }
     }
 
@@ -1041,6 +1116,13 @@ mod tests {
         // count/item fields plus meta.done/meta.remaining — floor guards
         // against a silently-empty suite, not an exact count.
         generated_dissector_conformance_suite(&counted_items(), 3);
+    }
+
+    #[test]
+    fn generated_dissector_conformance_tlv_mini() {
+        // Sized-region loop in real tshark: exact-fill accepts (0/1/2
+        // items) compare item fields through the region machinery.
+        generated_dissector_conformance_suite(&crate::builder::tlv_mini(), 3);
     }
 
     type ExpectedFields = Vec<(String, Option<crate::testvec::pb::expected_field::Value>)>;

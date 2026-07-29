@@ -56,16 +56,18 @@ class Display(_message.Message):
     def __init__(self, name: _Optional[str] = ..., format: _Optional[_Union[DisplayFormat, str]] = ..., value_labels: _Optional[_Iterable[_Union[ValueLabel, _Mapping]]] = ..., doc: _Optional[str] = ...) -> None: ...
 
 class Expr(_message.Message):
-    __slots__ = ["bin", "constant", "field", "metadata"]
+    __slots__ = ["bin", "constant", "field", "metadata", "remaining"]
     BIN_FIELD_NUMBER: _ClassVar[int]
     CONSTANT_FIELD_NUMBER: _ClassVar[int]
     FIELD_FIELD_NUMBER: _ClassVar[int]
     METADATA_FIELD_NUMBER: _ClassVar[int]
+    REMAINING_FIELD_NUMBER: _ClassVar[int]
     bin: BinOp
     constant: int
     field: FieldRef
     metadata: MetadataRef
-    def __init__(self, constant: _Optional[int] = ..., field: _Optional[_Union[FieldRef, _Mapping]] = ..., bin: _Optional[_Union[BinOp, _Mapping]] = ..., metadata: _Optional[_Union[MetadataRef, _Mapping]] = ...) -> None: ...
+    remaining: Remaining
+    def __init__(self, constant: _Optional[int] = ..., field: _Optional[_Union[FieldRef, _Mapping]] = ..., bin: _Optional[_Union[BinOp, _Mapping]] = ..., metadata: _Optional[_Union[MetadataRef, _Mapping]] = ..., remaining: _Optional[_Union[Remaining, _Mapping]] = ...) -> None: ...
 
 class Extract(_message.Message):
     __slots__ = ["header_type", "instance"]
@@ -205,6 +207,10 @@ class Parser(_message.Message):
     states: _containers.RepeatedCompositeFieldContainer[State]
     def __init__(self, name: _Optional[str] = ..., header_types: _Optional[_Iterable[_Union[HeaderType, _Mapping]]] = ..., states: _Optional[_Iterable[_Union[State, _Mapping]]] = ..., start_state: _Optional[str] = ..., max_depth: _Optional[int] = ..., metadata: _Optional[_Iterable[_Union[MetadataField, _Mapping]]] = ..., annotations: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
+class Pop(_message.Message):
+    __slots__ = []
+    def __init__(self) -> None: ...
+
 class Range(_message.Message):
     __slots__ = ["hi", "lo"]
     HI_FIELD_NUMBER: _ClassVar[int]
@@ -212,6 +218,14 @@ class Range(_message.Message):
     hi: int
     lo: int
     def __init__(self, lo: _Optional[int] = ..., hi: _Optional[int] = ...) -> None: ...
+
+class RegionOp(_message.Message):
+    __slots__ = ["pop", "push"]
+    POP_FIELD_NUMBER: _ClassVar[int]
+    PUSH_FIELD_NUMBER: _ClassVar[int]
+    pop: Pop
+    push: Expr
+    def __init__(self, push: _Optional[_Union[Expr, _Mapping]] = ..., pop: _Optional[_Union[Pop, _Mapping]] = ...) -> None: ...
 
 class Reject(_message.Message):
     __slots__ = ["annotations", "reason"]
@@ -227,6 +241,10 @@ class Reject(_message.Message):
     annotations: _containers.ScalarMap[str, str]
     reason: str
     def __init__(self, reason: _Optional[str] = ..., annotations: _Optional[_Mapping[str, str]] = ...) -> None: ...
+
+class Remaining(_message.Message):
+    __slots__ = []
+    def __init__(self) -> None: ...
 
 class Select(_message.Message):
     __slots__ = ["arms", "default_target", "keys"]
@@ -247,7 +265,7 @@ class SelectArm(_message.Message):
     def __init__(self, entries: _Optional[_Iterable[_Union[KeysetEntry, _Mapping]]] = ..., next: _Optional[_Union[Target, _Mapping]] = ...) -> None: ...
 
 class State(_message.Message):
-    __slots__ = ["annotations", "assigns", "extracts", "name", "transition"]
+    __slots__ = ["annotations", "assigns", "extracts", "name", "region_ops", "transition"]
     class AnnotationsEntry(_message.Message):
         __slots__ = ["key", "value"]
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -259,13 +277,15 @@ class State(_message.Message):
     ASSIGNS_FIELD_NUMBER: _ClassVar[int]
     EXTRACTS_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
+    REGION_OPS_FIELD_NUMBER: _ClassVar[int]
     TRANSITION_FIELD_NUMBER: _ClassVar[int]
     annotations: _containers.ScalarMap[str, str]
     assigns: _containers.RepeatedCompositeFieldContainer[Assign]
     extracts: _containers.RepeatedCompositeFieldContainer[Extract]
     name: str
+    region_ops: _containers.RepeatedCompositeFieldContainer[RegionOp]
     transition: Transition
-    def __init__(self, name: _Optional[str] = ..., extracts: _Optional[_Iterable[_Union[Extract, _Mapping]]] = ..., transition: _Optional[_Union[Transition, _Mapping]] = ..., assigns: _Optional[_Iterable[_Union[Assign, _Mapping]]] = ..., annotations: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., extracts: _Optional[_Iterable[_Union[Extract, _Mapping]]] = ..., transition: _Optional[_Union[Transition, _Mapping]] = ..., assigns: _Optional[_Iterable[_Union[Assign, _Mapping]]] = ..., region_ops: _Optional[_Iterable[_Union[RegionOp, _Mapping]]] = ..., annotations: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class Target(_message.Message):
     __slots__ = ["accept", "reject", "state"]

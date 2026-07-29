@@ -13,6 +13,9 @@ typedef enum {
   PK_R_OUT_OF_BOUNDS = 1, /* "out of bounds" */
   PK_R_MAX_DEPTH_EXCEEDED = 2, /* "max depth exceeded" */
   PK_R_NO_MATCHING_SELECT_ARM = 3, /* "no matching select arm" */
+  PK_R_OUT_OF_REGION_BOUNDS = 4, /* "out of region bounds" */
+  PK_R_REGION_OUT_OF_BOUNDS = 5, /* "region out of bounds" */
+  PK_R_REGION_NOT_EXHAUSTED = 6, /* "region not exhausted" */
   PK_R_INNER_IPV4_IHL__5 = 16, /* "inner ipv4 ihl!=5" */
   PK_R_IPV4_IHL__5_OR_FRAGMENTED = 17, /* "ipv4 ihl!=5 or fragmented" */
   PK_R_IPV6_FRAGMENT = 18, /* "ipv6 fragment" */

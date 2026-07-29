@@ -81,13 +81,16 @@ class Expr(Operand):
     constant: int | None = None
     ref: FieldSpec | BoundField | None = None
     meta_ref: MetaFieldSpec | None = None
+    is_remaining: bool = False
 
     def as_expr(self) -> Expr:
         return self
 
     def to_pb(self) -> ir_pb2.Expr:
         e = ir_pb2.Expr()
-        if self.constant is not None:
+        if self.is_remaining:
+            e.remaining.SetInParent()
+        elif self.constant is not None:
             e.constant = self.constant
         elif self.meta_ref is not None:
             if not self.meta_ref.name:
@@ -114,6 +117,25 @@ def const(v: int) -> Expr:
     if v < 0:
         raise ValueError(f"IR constants are unsigned, got {v}")
     return Expr(constant=v)
+
+
+@dataclass(frozen=True)
+class RemainingSpec(Operand):
+    """`remaining()`: bytes between the cursor and the innermost sized
+    region's end. Presents a select-key surface (width/name/header) so
+    it can be used directly as a key; only legal with a region open
+    (Rust validator authority)."""
+
+    width_bits: int = 64
+    name: str = "remaining()"
+    header: str = ""
+
+    def as_expr(self) -> Expr:
+        return Expr(is_remaining=True)
+
+
+def remaining() -> RemainingSpec:
+    return RemainingSpec()
 
 
 @dataclass

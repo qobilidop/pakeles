@@ -13,6 +13,9 @@ typedef enum {
   PK_R_OUT_OF_BOUNDS = 1, /* "out of bounds" */
   PK_R_MAX_DEPTH_EXCEEDED = 2, /* "max depth exceeded" */
   PK_R_NO_MATCHING_SELECT_ARM = 3, /* "no matching select arm" */
+  PK_R_OUT_OF_REGION_BOUNDS = 4, /* "out of region bounds" */
+  PK_R_REGION_OUT_OF_BOUNDS = 5, /* "region out of bounds" */
+  PK_R_REGION_NOT_EXHAUSTED = 6, /* "region not exhausted" */
   PK_R_802_1AD_MUST_BE_FOLLOWED_BY_802_1Q = 16, /* "802.1AD must be followed by 802.1Q" */
   PK_R_UNSUPPORTED_ETHERTYPE = 17, /* "unsupported ethertype" */
   PK_R_UNSUPPORTED_GRE_PROTO = 18, /* "unsupported gre proto" */

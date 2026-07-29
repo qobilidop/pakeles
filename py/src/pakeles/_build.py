@@ -167,6 +167,13 @@ class Parser:
                 a = st.assigns.add()
                 a.metadata = target.name
                 a.value.CopyFrom(value.to_pb())
+            for kind, rlen in chain.region_ops:
+                op = st.region_ops.add()
+                if kind == "push":
+                    assert rlen is not None
+                    op.push.CopyFrom(rlen.to_pb())
+                else:
+                    op.pop.SetInParent()
             tr = chain.transition
             assert tr is not None
             if isinstance(tr, SelectSpec):
