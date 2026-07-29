@@ -128,6 +128,9 @@ fn fixed_bits(parser: &pb::Parser, r: &pb::FieldRef) -> Result<u32> {
 /// so 0 is a sound floor for a bound).
 fn expr_range(e: &pb::Expr, parser: &pb::Parser) -> Result<(u128, u128)> {
     Ok(match e.kind.as_ref().context("empty expression")? {
+        pb::expr::Kind::Remaining(_) => {
+            anyhow::bail!("sized regions / remaining() exceed P4-16 parser expressiveness")
+        }
         pb::expr::Kind::Constant(v) => (*v as u128, *v as u128),
         pb::expr::Kind::Field(r) => (0, (1u128 << fixed_bits(parser, r)?) - 1),
         pb::expr::Kind::Bin(b) => {
@@ -186,6 +189,9 @@ fn expr_p4(
     stacked: &std::collections::HashSet<String>,
 ) -> Result<String> {
     Ok(match e.kind.as_ref().context("empty expression")? {
+        pb::expr::Kind::Remaining(_) => {
+            anyhow::bail!("sized regions / remaining() exceed P4-16 parser expressiveness")
+        }
         pb::expr::Kind::Constant(v) => format!("64w{v}"),
         pb::expr::Kind::Field(r) => {
             let member = member_of_field(parser, r)?;
@@ -354,6 +360,12 @@ pub(crate) fn stacked_instances(parser: &pb::Parser) -> std::collections::HashSe
 
 pub fn generate_p4(ir: &pb::Ir) -> Result<String> {
     let parser = ir.parser.as_ref().context("IR has no parser")?;
+    if super::has_region_ops(parser) {
+        // Permanent, by design: a P4-16 parser can extract a varbit
+        // blob but cannot parse inside it, so sized regions have no
+        // lowering (see the sized-region design doc).
+        bail!("sized regions / remaining() exceed P4-16 parser expressiveness");
+    }
     let insts = instance_order(parser);
     let stacked = stacked_instances(parser);
     if insts.len() > 16 {

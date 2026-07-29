@@ -125,6 +125,10 @@ fn instances(parser: &pb::Parser) -> Vec<(String, String)> {
 
 fn expr_c(e: &pb::Expr) -> Result<String> {
     match e.kind.as_ref() {
+        // Lowered by the sized-region backend task; loud until then.
+        Some(pb::expr::Kind::Remaining(_)) => {
+            anyhow::bail!("remaining() not yet lowered in the C backend")
+        }
         Some(pb::expr::Kind::Constant(v)) => Ok(format!("{v}ULL")),
         Some(pb::expr::Kind::Field(r)) => Ok(format!("(uint64_t)out->{}.{}", r.header, r.field)),
         Some(pb::expr::Kind::Bin(b)) => {
@@ -510,6 +514,9 @@ pub fn generate_c(ir: &pb::Ir) -> Result<CArtifacts> {
         .parser
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("ir has no parser"))?;
+    if super::has_region_ops(parser) {
+        anyhow::bail!("sized regions not yet lowered in the C backend");
+    }
     let emit = Emit::new(parser);
     Ok(CArtifacts {
         header: emit.header()?,
@@ -622,6 +629,9 @@ pub fn generate_bpf(ir: &pb::Ir) -> Result<String> {
         .parser
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("ir has no parser"))?;
+    if super::has_region_ops(parser) {
+        anyhow::bail!("sized regions not yet lowered in the eBPF backend");
+    }
     let emit = Emit::new(parser);
     let p = &emit.prefix;
     let mut w = String::new();

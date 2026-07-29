@@ -90,8 +90,14 @@ message Expr {
     FieldRef field = 2;
     BinOp bin = 3;
     MetadataRef metadata = 4;
+    // Bytes between the cursor and the innermost sized region's end
+    // (packet end when no region is open). Legal as a select key and
+    // in assigns/push lengths; NOT in byte_len widths (v1).
+    Remaining remaining = 5;
   }
 }
+
+message Remaining {}
 
 message MetadataRef {
   string name = 1;
@@ -126,8 +132,25 @@ message State {
   // Ordered metadata assignments, executed after this state's extracts
   // and before its transition. Total: no failure mode.
   repeated Assign assigns = 4;
+  // Ordered sized-region ops, executed after assigns and before the
+  // transition. Regions bound reads structurally (see the sized-region
+  // design doc); they never affect the max_depth budget.
+  repeated RegionOp region_ops = 5;
   map<string, string> annotations = 15;
 }
+
+message RegionOp {
+  oneof kind {
+    // Open a region of `push` BYTES at the (byte-aligned) cursor.
+    // Structural check only: must fit the enclosing region, if any.
+    Expr push = 1;
+    // Close the innermost region; the cursor must sit exactly at its
+    // end (exact-mode pop).
+    Pop pop = 2;
+  }
+}
+
+message Pop {}
 
 message Assign {
   string metadata = 1;  // must name a declared MetadataField

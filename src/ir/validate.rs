@@ -168,9 +168,21 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
         }
     }
 
+    fn contains_remaining(e: &pb::Expr) -> bool {
+        match &e.kind {
+            Some(pb::expr::Kind::Remaining(_)) => true,
+            Some(pb::expr::Kind::Bin(b)) => {
+                b.lhs.as_deref().is_some_and(contains_remaining)
+                    || b.rhs.as_deref().is_some_and(contains_remaining)
+            }
+            _ => false,
+        }
+    }
+
     // Field refs inside variable-length widths. `byte_len` must not
     // reference metadata (v1 restriction: metadata may not affect a
-    // header's extracted size, which would undermine pathid soundness).
+    // header's extracted size, which would undermine pathid soundness)
+    // and must not use `remaining()` (v1: widths stay region-blind).
     for ht in &parser.header_types {
         for f in &ht.fields {
             if let Some(pb::field_width::Width::ByteLen(e)) =
@@ -186,6 +198,12 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
                 if !meta_refs.is_empty() {
                     errs.push(format!(
                         "field `{}.{}`: byte_len must not reference metadata",
+                        ht.name, f.name
+                    ));
+                }
+                if contains_remaining(e) {
+                    errs.push(format!(
+                        "field `{}.{}`: byte_len must not use remaining()",
                         ht.name, f.name
                     ));
                 }
@@ -215,6 +233,28 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
 
     for s in &parser.states {
         let ctx = format!("state `{}`", s.name);
+
+        for (i, op) in s.region_ops.iter().enumerate() {
+            match &op.kind {
+                Some(pb::region_op::Kind::Push(e)) => {
+                    let push_ctx = format!("state `{}` region push #{i}", s.name);
+                    let mut refs = Vec::new();
+                    walk_refs(e, &mut refs);
+                    for r in refs {
+                        check_ref(r, &push_ctx, &mut errs);
+                    }
+                    let mut meta_refs = Vec::new();
+                    walk_meta_refs(e, &mut meta_refs);
+                    if !meta_refs.is_empty() {
+                        errs.push(format!(
+                            "{push_ctx}: push length must not reference metadata"
+                        ));
+                    }
+                }
+                Some(pb::region_op::Kind::Pop(_)) => {}
+                None => errs.push(format!("{ctx}: empty region op #{i}")),
+            }
+        }
 
         for a in &s.assigns {
             if !meta_decls.contains_key(a.metadata.as_str()) {
@@ -309,9 +349,82 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
     }
 
     if errs.is_empty() {
+        region_depth_errors(parser, &mut errs);
+    }
+
+    if errs.is_empty() {
         Ok(())
     } else {
         Err(errs)
+    }
+}
+
+/// Every reachable state must be entered at ONE region-stack depth:
+/// propagate depths from the start state and flag pops on an empty
+/// stack and depth mismatches. Consistency subsumes boundedness — a
+/// net-positive cycle would revisit a state at a different depth.
+fn region_depth_errors(parser: &pb::Parser, errs: &mut Vec<String>) {
+    use std::collections::HashMap;
+
+    let states: HashMap<&str, &pb::State> =
+        parser.states.iter().map(|s| (s.name.as_str(), s)).collect();
+    let mut depth: HashMap<&str, i64> = HashMap::new();
+    depth.insert(parser.start_state.as_str(), 0);
+    let mut work = vec![parser.start_state.as_str()];
+    while let Some(name) = work.pop() {
+        let s = states[name];
+        let mut cur = depth[name];
+        for (i, op) in s.region_ops.iter().enumerate() {
+            match &op.kind {
+                Some(pb::region_op::Kind::Push(_)) => cur += 1,
+                Some(pb::region_op::Kind::Pop(_)) => {
+                    cur -= 1;
+                    if cur < 0 {
+                        errs.push(format!(
+                            "state `{name}`: region pop #{i} with no open region"
+                        ));
+                        return;
+                    }
+                }
+                None => {}
+            }
+        }
+        let mut visit = |t: &pb::Target| {
+            if let Some(pb::target::Kind::State(succ)) = &t.kind {
+                match depth.get(succ.as_str()) {
+                    None => {
+                        if let Some((k, _)) = states.get_key_value(succ.as_str()) {
+                            depth.insert(k, cur);
+                            work.push(k);
+                        }
+                    }
+                    Some(d) if *d != cur => {
+                        errs.push(format!(
+                            "state `{succ}` is entered at region depth {cur} and {d} \
+                             (every state must have one depth)"
+                        ));
+                    }
+                    Some(_) => {}
+                }
+            }
+        };
+        match s.transition.as_ref().and_then(|t| t.kind.as_ref()) {
+            Some(pb::transition::Kind::Direct(t)) => visit(t),
+            Some(pb::transition::Kind::Select(sel)) => {
+                for arm in &sel.arms {
+                    if let Some(t) = &arm.next {
+                        visit(t);
+                    }
+                }
+                if let Some(t) = &sel.default_target {
+                    visit(t);
+                }
+            }
+            None => {}
+        }
+        if !errs.is_empty() {
+            return;
+        }
     }
 }
 
@@ -790,6 +903,66 @@ mod tests {
         });
         assert_err_contains(&ir, "unknown metadata `ghost`");
         assert_err_contains(&ir, "unknown metadata `ghost2`");
+    }
+
+    #[test]
+    fn rejects_pop_with_no_open_region() {
+        use crate::builder::*;
+        let err = ParserBuilder::new("bad_pop", 2)
+            .state(StateBuilder::new("s").pop_region().accept())
+            .start("s")
+            .build()
+            .unwrap_err();
+        assert!(err.to_string().contains("no open region"));
+    }
+
+    #[test]
+    fn rejects_inconsistent_region_depth() {
+        use crate::builder::*;
+        // `c` is reachable inside the region (via a) and outside (via b).
+        let err = ParserBuilder::new("two_depths", 4)
+            .header(HeaderTypeBuilder::new("h").bits("x", 8))
+            .state(
+                StateBuilder::new("s0")
+                    .extract("h")
+                    .push_region(f("h", "x"))
+                    .select(vec![f("h", "x")], vec![arm(vec![v(1)], to("a"))], to("b")),
+            )
+            .state(StateBuilder::new("a").goto_(to("c")))
+            .state(StateBuilder::new("b").pop_region().goto_(to("c")))
+            .state(StateBuilder::new("c").accept())
+            .start("s0")
+            .build()
+            .unwrap_err();
+        assert!(err.to_string().contains("region depth"));
+    }
+
+    #[test]
+    fn rejects_remaining_in_byte_len() {
+        use crate::builder::*;
+        let err = ParserBuilder::new("rem_width", 2)
+            .header(HeaderTypeBuilder::new("h").var_bytes("rest", remaining()))
+            .state(StateBuilder::new("s").extract("h").accept())
+            .start("s")
+            .build()
+            .unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("byte_len must not use remaining()"));
+    }
+
+    #[test]
+    fn rejects_metadata_in_region_push() {
+        use crate::builder::*;
+        let err = ParserBuilder::new("meta_push", 2)
+            .meta("n", 8, 0)
+            .state(StateBuilder::new("s").push_region(m("n")).accept())
+            .start("s")
+            .build()
+            .unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("push length must not reference metadata"));
     }
 
     #[test]

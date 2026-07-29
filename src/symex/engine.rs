@@ -282,6 +282,11 @@ pub(crate) fn enumerate(ir: &pb::Ir, solver: &mut dyn Solver) -> anyhow::Result<
         .parser
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("ir has no parser"))?;
+    // Wired up by the sized-region symex task; loud until then
+    // (silently ignoring region ops would enumerate wrong paths).
+    if parser.states.iter().any(|s| !s.region_ops.is_empty()) {
+        anyhow::bail!("sized regions not yet supported in symex");
+    }
     let mut ctx = Ctx {
         parser,
         states: parser.states.iter().map(|s| (s.name.as_str(), s)).collect(),
@@ -368,6 +373,10 @@ fn cyclic_states(parser: &pb::Parser) -> HashSet<String> {
 
 fn term_of_expr(e: &pb::Expr, frame: &Frame) -> anyhow::Result<Term> {
     match e.kind.as_ref() {
+        // Wired up by the sized-region symex task; loud until then.
+        Some(pb::expr::Kind::Remaining(_)) => {
+            anyhow::bail!("remaining() not yet supported in symex")
+        }
         Some(pb::expr::Kind::Constant(v)) => Ok(Term::Const(*v)),
         Some(pb::expr::Kind::Field(r)) => {
             let (off_term, len) = frame

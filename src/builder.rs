@@ -31,6 +31,14 @@ pub fn m(name: &str) -> pb::Expr {
     }
 }
 
+/// `remaining()`: bytes between the cursor and the innermost sized
+/// region's end (packet end when no region is open).
+pub fn remaining() -> pb::Expr {
+    pb::Expr {
+        kind: Some(pb::expr::Kind::Remaining(pb::Remaining {})),
+    }
+}
+
 fn bin(op: pb::BinOpKind, lhs: pb::Expr, rhs: pb::Expr) -> pb::Expr {
     pb::Expr {
         kind: Some(pb::expr::Kind::Bin(Box::new(pb::BinOp {
@@ -237,6 +245,24 @@ impl StateBuilder {
         self.state.assigns.push(pb::Assign {
             metadata: name.into(),
             value: Some(value),
+        });
+        self
+    }
+
+    /// Open a sized region of `len` BYTES at the cursor (run after
+    /// assigns, before the transition; ops keep their call order).
+    pub fn push_region(mut self, len: pb::Expr) -> Self {
+        self.state.region_ops.push(pb::RegionOp {
+            kind: Some(pb::region_op::Kind::Push(len)),
+        });
+        self
+    }
+
+    /// Close the innermost sized region (exact-mode: the cursor must
+    /// sit at the region end).
+    pub fn pop_region(mut self) -> Self {
+        self.state.region_ops.push(pb::RegionOp {
+            kind: Some(pb::region_op::Kind::Pop(pb::Pop {})),
         });
         self
     }

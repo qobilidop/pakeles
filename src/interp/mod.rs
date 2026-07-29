@@ -18,9 +18,10 @@ pub(crate) fn eval_expr_pub(
     e: &pb::Expr,
     env: &std::collections::HashMap<(String, String), u64>,
 ) -> anyhow::Result<u64> {
-    // byte_len can't reference metadata (validator-enforced), so the
-    // store is always empty here.
-    eval_expr(e, env, &std::collections::HashMap::new())
+    // byte_len can't reference metadata or remaining() (validator-
+    // enforced), so the store is always empty and no region context
+    // is needed here.
+    eval_expr(e, env, &std::collections::HashMap::new(), None)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -129,6 +130,9 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
     let mut cursor_bits = 0usize;
     let mut depth = 0u32;
     let mut current = parser.start_state.as_str();
+    // Sized-region stack: end bit offsets, innermost last. Reads are
+    // bounded by min(top, avail_bits); see the sized-region design doc.
+    let mut regions: Vec<usize> = Vec::new();
 
     let mut meta: HashMap<String, u64> = parser
         .metadata
@@ -220,10 +224,25 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                     .as_ref()
                     .and_then(|w| w.width.as_ref())
                     .ok_or_else(|| anyhow::anyhow!("field `{}` has no width", field.name))?;
+                // Reads are bounded by the innermost region end AND the
+                // buffer. Crossing a region end that lies within the
+                // buffer is structural ("out of region bounds"); running
+                // past the buffer is the truncation-class "out of
+                // bounds" (a region end beyond the buffer never fires —
+                // the buffer is the smaller bound).
+                let bound_bits = regions.last().map_or(avail_bits, |e| (*e).min(avail_bits));
+                let oob_reason = |end_bits: Option<usize>| {
+                    let region_bound = regions.last().copied().unwrap_or(usize::MAX);
+                    if region_bound <= avail_bits && end_bits.is_none_or(|e| e > region_bound) {
+                        "out of region bounds"
+                    } else {
+                        "out of bounds"
+                    }
+                };
                 match width {
                     pb::field_width::Width::Bits(n) => {
                         let n = *n as usize;
-                        let Some(value) = read_bits(packet, avail_bits, cursor_bits, n) else {
+                        let Some(value) = read_bits(packet, bound_bits, cursor_bits, n) else {
                             let ctx = RejectCtx {
                                 severity: Severity::Error,
                                 instance: Some(instance.clone()),
@@ -231,7 +250,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                             };
                             headers.push(parsed);
                             return reject(
-                                "out of bounds",
+                                oob_reason(cursor_bits.checked_add(n)),
                                 ctx,
                                 current,
                                 cursor_bits,
@@ -250,7 +269,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                         cursor_bits += n;
                     }
                     pb::field_width::Width::ByteLen(expr) => {
-                        let len_bytes = eval_expr(expr, &env, &meta)? as usize;
+                        let len_bytes = eval_expr(expr, &env, &meta, None)? as usize;
                         if !cursor_bits.is_multiple_of(8) {
                             anyhow::bail!(
                                 "var-length field `{}` at non-byte-aligned offset",
@@ -263,7 +282,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                         let end_bits = len_bytes
                             .checked_mul(8)
                             .and_then(|lb| lb.checked_add(cursor_bits));
-                        if end_bits.is_none_or(|e| e > avail_bits) {
+                        if end_bits.is_none_or(|e| e > bound_bits) {
                             let ctx = RejectCtx {
                                 severity: Severity::Error,
                                 instance: Some(instance.clone()),
@@ -271,7 +290,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                             };
                             headers.push(parsed);
                             return reject(
-                                "out of bounds",
+                                oob_reason(end_bits),
                                 ctx,
                                 current,
                                 cursor_bits,
@@ -294,11 +313,22 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
             headers.push(parsed);
         }
 
+        // remaining() at this state's use points (assigns, region
+        // pushes, select keys): bytes to the effective bound. `None`
+        // (-> eval error) at a non-byte-aligned cursor.
+        let remaining_here = |regions: &[usize], cursor_bits: usize| -> Option<u64> {
+            let bound = regions.last().map_or(avail_bits, |e| (*e).min(avail_bits));
+            cursor_bits
+                .is_multiple_of(8)
+                .then(|| (bound.saturating_sub(cursor_bits) / 8) as u64)
+        };
+
         for a in &state.assigns {
             let v = eval_expr(
                 a.value.as_ref().context("assign without value")?,
                 &env,
                 &meta,
+                remaining_here(&regions, cursor_bits),
             )?;
             let bits = meta_bits
                 .get(a.metadata.as_str())
@@ -312,6 +342,66 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
             meta.insert(a.metadata.clone(), masked);
         }
 
+        for op in &state.region_ops {
+            match op.kind.as_ref() {
+                Some(pb::region_op::Kind::Push(e)) => {
+                    if !cursor_bits.is_multiple_of(8) {
+                        anyhow::bail!("region push at non-byte-aligned offset");
+                    }
+                    let len = eval_expr(e, &env, &meta, remaining_here(&regions, cursor_bits))?;
+                    // Structural check ONLY against the enclosing region
+                    // (a region reaching past the buffer is a truncation
+                    // found by reads, not a lie). Wrapped math is a lie.
+                    let end = usize::try_from(len)
+                        .ok()
+                        .and_then(|l| l.checked_mul(8))
+                        .and_then(|lb| lb.checked_add(cursor_bits));
+                    let structural_lie = match (end, regions.last()) {
+                        (None, _) => true,
+                        (Some(e), Some(top)) => e > *top,
+                        (Some(_), None) => false,
+                    };
+                    if structural_lie {
+                        return reject(
+                            "region out of bounds",
+                            plain(Severity::Error),
+                            current,
+                            cursor_bits,
+                            headers,
+                            trace,
+                            final_meta(parser, &meta),
+                        );
+                    }
+                    regions.push(end.expect("checked above"));
+                }
+                Some(pb::region_op::Kind::Pop(_)) => {
+                    let end = regions
+                        .pop()
+                        .ok_or_else(|| anyhow::anyhow!("region pop with no open region"))?;
+                    if cursor_bits < end {
+                        // Exact-mode pop. A region end beyond the buffer
+                        // can never be reached, so that shortfall is the
+                        // truncation class, not a structural one.
+                        let reason = if end <= avail_bits {
+                            "region not exhausted"
+                        } else {
+                            "out of bounds"
+                        };
+                        return reject(
+                            reason,
+                            plain(Severity::Error),
+                            current,
+                            cursor_bits,
+                            headers,
+                            trace,
+                            final_meta(parser, &meta),
+                        );
+                    }
+                }
+                None => anyhow::bail!("empty region op"),
+            }
+        }
+
         let target = match state.transition.as_ref().and_then(|t| t.kind.as_ref()) {
             None => anyhow::bail!("state `{current}` has no transition"),
             Some(pb::transition::Kind::Direct(t)) => {
@@ -321,7 +411,12 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
             Some(pb::transition::Kind::Select(sel)) => {
                 let mut keys = Vec::with_capacity(sel.keys.len());
                 for k in &sel.keys {
-                    keys.push(eval_expr(k, &env, &meta)?);
+                    keys.push(eval_expr(
+                        k,
+                        &env,
+                        &meta,
+                        remaining_here(&regions, cursor_bits),
+                    )?);
                 }
                 let hit = sel.arms.iter().position(|arm| {
                     arm.entries.len() == keys.len()
@@ -542,6 +637,163 @@ mod tests {
             .map(|p| run(&ir, p).unwrap().outcome == Outcome::Accept)
             .collect();
         assert_eq!(accepts, vec![true, true, true, false]);
+    }
+
+    /// Region-bearing TLV mini-IR: `h.total` bounds a region holding
+    /// items (t:u8, l:u8, v:bytes[l]); loop on remaining()==0 -> pop.
+    fn tlv_mini() -> pb::Ir {
+        use crate::builder::remaining;
+        ParserBuilder::new("tlv_mini", 8)
+            .header(HeaderTypeBuilder::new("h").bits("total", 8))
+            .header(
+                HeaderTypeBuilder::new("item")
+                    .bits("t", 8)
+                    .bits("l", 8)
+                    .var_bytes("val", f("item", "l")),
+            )
+            .state(
+                StateBuilder::new("s0")
+                    .extract("h")
+                    .push_region(f("h", "total"))
+                    .goto_(to("tlv")),
+            )
+            .state(StateBuilder::new("tlv").select(
+                vec![remaining()],
+                vec![arm(vec![v(0)], to("done"))],
+                to("item_s"),
+            ))
+            .state(StateBuilder::new("item_s").extract("item").goto_(to("tlv")))
+            .state(StateBuilder::new("done").pop_region().accept())
+            .start("s0")
+            .build()
+            .unwrap()
+    }
+
+    #[test]
+    fn region_tlv_loop_accepts_exact_fill() {
+        // total=4: two items (t,l=0)(t,l=0) fill the region exactly.
+        let res = run(&tlv_mini(), &[4, 1, 0, 2, 0]).unwrap();
+        assert_eq!(res.outcome, Outcome::Accept);
+        assert_eq!(res.headers.len(), 3); // h + two items
+        assert_eq!(res.consumed_bits, 40);
+    }
+
+    #[test]
+    fn region_read_crossing_end_is_region_oob() {
+        // total=3: item(t,l=0) leaves 1 byte; next item's `l` read
+        // crosses the region end while the buffer continues.
+        let res = run(&tlv_mini(), &[3, 1, 0, 5, 9, 9]).unwrap();
+        assert_eq!(
+            res.outcome,
+            Outcome::Reject {
+                reason: "out of region bounds".into()
+            }
+        );
+        let err = res.error.unwrap();
+        assert_eq!(err.field.as_deref(), Some("l"));
+    }
+
+    #[test]
+    fn region_var_bytes_overrun_is_region_oob() {
+        // total=3: item claims l=200, far past the region end but the
+        // length itself is a structural lie -> region class.
+        let res = run(&tlv_mini(), &[3, 1, 200, 9, 9, 9, 9]).unwrap();
+        assert_eq!(
+            res.outcome,
+            Outcome::Reject {
+                reason: "out of region bounds".into()
+            }
+        );
+    }
+
+    #[test]
+    fn region_past_buffer_is_truncation_class() {
+        // total=5 but the buffer ends after one item: remaining() clamps
+        // to the buffer, the loop exits, and the exact-pop shortfall is
+        // the truncation-class "out of bounds" (rustls: incomplete).
+        let res = run(&tlv_mini(), &[5, 1, 0]).unwrap();
+        assert_eq!(
+            res.outcome,
+            Outcome::Reject {
+                reason: "out of bounds".into()
+            }
+        );
+    }
+
+    #[test]
+    fn pop_before_exhaustion_is_region_not_exhausted() {
+        let ir = ParserBuilder::new("early_pop", 3)
+            .header(HeaderTypeBuilder::new("h").bits("total", 8))
+            .state(
+                StateBuilder::new("s0")
+                    .extract("h")
+                    .push_region(f("h", "total"))
+                    .goto_(to("d")),
+            )
+            .state(StateBuilder::new("d").pop_region().accept())
+            .start("s0")
+            .build()
+            .unwrap();
+        let res = run(&ir, &[2, 0xAA, 0xBB]).unwrap();
+        assert_eq!(
+            res.outcome,
+            Outcome::Reject {
+                reason: "region not exhausted".into()
+            }
+        );
+    }
+
+    #[test]
+    fn nested_push_overrun_is_region_out_of_bounds() {
+        // Inner region (g.x=200 bytes) cannot fit the outer (total=2).
+        let ir = ParserBuilder::new("nested_lie", 4)
+            .header(HeaderTypeBuilder::new("h").bits("total", 8))
+            .header(HeaderTypeBuilder::new("g").bits("x", 8))
+            .state(
+                StateBuilder::new("s0")
+                    .extract("h")
+                    .push_region(f("h", "total"))
+                    .goto_(to("s1")),
+            )
+            .state(
+                StateBuilder::new("s1")
+                    .extract("g")
+                    .push_region(f("g", "x"))
+                    .accept(),
+            )
+            .start("s0")
+            .build()
+            .unwrap();
+        let res = run(&ir, &[2, 200, 9, 9]).unwrap();
+        assert_eq!(
+            res.outcome,
+            Outcome::Reject {
+                reason: "region out of bounds".into()
+            }
+        );
+    }
+
+    #[test]
+    fn remaining_without_region_is_buffer_remaining() {
+        use crate::builder::{accept, reject, remaining};
+        // select on remaining() with no region open: bytes left in buffer.
+        let ir = ParserBuilder::new("buf_rem", 2)
+            .header(HeaderTypeBuilder::new("h").bits("x", 8))
+            .state(StateBuilder::new("s0").extract("h").select(
+                vec![remaining()],
+                vec![arm(vec![v(2)], accept())],
+                reject("wrong remaining"),
+            ))
+            .start("s0")
+            .build()
+            .unwrap();
+        assert_eq!(run(&ir, &[1, 2, 3]).unwrap().outcome, Outcome::Accept);
+        assert_eq!(
+            run(&ir, &[1, 2]).unwrap().outcome,
+            Outcome::Reject {
+                reason: "wrong remaining".into()
+            }
+        );
     }
 
     #[test]

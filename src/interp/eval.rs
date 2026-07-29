@@ -8,13 +8,19 @@ pub(crate) type Env = HashMap<(String, String), u64>;
 
 /// Evaluate an operator tree. Arithmetic wraps (u64). Errors indicate a
 /// malformed IR (unresolved ref, missing operand) — never packet content.
+/// `remaining` is the value of `remaining()` at this use point, `None`
+/// in positions where it is illegal (byte_len widths; validator-backed).
 pub(crate) fn eval_expr(
     e: &pb::Expr,
     env: &Env,
     meta: &std::collections::HashMap<String, u64>,
+    remaining: Option<u64>,
 ) -> anyhow::Result<u64> {
     match e.kind.as_ref() {
         Some(pb::expr::Kind::Constant(v)) => Ok(*v),
+        Some(pb::expr::Kind::Remaining(_)) => {
+            remaining.ok_or_else(|| anyhow::anyhow!("remaining() not allowed in this position"))
+        }
         Some(pb::expr::Kind::Field(r)) => env
             .get(&(r.header.clone(), r.field.clone()))
             .copied()
@@ -26,6 +32,7 @@ pub(crate) fn eval_expr(
                     .ok_or_else(|| anyhow::anyhow!("binop missing lhs"))?,
                 env,
                 meta,
+                remaining,
             )?;
             let rhs = eval_expr(
                 b.rhs
@@ -33,6 +40,7 @@ pub(crate) fn eval_expr(
                     .ok_or_else(|| anyhow::anyhow!("binop missing rhs"))?,
                 env,
                 meta,
+                remaining,
             )?;
             let op = pb::BinOpKind::try_from(b.op)
                 .map_err(|_| anyhow::anyhow!("unknown binop {}", b.op))?;
@@ -84,12 +92,19 @@ mod tests {
     #[test]
     fn evals_ihl_options_len() {
         let expr = sub(mul(f("ipv4", "ihl"), c(4)), c(20));
-        assert_eq!(eval_expr(&expr, &env(), &meta()).unwrap(), 4);
+        assert_eq!(eval_expr(&expr, &env(), &meta(), None).unwrap(), 4);
     }
 
     #[test]
     fn unresolved_ref_is_error() {
-        assert!(eval_expr(&f("ghost", "x"), &env(), &meta()).is_err());
+        assert!(eval_expr(&f("ghost", "x"), &env(), &meta(), None).is_err());
+    }
+
+    #[test]
+    fn remaining_uses_context_and_errors_without_one() {
+        let expr = crate::builder::remaining();
+        assert_eq!(eval_expr(&expr, &env(), &meta(), Some(7)).unwrap(), 7);
+        assert!(eval_expr(&expr, &env(), &meta(), None).is_err());
     }
 
     #[test]

@@ -21,6 +21,9 @@ pub fn generate_lua(ir: &pb::Ir) -> Result<String> {
         .parser
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("ir has no parser"))?;
+    if super::has_region_ops(parser) {
+        bail!("sized regions not yet lowered in the Lua backend");
+    }
     let proto = format!("pakeles_{}", parser.name);
     let header_types: HashMap<&str, &pb::HeaderType> = parser
         .header_types
@@ -403,6 +406,10 @@ fn protofield_decl(
 
 fn expr_lua(e: &pb::Expr, referenced: &HashSet<(String, String)>) -> Result<String> {
     match e.kind.as_ref() {
+        // Lowered by the sized-region backend task; loud until then.
+        Some(pb::expr::Kind::Remaining(_)) => {
+            bail!("remaining() not yet lowered in the Lua backend")
+        }
         Some(pb::expr::Kind::Constant(v)) => {
             if *v > (1u64 << 53) {
                 bail!("constant {v} exceeds Lua number exactness (2^53)");

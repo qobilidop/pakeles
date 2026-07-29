@@ -15,6 +15,7 @@ pub(crate) fn entry_text(key: &pb::Expr, entry: &pb::KeysetEntry) -> String {
 
 fn fmt_expr(e: &pb::Expr) -> String {
     match e.kind.as_ref() {
+        Some(pb::expr::Kind::Remaining(_)) => "remaining()".to_string(),
         Some(pb::expr::Kind::Constant(v)) => format!("{v}"),
         Some(pb::expr::Kind::Field(r)) => format!("{}.{}", r.header, r.field),
         Some(pb::expr::Kind::Bin(b)) => {
