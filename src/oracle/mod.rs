@@ -4,6 +4,7 @@
 //! until proven otherwise.
 
 pub mod bmv2;
+pub mod dpdk_ptype;
 pub mod flow_dissector;
 
 use crate::interp::{run, FieldValue, Outcome};

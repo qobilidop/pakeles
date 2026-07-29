@@ -151,6 +151,16 @@ enum Oracle {
         #[arg(long, default_value = "examples/eth_ipvx_l4/conformance/vectors.json")]
         vectors: PathBuf,
     },
+    /// Diff our projected (ptype, hdr_lens) against DPDK-minted goldens.
+    DpdkPtype {
+        #[arg(long)]
+        ir: Option<PathBuf>,
+        /// Golden file path. Defaults to the committed DPDK-minted
+        /// goldens (`ptype.dpdk-*.golden.json`) under
+        /// examples/dpdk_ptype/conformance/.
+        #[arg(long)]
+        goldens: Option<PathBuf>,
+    },
     /// Diff our projected flow_keys against kernel-captured goldens.
     FlowDissector {
         #[arg(long)]
@@ -252,6 +262,38 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
                 report.compared,
                 report.skipped_bit_granular,
                 report.skipped_depth_bound,
+                report.mismatches.len()
+            );
+            for m in &report.mismatches {
+                println!("  {m}");
+            }
+            Ok(if report.mismatches.is_empty() { 0 } else { 1 })
+        }
+        Command::Diff {
+            oracle: Oracle::DpdkPtype { ir, goldens },
+        } => {
+            let ir = match &ir {
+                None => crate::examples::dpdk_ptype(),
+                Some(_) => load_ir(&ir)?,
+            };
+            let goldens = match goldens {
+                Some(p) => p,
+                None => crate::oracle::dpdk_ptype::discover_committed_golden(std::path::Path::new(
+                    crate::oracle::dpdk_ptype::CONFORMANCE_DIR,
+                ))
+                .context(
+                    "no --goldens given and no committed ptype.dpdk-*.golden.json \
+                     found under examples/dpdk_ptype/conformance/",
+                )?,
+            };
+            let golden: crate::oracle::dpdk_ptype::GoldenFile =
+                serde_json::from_str(&std::fs::read_to_string(&goldens).with_context(|| {
+                    format!("reading dpdk-ptype goldens from {}", goldens.display())
+                })?)?;
+            let report = crate::oracle::dpdk_ptype::diff_goldens(&ir, &golden)?;
+            println!(
+                "{} vectors compared, {} mismatches",
+                report.compared,
                 report.mismatches.len()
             );
             for m in &report.mismatches {
