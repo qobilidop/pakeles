@@ -73,17 +73,23 @@ const F_SYN_SET: u8 = 1 << 1;
 const F_RST_SET: u8 = 1 << 2;
 
 fn field_u(h: &crate::interp::ParsedHeader, f: &str) -> Option<u64> {
-    h.fields.iter().find(|x| x.name == f).and_then(|x| match &x.value {
-        crate::interp::FieldValue::Uint(v) => Some(*v),
-        _ => None,
-    })
+    h.fields
+        .iter()
+        .find(|x| x.name == f)
+        .and_then(|x| match &x.value {
+            crate::interp::FieldValue::Uint(v) => Some(*v),
+            _ => None,
+        })
 }
 
 fn field_bytes(h: &crate::interp::ParsedHeader, f: &str) -> Option<Vec<u8>> {
-    h.fields.iter().find(|x| x.name == f).and_then(|x| match &x.value {
-        crate::interp::FieldValue::Bytes(b) => Some(b.clone()),
-        _ => None,
-    })
+    h.fields
+        .iter()
+        .find(|x| x.name == f)
+        .and_then(|x| match &x.value {
+            crate::interp::FieldValue::Bytes(b) => Some(b.clone()),
+            _ => None,
+        })
 }
 
 fn hex(b: &[u8]) -> String {
@@ -147,8 +153,8 @@ pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Projection> {
     {
         let ty = icmp.and_then(|h| field_u(h, "type")).unwrap_or(0);
         // v4 ICMP echo request = 8; ICMPv6 echo request = 128.
-        let is_echo = (last_state == "parse_icmp" && ty == 8)
-            || (last_state == "parse_icmp6" && ty == 128);
+        let is_echo =
+            (last_state == "parse_icmp" && ty == 8) || (last_state == "parse_icmp6" && ty == 128);
         return Ok(Projection {
             verdict: if is_echo { Verdict::Tx } else { Verdict::Pass },
             stage: 0,
@@ -287,9 +293,10 @@ pub fn diff_goldens(ir: &pb::Ir, golden: &GoldenFile) -> anyhow::Result<KatranDi
             ));
         }
         if ours.stage != e.stage {
-            report
-                .mismatches
-                .push(format!("vector {i}: stage: ours={} golden={}", ours.stage, e.stage));
+            report.mismatches.push(format!(
+                "vector {i}: stage: ours={} golden={}",
+                ours.stage, e.stage
+            ));
         }
         // Flow is compared only when the golden has one (stage&1); a
         // stage-0 verdict carries no flow on either side.
@@ -328,7 +335,11 @@ mod gate_tests {
             "golden minted at katran {} — the agreement claim is pinned to dd915fd2",
             g.katran_commit
         );
-        assert!(g.entries.len() >= 28, "corpus shrank: {} entries", g.entries.len());
+        assert!(
+            g.entries.len() >= 28,
+            "corpus shrank: {} entries",
+            g.entries.len()
+        );
         let report = diff_goldens(&crate::examples::katran_flow(), &g).unwrap();
         assert_eq!(report.compared, g.entries.len());
         assert!(
@@ -400,7 +411,9 @@ mod project_tests {
 
     #[test]
     fn v4_unknown_proto_pass_stage1() {
-        let r = p(&format!("{ETH}0800 450000281234000040 59 dead 0a000001 0a000002"));
+        let r = p(&format!(
+            "{ETH}0800 450000281234000040 59 dead 0a000001 0a000002"
+        ));
         assert_eq!(r.verdict, Verdict::Pass);
         assert_eq!(r.stage, 1);
         let f = r.flow.unwrap();
@@ -411,7 +424,9 @@ mod project_tests {
 
     #[test]
     fn arp_pass_stage0() {
-        let r = p(&format!("{ETH}0806 0001080006040001112233445566 0a000001 aabbccddeeff 0a000002"));
+        let r = p(&format!(
+            "{ETH}0806 0001080006040001112233445566 0a000001 aabbccddeeff 0a000002"
+        ));
         assert_eq!(r.verdict, Verdict::Pass);
         assert_eq!(r.stage, 0);
         assert!(r.flow.is_none());
@@ -419,14 +434,18 @@ mod project_tests {
 
     #[test]
     fn icmp_echo_tx() {
-        let r = p(&format!("{ETH}0800 450000241234000040 01 dead 0a000001 0a000002 0800dead00000000"));
+        let r = p(&format!(
+            "{ETH}0800 450000241234000040 01 dead 0a000001 0a000002 0800dead00000000"
+        ));
         assert_eq!(r.verdict, Verdict::Tx);
         assert_eq!(r.stage, 0);
     }
 
     #[test]
     fn icmp_other_type_pass() {
-        let r = p(&format!("{ETH}0800 450000241234000040 01 dead 0a000001 0a000002 0500dead00000000"));
+        let r = p(&format!(
+            "{ETH}0800 450000241234000040 01 dead 0a000001 0a000002 0500dead00000000"
+        ));
         assert_eq!(r.verdict, Verdict::Pass);
         assert_eq!(r.stage, 0);
     }

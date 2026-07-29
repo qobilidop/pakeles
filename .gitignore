@@ -13,3 +13,5 @@ examples/*/conformance/vectors.pcap
 # symex perf bench outputs (baselines, inventories)
 /.bench/
 /oracle/dpdk_ptype/spike/build/
+/oracle/katran/factory/build/
+oracle/katran/factory/witnesses.txt

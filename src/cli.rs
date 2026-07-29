@@ -285,9 +285,9 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             };
             let goldens = match goldens {
                 Some(p) => p,
-                None => crate::oracle::katran::discover_committed_golden(
-                    std::path::Path::new(crate::oracle::katran::CONFORMANCE_DIR),
-                )
+                None => crate::oracle::katran::discover_committed_golden(std::path::Path::new(
+                    crate::oracle::katran::CONFORMANCE_DIR,
+                ))
                 .context(
                     "no --goldens given and no committed katran.*.golden.json \
                      found under examples/katran_flow/conformance/",
