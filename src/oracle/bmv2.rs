@@ -261,9 +261,18 @@ pub fn expected(ir: &pb::Ir, bits: &crate::testvec::Bits) -> Result<Expectation>
                 }
             } else {
                 // Runtime reject (truncation / bad length): the failing
-                // instance is invalid in P4 (atomic extract).
+                // instance is invalid in P4 (atomic extract) — unless an
+                // earlier extraction of the same instance completed. The
+                // verdict bit for a stacked instance reads element [0], so
+                // a failed RE-extract (tunnel re-entry, rung 4a) leaves the
+                // first element valid; the interpreter records the partial
+                // failing header as the instance's last `res.headers` entry,
+                // so a single occurrence means "no prior complete extract".
                 if let Some(inst) = res.error.as_ref().and_then(|e| e.instance.as_ref()) {
-                    bitmap &= !bit_of(inst);
+                    let occurrences = res.headers.iter().filter(|h| &h.instance == inst).count();
+                    if occurrences <= 1 {
+                        bitmap &= !bit_of(inst);
+                    }
                 }
                 Expectation {
                     bitmap,
