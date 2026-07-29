@@ -132,9 +132,10 @@ points BEFORE any vip/LB stage (post-L3/ICMP `stage|1`, post-L4
 reads it per TEST_RUN. flow_debug was rejected: it only records GUE
 routes (encap decisions), not the base parse. Smoke-confirmed the full
 core parse is now observable (v4/v6 flow tuples, ports, proto, flags,
-tos); QUIC needs config C (below).
+tos). QUIC parsing (stage|4) is exportable too, but is a boundary —
+see §6 (config-gated, not packet-pure).
 
-## 6. Binding scope: the default-build bounded core + QUIC
+## 6. Binding scope: the default-build bounded core
 
 Modeled — the DEFAULT build's parse path (no build #ifdefs), which is
 already remarkably bounded because katran is XDP at the NIC:
@@ -154,15 +155,21 @@ already remarkably bounded because katran is XDP at the NIC:
   ICMP type → `XDP_PASS`.
 - **L4:** TCP (fixed 20B; SYN→F_SYN_SET, RST→F_RST_SET; ports) and UDP
   (8B; ports); any other proto → `XDP_PASS` ("to the stack").
-- **QUIC** (`parse_quic`, fires for F_QUIC_VIP vips — config C): UDP
-  payload byte 0 long-header bit → 1B flags/4B version/1B dcid-len/16B
-  dcid prefix (packet-type < HANDSHAKE ⇒ is_initial, dcid-len <
-  8 ⇒ no id); short header → 1B flags/16B cid. `cid[0]>>6` = version
-  {1,2,3}; server_id = fixed bit-slices. All fixed-offset — expressible
-  in today's IR (bit fields + selects), no var-bits.
 
 **Boundary (documented, NOT modeled — the "heuristic/config tail," per
 the flow-dissector precedent):**
+
+- **QUIC** (`parse_quic`): a design refinement made during the build.
+  QUIC parsing IS fully expressible in today's IR — fixed offsets, a
+  long/short-header select, bit-field cid slices, no var-bits (the
+  header spelling is worked out in §7b below, kept for the future
+  rung). But it is gated by `vip_info->flags & F_QUIC_VIP` — **map
+  config, not packet content.** A packet-pure parser (Pakeles's whole
+  premise) cannot condition on it without baking specific vip addresses
+  into the model, i.e. modeling map state — which is exactly what the
+  LB-logic exclusion forbids. So QUIC joins the config-gated tail as a
+  boundary, on the same principled ground as stable-rt/TPR, NOT because
+  it is hard. This keeps `katran_flow` a pure packet→result function.
 
 - **IPIP/IPv6-in-IP decap** (`#ifdef INLINE_DECAP_IPIP`) and **GUE
   decap** (`#ifdef INLINE_DECAP_GUE`): not in the default build; proto
@@ -196,8 +203,16 @@ compared tuple, matching the golden's schema:
   the ICMP arm + TCP flag bits), tos (v4 tos byte / v6 priority+flow_lbl
   top nibble). Under F_ICMP the addresses AND ports are the INNER,
   SWAPPED values — the projection mirrors the inversion.
-- `quic` (when config C makes the vip QUIC): server_id, cid_version,
-  is_initial — projection-side bit arithmetic over the parsed cid bytes.
+### 7b. QUIC header spelling (deferred rung — recorded, not built)
+
+For when a future rung models config as packet predicates: long header
+= `flags:8 / version:32 / dcid_len:8 / dcid[0:16]` read at UDP payload
+byte 0 when `flags & 0x80`; short header = `flags:8 / cid[0:16]`
+otherwise; `cid_version = cid[0] >> 6` (select {1,2,3}, else 0xFF
+sentinel); server_id V1 = `((cid[0]&0x3F)<<10)|(cid[1]<<2)|(cid[2]>>6)`,
+V2 = `(cid[1]<<16)|(cid[2]<<8)|cid[3]`, V3 = `(cid[1]<<24)|…|cid[4]`;
+long packet-type `< HANDSHAKE(0x20)` after masking 0x30 ⇒ is_initial
+(fall back to hash, no id). All fixed-offset bit arithmetic.
 
 **Laxness rule:** every packet gets a katran verdict; there is no
 "further processing" escape at the wire. Our reject maps to XDP_DROP
@@ -212,7 +227,7 @@ New example **`katran_flow`** (content-named). A field-for-field model
 of the default-build parse path §6. Headers: Ethernet, IPv4 (with the
 ihl≠5 and fragment gates as selects/rejects), IPv6, ICMP + ICMPv6
 (type/code demux), an embedded inner IPv4/IPv6 for the ICMP path, TCP
-(SYN/RST flag bits), UDP, and a QUIC long/short header. `max_depth`
+(SYN/RST flag bits), and UDP. `max_depth`
 small (the deepest path — eth/ICMP/inner-ip/inner-L4 — is ~5 states;
 no cycles in the default build). Metadata: `is_icmp` (drives the
 address/port inversion, the second metadata-v1 consumer after
@@ -222,13 +237,14 @@ flow-dissector's is_encap).
 
 - **Committed golden** (privileged mint, flow-dissector factory
   pattern): `examples/katran_flow/conformance/katran.<pin>.golden.json`
-  minted ONLY by `oracle/katran/factory/capture.sh` at pin dd915fd2,
-  config C. Everyday unprivileged gate test diffs our projection against
+  minted ONLY by `oracle/katran/factory/capture.sh` at pin dd915fd2
+  with ALL MAPS EMPTY (config C collapses to "empty" now that QUIC is a
+  boundary — the core parse needs no vip/real config). Everyday unprivileged gate test diffs our projection against
   it (`committed_goldens_agree` analog, floors, pin guard on the
   commit hash).
 - **`diff katran`** CLI mirroring `diff dpdk-ptype`/`diff
   flow-dissector`.
-- The version tag is the katran COMMIT HASH + "config C" (not a kernel
+- The version tag is the katran COMMIT HASH (not a kernel
   version — the incumbent is the userspace-visible XDP behavior, though
   the mint runs in-kernel).
 
