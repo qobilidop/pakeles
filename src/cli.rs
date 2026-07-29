@@ -151,6 +151,13 @@ enum Oracle {
         #[arg(long, default_value = "examples/eth_ipvx_l4/conformance/vectors.json")]
         vectors: PathBuf,
     },
+    /// Diff our projected (bitmap, err) against sonic-pins-minted goldens.
+    Sai {
+        #[arg(long)]
+        ir: Option<PathBuf>,
+        #[arg(long)]
+        goldens: Option<PathBuf>,
+    },
     /// Diff our projected katran keys + verdict against katran-minted goldens.
     Katran {
         #[arg(long)]
@@ -269,6 +276,38 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
                 report.compared,
                 report.skipped_bit_granular,
                 report.skipped_depth_bound,
+                report.mismatches.len()
+            );
+            for m in &report.mismatches {
+                println!("  {m}");
+            }
+            Ok(if report.mismatches.is_empty() { 0 } else { 1 })
+        }
+        Command::Diff {
+            oracle: Oracle::Sai { ir, goldens },
+        } => {
+            let ir = match &ir {
+                None => crate::examples::sai_parser(),
+                Some(_) => load_ir(&ir)?,
+            };
+            let goldens = match goldens {
+                Some(p) => p,
+                None => crate::oracle::sai::discover_committed_golden(std::path::Path::new(
+                    crate::oracle::sai::CONFORMANCE_DIR,
+                ))
+                .context(
+                    "no --goldens given and no committed sai.*.golden.json \
+                     found under examples/sai_parser/conformance/",
+                )?,
+            };
+            let golden: crate::oracle::sai::GoldenFile = serde_json::from_str(
+                &std::fs::read_to_string(&goldens)
+                    .with_context(|| format!("reading sai goldens from {}", goldens.display()))?,
+            )?;
+            let report = crate::oracle::sai::diff_goldens(&ir, &golden)?;
+            println!(
+                "{} vectors compared, {} mismatches",
+                report.compared,
                 report.mismatches.len()
             );
             for m in &report.mismatches {
