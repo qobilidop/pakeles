@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two ways to ask a solver about a packet</title>
+<style>
+  :root {
+    --page: #F5F7F9; --panel: #FFFFFF; --panel2: #EDF1F4;
+    --ink: #1C2733; --muted: #5A6875; --line: #D4DBE1;
+    --eth: #2F5E9E; --ip: #0F8E74; --var: #C9922F; --inner: #A855A0;
+    --hot: #B0413E; --hot-bg: #F7ECEB;
+    --ok: #0F8E74;
+    --card-shadow: 0 1px 2px rgba(28,39,51,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #10151B; --panel: #171E26; --panel2: #1E2732;
+      --ink: #E6ECF2; --muted: #94A1AE; --line: #2C3743;
+      --eth: #4A7CC2; --ip: #149B7E; --var: #B4882D; --inner: #B564AC;
+      --hot: #D06B66; --hot-bg: #2A1E1E;
+      --ok: #149B7E;
+      --card-shadow: none;
+    }
+  }
+  :root[data-theme="light"] {
+    --page: #F5F7F9; --panel: #FFFFFF; --panel2: #EDF1F4;
+    --ink: #1C2733; --muted: #5A6875; --line: #D4DBE1;
+    --eth: #2F5E9E; --ip: #0F8E74; --var: #C9922F; --inner: #A855A0;
+    --hot: #B0413E; --hot-bg: #F7ECEB;
+    --ok: #0F8E74;
+    --card-shadow: 0 1px 2px rgba(28,39,51,.06);
+  }
+  :root[data-theme="dark"] {
+    --page: #10151B; --panel: #171E26; --panel2: #1E2732;
+    --ink: #E6ECF2; --muted: #94A1AE; --line: #2C3743;
+    --eth: #4A7CC2; --ip: #149B7E; --var: #B4882D; --inner: #B564AC;
+    --hot: #D06B66; --hot-bg: #2A1E1E;
+    --ok: #149B7E;
+    --card-shadow: none;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--page); color: var(--ink);
+    font-family: Charter, 'Bitstream Charter', 'Iowan Old Style', Georgia, serif;
+    font-size: 17px; line-height: 1.65;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 48px 24px 80px; }
+  .prose { max-width: 66ch; }
+
+  .eyebrow {
+    font-family: system-ui, sans-serif; font-size: 12px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
+  }
+  h1 {
+    font-family: system-ui, sans-serif; font-weight: 700; font-size: 34px;
+    line-height: 1.15; letter-spacing: -.015em; margin: 10px 0 14px; text-wrap: balance;
+  }
+  h2 {
+    font-family: system-ui, sans-serif; font-weight: 650; font-size: 21px;
+    letter-spacing: -.01em; margin: 56px 0 10px; text-wrap: balance;
+  }
+  .dek { font-size: 19px; color: var(--muted); margin: 0 0 8px; }
+  p { margin: 0 0 14px; }
+  code, .mono {
+    font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .86em;
+  }
+  code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 22px; margin: 20px 0 8px; box-shadow: var(--card-shadow);
+    overflow-x: auto;
+  }
+  .caption {
+    font-family: system-ui, sans-serif; font-size: 13.5px; color: var(--muted);
+    margin: 8px 2px 0; max-width: 70ch;
+  }
+  .panel-title {
+    font-family: system-ui, sans-serif; font-size: 12px; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+    margin: 0 0 16px;
+  }
+
+  /* ---- packet ribbon ---- */
+  .ribbon { display: flex; align-items: stretch; height: 58px; min-width: 640px; }
+  .seg {
+    position: relative; display: flex; flex-direction: column; justify-content: center;
+    align-items: center; color: #fff; border-radius: 3px; margin-right: 2px;
+    font-family: system-ui, sans-serif; overflow: hidden; min-width: 0;
+  }
+  .seg:last-child { margin-right: 0; }
+  .seg .name { font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+  .seg .bytes { font-size: 11px; opacity: .85; white-space: nowrap; }
+  .seg.eth   { background: var(--eth); }
+  .seg.ip    { background: var(--ip); }
+  .seg.opts  { background: var(--var); }
+  .seg.inner { background: var(--inner); }
+  .seg.rest  { background: var(--panel2); color: var(--muted); border: 1px dashed var(--line); }
+  .can-slide { transition: flex-basis .18s ease; }
+  @media (prefers-reduced-motion: reduce) { .can-slide { transition: none; } }
+
+  .addr-row {
+    display: flex; min-width: 640px; margin-top: 6px;
+    font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; color: var(--muted);
+  }
+  .slider-row {
+    display: flex; align-items: center; gap: 14px; margin-top: 18px;
+    font-family: system-ui, sans-serif; font-size: 14px; flex-wrap: wrap;
+  }
+  .slider-row input[type=range] { width: 220px; accent-color: var(--var); }
+  .slider-row .readout { font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+  .readout b { font-weight: 600; }
+  .off-pill {
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 999px;
+    padding: 2px 10px; font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- bitvector + shifter ---- */
+  .bv { display: flex; height: 30px; min-width: 640px; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+  .bv .cell { flex: 1; border-right: 1px solid var(--line); background: var(--panel2); }
+  .bv .cell:nth-child(2n) { background: var(--panel); }
+  .bv .cell:last-child { border-right: 0; }
+  .bv-label {
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--muted);
+    display: flex; justify-content: space-between; min-width: 640px; margin-top: 4px;
+  }
+  .window {
+    position: absolute; top: -6px; bottom: -6px; width: 64px;
+    border: 2px solid var(--inner); border-radius: 5px; background: transparent;
+  }
+  .shifter-stack { margin-top: 18px; min-width: 640px; }
+  .shifter-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .shifter-row .tag {
+    font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; color: var(--muted);
+    width: 110px; flex-shrink: 0; text-align: right;
+  }
+  .shifter-bar { position: relative; flex: 1; height: 14px; border-radius: 3px;
+    background: repeating-linear-gradient(90deg, var(--panel2) 0 10px, var(--panel) 10px 20px);
+    border: 1px solid var(--line);
+  }
+  .shifter-row.hot .shifter-bar { border-color: var(--hot); }
+  .ellipsis-row { font-family: ui-monospace, Menlo, monospace; color: var(--muted); font-size: 12px; margin: 2px 0 8px 120px; }
+  .cost {
+    display: inline-block; margin-top: 14px; background: var(--hot-bg); color: var(--hot);
+    border: 1px solid var(--hot); border-radius: 6px; padding: 8px 12px;
+    font-family: system-ui, sans-serif; font-size: 13.5px; max-width: 60ch;
+  }
+
+  /* ---- field cards ---- */
+  .cards { display: flex; gap: 12px; flex-wrap: wrap; }
+  .fcard {
+    border: 1px solid var(--line); border-left: 4px solid var(--muted);
+    border-radius: 6px; background: var(--panel); padding: 10px 14px; min-width: 150px;
+    font-family: system-ui, sans-serif;
+  }
+  .fcard .fname { font-family: ui-monospace, Menlo, monospace; font-size: 13px; font-weight: 600; }
+  .fcard .fmeta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .fcard.c-eth { border-left-color: var(--eth); }
+  .fcard.c-ip { border-left-color: var(--ip); }
+  .fcard.c-var { border-left-color: var(--var); }
+  .fcard.c-inner { border-left-color: var(--inner); }
+  .fcard .fval { font-family: ui-monospace, Menlo, monospace; font-size: 13px; margin-top: 6px; color: var(--ok); font-weight: 600; }
+  .constraints {
+    margin-top: 16px; padding: 12px 16px; background: var(--panel2); border-radius: 6px;
+    font-family: ui-monospace, Menlo, monospace; font-size: 13px; line-height: 1.9;
+  }
+  .constraints .cm { color: var(--muted); }
+
+  /* ---- comparison strip ---- */
+  .vs {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+    font-family: system-ui, sans-serif; font-size: 14px; margin-top: 16px;
+  }
+  @media (max-width: 640px) { .vs { grid-template-columns: 1fr; } }
+  .vs .side { border: 1px solid var(--line); border-radius: 6px; padding: 12px 16px; }
+  .vs .side h4 { margin: 0 0 6px; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .vs .big { font-family: ui-monospace, Menlo, monospace; font-size: 15px; font-weight: 600; }
+  .vs .hot-t { color: var(--hot); }
+  .vs .ok-t { color: var(--ok); }
+
+  /* ---- stat tiles ---- */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 18px; }
+  @media (max-width: 640px) { .stats { grid-template-columns: 1fr; } }
+  .stat {
+    border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
+    padding: 16px 18px; font-family: system-ui, sans-serif; box-shadow: var(--card-shadow);
+  }
+  .stat .k { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .stat .v { font-size: 26px; font-weight: 700; letter-spacing: -.01em; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .stat .s { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .stat .was { text-decoration: line-through; text-decoration-thickness: 1.5px; color: var(--muted); font-weight: 500; font-size: 16px; margin-right: 8px; }
+
+  .footnote { font-family: system-ui, sans-serif; font-size: 13.5px; color: var(--muted); border-top: 1px solid var(--line); margin-top: 56px; padding-top: 16px; }
+  a { color: var(--eth); }
+  :focus-visible { outline: 2px solid var(--eth); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">pakeles · symex · 2026-07-28</div>
+  <h1>Two ways to ask a solver about a packet</h1>
+  <p class="dek prose">Same question, different unknowns — and a ~3,700&times; difference in how fast z3 can answer it.</p>
+
+  <div class="prose">
+    <p>Every symex query is a question like this one, taken from a real
+    <code>linux_flow_dissector</code> path:</p>
+    <div class="constraints" style="margin-top:0">
+      <span class="cm">// "Is there any packet that takes the IPIP-tunnel path?"</span><br>
+      eth.proto&nbsp;=&nbsp;0x0800&nbsp;&nbsp;<span class="cm">∧</span>&nbsp;&nbsp;ihl&nbsp;≥&nbsp;5&nbsp;&nbsp;<span class="cm">∧</span>&nbsp;&nbsp;proto&nbsp;=&nbsp;4&nbsp;&nbsp;<span class="cm">∧</span>&nbsp;&nbsp;inner.proto&nbsp;=&nbsp;6
+    </div>
+    <p class="caption" style="margin-bottom:18px">Notice: the question only ever mentions <em>fields</em>. No constraint ever talks about "the packet" directly.</p>
+    <p>Both encodings answer exactly this question and always give the same
+    yes/no answer. They differ only in <strong>what the unknown is</strong> while
+    z3 is thinking.</p>
+  </div>
+
+  <h2>First, why this is hard: fields move</h2>
+  <div class="prose">
+    <p>An IPv4 header has a variable-length options region — <code>(ihl−5)×4</code>
+    bytes. Everything behind it slides. Drag <code>ihl</code>:</p>
+  </div>
+  <div class="panel">
+    <div class="panel-title">The packet, as bytes on the wire</div>
+    <div class="ribbon" id="ribbon">
+      <div class="seg eth" style="flex-basis:17%"><span class="name">eth</span><span class="bytes">14 B</span></div>
+      <div class="seg ip" style="flex-basis:24%"><span class="name">ipv4 (fixed)</span><span class="bytes">20 B</span></div>
+      <div class="seg opts can-slide" id="segOpts"><span class="name">options</span><span class="bytes" id="optBytes">8 B</span></div>
+      <div class="seg inner can-slide" style="flex-basis:24%"><span class="name">inner ipv4</span><span class="bytes">20 B</span></div>
+      <div class="seg rest can-slide" style="flex-basis:14%"><span class="name">tcp …</span></div>
+    </div>
+    <div class="slider-row">
+      <label for="ihl"><code>ihl</code> field:</label>
+      <input type="range" id="ihl" min="5" max="12" value="7" aria-label="ihl value">
+      <span class="readout">ihl = <b id="ihlVal">7</b> → options = <b id="optCalc">8</b> bytes</span>
+      <span class="off-pill readout">inner.proto lives at byte <b id="innerOff">51</b></span>
+    </div>
+    <div class="caption">The address of <code>inner.proto</code> is
+      <code>14 + ihl×4 + 9</code> — an <em>expression over another field</em>. To reason about
+      one packet byte, you first have to reason about where that byte even is. Tunnel paths chain
+      several of these regions, so offsets become expressions over expressions.</div>
+  </div>
+
+  <h2>Encoding A — the unknown is the whole packet</h2>
+  <div class="prose">
+    <p>The original encoding gives z3 <em>one variable: every bit of the packet</em>,
+    sized to the worst case (tens of thousands of bits on tunnel paths, since each
+    var-length region is budgeted at its maximum). A field is then "the bits you
+    find at some position of that vector."</p>
+  </div>
+  <div class="panel">
+    <div class="panel-title">One bitvector, up to ~33,000 bits wide</div>
+    <div style="position:relative; min-width:640px">
+      <div class="bv" aria-hidden="true">
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+      </div>
+      <div class="window" style="left:56%" aria-hidden="true"></div>
+    </div>
+    <div class="bv-label"><span>bit 0</span><span>the read window slides with ihl →</span><span>bit 33,119</span></div>
+
+    <div class="shifter-stack" aria-hidden="true">
+      <div class="shifter-row hot"><span class="tag">shift by 16384?</span><div class="shifter-bar"></div></div>
+      <div class="shifter-row hot"><span class="tag">shift by 8192?</span><div class="shifter-bar"></div></div>
+      <div class="shifter-row hot"><span class="tag">shift by 4096?</span><div class="shifter-bar"></div></div>
+      <div class="ellipsis-row">⋮ &nbsp;one full-width layer per bit of the shift amount</div>
+      <div class="shifter-row hot"><span class="tag">shift by 1?</span><div class="shifter-bar"></div></div>
+    </div>
+    <div class="cost">Reading 8 bits at an unknown offset compiles to
+      <span class="mono">packet ≫ (w−len−off)</span> — a <strong>barrel shifter</strong>:
+      ~log₂(w) selection layers, each spanning all w bits. z3 bit-blasts it into a circuit
+      of roughly w·log w gate-bits, <em>per symbolic read</em> — and the old code rebuilt it
+      in a fresh solver for every one of thousands of queries, re-asserting the whole
+      path prefix each time.</div>
+    <div class="caption">The absurdity in one sentence: to check <code>inner.proto = 6</code> —
+      a fact about 8 bits — z3 had to model a machine that can slice any 8 bits out of a
+      33,000-bit haystack.</div>
+  </div>
+
+  <h2>Encoding B — the unknowns are the fields</h2>
+  <div class="prose">
+    <p>The new encoding never mentions the packet. Every distinct field <em>read</em>
+    becomes its own small variable — an index card, bounded to the field's width.
+    The constraints already talk only about fields, so they translate directly.</p>
+  </div>
+  <div class="panel">
+    <div class="panel-title">A handful of 64-bit variables</div>
+    <div class="cards">
+      <div class="fcard c-eth"><div class="fname">f₀ = eth.proto</div><div class="fmeta">16 bits · f₀ &lt; 2¹⁶</div></div>
+      <div class="fcard c-ip"><div class="fname">f₁ = ipv4.ihl</div><div class="fmeta">4 bits · f₁ &lt; 2⁴</div></div>
+      <div class="fcard c-ip"><div class="fname">f₂ = ipv4.proto</div><div class="fmeta">8 bits · f₂ &lt; 2⁸</div></div>
+      <div class="fcard c-inner"><div class="fname">f₃ = inner.proto</div><div class="fmeta">8 bits · f₃ &lt; 2⁸</div></div>
+    </div>
+    <div class="constraints">
+      f₀ = 0x0800&nbsp;&nbsp;<span class="cm">∧</span>&nbsp;&nbsp;f₁ ≥ 5&nbsp;&nbsp;<span class="cm">∧</span>&nbsp;&nbsp;f₂ = 4&nbsp;&nbsp;<span class="cm">∧</span>&nbsp;&nbsp;f₃ = 6
+      <br><span class="cm">// where is f₃ in the packet? — while solving, nobody needs to know</span>
+    </div>
+    <div class="vs">
+      <div class="side">
+        <h4>Encoding A must decide</h4>
+        <div class="big hot-t">~33,000 unknown bits</div>
+        + a shifter circuit per symbolic read
+      </div>
+      <div class="side">
+        <h4>Encoding B must decide</h4>
+        <div class="big ok-t">~36 unknown bits</div>
+        plain 64-bit arithmetic, zero shifters
+      </div>
+    </div>
+    <div class="caption">The sliding-offset problem from the first panel doesn't get
+      solved — it gets <em>deleted</em>. <code>inner.proto</code> is just f₃, wherever it
+      happens to live. Query cost stops depending on packet width entirely.</div>
+  </div>
+
+  <h2>Then build the packet — don't solve for it</h2>
+  <div class="prose">
+    <p>A test vector still needs real bytes. Once z3 hands back the field values,
+    every length is concrete — so every offset is concrete too. The packet is
+    <em>assembled</em>, like inking crossword answers into the grid after solving
+    the clues on cards:</p>
+  </div>
+  <div class="panel">
+    <div class="panel-title">Assembly from the model &nbsp;(ihl = 5 → options = 0 B)</div>
+    <div class="cards" style="margin-bottom:16px">
+      <div class="fcard c-eth"><div class="fname">f₀</div><div class="fval">0x0800</div></div>
+      <div class="fcard c-ip"><div class="fname">f₁</div><div class="fval">5</div></div>
+      <div class="fcard c-ip"><div class="fname">f₂</div><div class="fval">4</div></div>
+      <div class="fcard c-inner"><div class="fname">f₃</div><div class="fval">6</div></div>
+    </div>
+    <div class="ribbon" style="height:46px">
+      <div class="seg eth" style="flex-basis:18%"><span class="name">eth</span><span class="bytes mono">…08 00</span></div>
+      <div class="seg ip" style="flex-basis:30%"><span class="name">ipv4</span><span class="bytes mono">45 … 04 …</span></div>
+      <div class="seg inner" style="flex-basis:30%"><span class="name">inner ipv4</span><span class="bytes mono">… 06 …</span></div>
+      <div class="seg rest" style="flex-basis:22%"><span class="name mono">00 00 00 …</span></div>
+    </div>
+    <div class="caption">Field values land at their now-known offsets; every unconstrained
+      bit is zero by construction (the old encoding let z3's model completion pick junk).
+      And a wrong assembly can't ship a wrong test: every vector still round-trips through
+      the reference interpreter before it's accepted.</div>
+  </div>
+
+  <h2>Why the answers are guaranteed identical</h2>
+  <div class="prose">
+    <p>This works because of one structural fact about the parser IR: <strong>every
+    read the engine can express names a region the parse cursor already placed, and
+    the cursor only moves forward</strong> — so within a path, two different reads
+    can never overlap. That gives a two-way bridge:</p>
+    <p style="margin-left:1em">
+      <span style="color:var(--ok); font-weight:600">packet&nbsp;→&nbsp;fields:</span>
+      any packet satisfying the constraints yields field values that satisfy them —
+      just read the regions off.<br>
+      <span style="color:var(--ok); font-weight:600">fields&nbsp;→&nbsp;packet:</span>
+      any satisfying field values yield a packet — the slots are disjoint, so the
+      writes can't collide, and each value fits its slot by the width bound.
+    </p>
+    <p>Satisfiable in one encoding ⇔ satisfiable in the other. Same feasible paths,
+    same enumerated path set — as a theorem, not a test result. (It is <em>also</em> a
+    test result: a cross-check mode, <code>PAKELES_SYMEX_XCHECK=1</code>, re-answers every
+    query under encoding A and panics on any disagreement; and the path inventories are
+    byte-identical. If a future IR feature ever lets two reads alias, the theorem breaks —
+    that's exactly what the cross-check is left in the tree to catch.)</p>
+  </div>
+
+  <h2>What it bought</h2>
+  <div class="stats">
+    <div class="stat">
+      <div class="k">encap_proxy full regen</div>
+      <div class="v"><span class="was">137.7 s</span>0.037 s</div>
+      <div class="s">the tunnel-shaped benchmark, ~3,700×</div>
+    </div>
+    <div class="stat">
+      <div class="k">linux_flow_dissector regen</div>
+      <div class="v"><span class="was">∞</span>7.83 s</div>
+      <div class="s">previously never completed a full enumeration</div>
+    </div>
+    <div class="stat">
+      <div class="k">paths, all interp-verified</div>
+      <div class="v">12,993</div>
+      <div class="s">byte-identical inventory across every change</div>
+    </div>
+  </div>
+  <p class="caption">The encoding change is most of the story; the rest (an incremental
+    solver session that mirrors the DFS, witnesses solved at emit time from a cached model)
+    removed the remaining rebuild-per-query overhead.</p>
+
+  <div class="footnote">
+    Full technical version, including the measured per-lever breakdown:
+    <span class="mono">docs/superpowers/specs/2026-07-28-symex-perf-design.md</span> in the pakeles repo.
+  </div>
+</div>
+
+<script>
+  (function () {
+    var ihl = document.getElementById('ihl');
+    var segOpts = document.getElementById('segOpts');
+    var optBytes = document.getElementById('optBytes');
+    var optCalc = document.getElementById('optCalc');
+    var ihlVal = document.getElementById('ihlVal');
+    var innerOff = document.getElementById('innerOff');
+    function update() {
+      var v = parseInt(ihl.value, 10);
+      var opts = (v - 5) * 4;                 // bytes of options
+      // flex-basis: 0..28 bytes of options mapped onto up to 21% of the ribbon
+      segOpts.style.flexBasis = (opts * 0.75) + '%';
+      segOpts.style.marginRight = opts === 0 ? '0' : '2px';
+      optBytes.textContent = opts + ' B';
+      optCalc.textContent = opts;
+      ihlVal.textContent = v;
+      innerOff.textContent = 14 + v * 4 + 9;  // eth + ipv4 header + proto offset
+    }
+    ihl.addEventListener('input', update);
+    update();
+  })();
+</script>
+</body>
+</html>

@@ -4,7 +4,9 @@ How `linux_flow_dissector` (rung 4a) symex regen went from *could not
 finish* to **7.8 seconds**, and where each factor of the speedup comes
 from. Companion to the plan
 (`../plans/2026-07-28-symex-enum-perf.md`); commits `951b9e5` →
-`92a2cbf`, all 2026-07-28.
+`92a2cbf`, all 2026-07-28. For an illustrated, intuition-first version
+of the encoding change (with an interactive sliding-offset demo), open
+`2026-07-28-symex-perf-encoding-explainer.html` in a browser.
 
 ## Headline numbers
 
