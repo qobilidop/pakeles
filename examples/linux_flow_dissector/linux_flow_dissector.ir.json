@@ -283,6 +283,10 @@
                 {
                   "value": "41",
                   "label": "IPv6-in-IP"
+                },
+                {
+                  "value": "47",
+                  "label": "GRE"
                 }
               ]
             },
@@ -435,6 +439,10 @@
                 {
                   "value": "41",
                   "label": "IPv6-in-IP"
+                },
+                {
+                  "value": "47",
+                  "label": "GRE"
                 }
               ]
             },
@@ -530,6 +538,159 @@
                   },
                   "rhs": {
                     "constant": "2"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "gre",
+        "fields": [
+          {
+            "name": "c",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Checksum Present",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "routing",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Routing Present",
+              "format": "DISPLAY_FORMAT_DEC",
+              "doc": "ignored by the kernel (not masked)"
+            }
+          },
+          {
+            "name": "key_flag",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Key Present",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "seq_flag",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Sequence Present",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "reserved",
+            "width": {
+              "bits": 9
+            },
+            "display": {
+              "name": "Reserved0",
+              "format": "DISPLAY_FORMAT_HEX",
+              "doc": "unchecked by the kernel — never a reject"
+            }
+          },
+          {
+            "name": "version",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "Version",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "proto",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Protocol Type",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "2048",
+                  "label": "IPv4"
+                },
+                {
+                  "value": "34525",
+                  "label": "IPv6"
+                },
+                {
+                  "value": "25944",
+                  "label": "TEB"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "greopt",
+        "fields": [
+          {
+            "name": "body",
+            "width": {
+              "byteLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_ADD",
+                  "lhs": {
+                    "bin": {
+                      "op": "BIN_OP_KIND_ADD",
+                      "lhs": {
+                        "bin": {
+                          "op": "BIN_OP_KIND_MUL",
+                          "lhs": {
+                            "field": {
+                              "header": "gre",
+                              "field": "c"
+                            }
+                          },
+                          "rhs": {
+                            "constant": "4"
+                          }
+                        }
+                      },
+                      "rhs": {
+                        "bin": {
+                          "op": "BIN_OP_KIND_MUL",
+                          "lhs": {
+                            "field": {
+                              "header": "gre",
+                              "field": "key_flag"
+                            }
+                          },
+                          "rhs": {
+                            "constant": "4"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "bin": {
+                      "op": "BIN_OP_KIND_MUL",
+                      "lhs": {
+                        "field": {
+                          "header": "gre",
+                          "field": "seq_flag"
+                        }
+                      },
+                      "rhs": {
+                        "constant": "4"
+                      }
+                    }
                   }
                 }
               }
@@ -1135,6 +1296,16 @@
                 "next": {
                   "state": "parse_ip6ip"
                 }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "47"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre"
+                }
               }
             ],
             "defaultTarget": {
@@ -1234,6 +1405,16 @@
                 ],
                 "next": {
                   "state": "parse_ip6ip"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "47"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre"
                 }
               }
             ],
@@ -1336,6 +1517,16 @@
                 "next": {
                   "state": "parse_ip6ip"
                 }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "47"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre"
+                }
               }
             ],
             "defaultTarget": {
@@ -1370,6 +1561,110 @@
         "transition": {
           "direct": {
             "state": "parse_ipv6"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "is_encap",
+            "value": {
+              "constant": "1"
+            }
+          }
+        ]
+      },
+      {
+        "name": "parse_gre",
+        "extracts": [
+          {
+            "headerType": "gre"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "version"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre_opt"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_gre_opt",
+        "extracts": [
+          {
+            "headerType": "greopt",
+            "instance": "gre_opt"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "proto"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "25944"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ethernet"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "reject": {
+                "reason": "unsupported gre proto",
+                "annotations": {
+                  "severity": "info"
+                }
+              }
+            }
           }
         },
         "assigns": [

@@ -33,7 +33,7 @@ local f_ipv4_id = ProtoField.uint16("pakeles_linux_flow_dissector.ipv4.id", "Ide
 local f_ipv4_flags = ProtoField.uint8("pakeles_linux_flow_dissector.ipv4.flags", "Flags", base.HEX)
 local f_ipv4_frag_offset = ProtoField.uint16("pakeles_linux_flow_dissector.ipv4.frag_offset", "Fragment Offset", base.DEC)
 local f_ipv4_ttl = ProtoField.uint8("pakeles_linux_flow_dissector.ipv4.ttl", "Time to Live", base.DEC)
-local f_ipv4_protocol = ProtoField.uint8("pakeles_linux_flow_dissector.ipv4.protocol", "Protocol", base.DEC, { [1] = "ICMP", [4] = "IPIP", [6] = "TCP", [17] = "UDP", [41] = "IPv6-in-IP" })
+local f_ipv4_protocol = ProtoField.uint8("pakeles_linux_flow_dissector.ipv4.protocol", "Protocol", base.DEC, { [1] = "ICMP", [4] = "IPIP", [6] = "TCP", [17] = "UDP", [41] = "IPv6-in-IP", [47] = "GRE" })
 local f_ipv4_checksum = ProtoField.uint16("pakeles_linux_flow_dissector.ipv4.checksum", "Header Checksum", base.HEX)
 local f_ipv4_src = ProtoField.ipv4("pakeles_linux_flow_dissector.ipv4.src", "Source Address")
 local f_ipv4_dst = ProtoField.ipv4("pakeles_linux_flow_dissector.ipv4.dst", "Destination Address")
@@ -43,7 +43,7 @@ local f_ipv6_version = ProtoField.uint8("pakeles_linux_flow_dissector.ipv6.versi
 local f_ipv6_traffic_class = ProtoField.uint8("pakeles_linux_flow_dissector.ipv6.traffic_class", "Traffic Class", base.HEX)
 local f_ipv6_flow_label = ProtoField.uint24("pakeles_linux_flow_dissector.ipv6.flow_label", "Flow Label", base.HEX)
 local f_ipv6_payload_length = ProtoField.uint16("pakeles_linux_flow_dissector.ipv6.payload_length", "Payload Length", base.DEC)
-local f_ipv6_next_header = ProtoField.uint8("pakeles_linux_flow_dissector.ipv6.next_header", "Next Header", base.DEC, { [1] = "ICMP", [4] = "IPIP", [6] = "TCP", [17] = "UDP", [41] = "IPv6-in-IP" })
+local f_ipv6_next_header = ProtoField.uint8("pakeles_linux_flow_dissector.ipv6.next_header", "Next Header", base.DEC, { [1] = "ICMP", [4] = "IPIP", [6] = "TCP", [17] = "UDP", [41] = "IPv6-in-IP", [47] = "GRE" })
 local f_ipv6_hop_limit = ProtoField.uint8("pakeles_linux_flow_dissector.ipv6.hop_limit", "Hop Limit", base.DEC)
 local f_ipv6_src = ProtoField.bytes("pakeles_linux_flow_dissector.ipv6.src", "src")
 local f_ipv6_dst = ProtoField.bytes("pakeles_linux_flow_dissector.ipv6.dst", "dst")
@@ -51,6 +51,16 @@ local f_hdr_ext_opt = ProtoField.none("pakeles_linux_flow_dissector.ext_opt", "e
 local f_ext_opt_next_header = ProtoField.uint8("pakeles_linux_flow_dissector.ext_opt.next_header", "Next Header", base.DEC)
 local f_ext_opt_hdr_ext_len = ProtoField.uint8("pakeles_linux_flow_dissector.ext_opt.hdr_ext_len", "Hdr Ext Len", base.DEC)
 local f_ext_opt_body = ProtoField.bytes("pakeles_linux_flow_dissector.ext_opt.body", "body")
+local f_hdr_gre = ProtoField.none("pakeles_linux_flow_dissector.gre", "gre")
+local f_gre_c = ProtoField.uint8("pakeles_linux_flow_dissector.gre.c", "Checksum Present", base.DEC)
+local f_gre_routing = ProtoField.uint8("pakeles_linux_flow_dissector.gre.routing", "Routing Present", base.DEC)
+local f_gre_key_flag = ProtoField.uint8("pakeles_linux_flow_dissector.gre.key_flag", "Key Present", base.DEC)
+local f_gre_seq_flag = ProtoField.uint8("pakeles_linux_flow_dissector.gre.seq_flag", "Sequence Present", base.DEC)
+local f_gre_reserved = ProtoField.uint16("pakeles_linux_flow_dissector.gre.reserved", "Reserved0", base.HEX)
+local f_gre_version = ProtoField.uint8("pakeles_linux_flow_dissector.gre.version", "Version", base.DEC)
+local f_gre_proto = ProtoField.uint16("pakeles_linux_flow_dissector.gre.proto", "Protocol Type", base.HEX, { [2048] = "IPv4", [34525] = "IPv6", [25944] = "TEB" })
+local f_hdr_gre_opt = ProtoField.none("pakeles_linux_flow_dissector.gre_opt", "gre_opt")
+local f_gre_opt_body = ProtoField.bytes("pakeles_linux_flow_dissector.gre_opt.body", "body")
 local f_hdr_ext_frag = ProtoField.none("pakeles_linux_flow_dissector.ext_frag", "ext_frag")
 local f_ext_frag_next_header = ProtoField.uint8("pakeles_linux_flow_dissector.ext_frag.next_header", "Next Header", base.DEC)
 local f_ext_frag_reserved = ProtoField.uint8("pakeles_linux_flow_dissector.ext_frag.reserved", "Reserved", base.HEX)
@@ -82,9 +92,11 @@ local f_udp_length = ProtoField.uint16("pakeles_linux_flow_dissector.udp.length"
 local f_udp_checksum = ProtoField.uint16("pakeles_linux_flow_dissector.udp.checksum", "Checksum", base.HEX)
 local f_meta_is_encap = ProtoField.uint64("pakeles_linux_flow_dissector.meta.is_encap", "Encapsulated")
 local f_payload = ProtoField.bytes("pakeles_linux_flow_dissector.payload", "Payload")
-p.fields = { f_hdr_ethernet, f_ethernet_dst, f_ethernet_src, f_ethernet_ethertype, f_hdr_vlan_ad, f_vlan_ad_pcp, f_vlan_ad_dei, f_vlan_ad_vid, f_vlan_ad_encapsulated_proto, f_hdr_vlan_q, f_vlan_q_pcp, f_vlan_q_dei, f_vlan_q_vid, f_vlan_q_encapsulated_proto, f_hdr_ipv4, f_ipv4_version, f_ipv4_ihl, f_ipv4_dscp, f_ipv4_ecn, f_ipv4_total_len, f_ipv4_id, f_ipv4_flags, f_ipv4_frag_offset, f_ipv4_ttl, f_ipv4_protocol, f_ipv4_checksum, f_ipv4_src, f_ipv4_dst, f_ipv4_options, f_hdr_ipv6, f_ipv6_version, f_ipv6_traffic_class, f_ipv6_flow_label, f_ipv6_payload_length, f_ipv6_next_header, f_ipv6_hop_limit, f_ipv6_src, f_ipv6_dst, f_hdr_ext_opt, f_ext_opt_next_header, f_ext_opt_hdr_ext_len, f_ext_opt_body, f_hdr_ext_frag, f_ext_frag_next_header, f_ext_frag_reserved, f_ext_frag_frag_off, f_ext_frag_res2, f_ext_frag_m_flag, f_ext_frag_identification, f_hdr_mpls, f_mpls_label, f_mpls_tc, f_mpls_s, f_mpls_ttl, f_hdr_tcp, f_tcp_sport, f_tcp_dport, f_tcp_seq, f_tcp_ack, f_tcp_data_offset, f_tcp_reserved, f_tcp_flags, f_tcp_window, f_tcp_checksum, f_tcp_urgent, f_tcp_options, f_hdr_udp, f_udp_sport, f_udp_dport, f_udp_length, f_udp_checksum, f_meta_is_encap, f_payload }
+p.fields = { f_hdr_ethernet, f_ethernet_dst, f_ethernet_src, f_ethernet_ethertype, f_hdr_vlan_ad, f_vlan_ad_pcp, f_vlan_ad_dei, f_vlan_ad_vid, f_vlan_ad_encapsulated_proto, f_hdr_vlan_q, f_vlan_q_pcp, f_vlan_q_dei, f_vlan_q_vid, f_vlan_q_encapsulated_proto, f_hdr_ipv4, f_ipv4_version, f_ipv4_ihl, f_ipv4_dscp, f_ipv4_ecn, f_ipv4_total_len, f_ipv4_id, f_ipv4_flags, f_ipv4_frag_offset, f_ipv4_ttl, f_ipv4_protocol, f_ipv4_checksum, f_ipv4_src, f_ipv4_dst, f_ipv4_options, f_hdr_ipv6, f_ipv6_version, f_ipv6_traffic_class, f_ipv6_flow_label, f_ipv6_payload_length, f_ipv6_next_header, f_ipv6_hop_limit, f_ipv6_src, f_ipv6_dst, f_hdr_ext_opt, f_ext_opt_next_header, f_ext_opt_hdr_ext_len, f_ext_opt_body, f_hdr_gre, f_gre_c, f_gre_routing, f_gre_key_flag, f_gre_seq_flag, f_gre_reserved, f_gre_version, f_gre_proto, f_hdr_gre_opt, f_gre_opt_body, f_hdr_ext_frag, f_ext_frag_next_header, f_ext_frag_reserved, f_ext_frag_frag_off, f_ext_frag_res2, f_ext_frag_m_flag, f_ext_frag_identification, f_hdr_mpls, f_mpls_label, f_mpls_tc, f_mpls_s, f_mpls_ttl, f_hdr_tcp, f_tcp_sport, f_tcp_dport, f_tcp_seq, f_tcp_ack, f_tcp_data_offset, f_tcp_reserved, f_tcp_flags, f_tcp_window, f_tcp_checksum, f_tcp_urgent, f_tcp_options, f_hdr_udp, f_udp_sport, f_udp_dport, f_udp_length, f_udp_checksum, f_meta_is_encap, f_payload }
 
 local states = {}
+
+local v_ethernet_ethertype, v_ext_opt_hdr_ext_len, v_ext_opt_next_header, v_gre_c, v_gre_key_flag, v_gre_proto, v_gre_seq_flag, v_gre_version, v_ipv4_ihl, v_ipv4_protocol, v_ipv6_next_header, v_tcp_data_offset, v_vlan_ad_encapsulated_proto, v_vlan_q_encapsulated_proto
 
 local function add_payload(buf, tree, off)
   if off < buf:len() * 8 then
@@ -116,7 +128,7 @@ function states.parse_ethernet(buf, pinfo, tree, off, depth, meta)
     hdr_ethernet:add_proto_expert_info(ef_error, "out of bounds in ethernet.ethertype")
     return off
   end
-  local v_ethernet_ethertype = buf():bitfield(off, 16)
+  v_ethernet_ethertype = buf():bitfield(off, 16)
   hdr_ethernet:add(f_ethernet_ethertype, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v_ethernet_ethertype)
   off = off + 16
   if v_ethernet_ethertype == 2048 then
@@ -168,7 +180,7 @@ function states.parse_vlan_ad(buf, pinfo, tree, off, depth, meta)
     hdr_vlan_ad:add_proto_expert_info(ef_error, "out of bounds in vlan_ad.encapsulated_proto")
     return off
   end
-  local v_vlan_ad_encapsulated_proto = buf():bitfield(off, 16)
+  v_vlan_ad_encapsulated_proto = buf():bitfield(off, 16)
   hdr_vlan_ad:add(f_vlan_ad_encapsulated_proto, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v_vlan_ad_encapsulated_proto)
   off = off + 16
   if v_vlan_ad_encapsulated_proto == 33024 then
@@ -209,7 +221,7 @@ function states.parse_vlan_q(buf, pinfo, tree, off, depth, meta)
     hdr_vlan_q:add_proto_expert_info(ef_error, "out of bounds in vlan_q.encapsulated_proto")
     return off
   end
-  local v_vlan_q_encapsulated_proto = buf():bitfield(off, 16)
+  v_vlan_q_encapsulated_proto = buf():bitfield(off, 16)
   hdr_vlan_q:add(f_vlan_q_encapsulated_proto, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v_vlan_q_encapsulated_proto)
   off = off + 16
   if v_vlan_q_encapsulated_proto == 2048 then
@@ -251,7 +263,7 @@ function states.parse_ipv4(buf, pinfo, tree, off, depth, meta)
     hdr_ipv4:add_proto_expert_info(ef_error, "out of bounds in ipv4.ihl")
     return off
   end
-  local v_ipv4_ihl = buf():bitfield(off, 4)
+  v_ipv4_ihl = buf():bitfield(off, 4)
   hdr_ipv4:add(f_ipv4_ihl, buf(math.floor(off / 8), math.floor((off % 8 + 4 + 7) / 8)), v_ipv4_ihl)
   off = off + 4
   if off + 6 > avail then
@@ -300,7 +312,7 @@ function states.parse_ipv4(buf, pinfo, tree, off, depth, meta)
     hdr_ipv4:add_proto_expert_info(ef_error, "out of bounds in ipv4.protocol")
     return off
   end
-  local v_ipv4_protocol = buf():bitfield(off, 8)
+  v_ipv4_protocol = buf():bitfield(off, 8)
   hdr_ipv4:add(f_ipv4_protocol, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v_ipv4_protocol)
   off = off + 8
   if off + 16 > avail then
@@ -338,6 +350,8 @@ function states.parse_ipv4(buf, pinfo, tree, off, depth, meta)
     return states.parse_udp(buf, pinfo, tree, off, depth, meta)
   elseif v_ipv4_protocol == 41 then
     return states.parse_ip6ip(buf, pinfo, tree, off, depth, meta)
+  elseif v_ipv4_protocol == 47 then
+    return states.parse_gre(buf, pinfo, tree, off, depth, meta)
   else
     add_payload(buf, tree, off)
     tree:add_proto_expert_info(ef_info, "unsupported ip protocol")
@@ -381,7 +395,7 @@ function states.parse_ipv6(buf, pinfo, tree, off, depth, meta)
     hdr_ipv6:add_proto_expert_info(ef_error, "out of bounds in ipv6.next_header")
     return off
   end
-  local v_ipv6_next_header = buf():bitfield(off, 8)
+  v_ipv6_next_header = buf():bitfield(off, 8)
   hdr_ipv6:add(f_ipv6_next_header, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v_ipv6_next_header)
   off = off + 8
   if off + 8 > avail then
@@ -422,6 +436,8 @@ function states.parse_ipv6(buf, pinfo, tree, off, depth, meta)
     return states.parse_udp(buf, pinfo, tree, off, depth, meta)
   elseif v_ipv6_next_header == 41 then
     return states.parse_ip6ip(buf, pinfo, tree, off, depth, meta)
+  elseif v_ipv6_next_header == 47 then
+    return states.parse_gre(buf, pinfo, tree, off, depth, meta)
   else
     add_payload(buf, tree, off)
     tree:add_proto_expert_info(ef_info, "unsupported ip protocol")
@@ -441,14 +457,14 @@ function states.parse_ipv6_opt(buf, pinfo, tree, off, depth, meta)
     hdr_ext_opt:add_proto_expert_info(ef_error, "out of bounds in ext_opt.next_header")
     return off
   end
-  local v_ext_opt_next_header = buf():bitfield(off, 8)
+  v_ext_opt_next_header = buf():bitfield(off, 8)
   hdr_ext_opt:add(f_ext_opt_next_header, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v_ext_opt_next_header)
   off = off + 8
   if off + 8 > avail then
     hdr_ext_opt:add_proto_expert_info(ef_error, "out of bounds in ext_opt.hdr_ext_len")
     return off
   end
-  local v_ext_opt_hdr_ext_len = buf():bitfield(off, 8)
+  v_ext_opt_hdr_ext_len = buf():bitfield(off, 8)
   hdr_ext_opt:add(f_ext_opt_hdr_ext_len, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v_ext_opt_hdr_ext_len)
   off = off + 8
   local len_ext_opt_body = (((1 + v_ext_opt_hdr_ext_len) * 2 ^ 3) - 2)
@@ -474,6 +490,8 @@ function states.parse_ipv6_opt(buf, pinfo, tree, off, depth, meta)
     return states.parse_udp(buf, pinfo, tree, off, depth, meta)
   elseif v_ext_opt_next_header == 41 then
     return states.parse_ip6ip(buf, pinfo, tree, off, depth, meta)
+  elseif v_ext_opt_next_header == 47 then
+    return states.parse_gre(buf, pinfo, tree, off, depth, meta)
   else
     add_payload(buf, tree, off)
     tree:add_proto_expert_info(ef_info, "unsupported ip protocol")
@@ -501,6 +519,101 @@ function states.parse_ip6ip(buf, pinfo, tree, off, depth, meta)
   local avail = buf:len() * 8
   meta.is_encap = (1) % 2^1
   return states.parse_ipv6(buf, pinfo, tree, off, depth, meta)
+end
+
+function states.parse_gre(buf, pinfo, tree, off, depth, meta)
+  depth = depth + 1
+  if depth > 10 then
+    tree:add_proto_expert_info(ef_error, "max depth exceeded")
+    return off
+  end
+  local avail = buf:len() * 8
+  local hdr_gre = tree:add(f_hdr_gre, buf(math.floor(off / 8)))
+  if off + 1 > avail then
+    hdr_gre:add_proto_expert_info(ef_error, "out of bounds in gre.c")
+    return off
+  end
+  v_gre_c = buf():bitfield(off, 1)
+  hdr_gre:add(f_gre_c, buf(math.floor(off / 8), math.floor((off % 8 + 1 + 7) / 8)), v_gre_c)
+  off = off + 1
+  if off + 1 > avail then
+    hdr_gre:add_proto_expert_info(ef_error, "out of bounds in gre.routing")
+    return off
+  end
+  hdr_gre:add(f_gre_routing, buf(math.floor(off / 8), math.floor((off % 8 + 1 + 7) / 8)), buf():bitfield(off, 1))
+  off = off + 1
+  if off + 1 > avail then
+    hdr_gre:add_proto_expert_info(ef_error, "out of bounds in gre.key_flag")
+    return off
+  end
+  v_gre_key_flag = buf():bitfield(off, 1)
+  hdr_gre:add(f_gre_key_flag, buf(math.floor(off / 8), math.floor((off % 8 + 1 + 7) / 8)), v_gre_key_flag)
+  off = off + 1
+  if off + 1 > avail then
+    hdr_gre:add_proto_expert_info(ef_error, "out of bounds in gre.seq_flag")
+    return off
+  end
+  v_gre_seq_flag = buf():bitfield(off, 1)
+  hdr_gre:add(f_gre_seq_flag, buf(math.floor(off / 8), math.floor((off % 8 + 1 + 7) / 8)), v_gre_seq_flag)
+  off = off + 1
+  if off + 9 > avail then
+    hdr_gre:add_proto_expert_info(ef_error, "out of bounds in gre.reserved")
+    return off
+  end
+  hdr_gre:add(f_gre_reserved, buf(math.floor(off / 8), math.floor((off % 8 + 9 + 7) / 8)), buf():bitfield(off, 9))
+  off = off + 9
+  if off + 3 > avail then
+    hdr_gre:add_proto_expert_info(ef_error, "out of bounds in gre.version")
+    return off
+  end
+  v_gre_version = buf():bitfield(off, 3)
+  hdr_gre:add(f_gre_version, buf(math.floor(off / 8), math.floor((off % 8 + 3 + 7) / 8)), v_gre_version)
+  off = off + 3
+  if off + 16 > avail then
+    hdr_gre:add_proto_expert_info(ef_error, "out of bounds in gre.proto")
+    return off
+  end
+  v_gre_proto = buf():bitfield(off, 16)
+  hdr_gre:add(f_gre_proto, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v_gre_proto)
+  off = off + 16
+  if v_gre_version == 0 then
+    return states.parse_gre_opt(buf, pinfo, tree, off, depth, meta)
+  else
+    tree:add(f_meta_is_encap, UInt64(meta.is_encap))
+    add_payload(buf, tree, off)
+    return off
+  end
+end
+
+function states.parse_gre_opt(buf, pinfo, tree, off, depth, meta)
+  depth = depth + 1
+  if depth > 10 then
+    tree:add_proto_expert_info(ef_error, "max depth exceeded")
+    return off
+  end
+  local avail = buf:len() * 8
+  local hdr_gre_opt = tree:add(f_hdr_gre_opt, buf(math.floor(off / 8)))
+  local len_gre_opt_body = (((v_gre_c * 4) + (v_gre_key_flag * 4)) + (v_gre_seq_flag * 4))
+  if len_gre_opt_body < 0 or off + len_gre_opt_body * 8 > avail then
+    hdr_gre_opt:add_proto_expert_info(ef_error, "out of bounds in gre_opt.body")
+    return off
+  end
+  if len_gre_opt_body > 0 then
+    hdr_gre_opt:add(f_gre_opt_body, buf(math.floor(off / 8), len_gre_opt_body))
+  end
+  off = off + len_gre_opt_body * 8
+  meta.is_encap = (1) % 2^1
+  if v_gre_proto == 2048 then
+    return states.parse_ipv4(buf, pinfo, tree, off, depth, meta)
+  elseif v_gre_proto == 34525 then
+    return states.parse_ipv6(buf, pinfo, tree, off, depth, meta)
+  elseif v_gre_proto == 25944 then
+    return states.parse_ethernet(buf, pinfo, tree, off, depth, meta)
+  else
+    add_payload(buf, tree, off)
+    tree:add_proto_expert_info(ef_info, "unsupported gre proto")
+    return off
+  end
 end
 
 function states.parse_ipv6_frag(buf, pinfo, tree, off, depth, meta)
@@ -625,7 +738,7 @@ function states.parse_tcp(buf, pinfo, tree, off, depth, meta)
     hdr_tcp:add_proto_expert_info(ef_error, "out of bounds in tcp.data_offset")
     return off
   end
-  local v_tcp_data_offset = buf():bitfield(off, 4)
+  v_tcp_data_offset = buf():bitfield(off, 4)
   hdr_tcp:add(f_tcp_data_offset, buf(math.floor(off / 8), math.floor((off % 8 + 4 + 7) / 8)), v_tcp_data_offset)
   off = off + 4
   if off + 4 > avail then

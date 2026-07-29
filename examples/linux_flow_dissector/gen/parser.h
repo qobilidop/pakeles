@@ -15,8 +15,9 @@ typedef enum {
   PK_R_NO_MATCHING_SELECT_ARM = 3, /* "no matching select arm" */
   PK_R_802_1AD_MUST_BE_FOLLOWED_BY_802_1Q = 16, /* "802.1AD must be followed by 802.1Q" */
   PK_R_UNSUPPORTED_ETHERTYPE = 17, /* "unsupported ethertype" */
-  PK_R_UNSUPPORTED_IP_PROTOCOL = 18, /* "unsupported ip protocol" */
-  PK_R_VLAN_STACKING_BEYOND_KERNEL_DEPTH = 19, /* "vlan stacking beyond kernel depth" */
+  PK_R_UNSUPPORTED_GRE_PROTO = 18, /* "unsupported gre proto" */
+  PK_R_UNSUPPORTED_IP_PROTOCOL = 19, /* "unsupported ip protocol" */
+  PK_R_VLAN_STACKING_BEYOND_KERNEL_DEPTH = 20, /* "vlan stacking beyond kernel depth" */
 } pk_linux_flow_dissector_reason_t;
 
 typedef struct {
@@ -78,6 +79,21 @@ typedef struct {
 } pk_linux_flow_dissector_ext_opt_t;
 
 typedef struct {
+  uint8_t c;
+  uint8_t routing;
+  uint8_t key_flag;
+  uint8_t seq_flag;
+  uint16_t reserved;
+  uint8_t version;
+  uint16_t proto;
+} pk_linux_flow_dissector_gre_t;
+
+typedef struct {
+  uint64_t body_bit_off;
+  uint64_t body_bit_len;
+} pk_linux_flow_dissector_gre_opt_t;
+
+typedef struct {
   uint8_t next_header;
   uint8_t reserved;
   uint16_t frag_off;
@@ -131,6 +147,10 @@ typedef struct {
   pk_linux_flow_dissector_ipv6_t ipv6;
   uint8_t ext_opt_present;
   pk_linux_flow_dissector_ext_opt_t ext_opt;
+  uint8_t gre_present;
+  pk_linux_flow_dissector_gre_t gre;
+  uint8_t gre_opt_present;
+  pk_linux_flow_dissector_gre_opt_t gre_opt;
   uint8_t ext_frag_present;
   pk_linux_flow_dissector_ext_frag_t ext_frag;
   uint8_t mpls_present;

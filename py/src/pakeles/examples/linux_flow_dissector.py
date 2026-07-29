@@ -33,12 +33,25 @@ generous budget). The kernel reaches its encap arms from three
 places (IPv4's protocol, IPv6's next_header, and the ext-header chain's
 last link), so all three demux selects grow the two tunnel arms; a
 Fragment header still stops unconditionally (kernel PROG(IPV6FR)).
+
+Rung 4b adds GRE (proto 47) mirroring upstream's `IPPROTO_GRE` arm, whose
+ordering is the crux: read the 4-byte base, and if version != 0 accept
+immediately (no thoff advance, no is_encap, optionals never read) — so the
+base and the C/K/S-sized optional region are separate headers/states
+(`parse_gre` -> `parse_gre_opt`). Only after the version gate does the
+optional region get skipped and `is_encap` set; the proto then dispatches
+0x0800/0x86DD into the IP states, and TEB (0x6558) re-enters
+`parse_ethernet` itself — the kernel reads the inner Ethernet and calls
+its full `parse_eth_proto` dispatcher, so inner VLAN/MPLS/IPvX all live.
+The kernel ignores the R bit (masks only C/K/S/version), so routing-present
+packets are plain version-0 GRE on both sides — faithful by construction.
 """
 
 from pakeles import (
     Header,
     Meta,
     Parser,
+    accept,
     assign,
     bits,
     extract,
@@ -110,7 +123,7 @@ class IPv4(Header):
         "Protocol",
         DEC,
         tshark="ip.proto",
-        labels={1: "ICMP", 4: "IPIP", 6: "TCP", 17: "UDP", 41: "IPv6-in-IP"},
+        labels={1: "ICMP", 4: "IPIP", 6: "TCP", 17: "UDP", 41: "IPv6-in-IP", 47: "GRE"},
     )
     checksum = bits(16, "Header Checksum", HEX, tshark="ip.checksum")
     src = bits(32, "Source Address", IPV4, tshark="ip.src")
@@ -128,7 +141,7 @@ class IPv6(Header):
         "Next Header",
         DEC,
         tshark="ipv6.nxt",
-        labels={1: "ICMP", 4: "IPIP", 6: "TCP", 17: "UDP", 41: "IPv6-in-IP"},
+        labels={1: "ICMP", 4: "IPIP", 6: "TCP", 17: "UDP", 41: "IPv6-in-IP", 47: "GRE"},
     )
     hop_limit = bits(8, "Hop Limit", DEC, tshark="ipv6.hlim")
     # 128-bit addresses exceed the fixed-`bits` ceiling: opaque 16-byte runs.
@@ -150,6 +163,28 @@ class IPv6Frag(Header):  # fragment header (nexthdr 44)
     res2 = bits(2, "Res", HEX)
     m_flag = bits(1, "More Fragments", DEC)
     identification = bits(32, "Identification", HEX)
+
+
+class GRE(Header):  # 4-byte base; the kernel masks only C/K/S/version
+    c = bits(1, "Checksum Present", DEC)
+    routing = bits(1, "Routing Present", DEC, doc="ignored by the kernel (not masked)")
+    key_flag = bits(1, "Key Present", DEC)
+    seq_flag = bits(1, "Sequence Present", DEC)
+    reserved = bits(9, "Reserved0", HEX, doc="unchecked by the kernel — never a reject")
+    version = bits(3, "Version", DEC)
+    proto = bits(
+        16,
+        "Protocol Type",
+        HEX,
+        labels={0x0800: "IPv4", 0x86DD: "IPv6", 0x6558: "TEB"},
+    )
+
+
+class GREOpt(Header):  # C/K/S optional region, skipped opaquely
+    # C (csum+pad), K (key), S (seq) contribute 4 bytes each; cross-header
+    # byte_len is legal — the definite-extraction analysis admits refs to
+    # any instance must-extracted on every path here.
+    body = var_bytes(GRE.c * 4 + GRE.key_flag * 4 + GRE.seq_flag * 4)
 
 
 class TCP(Header):
@@ -233,6 +268,7 @@ def linux_flow_dissector() -> Parser:
                     6: "parse_tcp",
                     17: "parse_udp",
                     41: "parse_ip6ip",
+                    47: "parse_gre",
                 },
                 default=reject("unsupported ip protocol", info=True),
             ),
@@ -246,6 +282,7 @@ def linux_flow_dissector() -> Parser:
                     6: "parse_tcp",
                     17: "parse_udp",
                     41: "parse_ip6ip",
+                    47: "parse_gre",
                 },
                 default=reject("unsupported ip protocol", info=True),
             ),
@@ -261,6 +298,7 @@ def linux_flow_dissector() -> Parser:
                     6: "parse_tcp",
                     17: "parse_udp",
                     41: "parse_ip6ip",
+                    47: "parse_gre",
                 },
                 default=reject("unsupported ip protocol", info=True),
             ),
@@ -270,6 +308,29 @@ def linux_flow_dissector() -> Parser:
             # header read; the max_depth budget bounds the nesting.
             "parse_ipip": assign(FlowMeta.is_encap, 1).then("parse_ipv4"),
             "parse_ip6ip": assign(FlowMeta.is_encap, 1).then("parse_ipv6"),
+            # Kernel IPPROTO_GRE arm, step order is the crux: version != 0
+            # is an immediate BPF_OK — no thoff advance, no is_encap, the
+            # optional region never read. Only version 0 walks the C/K/S
+            # optionals (parse_gre_opt), sets is_encap, and dispatches.
+            "parse_gre": extract(GRE).select(
+                GRE.version,
+                {0: "parse_gre_opt"},
+                default=accept(),
+            ),
+            # TEB (0x6558) re-enters parse_ethernet itself: the kernel reads
+            # the inner Ethernet and runs its full parse_eth_proto
+            # dispatcher, so inner VLAN/MPLS/IPvX all live.
+            "parse_gre_opt": extract(GREOpt["gre_opt"])
+            .assign(FlowMeta.is_encap, 1)
+            .select(
+                GRE.proto,
+                {
+                    0x0800: "parse_ipv4",
+                    0x86DD: "parse_ipv6",
+                    0x6558: "parse_ethernet",
+                },
+                default=reject("unsupported gre proto", info=True),
+            ),
             # Kernel PROG(IPV6FR) under default flags: read the fragment
             # header and stop (BPF_OK), always.
             "parse_ipv6_frag": extract(IPv6Frag["ext_frag"]).accept(),

@@ -69,6 +69,20 @@ header ext_opt_v1_t {
     varbit<16368> body;
 }
 
+header gre_s0_t {
+    bit<1> c;
+    bit<1> routing;
+    bit<1> key_flag;
+    bit<1> seq_flag;
+    bit<9> reserved;
+    bit<3> version;
+    bit<16> proto;
+}
+
+header gre_opt_v0_t {
+    varbit<96> body;
+}
+
 header ext_frag_s0_t {
     bit<8> next_header;
     bit<8> reserved;
@@ -116,9 +130,9 @@ header verdict_t {
 
 struct headers {
     verdict_t verdict;
-    ethernet_s0_t ethernet_s0;
-    vlan_ad_s0_t vlan_ad_s0;
-    vlan_q_s0_t vlan_q_s0;
+    ethernet_s0_t[10] ethernet_s0;
+    vlan_ad_s0_t[10] vlan_ad_s0;
+    vlan_q_s0_t[10] vlan_q_s0;
     ipv4_s0_t[10] ipv4_s0;
     ipv4_v1_t[10] ipv4_v1;
     ipv6_s0_t[10] ipv6_s0;
@@ -126,6 +140,8 @@ struct headers {
     ipv6_v2_t[10] ipv6_v2;
     ext_opt_s0_t[10] ext_opt_s0;
     ext_opt_v1_t[10] ext_opt_v1;
+    gre_s0_t[10] gre_s0;
+    gre_opt_v0_t[10] gre_opt_v0;
     ext_frag_s0_t ext_frag_s0;
     mpls_s0_t mpls_s0;
     tcp_s0_t tcp_s0;
@@ -144,8 +160,8 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
         transition st_parse_ethernet;
     }
     state st_parse_ethernet {
-        pkt.extract(hdr.ethernet_s0);
-        transition select((bit<64>)hdr.ethernet_s0.ethertype) {
+        pkt.extract(hdr.ethernet_s0.next);
+        transition select((bit<64>)hdr.ethernet_s0.last.ethertype) {
             64w2048: st_parse_ipv4;
             64w34525: st_parse_ipv6;
             64w33024: st_parse_vlan_q;
@@ -155,14 +171,14 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
         }
     }
     state st_parse_vlan_ad {
-        pkt.extract(hdr.vlan_ad_s0);
-        transition select((bit<64>)hdr.vlan_ad_s0.encapsulated_proto) {
+        pkt.extract(hdr.vlan_ad_s0.next);
+        transition select((bit<64>)hdr.vlan_ad_s0.last.encapsulated_proto) {
             64w33024: st_parse_vlan_q;
         }
     }
     state st_parse_vlan_q {
-        pkt.extract(hdr.vlan_q_s0);
-        transition select((bit<64>)hdr.vlan_q_s0.encapsulated_proto) {
+        pkt.extract(hdr.vlan_q_s0.next);
+        transition select((bit<64>)hdr.vlan_q_s0.last.encapsulated_proto) {
             64w2048: st_parse_ipv4;
             64w34525: st_parse_ipv6;
             64w34887: st_parse_mpls;
@@ -179,6 +195,7 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
             64w6: st_parse_tcp;
             64w17: st_parse_udp;
             64w41: st_parse_ip6ip;
+            64w47: st_parse_gre;
         }
     }
     state st_parse_ipv6 {
@@ -193,6 +210,7 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
             64w6: st_parse_tcp;
             64w17: st_parse_udp;
             64w41: st_parse_ip6ip;
+            64w47: st_parse_gre;
         }
     }
     state st_parse_ipv6_opt {
@@ -206,6 +224,7 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
             64w6: st_parse_tcp;
             64w17: st_parse_udp;
             64w41: st_parse_ip6ip;
+            64w47: st_parse_gre;
         }
     }
     state st_parse_ipip {
@@ -215,6 +234,22 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     state st_parse_ip6ip {
         meta.is_encap = (bit<1>)(64w1);
         transition st_parse_ipv6;
+    }
+    state st_parse_gre {
+        pkt.extract(hdr.gre_s0.next);
+        transition select((bit<64>)hdr.gre_s0.last.version) {
+            64w0: st_parse_gre_opt;
+            default: accept;
+        }
+    }
+    state st_parse_gre_opt {
+        pkt.extract(hdr.gre_opt_v0.next, (bit<32>)(64w8 * ((((bit<64>)hdr.gre_s0.last.c * 64w4) + ((bit<64>)hdr.gre_s0.last.key_flag * 64w4)) + ((bit<64>)hdr.gre_s0.last.seq_flag * 64w4))));
+        meta.is_encap = (bit<1>)(64w1);
+        transition select((bit<64>)hdr.gre_s0.last.proto) {
+            64w2048: st_parse_ipv4;
+            64w34525: st_parse_ipv6;
+            64w25944: st_parse_ethernet;
+        }
     }
     state st_parse_ipv6_frag {
         pkt.extract(hdr.ext_frag_s0);
@@ -248,16 +283,18 @@ control PkIngress(inout headers hdr, inout metadata meta,
     apply {
         hdr.verdict.setValid();
         bit<16> bm = 16w0;
-        if (hdr.ethernet_s0.isValid()) { bm = bm | 16w1; }
-        if (hdr.vlan_ad_s0.isValid()) { bm = bm | 16w2; }
-        if (hdr.vlan_q_s0.isValid()) { bm = bm | 16w4; }
+        if (hdr.ethernet_s0[0].isValid()) { bm = bm | 16w1; }
+        if (hdr.vlan_ad_s0[0].isValid()) { bm = bm | 16w2; }
+        if (hdr.vlan_q_s0[0].isValid()) { bm = bm | 16w4; }
         if (hdr.ipv4_v1[0].isValid()) { bm = bm | 16w8; }
         if (hdr.ipv6_v2[0].isValid()) { bm = bm | 16w16; }
         if (hdr.ext_opt_v1[0].isValid()) { bm = bm | 16w32; }
-        if (hdr.ext_frag_s0.isValid()) { bm = bm | 16w64; }
-        if (hdr.mpls_s0.isValid()) { bm = bm | 16w128; }
-        if (hdr.tcp_v1.isValid()) { bm = bm | 16w256; }
-        if (hdr.udp_s0.isValid()) { bm = bm | 16w512; }
+        if (hdr.gre_s0[0].isValid()) { bm = bm | 16w64; }
+        if (hdr.gre_opt_v0[0].isValid()) { bm = bm | 16w128; }
+        if (hdr.ext_frag_s0.isValid()) { bm = bm | 16w256; }
+        if (hdr.mpls_s0.isValid()) { bm = bm | 16w512; }
+        if (hdr.tcp_v1.isValid()) { bm = bm | 16w1024; }
+        if (hdr.udp_s0.isValid()) { bm = bm | 16w2048; }
         hdr.verdict.bitmap = bm;
         bit<8> err = 8w255;
         if (smeta.parser_error == error.NoError) { err = 8w0; }

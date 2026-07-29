@@ -9,6 +9,8 @@ digraph "linux_flow_dissector" {
   "parse_ipv6_opt" [shape=box, label="parse_ipv6_opt\nextract ext_opt"];
   "parse_ipip" [shape=box, label="parse_ipip"];
   "parse_ip6ip" [shape=box, label="parse_ip6ip"];
+  "parse_gre" [shape=box, label="parse_gre\nextract gre"];
+  "parse_gre_opt" [shape=box, label="parse_gre_opt\nextract gre_opt"];
   "parse_ipv6_frag" [shape=box, label="parse_ipv6_frag\nextract ext_frag"];
   "parse_mpls" [shape=box, label="parse_mpls\nextract mpls"];
   "parse_tcp" [shape=box, label="parse_tcp\nextract tcp"];
@@ -18,6 +20,7 @@ digraph "linux_flow_dissector" {
   "reject_1" [shape=diamond, label="reject:\n802.1AD must be followed by 802.1Q"];
   "reject_2" [shape=diamond, label="reject:\nvlan stacking beyond kernel depth"];
   "reject_3" [shape=diamond, label="reject:\nunsupported ip protocol"];
+  "reject_4" [shape=diamond, label="reject:\nunsupported gre proto"];
   "parse_ethernet" -> "parse_ipv4" [label="ethernet.ethertype == 0x800"];
   "parse_ethernet" -> "parse_ipv6" [label="ethernet.ethertype == 0x86dd"];
   "parse_ethernet" -> "parse_vlan_q" [label="ethernet.ethertype == 0x8100"];
@@ -38,6 +41,7 @@ digraph "linux_flow_dissector" {
   "parse_ipv4" -> "parse_tcp" [label="ipv4.protocol == 0x6"];
   "parse_ipv4" -> "parse_udp" [label="ipv4.protocol == 0x11"];
   "parse_ipv4" -> "parse_ip6ip" [label="ipv4.protocol == 0x29"];
+  "parse_ipv4" -> "parse_gre" [label="ipv4.protocol == 0x2f"];
   "parse_ipv4" -> "reject_3" [label="default", style=dashed];
   "parse_ipv6" -> "parse_ipv6_opt" [label="ipv6.next_header == 0x0"];
   "parse_ipv6" -> "parse_ipv6_opt" [label="ipv6.next_header == 0x3c"];
@@ -46,6 +50,7 @@ digraph "linux_flow_dissector" {
   "parse_ipv6" -> "parse_tcp" [label="ipv6.next_header == 0x6"];
   "parse_ipv6" -> "parse_udp" [label="ipv6.next_header == 0x11"];
   "parse_ipv6" -> "parse_ip6ip" [label="ipv6.next_header == 0x29"];
+  "parse_ipv6" -> "parse_gre" [label="ipv6.next_header == 0x2f"];
   "parse_ipv6" -> "reject_3" [label="default", style=dashed];
   "parse_ipv6_opt" -> "parse_ipv6_opt" [label="ext_opt.next_header == 0x0"];
   "parse_ipv6_opt" -> "parse_ipv6_opt" [label="ext_opt.next_header == 0x3c"];
@@ -54,9 +59,16 @@ digraph "linux_flow_dissector" {
   "parse_ipv6_opt" -> "parse_tcp" [label="ext_opt.next_header == 0x6"];
   "parse_ipv6_opt" -> "parse_udp" [label="ext_opt.next_header == 0x11"];
   "parse_ipv6_opt" -> "parse_ip6ip" [label="ext_opt.next_header == 0x29"];
+  "parse_ipv6_opt" -> "parse_gre" [label="ext_opt.next_header == 0x2f"];
   "parse_ipv6_opt" -> "reject_3" [label="default", style=dashed];
   "parse_ipip" -> "parse_ipv4";
   "parse_ip6ip" -> "parse_ipv6";
+  "parse_gre" -> "parse_gre_opt" [label="gre.version == 0x0"];
+  "parse_gre" -> "accept" [label="default", style=dashed];
+  "parse_gre_opt" -> "parse_ipv4" [label="gre.proto == 0x800"];
+  "parse_gre_opt" -> "parse_ipv6" [label="gre.proto == 0x86dd"];
+  "parse_gre_opt" -> "parse_ethernet" [label="gre.proto == 0x6558"];
+  "parse_gre_opt" -> "reject_4" [label="default", style=dashed];
   "parse_ipv6_frag" -> "accept";
   "parse_mpls" -> "accept";
   "parse_tcp" -> "accept";

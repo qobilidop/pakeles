@@ -72,6 +72,21 @@ typedef struct {
 } pk_linux_flow_dissector_ext_opt_t;
 
 typedef struct {
+  uint8_t c;
+  uint8_t routing;
+  uint8_t key_flag;
+  uint8_t seq_flag;
+  uint16_t reserved;
+  uint8_t version;
+  uint16_t proto;
+} pk_linux_flow_dissector_gre_t;
+
+typedef struct {
+  uint64_t body_bit_off;
+  uint64_t body_bit_len;
+} pk_linux_flow_dissector_gre_opt_t;
+
+typedef struct {
   uint8_t next_header;
   uint8_t reserved;
   uint16_t frag_off;
@@ -125,6 +140,10 @@ typedef struct {
   pk_linux_flow_dissector_ipv6_t ipv6;
   uint8_t ext_opt_present;
   pk_linux_flow_dissector_ext_opt_t ext_opt;
+  uint8_t gre_present;
+  pk_linux_flow_dissector_gre_t gre;
+  uint8_t gre_opt_present;
+  pk_linux_flow_dissector_gre_opt_t gre_opt;
   uint8_t ext_frag_present;
   pk_linux_flow_dissector_ext_frag_t ext_frag;
   uint8_t mpls_present;
@@ -143,8 +162,9 @@ typedef enum {
   PK_R_NO_MATCHING_SELECT_ARM = 3,
   PK_R_802_1AD_MUST_BE_FOLLOWED_BY_802_1Q = 16,
   PK_R_UNSUPPORTED_ETHERTYPE = 17,
-  PK_R_UNSUPPORTED_IP_PROTOCOL = 18,
-  PK_R_VLAN_STACKING_BEYOND_KERNEL_DEPTH = 19,
+  PK_R_UNSUPPORTED_GRE_PROTO = 18,
+  PK_R_UNSUPPORTED_IP_PROTOCOL = 19,
+  PK_R_VLAN_STACKING_BEYOND_KERNEL_DEPTH = 20,
 } pk_linux_flow_dissector_reason_t;
 
 static __attribute__((always_inline)) uint64_t pk_read_bits(const uint8_t *buf, uint64_t off, uint32_t n) {
@@ -165,10 +185,12 @@ static __attribute__((always_inline)) uint64_t pk_read_bits(const uint8_t *buf, 
 #define PK_S_PARSE_IPV6_OPT 5
 #define PK_S_PARSE_IPIP 6
 #define PK_S_PARSE_IP6IP 7
-#define PK_S_PARSE_IPV6_FRAG 8
-#define PK_S_PARSE_MPLS 9
-#define PK_S_PARSE_TCP 10
-#define PK_S_PARSE_UDP 11
+#define PK_S_PARSE_GRE 8
+#define PK_S_PARSE_GRE_OPT 9
+#define PK_S_PARSE_IPV6_FRAG 10
+#define PK_S_PARSE_MPLS 11
+#define PK_S_PARSE_TCP 12
+#define PK_S_PARSE_UDP 13
 
 static __attribute__((always_inline)) int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_len, pk_linux_flow_dissector_result_t *out) {
   uint64_t off = 0;
@@ -469,6 +491,9 @@ static __attribute__((always_inline)) int pk_linux_flow_dissector_parse_core(con
       } else if (key0 == 41ULL) {
         state = PK_S_PARSE_IP6IP;
         continue;
+      } else if (key0 == 47ULL) {
+        state = PK_S_PARSE_GRE;
+        continue;
       } else {
         out->outcome = 1;
         out->reason = PK_R_UNSUPPORTED_IP_PROTOCOL;
@@ -572,6 +597,9 @@ static __attribute__((always_inline)) int pk_linux_flow_dissector_parse_core(con
       } else if (key0 == 41ULL) {
         state = PK_S_PARSE_IP6IP;
         continue;
+      } else if (key0 == 47ULL) {
+        state = PK_S_PARSE_GRE;
+        continue;
       } else {
         out->outcome = 1;
         out->reason = PK_R_UNSUPPORTED_IP_PROTOCOL;
@@ -631,6 +659,9 @@ static __attribute__((always_inline)) int pk_linux_flow_dissector_parse_core(con
       } else if (key0 == 41ULL) {
         state = PK_S_PARSE_IP6IP;
         continue;
+      } else if (key0 == 47ULL) {
+        state = PK_S_PARSE_GRE;
+        continue;
       } else {
         out->outcome = 1;
         out->reason = PK_R_UNSUPPORTED_IP_PROTOCOL;
@@ -647,6 +678,107 @@ static __attribute__((always_inline)) int pk_linux_flow_dissector_parse_core(con
       out->m_is_encap = (1ULL) & 0x1ULL;
       state = PK_S_PARSE_IPV6;
       continue;
+    }
+    case PK_S_PARSE_GRE: {
+      out->gre_present = 1;
+      if (off + 1 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->gre.c = (uint8_t)pk_read_bits(buf, off, 1);
+      off += 1;
+      if (off + 1 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->gre.routing = (uint8_t)pk_read_bits(buf, off, 1);
+      off += 1;
+      if (off + 1 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->gre.key_flag = (uint8_t)pk_read_bits(buf, off, 1);
+      off += 1;
+      if (off + 1 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->gre.seq_flag = (uint8_t)pk_read_bits(buf, off, 1);
+      off += 1;
+      if (off + 9 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->gre.reserved = (uint16_t)pk_read_bits(buf, off, 9);
+      off += 9;
+      if (off + 3 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->gre.version = (uint8_t)pk_read_bits(buf, off, 3);
+      off += 3;
+      if (off + 16 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->gre.proto = (uint16_t)pk_read_bits(buf, off, 16);
+      off += 16;
+      uint64_t key0 = (uint64_t)out->gre.version;
+      if (key0 == 0ULL) {
+        state = PK_S_PARSE_GRE_OPT;
+        continue;
+      } else {
+        out->outcome = 0;
+        out->reason = PK_R_NONE;
+        out->consumed_bits = off;
+        return 0;
+      }
+    }
+    case PK_S_PARSE_GRE_OPT: {
+      out->gre_opt_present = 1;
+      {
+        uint64_t vlen = ((((uint64_t)out->gre.c * 4ULL) + ((uint64_t)out->gre.key_flag * 4ULL)) + ((uint64_t)out->gre.seq_flag * 4ULL));
+        if (vlen > (bit_len - off) / 8) {
+          out->outcome = 1;
+          out->reason = PK_R_OUT_OF_BOUNDS;
+          out->consumed_bits = off;
+          return 1;
+        }
+        out->gre_opt.body_bit_off = off;
+        out->gre_opt.body_bit_len = vlen * 8;
+        off += vlen * 8;
+      }
+      out->m_is_encap = (1ULL) & 0x1ULL;
+      uint64_t key0 = (uint64_t)out->gre.proto;
+      if (key0 == 2048ULL) {
+        state = PK_S_PARSE_IPV4;
+        continue;
+      } else if (key0 == 34525ULL) {
+        state = PK_S_PARSE_IPV6;
+        continue;
+      } else if (key0 == 25944ULL) {
+        state = PK_S_PARSE_ETHERNET;
+        continue;
+      } else {
+        out->outcome = 1;
+        out->reason = PK_R_UNSUPPORTED_GRE_PROTO;
+        out->consumed_bits = off;
+        return 1;
+      }
     }
     case PK_S_PARSE_IPV6_FRAG: {
       out->ext_frag_present = 1;
