@@ -151,6 +151,13 @@ enum Oracle {
         #[arg(long, default_value = "examples/eth_ipvx_l4/conformance/vectors.json")]
         vectors: PathBuf,
     },
+    /// Diff our projected katran keys + verdict against katran-minted goldens.
+    Katran {
+        #[arg(long)]
+        ir: Option<PathBuf>,
+        #[arg(long)]
+        goldens: Option<PathBuf>,
+    },
     /// Diff our projected (ptype, hdr_lens) against DPDK-minted goldens.
     DpdkPtype {
         #[arg(long)]
@@ -262,6 +269,38 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
                 report.compared,
                 report.skipped_bit_granular,
                 report.skipped_depth_bound,
+                report.mismatches.len()
+            );
+            for m in &report.mismatches {
+                println!("  {m}");
+            }
+            Ok(if report.mismatches.is_empty() { 0 } else { 1 })
+        }
+        Command::Diff {
+            oracle: Oracle::Katran { ir, goldens },
+        } => {
+            let ir = match &ir {
+                None => crate::examples::katran_flow(),
+                Some(_) => load_ir(&ir)?,
+            };
+            let goldens = match goldens {
+                Some(p) => p,
+                None => crate::oracle::katran::discover_committed_golden(
+                    std::path::Path::new(crate::oracle::katran::CONFORMANCE_DIR),
+                )
+                .context(
+                    "no --goldens given and no committed katran.*.golden.json \
+                     found under examples/katran_flow/conformance/",
+                )?,
+            };
+            let golden: crate::oracle::katran::GoldenFile =
+                serde_json::from_str(&std::fs::read_to_string(&goldens).with_context(|| {
+                    format!("reading katran goldens from {}", goldens.display())
+                })?)?;
+            let report = crate::oracle::katran::diff_goldens(&ir, &golden)?;
+            println!(
+                "{} vectors compared, {} mismatches",
+                report.compared,
                 report.mismatches.len()
             );
             for m in &report.mismatches {
