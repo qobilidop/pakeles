@@ -680,6 +680,17 @@ fn walk_transition(ctx: &mut Ctx, state: &pb::State, mut frame: Frame) -> anyhow
         };
         frame.meta.insert(a.metadata.clone(), masked);
     }
+    fn target_group_key(t: &pb::Target) -> Option<String> {
+        match t.kind.as_ref()? {
+            pb::target::Kind::State(s) => Some(format!("state:{s}")),
+            pb::target::Kind::Accept(_) => Some("accept".into()),
+            pb::target::Kind::Reject(r) => Some(format!(
+                "reject:{}:{:?}",
+                r.reason,
+                r.annotations.get("severity")
+            )),
+        }
+    }
     match state.transition.as_ref().and_then(|t| t.kind.as_ref()) {
         None => anyhow::bail!("state `{}` has no transition", state.name),
         Some(pb::transition::Kind::Direct(t)) => walk_target(ctx, t, frame),
@@ -702,20 +713,77 @@ fn walk_transition(ctx: &mut Ctx, state: &pb::State, mut frame: Frame) -> anyhow
                     )
                 })
                 .collect();
-            for (i, arm) in sel.arms.iter().enumerate() {
-                ctx.log.attempted_arms.insert((state.name.clone(), i));
+            // Same-target arms with exact-value entries coalesce into ONE
+            // enumerated path under the disjunction of their key
+            // constraints: the enumerated unit is the control shape, not
+            // the key value (a 3-protocol ext-header arm set is one
+            // path). Exact values are pairwise disjoint, so first-match
+            // ordering is unaffected; Masked/Range arms can overlap and
+            // keep per-arm paths. This is what keeps wide faithful
+            // dispatch tables (dpdk_ptype) enumerable.
+            let mut groups: Vec<Vec<usize>> = Vec::new();
+            {
+                let mut by_target: std::collections::HashMap<String, usize> =
+                    std::collections::HashMap::new();
+                for (i, arm) in sel.arms.iter().enumerate() {
+                    let exact = arm
+                        .entries
+                        .iter()
+                        .all(|e| matches!(e.kind, Some(pb::keyset_entry::Kind::Value(_))));
+                    let key = if exact {
+                        arm.next.as_ref().and_then(target_group_key)
+                    } else {
+                        None
+                    };
+                    match key {
+                        Some(k) => {
+                            let next = groups.len();
+                            let g = *by_target.entry(k).or_insert(next);
+                            if g < groups.len() {
+                                groups[g].push(i);
+                            } else {
+                                groups.push(vec![i]);
+                            }
+                        }
+                        None => groups.push(vec![i]),
+                    }
+                }
+            }
+            for members in &groups {
+                let first = members[0];
+                for &m in members {
+                    ctx.log.attempted_arms.insert((state.name.clone(), m));
+                }
                 let mut child = frame.clone();
-                let mut delta = vec![arm_conds[i].clone()];
-                for cond in arm_conds.iter().take(i) {
-                    delta.push(Constraint::Not(Box::new(cond.clone())));
+                let cond = if members.len() == 1 {
+                    arm_conds[first].clone()
+                } else {
+                    // OR via De Morgan — the solver core stays And/Not.
+                    Constraint::Not(Box::new(Constraint::And(
+                        members
+                            .iter()
+                            .map(|&m| Constraint::Not(Box::new(arm_conds[m].clone())))
+                            .collect(),
+                    )))
+                };
+                let mut delta = vec![cond];
+                for (j, cond) in arm_conds.iter().enumerate().take(first) {
+                    if !members.contains(&j) {
+                        delta.push(Constraint::Not(Box::new(cond.clone())));
+                    }
                 }
                 child.constraints.extend(delta.iter().cloned());
                 ctx.session.push();
                 ctx.session.assert_cs(&delta);
                 let r = if ctx.check(child.cursor_max.max(1), &child.constraints) {
-                    ctx.log.feasible_arms.insert((state.name.clone(), i));
-                    child.segments.push(format!("arm{i}"));
-                    match arm.next.as_ref() {
+                    // Best-effort per-arm log: a group is feasible as a
+                    // whole; individually-dead values inside a live
+                    // group are not distinguished (lint boundary).
+                    for &m in members {
+                        ctx.log.feasible_arms.insert((state.name.clone(), m));
+                    }
+                    child.segments.push(format!("arm{first}"));
+                    match sel.arms[first].next.as_ref() {
                         Some(target) => walk_target(ctx, target, child),
                         None => Err(anyhow::anyhow!("select arm has no target")),
                     }
