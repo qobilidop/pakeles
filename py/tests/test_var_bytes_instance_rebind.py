@@ -70,3 +70,27 @@ def test_var_bytes_two_instance_names_rejected():
     states = {"opt": extract(Opt["a"]).extract(Opt["b"]).accept()}
     with pytest.raises(ValueError, match="multiple instance names"):
         parser("t", max_depth=1, start="opt", states=states).to_pb()
+
+
+def test_var_bytes_cross_header_refs_not_rebound():
+    # A var-length field may reference an EARLIER header's fields
+    # (GRE flag bits sizing the GREOpt optional region, rung 4b). Those
+    # refs already carry the other header's instance name and must
+    # survive the sibling rebind untouched — only refs naming the
+    # enclosing type follow it to the custom instance name.
+    class Base(Header):
+        n = bits(8)
+
+    class Sized(Header):
+        pad = bits(8)
+        body = var_bytes(Base.n * 4 + pad)
+
+    states = {
+        "base": extract(Base).then("sized"),
+        "sized": extract(Sized["custom_sized"]).accept(),
+    }
+    ir = parser("t", max_depth=2, start="base", states=states).to_pb()
+    ht = next(h for h in ir.parser.header_types if h.name == "sized")
+    byte_len_field = _find_byte_len_field(ht)
+    refs = _field_refs(byte_len_field.width.byte_len)
+    assert sorted(refs) == ["base", "custom_sized"]

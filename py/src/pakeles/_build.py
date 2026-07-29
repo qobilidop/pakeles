@@ -102,10 +102,12 @@ class Parser:
     def _var_width_instance(self) -> dict[str, str]:
         """For each header type carrying a variable-length field, the
         single instance name it is extracted under. Var-width lengths are
-        instance-relative (they name a sibling field of the *same*
-        header), and every consumer keys field refs by instance; in the
-        default case the instance equals the type name, so this only
-        matters for custom-named instances (e.g. `IPv6ExtOpt["ext_opt"]`).
+        instance-relative (sibling refs name the enclosing header; refs to
+        *other* headers, e.g. GRE flag bits sizing GREOpt, already carry
+        their own instance), and every consumer keys field refs by
+        instance; in the default case the instance equals the type name,
+        so this only matters for custom-named instances
+        (e.g. `IPv6ExtOpt["ext_opt"]`).
         A var-width header extracted under >1 distinct instance would need
         per-instance header types, which the IR does not model."""
         out: dict[str, str] = {}
@@ -151,7 +153,7 @@ class Parser:
             if inst is not None and inst != header.ir_name():
                 for f in ht.fields:
                     if f.width.WhichOneof("width") == "byte_len":
-                        _rebind_expr_header(f.width.byte_len, inst)
+                        _rebind_expr_header(f.width.byte_len, header.ir_name(), inst)
             p.header_types.append(ht)
         for sname, chain in self._states.items():
             st = p.states.add()
@@ -191,16 +193,19 @@ class Parser:
             f.write("\n")
 
 
-def _rebind_expr_header(expr: ir_pb2.Expr, header: str) -> None:
-    """Rewrite every field ref in `expr` to name header instance `header`.
-    Var-width length expressions reference only sibling fields of the same
-    header, so a blanket rebind is always sound."""
+def _rebind_expr_header(expr: ir_pb2.Expr, type_name: str, instance: str) -> None:
+    """Rewrite sibling field refs in `expr` (those naming the owning header
+    type `type_name`) to name the extraction instance `instance`.
+    Cross-header refs (a var-width length reading another header's fields,
+    e.g. GRE flag bits sizing the GREOpt region) already carry the right
+    instance name and must not be touched."""
     kind = expr.WhichOneof("kind")
     if kind == "field":
-        expr.field.header = header
+        if expr.field.header == type_name:
+            expr.field.header = instance
     elif kind == "bin":
-        _rebind_expr_header(expr.bin.lhs, header)
-        _rebind_expr_header(expr.bin.rhs, header)
+        _rebind_expr_header(expr.bin.lhs, type_name, instance)
+        _rebind_expr_header(expr.bin.rhs, type_name, instance)
 
 
 def sel_keys(sel: SelectSpec) -> list[ir_pb2.Expr]:
