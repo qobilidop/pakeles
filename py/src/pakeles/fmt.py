@@ -9,4 +9,4 @@ IPV4 = ir_pb2.DISPLAY_FORMAT_IPV4
 IPV6 = ir_pb2.DISPLAY_FORMAT_IPV6
 ETHER = ir_pb2.DISPLAY_FORMAT_ETHER
 
-__all__ = ["DEC", "HEX", "BIN", "IPV4", "IPV6", "ETHER"]
+__all__ = ["BIN", "DEC", "ETHER", "HEX", "IPV4", "IPV6"]

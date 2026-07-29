@@ -10,6 +10,7 @@ their references resolve lazily once the class is finalized.
 from __future__ import annotations
 
 import re
+from typing import ClassVar
 
 from pakeles._expr import BoundField, Expr, FieldSpec, Operand, coerce_expr
 from pakeles._pb import ir_pb2
@@ -57,7 +58,7 @@ class Header:
         ...
     """
 
-    _fields: list[FieldSpec] = []
+    _fields: ClassVar[list[FieldSpec]] = []
     _name: str = ""
 
     def __init_subclass__(cls, name: str | None = None, **kwargs: object) -> None:

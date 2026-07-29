@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 from ._expr import Operand
 from ._pb import ir_pb2
@@ -60,7 +61,7 @@ class Meta:
         acc = meta_bits(8, init=5)
     """
 
-    _fields: list[MetaFieldSpec] = []
+    _fields: ClassVar[list[MetaFieldSpec]] = []
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
