@@ -96,9 +96,7 @@ pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Option<FlowKeys>> {
     let mut first_ip: Option<&crate::interp::ParsedHeader> = None; // nhoff
     let mut last_ip: Option<&crate::interp::ParsedHeader> = None; // addr_proto + addresses
     let mut last_v6: Option<&crate::interp::ParsedHeader> = None; // flow_label (only PROG(IPV6) writes it)
-    let mut last_frag: Option<&crate::interp::ParsedHeader> = None; // frag stop
     let mut last_next_proto: Option<u64> = None; // ip_proto
-    let mut mpls: Option<&crate::interp::ParsedHeader> = None;
     for h in &res.headers {
         match h.instance.as_str() {
             "ipv4" => {
@@ -119,24 +117,22 @@ pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Option<FlowKeys>> {
             // becomes the dispatched proto — last link wins.
             "ext_opt" | "ext_frag" => {
                 last_next_proto = field_u(h, "next_header");
-                if h.instance == "ext_frag" {
-                    last_frag = Some(h);
-                }
             }
-            "mpls" => mpls = Some(h),
             _ => {}
         }
     }
 
     let mut k = FlowKeys::default();
-    // Kernel PROG(VLAN) rewrites n_proto to the inner encapsulated proto;
-    // vlan_q is the final tag on every VLAN path. On tunnel re-entry
-    // n_proto is NOT rewritten (parse_eth_proto is re-entered with a
-    // synthetic proto; only PROG(VLAN) touches keys->n_proto), so the
-    // OUTER family sticks — first-match here is exactly that.
+    // Kernel PROG(VLAN) rewrites n_proto to the tag's encapsulated proto —
+    // and PROG(VLAN) runs again for inner tags behind TEB (rung 4b), so
+    // the LAST vlan_q wins (the final tag of the innermost stack; an AD
+    // tag is always followed by a Q tag). With no VLAN anywhere the first
+    // ethernet's type sticks: tunnel re-entry re-enters parse_eth_proto
+    // with a synthetic proto, but only PROG(VLAN) touches keys->n_proto.
     k.n_proto = res
         .headers
         .iter()
+        .rev()
         .find(|h| h.instance == "vlan_q")
         .and_then(|h| field_u(h, "encapsulated_proto"))
         .or_else(|| {
@@ -148,14 +144,23 @@ pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Option<FlowKeys>> {
         .unwrap_or(0) as u16;
     // Declared, not inferred: bpf_flow_keys.is_encap comes from the
     // program's metadata (the metadata-v1 consumer; kernel sets it in
-    // parse_ip_proto's IPPROTO_IPIP/IPPROTO_IPV6 arms).
+    // parse_ip_proto's IPPROTO_IPIP/IPPROTO_IPV6 arms and, as of rung 4b,
+    // after the GRE version-0 optional skip — never on a version!=0 stop).
     k.is_encap = res.metadata.iter().any(|(n, v)| n == "is_encap" && *v != 0);
 
+    // The terminal instance is the last extraction: every accepting state
+    // extracts exactly one header (tcp/udp ports, ext_frag stop, mpls
+    // stop, gre version!=0 stop).
+    let terminal = res
+        .headers
+        .last()
+        .expect("accept implies at least one extraction");
+
     let Some(first) = first_ip else {
-        if let Some(h) = mpls {
+        if terminal.instance == "mpls" {
             // Kernel PROG(MPLS): single-entry read, no key updates — nhoff
             // and thoff stay at the MPLS header start; addr_proto/ports 0.
-            k.nhoff = (h.start_bit / 8) as u16;
+            k.nhoff = (terminal.start_bit / 8) as u16;
             k.thoff = k.nhoff;
             return Ok(Some(k));
         }
@@ -185,27 +190,36 @@ pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Option<FlowKeys>> {
     }
     // ip_proto: the last-extracted next-protocol field overall — the
     // rung-2 "last link wins" ext-chain logic generalized by position.
+    // On a GRE stop this is the IP header's 47 that dispatched to GRE.
     k.ip_proto = last_next_proto.unwrap_or(0) as u8;
-    // Fragment stop: under default flags a Fragment header is terminal
-    // (PROG(IPV6FR) exports BPF_OK); the kernel advances thoff past the
-    // 8-byte frag header but never parses L4 ports.
-    if let Some(fr) = last_frag {
-        k.is_frag = true;
-        k.is_first_frag = field_u(fr, "frag_off") == Some(0);
-        k.thoff = (fr.start_bit / 8) as u16 + 8;
-        return Ok(Some(k));
+    match terminal.instance.as_str() {
+        // Fragment stop: under default flags a Fragment header is terminal
+        // (PROG(IPV6FR) exports BPF_OK); the kernel advances thoff past
+        // the 8-byte frag header but never parses L4 ports.
+        "ext_frag" => {
+            k.is_frag = true;
+            k.is_first_frag = field_u(terminal, "frag_off") == Some(0);
+            k.thoff = (terminal.start_bit / 8) as u16 + 8;
+        }
+        // GRE version!=0 stop (rung 4b, kernel IPPROTO_GRE step 2): export
+        // BPF_OK with thoff still at the GRE base start — no advance, no
+        // is_encap, the optional region never read; ports 0.
+        "gre" => {
+            k.thoff = (terminal.start_bit / 8) as u16;
+        }
+        // MPLS behind TEB (rung 4b): PROG(MPLS) read-and-stop as ever —
+        // thoff at the MPLS start; the outer IP keys persist positionally.
+        "mpls" => {
+            k.thoff = (terminal.start_bit / 8) as u16;
+        }
+        // Innermost L4: ports read at thoff.
+        "tcp" | "udp" => {
+            k.thoff = (terminal.start_bit / 8) as u16;
+            k.sport = field_u(terminal, "sport").unwrap_or(0) as u16;
+            k.dport = field_u(terminal, "dport").unwrap_or(0) as u16;
+        }
+        other => anyhow::bail!("unexpected terminal instance `{other}` on an accept"),
     }
-    // Reachability: Accept through an IP path without a frag stop implies
-    // exactly one of {tcp, udp} was extracted (innermost L4).
-    let l4 = res
-        .headers
-        .iter()
-        .rev()
-        .find(|h| h.instance == "tcp" || h.instance == "udp")
-        .expect("IP-path accept implies an L4 instance");
-    k.thoff = (l4.start_bit / 8) as u16;
-    k.sport = field_u(l4, "sport").unwrap_or(0) as u16;
-    k.dport = field_u(l4, "dport").unwrap_or(0) as u16;
     Ok(Some(k))
 }
 
@@ -849,6 +863,300 @@ mod project_tests {
             .unwrap()
             .unwrap();
         assert!(!k.is_encap);
+    }
+
+    // ---- rung 4b: GRE ----------------------------------------------------
+    // Each hex below is the byte-identical twin of a rung-4b corpus line.
+    // GRE base = 4 bytes {flags+version, proto}; C/K/S each add 4 optional
+    // bytes. Layout constants: eth=14, IPv4=20 (ihl=5), IPv6=40, GRE=4.
+
+    #[test]
+    fn projects_gre_v4_tcp() {
+        // eth/IPv4(p=47)/GRE(v0, no flags, proto=0x0800)/IPv4/TCP
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff1122334455660800\
+             4500004012344000402fdead0a0000010a000002\
+             00000800\
+             45000028123440004006deadc0a80001c0a80002\
+             303901bb00000001000000005018ffff00000000",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert!(k.is_encap); // set by parse_gre_opt (version 0)
+        assert_eq!(k.nhoff, 14);
+        assert_eq!(k.thoff, 58); // 14 + 20 + 4 (gre, no optionals) + 20
+        assert_eq!(k.n_proto, 0x0800);
+        assert_eq!(k.addr_proto, 0x0800);
+        assert_eq!(k.ip_proto, 6);
+        assert_eq!(k.sport, 12345);
+        assert_eq!(k.dport, 443);
+        assert_eq!(k.ipv4_src, "c0a80001"); // inner
+        assert_eq!(k.ipv4_dst, "c0a80002");
+    }
+
+    #[test]
+    fn projects_gre_v6_udp() {
+        // eth/IPv6(nh=47)/GRE(v0, proto=0x86DD)/IPv6/UDP — inner v6 wins
+        // addresses AND flow_label (0x12345).
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff11223344556686dd\
+             6000000000342f40\
+             20010db8000000000000000000000001\
+             20010db8000000000000000000000002\
+             000086dd\
+             6001234500081140\
+             20010db8000000000000000000000003\
+             20010db8000000000000000000000004\
+             303901bb00080000",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert!(k.is_encap);
+        assert_eq!(k.nhoff, 14);
+        assert_eq!(k.thoff, 98); // 14 + 40 + 4 + 40
+        assert_eq!(k.n_proto, 0x86DD);
+        assert_eq!(k.addr_proto, 0x86DD);
+        assert_eq!(k.ip_proto, 17);
+        assert_eq!(k.flow_label, 0x12345); // inner v6 label
+        assert_eq!(k.ipv6_src, "20010db8000000000000000000000003");
+        assert_eq!(k.ipv6_dst, "20010db8000000000000000000000004");
+        assert_eq!(k.sport, 12345);
+        assert_eq!(k.dport, 443);
+    }
+
+    #[test]
+    fn projects_gre_csum() {
+        // GRE with C set: 4 bytes of checksum+pad before the inner IPv4.
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff1122334455660800\
+             4500004412344000402fdead0a0000010a000002\
+             80000800\
+             00000000\
+             45000028123440004006deadc0a80001c0a80002\
+             303901bb00000001000000005018ffff00000000",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert!(k.is_encap);
+        assert_eq!(k.thoff, 62); // 14 + 20 + 4 + 4 + 20
+        assert_eq!(k.ip_proto, 6);
+        assert_eq!(k.ipv4_src, "c0a80001");
+    }
+
+    #[test]
+    fn projects_gre_key_seq() {
+        // GRE with K+S set: 8 optional bytes.
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff1122334455660800\
+             4500004812344000402fdead0a0000010a000002\
+             30000800\
+             0000000100000002\
+             45000028123440004006deadc0a80001c0a80002\
+             303901bb00000001000000005018ffff00000000",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert!(k.is_encap);
+        assert_eq!(k.thoff, 66); // 14 + 20 + 4 + 8 + 20
+        assert_eq!(k.sport, 12345);
+    }
+
+    #[test]
+    fn projects_gre_all_flags() {
+        // GRE with C+K+S set: 12 optional bytes.
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff1122334455660800\
+             4500004c12344000402fdead0a0000010a000002\
+             b0000800\
+             000000000000000100000002\
+             45000028123440004006deadc0a80001c0a80002\
+             303901bb00000001000000005018ffff00000000",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert!(k.is_encap);
+        assert_eq!(k.thoff, 70); // 14 + 20 + 4 + 12 + 20
+        assert_eq!(k.dport, 443);
+    }
+
+    #[test]
+    fn projects_gre_version1_stop() {
+        // version=1 with C/K/S set and a TRUNCATED tail: kernel step-2
+        // ordering — version!=0 exports BPF_OK before the optional region
+        // is ever read, so the missing optionals are invisible. thoff
+        // stays at the GRE base start; no is_encap; ports 0.
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff1122334455660800\
+             4500001812344000402fdead0a0000010a000002\
+             b0010800",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert!(!k.is_encap); // never assigned on the version!=0 stop
+        assert!(!k.is_frag);
+        assert_eq!(k.nhoff, 14);
+        assert_eq!(k.thoff, 34); // GRE base start — not advanced
+        assert_eq!(k.n_proto, 0x0800);
+        assert_eq!(k.addr_proto, 0x0800); // outer (only) IP layer
+        assert_eq!(k.ipv4_src, "0a000001");
+        assert_eq!(k.ip_proto, 47); // positional-last: outer protocol
+        assert_eq!(k.sport, 0);
+        assert_eq!(k.dport, 0);
+    }
+
+    #[test]
+    fn projects_gre_teb() {
+        // TEB (0x6558): inner Ethernet re-enters the top dispatcher.
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff1122334455660800\
+             4500004e12344000402fdead0a0000010a000002\
+             00006558\
+             b1b2b3b4b5b6c1c2c3c4c5c60800\
+             45000028123440004006deadc0a80001c0a80002\
+             303901bb00000001000000005018ffff00000000",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert!(k.is_encap);
+        assert_eq!(k.nhoff, 14); // outer L3, not the inner one
+        assert_eq!(k.thoff, 72); // 14 + 20 + 4 + 14 + 20
+        assert_eq!(k.n_proto, 0x0800); // no VLAN: first ethernet sticks
+        assert_eq!(k.addr_proto, 0x0800);
+        assert_eq!(k.ipv4_src, "c0a80001");
+        assert_eq!(k.ip_proto, 6);
+        assert_eq!(k.sport, 12345);
+    }
+
+    #[test]
+    fn projects_gre_teb_inner_vlan_rewrites_n_proto() {
+        // TEB + inner 802.1Q carrying IPv6: kernel PROG(VLAN) runs for the
+        // INNER tag too, so n_proto = the inner tag's encapsulated proto
+        // (0x86DD) even though the outer family is IPv4 — the rule that
+        // makes n_proto "LAST vlan_q", not "first".
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff1122334455660800\
+             4500006612344000402fdead0a0000010a000002\
+             00006558\
+             b1b2b3b4b5b6c1c2c3c4c5c68100\
+             006586dd\
+             6001234500140640\
+             20010db8000000000000000000000003\
+             20010db8000000000000000000000004\
+             303901bb00000001000000005018ffff00000000",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert!(k.is_encap);
+        assert_eq!(k.nhoff, 14);
+        assert_eq!(k.thoff, 96); // 14 + 20 + 4 + 14 + 4 + 40
+        assert_eq!(k.n_proto, 0x86DD); // inner tag's encapsulated proto
+        assert_eq!(k.addr_proto, 0x86DD);
+        assert_eq!(k.flow_label, 0x12345);
+        assert_eq!(k.ipv6_src, "20010db8000000000000000000000003");
+        assert_eq!(k.ip_proto, 6);
+        assert_eq!(k.sport, 12345);
+    }
+
+    #[test]
+    fn projects_gre_behind_ipip() {
+        // Mixed-arm double encap: eth/IPv4(p=4)/IPv4(p=47)/GRE/IPv4/TCP.
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff1122334455660800\
+             45000054123440004004dead0a0000010a000002\
+             4500004012344000402fdead0a0000030a000004\
+             00000800\
+             45000028123440004006deadc0a80001c0a80002\
+             303901bb00000001000000005018ffff00000000",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert!(k.is_encap);
+        assert_eq!(k.nhoff, 14); // FIRST IP
+        assert_eq!(k.thoff, 78); // 14 + 20 + 20 + 4 + 20
+        assert_eq!(k.addr_proto, 0x0800);
+        assert_eq!(k.ipv4_src, "c0a80001"); // innermost
+        assert_eq!(k.ip_proto, 6);
+        assert_eq!(k.dport, 443);
+    }
+
+    #[test]
+    fn projects_gre_mpls_over_teb() {
+        // TEB + inner Ethernet carrying MPLS: PROG(MPLS) read-and-stop —
+        // thoff at the MPLS start, outer IP keys persist, ip_proto stays
+        // 47 (the outer protocol that dispatched to GRE), ports 0.
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff1122334455660800\
+             4500002a12344000402fdead0a0000010a000002\
+             00006558\
+             b1b2b3b4b5b6c1c2c3c4c5c68847\
+             00064140",
+        );
+        let k = project(&ir, &pkt).unwrap().unwrap();
+        assert!(k.is_encap);
+        assert_eq!(k.nhoff, 14);
+        assert_eq!(k.thoff, 52); // MPLS start: 14 + 20 + 4 + 14
+        assert_eq!(k.n_proto, 0x0800); // no VLAN anywhere
+        assert_eq!(k.addr_proto, 0x0800); // outer IP layer
+        assert_eq!(k.ipv4_src, "0a000001");
+        assert_eq!(k.ip_proto, 47);
+        assert_eq!(k.sport, 0);
+        assert_eq!(k.dport, 0);
+    }
+
+    #[test]
+    fn gre_truncated_base_rejects() {
+        // Only 2 of the 4 GRE base bytes present: header read fails, DROP.
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff1122334455660800\
+             4500001812344000402fdead0a0000010a000002\
+             0000",
+        );
+        assert!(project(&ir, &pkt).unwrap().is_none());
+    }
+
+    #[test]
+    fn gre_truncated_inner_after_optionals_rejects() {
+        // version 0, C set, optionals present, inner IPv4 truncated: the
+        // kernel's optionals are thoff arithmetic (not reads) — the drop
+        // comes from the INNER header read failing.
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff1122334455660800\
+             4500002612344000402fdead0a0000010a000002\
+             80000800\
+             00000000\
+             45000028123440004006",
+        );
+        assert!(project(&ir, &pkt).unwrap().is_none());
+    }
+
+    #[test]
+    fn gre_teb_truncated_inner_eth_rejects() {
+        // TEB with only 8 of the 14 inner Ethernet bytes: DROP both sides.
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff1122334455660800\
+             4500002012344000402fdead0a0000010a000002\
+             00006558\
+             b1b2b3b4b5b6c1c2",
+        );
+        assert!(project(&ir, &pkt).unwrap().is_none());
+    }
+
+    #[test]
+    fn gre_arp_rejects() {
+        // ARP-over-GRE: proto 0x0806 hits the dispatcher default, DROP.
+        let ir = crate::examples::linux_flow_dissector();
+        let pkt = hexpkt(
+            "aabbccddeeff1122334455660800\
+             4500003412344000402fdead0a0000010a000002\
+             00000806\
+             0001080006040001aabbccddeeff0a000001112233445566\
+             0a000002",
+        );
+        assert!(project(&ir, &pkt).unwrap().is_none());
     }
 }
 
