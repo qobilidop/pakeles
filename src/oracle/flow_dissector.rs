@@ -97,8 +97,18 @@ pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Option<FlowKeys>> {
     let mut last_ip: Option<&crate::interp::ParsedHeader> = None; // addr_proto + addresses
     let mut last_v6: Option<&crate::interp::ParsedHeader> = None; // flow_label (only PROG(IPV6) writes it)
     let mut last_next_proto: Option<u64> = None; // ip_proto
+    let mut vlans_after_first_ip: u16 = 0; // nhoff (PROG(VLAN) advances it)
     for h in &res.headers {
         match h.instance.as_str() {
+            // PROG(VLAN) does keys->nhoff += sizeof(*vlan) per tag,
+            // unconditionally — so INNER tags behind TEB (rung 4b) push
+            // nhoff past the outer L3 start. Tags before the first IP are
+            // already absorbed by "first IP start".
+            "vlan_ad" | "vlan_q" => {
+                if first_ip.is_some() {
+                    vlans_after_first_ip += 1;
+                }
+            }
             "ipv4" => {
                 first_ip.get_or_insert(h);
                 last_ip = Some(h);
@@ -166,10 +176,12 @@ pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Option<FlowKeys>> {
         }
         anyhow::bail!("accept with neither IP nor MPLS instance — unreachable by construction");
     };
-    // nhoff: FIRST IP instance — the kernel never rewrites nhoff to an
-    // inner L3 start on re-entry (it advances thoff instead); verified
-    // against the tunnel golden matrix.
-    k.nhoff = (first.start_bit / 8) as u16;
+    // nhoff: FIRST IP instance — the IP progs never rewrite nhoff on
+    // re-entry (they advance thoff instead) — PLUS 4 bytes per VLAN tag
+    // parsed after it: PROG(VLAN)'s unconditional nhoff += sizeof(*vlan)
+    // also fires for inner tags behind TEB (caught by the rung-4b golden:
+    // kernel reports 18, not 14, for TEB + inner 802.1Q).
+    k.nhoff = (first.start_bit / 8) as u16 + 4 * vlans_after_first_ip;
     // addr_proto + addresses: LAST IP-family instance, either family —
     // PROG(IP) (bpf_flow.c:291-293) and PROG(IPV6) (:333-334) each
     // overwrite addr_proto and the address union as parsing descends.
@@ -1047,7 +1059,8 @@ mod project_tests {
         );
         let k = project(&ir, &pkt).unwrap().unwrap();
         assert!(k.is_encap);
-        assert_eq!(k.nhoff, 14);
+        // PROG(VLAN) advances nhoff for the INNER tag too: 14 (outer L3) + 4.
+        assert_eq!(k.nhoff, 18);
         assert_eq!(k.thoff, 96); // 14 + 20 + 4 + 14 + 4 + 40
         assert_eq!(k.n_proto, 0x86DD); // inner tag's encapsulated proto
         assert_eq!(k.addr_proto, 0x86DD);
