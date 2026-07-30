@@ -63,6 +63,7 @@ fn main() -> anyhow::Result<()> {
         "linux_flow_dissector",
         "counted_items",
         "tlv_items",
+        "tls_clienthello",
         "dpdk_ptype",
         "katran_flow",
         "sai_parser",

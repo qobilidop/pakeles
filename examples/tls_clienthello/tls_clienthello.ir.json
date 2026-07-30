@@ -1,0 +1,1307 @@
+{
+  "irVersion": "0.1.0",
+  "parser": {
+    "name": "tls_clienthello",
+    "headerTypes": [
+      {
+        "name": "record_hdr",
+        "fields": [
+          {
+            "name": "ctype",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Content Type",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "22",
+                  "label": "handshake"
+                }
+              ]
+            }
+          },
+          {
+            "name": "ver",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Legacy Record Version",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "rlen",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Record Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "handshake_hdr",
+        "fields": [
+          {
+            "name": "typ",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Handshake Type",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "1",
+                  "label": "client_hello"
+                }
+              ]
+            }
+          },
+          {
+            "name": "hlen",
+            "width": {
+              "bits": 24
+            },
+            "display": {
+              "name": "Handshake Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "body_fixed",
+        "fields": [
+          {
+            "name": "ver",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Legacy Version",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "random",
+            "width": {
+              "byteLen": {
+                "constant": "32"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "sid_len",
+        "fields": [
+          {
+            "name": "slen",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Session ID Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "sid",
+        "fields": [
+          {
+            "name": "body",
+            "width": {
+              "byteLen": {
+                "field": {
+                  "header": "sid_len",
+                  "field": "slen"
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "cs_len",
+        "fields": [
+          {
+            "name": "clen",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Cipher Suites Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "cs",
+        "fields": [
+          {
+            "name": "body",
+            "width": {
+              "byteLen": {
+                "field": {
+                  "header": "cs_len",
+                  "field": "clen"
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "comp_len",
+        "fields": [
+          {
+            "name": "plen",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Compression Methods Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "comp",
+        "fields": [
+          {
+            "name": "body",
+            "width": {
+              "byteLen": {
+                "field": {
+                  "header": "comp_len",
+                  "field": "plen"
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "ext_len",
+        "fields": [
+          {
+            "name": "total",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Extensions Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "ext",
+        "fields": [
+          {
+            "name": "typ",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Extension Type",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "label": "server_name"
+                }
+              ]
+            }
+          },
+          {
+            "name": "elen",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Extension Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "skip",
+        "fields": [
+          {
+            "name": "body",
+            "width": {
+              "byteLen": {
+                "field": {
+                  "header": "ext",
+                  "field": "elen"
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "sni_list",
+        "fields": [
+          {
+            "name": "list_len",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Server Name List Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "sni_entry",
+        "fields": [
+          {
+            "name": "ntype",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Name Type",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "label": "host_name"
+                }
+              ]
+            }
+          },
+          {
+            "name": "hlen",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Host Name Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "host",
+        "fields": [
+          {
+            "name": "name",
+            "width": {
+              "byteLen": {
+                "field": {
+                  "header": "sni_entry",
+                  "field": "hlen"
+                }
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "states": [
+      {
+        "name": "s_record",
+        "extracts": [
+          {
+            "headerType": "record_hdr"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "record_hdr",
+                  "field": "ctype"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "22"
+                  }
+                ],
+                "next": {
+                  "state": "s_hs"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "reject": {
+                "reason": "not a handshake record"
+              }
+            }
+          }
+        },
+        "regionOps": [
+          {
+            "push": {
+              "field": {
+                "header": "record_hdr",
+                "field": "rlen"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "s_hs",
+        "extracts": [
+          {
+            "headerType": "handshake_hdr"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "handshake_hdr",
+                  "field": "typ"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "s_fixed"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "reject": {
+                "reason": "not a client hello"
+              }
+            }
+          }
+        },
+        "regionOps": [
+          {
+            "push": {
+              "field": {
+                "header": "handshake_hdr",
+                "field": "hlen"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "s_fixed",
+        "extracts": [
+          {
+            "headerType": "body_fixed"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "s_sid_len"
+          }
+        }
+      },
+      {
+        "name": "s_sid_len",
+        "extracts": [
+          {
+            "headerType": "sid_len"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "sid_len",
+                  "field": "slen"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "3"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "5"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "7"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "8"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "9"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "10"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "11"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "12"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "13"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "14"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "15"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "16"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "17"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "18"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "19"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "20"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "21"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "22"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "23"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "24"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "25"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "26"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "27"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "28"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "29"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "30"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "31"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "32"
+                  }
+                ],
+                "next": {
+                  "state": "s_sid"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "reject": {
+                "reason": "session id too long"
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "s_sid",
+        "extracts": [
+          {
+            "headerType": "sid"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "s_cs_len"
+          }
+        }
+      },
+      {
+        "name": "s_cs_len",
+        "extracts": [
+          {
+            "headerType": "cs_len"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "cs_len",
+                  "field": "clen"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "reject": {
+                    "reason": "empty cipher suites"
+                  }
+                }
+              }
+            ],
+            "defaultTarget": {
+              "state": "s_cs_parity"
+            }
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "cs_odd",
+            "value": {
+              "bin": {
+                "op": "BIN_OP_KIND_AND",
+                "lhs": {
+                  "field": {
+                    "header": "cs_len",
+                    "field": "clen"
+                  }
+                },
+                "rhs": {
+                  "constant": "1"
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "s_cs_parity",
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "metadata": {
+                  "name": "cs_odd"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "reject": {
+                    "reason": "odd cipher suites length"
+                  }
+                }
+              }
+            ],
+            "defaultTarget": {
+              "state": "s_cs"
+            }
+          }
+        }
+      },
+      {
+        "name": "s_cs",
+        "extracts": [
+          {
+            "headerType": "cs"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "s_comp_len"
+          }
+        }
+      },
+      {
+        "name": "s_comp_len",
+        "extracts": [
+          {
+            "headerType": "comp_len"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "comp_len",
+                  "field": "plen"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "reject": {
+                    "reason": "empty compressions"
+                  }
+                }
+              }
+            ],
+            "defaultTarget": {
+              "state": "s_comp"
+            }
+          }
+        }
+      },
+      {
+        "name": "s_comp",
+        "extracts": [
+          {
+            "headerType": "comp"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "s_ext_check"
+          }
+        }
+      },
+      {
+        "name": "s_ext_check",
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "remaining": {}
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "s_done_noext"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "reject": {
+                    "reason": "partial extensions length"
+                  }
+                }
+              }
+            ],
+            "defaultTarget": {
+              "state": "s_ext_len"
+            }
+          }
+        }
+      },
+      {
+        "name": "s_ext_len",
+        "extracts": [
+          {
+            "headerType": "ext_len"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "s_tlv"
+          }
+        },
+        "regionOps": [
+          {
+            "push": {
+              "field": {
+                "header": "ext_len",
+                "field": "total"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "s_tlv",
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "remaining": {}
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "s_done"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "reject": {
+                    "reason": "partial extension header"
+                  }
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2"
+                  }
+                ],
+                "next": {
+                  "reject": {
+                    "reason": "partial extension header"
+                  }
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "3"
+                  }
+                ],
+                "next": {
+                  "reject": {
+                    "reason": "partial extension header"
+                  }
+                }
+              }
+            ],
+            "defaultTarget": {
+              "state": "s_ext"
+            }
+          }
+        }
+      },
+      {
+        "name": "s_ext",
+        "extracts": [
+          {
+            "headerType": "ext"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ext",
+                  "field": "typ"
+                }
+              },
+              {
+                "metadata": {
+                  "name": "seen_sni"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "s_sni"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "reject": {
+                    "reason": "duplicate sni"
+                  }
+                }
+              }
+            ],
+            "defaultTarget": {
+              "state": "s_skip"
+            }
+          }
+        }
+      },
+      {
+        "name": "s_skip",
+        "extracts": [
+          {
+            "headerType": "skip"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "s_tlv"
+          }
+        }
+      },
+      {
+        "name": "s_sni",
+        "transition": {
+          "direct": {
+            "state": "s_sni_list"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "seen_sni",
+            "value": {
+              "constant": "1"
+            }
+          }
+        ],
+        "regionOps": [
+          {
+            "push": {
+              "field": {
+                "header": "ext",
+                "field": "elen"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "s_sni_list",
+        "extracts": [
+          {
+            "headerType": "sni_list"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "s_sni_entry"
+          }
+        },
+        "regionOps": [
+          {
+            "push": {
+              "field": {
+                "header": "sni_list",
+                "field": "list_len"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "s_sni_entry",
+        "extracts": [
+          {
+            "headerType": "sni_entry"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "sni_entry",
+                  "field": "ntype"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "s_host"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "reject": {
+                "reason": "unsupported sni name type"
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "s_host",
+        "extracts": [
+          {
+            "headerType": "host"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "s_tlv"
+          }
+        },
+        "regionOps": [
+          {
+            "pop": {}
+          },
+          {
+            "pop": {}
+          }
+        ]
+      },
+      {
+        "name": "s_done",
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "regionOps": [
+          {
+            "pop": {}
+          },
+          {
+            "pop": {}
+          },
+          {
+            "pop": {}
+          }
+        ]
+      },
+      {
+        "name": "s_done_noext",
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "regionOps": [
+          {
+            "pop": {}
+          },
+          {
+            "pop": {}
+          }
+        ]
+      }
+    ],
+    "startState": "s_record",
+    "maxDepth": 96,
+    "metadata": [
+      {
+        "name": "seen_sni",
+        "bits": 1,
+        "display": {
+          "name": "SNI Seen",
+          "format": "DISPLAY_FORMAT_DEC",
+          "doc": "duplicate-SNI detection"
+        }
+      },
+      {
+        "name": "cs_odd",
+        "bits": 1,
+        "display": {
+          "name": "Odd Cipher Length",
+          "format": "DISPLAY_FORMAT_DEC",
+          "doc": "cipher_suites parity"
+        }
+      }
+    ]
+  }
+}

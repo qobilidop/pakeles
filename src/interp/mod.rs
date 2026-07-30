@@ -383,11 +383,21 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                         .pop()
                         .ok_or_else(|| anyhow::anyhow!("region pop with no open region"))?;
                     if cursor_bits < end {
-                        // Exact-mode pop; with structural remaining()
-                        // a short buffer dies at a read first, so this
-                        // shortfall is always structural.
+                        // Exact-mode pop. A region end beyond the
+                        // buffer is reachable here when the outer
+                        // length lies past the buffer while all inner
+                        // content is consistent (e.g. a TLS record
+                        // length declaring more than was sent) — the
+                        // incumbent semantic is "need more bytes", the
+                        // truncation class. A region end within the
+                        // buffer is real trailing content: structural.
+                        let reason = if end > avail_bits {
+                            "out of bounds"
+                        } else {
+                            "region not exhausted"
+                        };
                         return reject(
-                            "region not exhausted",
+                            reason,
                             plain(Severity::Error),
                             current,
                             cursor_bits,
@@ -691,6 +701,33 @@ mod tests {
             }
         );
         assert_eq!(res.error.unwrap().field.as_deref(), Some("t"));
+    }
+
+    #[test]
+    fn pop_with_region_past_buffer_is_truncation_class() {
+        // The region end lies beyond the buffer while everything read
+        // so far was consistent: incumbent semantics say "need more
+        // bytes" (e.g. rustls incomplete), so the exact-pop shortfall
+        // is the truncation class here, not structural.
+        let ir = ParserBuilder::new("lie_pop", 3)
+            .header(HeaderTypeBuilder::new("h").bits("total", 8))
+            .state(
+                StateBuilder::new("s0")
+                    .extract("h")
+                    .push_region(f("h", "total"))
+                    .goto_(to("d")),
+            )
+            .state(StateBuilder::new("d").pop_region().accept())
+            .start("s0")
+            .build()
+            .unwrap();
+        let res = run(&ir, &[9, 0xAA]).unwrap();
+        assert_eq!(
+            res.outcome,
+            Outcome::Reject {
+                reason: "out of bounds".into()
+            }
+        );
     }
 
     #[test]

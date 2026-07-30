@@ -165,6 +165,13 @@ enum Oracle {
         #[arg(long)]
         goldens: Option<PathBuf>,
     },
+    /// Diff our projected (verdict-class, SNI) against rustls-minted goldens.
+    TlsClienthello {
+        #[arg(long)]
+        ir: Option<PathBuf>,
+        #[arg(long)]
+        goldens: Option<PathBuf>,
+    },
     /// Diff our projected (ptype, hdr_lens) against DPDK-minted goldens.
     DpdkPtype {
         #[arg(long)]
@@ -337,6 +344,38 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
                     format!("reading katran goldens from {}", goldens.display())
                 })?)?;
             let report = crate::oracle::katran::diff_goldens(&ir, &golden)?;
+            println!(
+                "{} vectors compared, {} mismatches",
+                report.compared,
+                report.mismatches.len()
+            );
+            for m in &report.mismatches {
+                println!("  {m}");
+            }
+            Ok(if report.mismatches.is_empty() { 0 } else { 1 })
+        }
+        Command::Diff {
+            oracle: Oracle::TlsClienthello { ir, goldens },
+        } => {
+            let ir = match &ir {
+                None => crate::examples::tls_clienthello(),
+                Some(_) => load_ir(&ir)?,
+            };
+            let goldens = match goldens {
+                Some(p) => p,
+                None => crate::oracle::tls_clienthello::discover_committed_golden(
+                    std::path::Path::new(crate::oracle::tls_clienthello::CONFORMANCE_DIR),
+                )
+                .context(
+                    "no --goldens given and no committed clienthello.rustls-*.golden.json \
+                     found under examples/tls_clienthello/conformance/",
+                )?,
+            };
+            let golden: crate::oracle::tls_clienthello::GoldenFile =
+                serde_json::from_str(&std::fs::read_to_string(&goldens).with_context(|| {
+                    format!("reading tls-clienthello goldens from {}", goldens.display())
+                })?)?;
+            let report = crate::oracle::tls_clienthello::diff_goldens(&ir, &golden)?;
             println!(
                 "{} vectors compared, {} mismatches",
                 report.compared,

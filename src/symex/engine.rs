@@ -855,7 +855,13 @@ fn walk_region_ops(
                 .pop()
                 .ok_or_else(|| anyhow::anyhow!("region pop with no open region"))?;
             // Shortfall fork: exact-mode pop with the cursor short of
-            // the region end -> "region not exhausted".
+            // the region end -> "region not exhausted". The witness
+            // bit_len is the REGION END, not the cursor: the interp
+            // classifies a shortfall with the end beyond the buffer as
+            // truncation ("out of bounds"), so the witness must carry
+            // the trailing bytes to land in the structural flavor.
+            // (The end-past-buffer flavor is the same control point;
+            // it is corpus-covered, not separately enumerated.)
             let short = t_gt(end.clone(), frame.cursor.clone());
             {
                 let mut f = frame.clone();
@@ -870,7 +876,7 @@ fn walk_region_ops(
                         PathKind::Reject {
                             reason: "region not exhausted".into(),
                         },
-                        f.cursor.clone(),
+                        end.clone(),
                         f.cursor_min,
                     );
                 }

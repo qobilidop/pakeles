@@ -8,6 +8,7 @@ pub mod dpdk_ptype;
 pub mod flow_dissector;
 pub mod katran;
 pub mod sai;
+pub mod tls_clienthello;
 
 use crate::interp::{run, FieldValue, Outcome};
 use crate::ir::pb;

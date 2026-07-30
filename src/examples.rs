@@ -62,6 +62,15 @@ pub fn tlv_items() -> pb::Ir {
         .expect("committed example IR must parse")
 }
 
+/// The TLS ClientHello / SNI flagship (rustls agreement), parsed from
+/// its committed IR.
+pub fn tls_clienthello() -> pb::Ir {
+    crate::ir::from_json(include_str!(
+        "../examples/tls_clienthello/tls_clienthello.ir.json"
+    ))
+    .expect("committed tls_clienthello IR must parse")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -256,6 +265,34 @@ mod tests {
     fn tlv_items_committed_py_example_current() {
         let canonical = std::fs::read_to_string("py/src/pakeles/examples/tlv_items.py").unwrap();
         let mirrored = std::fs::read_to_string("examples/tlv_items/tlv_items.py").unwrap();
+        assert_eq!(
+            canonical, mirrored,
+            "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
+    #[test]
+    fn tls_clienthello_embedded_ir_parses_and_validates() {
+        crate::ir::validate::validate(&tls_clienthello()).unwrap();
+    }
+
+    #[test]
+    fn tls_clienthello_committed_ir_json_is_canonical() {
+        let committed =
+            std::fs::read_to_string("examples/tls_clienthello/tls_clienthello.ir.json").unwrap();
+        let round = crate::ir::to_json(&crate::ir::from_json(&committed).unwrap()).unwrap();
+        assert_eq!(
+            round, committed,
+            "committed ir.json is not in canonical form; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
+    #[test]
+    fn tls_clienthello_committed_py_example_current() {
+        let canonical =
+            std::fs::read_to_string("py/src/pakeles/examples/tls_clienthello.py").unwrap();
+        let mirrored =
+            std::fs::read_to_string("examples/tls_clienthello/tls_clienthello.py").unwrap();
         assert_eq!(
             canonical, mirrored,
             "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"

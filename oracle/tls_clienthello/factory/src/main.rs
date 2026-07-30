@@ -137,6 +137,26 @@ fn selftest() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Mint a genuine rustls first flight (TLS 1.3-capable ClientHello,
+/// SNI from argv) and print its hex — corpus material with real
+/// supported_versions/key_share extensions. NOT deterministic (random
+/// + key share): mint once, embed the hex in the corpus with a
+/// provenance comment.
+fn mint(sni: &str) -> anyhow::Result<()> {
+    let config = rustls::ClientConfig::builder()
+        .with_root_certificates(rustls::RootCertStore::empty())
+        .with_no_client_auth();
+    let mut conn =
+        rustls::ClientConnection::new(Arc::new(config), sni.to_string().try_into()?)?;
+    let mut flight = Vec::new();
+    conn.write_tls(&mut flight)?;
+    println!(
+        "{}",
+        flight.iter().map(|b| format!("{b:02x}")).collect::<String>()
+    );
+    Ok(())
+}
+
 fn main() -> anyhow::Result<()> {
     rustls::crypto::ring::default_provider()
         .install_default()
@@ -145,11 +165,12 @@ fn main() -> anyhow::Result<()> {
     match args.get(1).map(String::as_str) {
         Some("capture") => capture(args.get(2).map(String::as_str).unwrap_or("corpus.txt")),
         Some("selftest") => selftest(),
+        Some("mint") => mint(args.get(2).map(String::as_str).unwrap_or("mint.example")),
         Some("one") => {
             let bytes = hex_decode(args.get(2).expect("hex arg"))?;
             println!("{}", project(&bytes));
             Ok(())
         }
-        _ => anyhow::bail!("usage: capture <corpus.txt> | selftest | one <hex>"),
+        _ => anyhow::bail!("usage: capture <corpus.txt> | selftest | mint [sni] | one <hex>"),
     }
 }

@@ -1016,6 +1016,11 @@ mod tests {
         c_backend_conformance(&crate::examples::tlv_items());
     }
 
+    #[test]
+    fn c_backend_conformance_full_suite_tls_clienthello() {
+        c_backend_conformance(&crate::examples::tls_clienthello());
+    }
+
     /// eBPF conformance: compile with clang -target bpf, extract
     /// .text, execute under the rbpf userspace VM per vector, compare
     /// the packed verdict (outcome | reason | consumed) against the
@@ -1146,6 +1151,11 @@ mod tests {
     }
 
     #[test]
+    fn bpf_backend_conformance_full_suite_tls_clienthello() {
+        bpf_backend_conformance(&crate::examples::tls_clienthello());
+    }
+
+    #[test]
     fn c_backend_conformance_full_suite_dpdk_ptype() {
         c_backend_conformance(&dpdk_ptype());
     }
@@ -1182,6 +1192,7 @@ mod tests {
             ("linux_flow_dissector", linux_flow_dissector()),
             ("counted_items", counted_items()),
             ("tlv_items", crate::examples::tlv_items()),
+            ("tls_clienthello", crate::examples::tls_clienthello()),
             ("dpdk_ptype", dpdk_ptype()),
             ("katran_flow", katran_flow()),
             ("sai_parser", sai_parser()),

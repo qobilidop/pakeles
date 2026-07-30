@@ -881,6 +881,7 @@ mod tests {
             ("linux_flow_dissector", linux_flow_dissector()),
             ("counted_items", counted_items()),
             ("tlv_items", crate::examples::tlv_items()),
+            ("tls_clienthello", crate::examples::tls_clienthello()),
             ("dpdk_ptype", dpdk_ptype()),
             ("katran_flow", katran_flow()),
             ("sai_parser", sai_parser()),
@@ -1134,6 +1135,11 @@ mod tests {
     #[test]
     fn generated_dissector_conformance_tlv_items() {
         generated_dissector_conformance_suite(&crate::examples::tlv_items(), 3);
+    }
+
+    #[test]
+    fn generated_dissector_conformance_tls_clienthello() {
+        generated_dissector_conformance_suite(&crate::examples::tls_clienthello(), 10);
     }
 
     type ExpectedFields = Vec<(String, Option<crate::testvec::pb::expected_field::Value>)>;

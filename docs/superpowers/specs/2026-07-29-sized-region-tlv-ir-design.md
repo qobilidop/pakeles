@@ -201,9 +201,17 @@ the constraints — a whole new solver dimension. Instead:
    (wrapped lengths cross everything); otherwise it is the
    truncation-class "out of bounds". No comparison with the buffer
    length is involved in choosing the reason.
-3. **Pop simplifies**: `cursor < end` → "region not exhausted",
-   unconditionally (the end-past-buffer case is unreachable once
-   `remaining()` is structural — a short buffer dies at a read first).
+3. **Pop keeps two flavors**: `cursor < end && end <= avail` →
+   "region not exhausted" (real trailing content: structural);
+   `cursor < end && end > avail` → "out of bounds" (truncation class).
+   The second IS reachable even with structural `remaining()`: an
+   outer length lying past the buffer with all inner content
+   consistent (a TLS record length declaring more than was sent)
+   reaches the pop without any read failing — and the incumbent
+   semantic there is "need more bytes". Symex enumerates the
+   structural flavor (witness bit_len = the region end, so the
+   trailing bytes exist); the truncation flavor is the same control
+   point, corpus-covered rather than separately enumerated.
 4. **Symex read trichotomy inside a region**: {crosses region end →
    reject "out of region bounds", fits region but buffer ends mid-read
    → Truncation (asserts it does NOT cross the region end), fits →
