@@ -131,9 +131,9 @@ fn expr_c(e: &pb::Expr) -> Result<String> {
         // Structural bytes to the innermost region end. Only legal
         // with a region open (validator), so rsp >= 1 here; the mask
         // keeps the index verifier-bounded (see `region_locals`).
-        Some(pb::expr::Kind::Remaining(_)) => Ok(format!(
-            "((pk_region_end[(pk_rsp - 1u) & PK_RMASK] - off) >> 3)"
-        )),
+        Some(pb::expr::Kind::Remaining(_)) => {
+            Ok("((pk_region_end[(pk_rsp - 1u) & PK_RMASK] - off) >> 3)".to_string())
+        }
         Some(pb::expr::Kind::Constant(v)) => Ok(format!("{v}ULL")),
         Some(pb::expr::Kind::Field(r)) => Ok(format!("(uint64_t)out->{}.{}", r.header, r.field)),
         Some(pb::expr::Kind::Bin(b)) => {
@@ -177,10 +177,27 @@ fn entry_c(entry: &pb::KeysetEntry, key: &str) -> String {
     }
 }
 
+/// eBPF buffer contract: the caller must pass a buffer of at least
+/// `PK_BUF_MASK + 1` bytes, and packets no longer than that. Every
+/// packet index is masked with it, which is DEAD for in-contract
+/// packets (the length guards already bound each access) but
+/// load-bearing for the kernel verifier — it bounds the index register
+/// directly instead of relying on back-propagation from a guard on a
+/// derived value. Same device as the region-stack index mask.
+///
+/// The default covers every committed conformance vector; a caller with
+/// a smaller scratch buffer (an XDP wrapper, say) overrides it with
+/// `-DPK_BUF_MASK=...` to give the verifier a tighter bound.
+const BPF_BUF_MASK: usize = 4095;
+
 struct Emit<'a> {
     parser: &'a pb::Parser,
     prefix: String,
     reasons: Vec<(String, u32)>,
+    /// Static state-entry bit alignment, for the byte-load fast path.
+    entry_align: std::collections::HashMap<String, Option<u32>>,
+    /// eBPF variant: mask every packet index (see `BPF_BUF_MASK`).
+    masked_loads: bool,
 }
 
 impl<'a> Emit<'a> {
@@ -188,8 +205,96 @@ impl<'a> Emit<'a> {
         Self {
             prefix: format!("pk_{}", parser.name),
             reasons: reason_table(parser),
+            entry_align: super::entry_alignments(parser),
+            masked_loads: false,
             parser,
         }
+    }
+
+    /// The eBPF variant of the same emitter.
+    fn new_bpf(parser: &'a pb::Parser) -> Self {
+        Self {
+            masked_loads: true,
+            ..Self::new(parser)
+        }
+    }
+
+    /// Packet byte index, masked in the eBPF variant.
+    fn byte_index(&self, expr: &str) -> String {
+        if self.masked_loads {
+            format!("({expr}) & PK_BUF_MASK")
+        } else {
+            expr.to_string()
+        }
+    }
+
+    /// True when some fixed-width field falls back to the bit loop.
+    fn needs_bit_reader(&self) -> bool {
+        self.any_fixed_field(|emit, s, inst, f, n| {
+            emit.byte_load_expr(s, inst, &f.name, n).is_none()
+        })
+    }
+
+    /// Does `pred` hold for any fixed-width field in any state?
+    fn any_fixed_field(
+        &self,
+        pred: impl Fn(&Self, &pb::State, &str, &pb::Field, u32) -> bool,
+    ) -> bool {
+        self.parser.states.iter().any(|s| {
+            s.extracts.iter().any(|ex| {
+                let inst = if ex.instance.is_empty() {
+                    &ex.header_type
+                } else {
+                    &ex.instance
+                };
+                self.parser
+                    .header_types
+                    .iter()
+                    .filter(|ht| ht.name == ex.header_type)
+                    .any(|ht| {
+                        ht.fields.iter().any(|f| {
+                            match f.width.as_ref().and_then(|x| x.width.as_ref()) {
+                                Some(pb::field_width::Width::Bits(n)) => pred(self, s, inst, f, *n),
+                                _ => false,
+                            }
+                        })
+                    })
+            })
+        })
+    }
+
+    /// A statically byte-aligned, whole-byte field reads as `n/8`
+    /// direct byte loads instead of `n` iterations of the bit loop.
+    /// Semantics are identical (big-endian, MSB-first); the win is
+    /// size: the eBPF verifier walks every unrolled instruction, and
+    /// the bit loop is what pushed `tls_clienthello` past the 1M-insn
+    /// budget (see docs/designs/2026-07-29-tls-ebpf-deliverable.md).
+    fn byte_load_expr(&self, s: &pb::State, inst: &str, field: &str, n: u32) -> Option<String> {
+        if !n.is_multiple_of(8) || n > 64 {
+            return None;
+        }
+        if super::field_alignment(self.parser, &self.entry_align, s, inst, field)? != 0 {
+            return None;
+        }
+        let nbytes = n / 8;
+        let parts: Vec<String> = (0..nbytes)
+            .map(|i| {
+                let shift = 8 * (nbytes - 1 - i);
+                // Through pk_byte_at, whose guard is on the SAME value
+                // it indexes — the verifier does not back-propagate a
+                // refinement made on a different register.
+                let load = format!(
+                    "(uint64_t)buf[{}]",
+                    self.byte_index(&format!("(off >> 3) + {i}"))
+                );
+                if shift == 0 {
+                    load
+                } else {
+                    format!("({load} << {shift})")
+                }
+            })
+            .collect();
+        Some(parts.join(" | "))
     }
 
     fn structs(&self) -> Result<String> {
@@ -279,26 +384,57 @@ impl<'a> Emit<'a> {
         Ok(w)
     }
 
-    /// The parse core: shared verbatim between portable C and eBPF.
+    /// The parse core: shared between portable C and eBPF (the eBPF
+    /// variant additionally masks every packet index — see
+    /// `BPF_BUF_MASK`).
     fn core(&self, static_qual: &str) -> Result<String> {
         let mut w = String::new();
         let p = &self.prefix;
-        writeln!(
+        if self.masked_loads {
+            writeln!(
+                w,
+                "/* Buffer contract: `buf` must hold at least PK_BUF_MASK + 1 bytes."
+            )?;
+            writeln!(
+                w,
+                " * Every packet index is masked with it — dead at runtime (the"
+            )?;
+            writeln!(
+                w,
+                " * length guards already bound each access), but it bounds the index"
+            )?;
+            writeln!(
+                w,
+                " * register directly, which is what the kernel verifier tracks. */"
+            )?;
+            writeln!(w, "#ifndef PK_BUF_MASK")?;
+            writeln!(w, "#define PK_BUF_MASK {BPF_BUF_MASK}u")?;
+            writeln!(w, "#endif")?;
+            writeln!(w)?;
+        }
+        // Emitted only when some field actually needs the bit path —
+        // a fully byte-aligned parser would otherwise carry an unused
+        // static function (-Werror=unused-function).
+        if self.needs_bit_reader() {
+            writeln!(
             w,
-            "{static_qual} uint64_t pk_read_bits(const uint8_t *buf, uint64_t off, uint32_t n) {{"
+            "{static_qual} uint64_t pk_read_bits(const uint8_t *buf, uint64_t avail, uint64_t off, uint32_t n) {{"
         )?;
-        writeln!(w, "  uint64_t v = 0;")?;
-        writeln!(w, "  uint32_t i;")?;
-        writeln!(w, "  for (i = 0; i < n; i++) {{")?;
-        writeln!(w, "    uint64_t pos = off + i;")?;
-        writeln!(
-            w,
-            "    v = (v << 1) | (uint64_t)((buf[pos >> 3] >> (7 - (pos & 7))) & 1);"
-        )?;
-        writeln!(w, "  }}")?;
-        writeln!(w, "  return v;")?;
-        writeln!(w, "}}")?;
-        writeln!(w)?;
+            writeln!(w, "  (void)avail;")?;
+            writeln!(w, "  uint64_t v = 0;")?;
+            writeln!(w, "  uint32_t i;")?;
+            writeln!(w, "  for (i = 0; i < n; i++) {{")?;
+            writeln!(w, "    uint64_t pos = off + i;")?;
+            writeln!(
+                w,
+                "    v = (v << 1) | (uint64_t)((buf[{}] >> (7 - (pos & 7))) & 1);",
+                self.byte_index("pos >> 3")
+            )?;
+            writeln!(w, "  }}")?;
+            writeln!(w, "  return v;")?;
+            writeln!(w, "}}")?;
+            writeln!(w)?;
+        }
 
         // State ids.
         for (i, s) in self.parser.states.iter().enumerate() {
@@ -431,12 +567,20 @@ impl<'a> Emit<'a> {
                         writeln!(w, "      if (off + {n} > bit_len) {{")?;
                         self.emit_reject(w, "        ", "out of bounds")?;
                         writeln!(w, "      }}")?;
-                        writeln!(
-                            w,
-                            "      out->{inst}.{} = ({})pk_read_bits(buf, off, {n});",
-                            f.name,
-                            uint_type(*n)
-                        )?;
+                        match self.byte_load_expr(s, inst, &f.name, *n) {
+                            Some(load) => writeln!(
+                                w,
+                                "      out->{inst}.{} = ({})({load});",
+                                f.name,
+                                uint_type(*n)
+                            )?,
+                            None => writeln!(
+                                w,
+                                "      out->{inst}.{} = ({})pk_read_bits(buf, bit_len, off, {n});",
+                                f.name,
+                                uint_type(*n)
+                            )?,
+                        }
                         writeln!(w, "      off += {n};")?;
                     }
                     Some(pb::field_width::Width::ByteLen(expr)) => {
@@ -717,7 +861,7 @@ pub fn generate_bpf(ir: &pb::Ir) -> Result<String> {
         .parser
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("ir has no parser"))?;
-    let emit = Emit::new(parser);
+    let emit = Emit::new_bpf(parser);
     let p = &emit.prefix;
     let mut w = String::new();
     writeln!(

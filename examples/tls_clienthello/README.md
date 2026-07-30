@@ -77,6 +77,28 @@ skipped by (type, length).
    lies beyond the buffer is truncation-class, not structural
    (design doc, build-time refinements §3).
 
+## eBPF SNI deliverable
+
+The generated eBPF parser **loads verifier-clean into the real kernel
+and agrees with the interpreter on 28/28 corpus packets** under
+`BPF_PROG_TEST_RUN` — at `max_depth ≤ 22`, the measured ceiling. At the
+committed `max_depth = 96` the kernel rejects it for exceeding the 1M
+instruction budget (full unrolling costs ~`max_depth × states`). Depth
+22 walks about three extensions; the example keeps 96 because the
+rustls agreement corpus includes a 17-extension browser-shaped
+ClientHello, and agreement with the incumbent outranks fitting the
+verifier.
+
+```sh
+./dev-priv.sh env PK_DEPTH=22 oracle/tls_clienthello/spike/run.sh
+./dev-priv.sh oracle/tls_clienthello/spike/depth-sweep.sh   # the ceiling table
+```
+
+Three verifier rejections en route produced three general codegen
+fixes (derived-scalar bounds, a byte-load fast path worth ~8x on
+reads, index masking instead of per-load branches) — see
+[`docs/designs/2026-07-29-tls-ebpf-deliverable.md`](../../docs/designs/2026-07-29-tls-ebpf-deliverable.md).
+
 ## Conformance
 
 - `conformance/clienthello.rustls-0.23.43.golden.json` — committed,

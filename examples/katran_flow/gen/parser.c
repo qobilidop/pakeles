@@ -2,7 +2,8 @@
  * regenerate with `pakeles gen c`. */
 #include "parser.h"
 
-static uint64_t pk_read_bits(const uint8_t *buf, uint64_t off, uint32_t n) {
+static uint64_t pk_read_bits(const uint8_t *buf, uint64_t avail, uint64_t off, uint32_t n) {
+  (void)avail;
   uint64_t v = 0;
   uint32_t i;
   for (i = 0; i < n; i++) {
@@ -39,7 +40,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ethernet.dst = (uint64_t)pk_read_bits(buf, off, 48);
+      out->ethernet.dst = (uint64_t)(((uint64_t)buf[(off >> 3) + 0] << 40) | ((uint64_t)buf[(off >> 3) + 1] << 32) | ((uint64_t)buf[(off >> 3) + 2] << 24) | ((uint64_t)buf[(off >> 3) + 3] << 16) | ((uint64_t)buf[(off >> 3) + 4] << 8) | (uint64_t)buf[(off >> 3) + 5]);
       off += 48;
       if (off + 48 > bit_len) {
         out->outcome = 1;
@@ -47,7 +48,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ethernet.src = (uint64_t)pk_read_bits(buf, off, 48);
+      out->ethernet.src = (uint64_t)(((uint64_t)buf[(off >> 3) + 0] << 40) | ((uint64_t)buf[(off >> 3) + 1] << 32) | ((uint64_t)buf[(off >> 3) + 2] << 24) | ((uint64_t)buf[(off >> 3) + 3] << 16) | ((uint64_t)buf[(off >> 3) + 4] << 8) | (uint64_t)buf[(off >> 3) + 5]);
       off += 48;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -55,7 +56,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ethernet.ethertype = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ethernet.ethertype = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       uint64_t key0 = (uint64_t)out->ethernet.ethertype;
       if (key0 == 2048ULL) {
@@ -79,7 +80,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.version = (uint8_t)pk_read_bits(buf, off, 4);
+      out->ipv4.version = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 4 > bit_len) {
         out->outcome = 1;
@@ -87,7 +88,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.ihl = (uint8_t)pk_read_bits(buf, off, 4);
+      out->ipv4.ihl = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 6 > bit_len) {
         out->outcome = 1;
@@ -95,7 +96,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.dscp = (uint8_t)pk_read_bits(buf, off, 6);
+      out->ipv4.dscp = (uint8_t)pk_read_bits(buf, bit_len, off, 6);
       off += 6;
       if (off + 2 > bit_len) {
         out->outcome = 1;
@@ -103,7 +104,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.ecn = (uint8_t)pk_read_bits(buf, off, 2);
+      out->ipv4.ecn = (uint8_t)pk_read_bits(buf, bit_len, off, 2);
       off += 2;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -111,7 +112,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.total_len = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ipv4.total_len = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -119,7 +120,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.id = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ipv4.id = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 2 > bit_len) {
         out->outcome = 1;
@@ -127,7 +128,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.flags_res_df = (uint8_t)pk_read_bits(buf, off, 2);
+      out->ipv4.flags_res_df = (uint8_t)pk_read_bits(buf, bit_len, off, 2);
       off += 2;
       if (off + 14 > bit_len) {
         out->outcome = 1;
@@ -135,7 +136,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.mf_frag_off = (uint16_t)pk_read_bits(buf, off, 14);
+      out->ipv4.mf_frag_off = (uint16_t)pk_read_bits(buf, bit_len, off, 14);
       off += 14;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -143,7 +144,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.ttl = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv4.ttl = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -151,7 +152,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.protocol = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv4.protocol = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -159,7 +160,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.checksum = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ipv4.checksum = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -167,7 +168,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.src = (uint32_t)pk_read_bits(buf, off, 32);
+      out->ipv4.src = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
       off += 32;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -175,7 +176,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.dst = (uint32_t)pk_read_bits(buf, off, 32);
+      out->ipv4.dst = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
       off += 32;
       uint64_t key0 = (uint64_t)out->ipv4.ihl;
       uint64_t key1 = (uint64_t)out->ipv4.mf_frag_off;
@@ -215,7 +216,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.version = (uint8_t)pk_read_bits(buf, off, 4);
+      out->ipv6.version = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -223,7 +224,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.traffic_class = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6.traffic_class = (uint8_t)pk_read_bits(buf, bit_len, off, 8);
       off += 8;
       if (off + 20 > bit_len) {
         out->outcome = 1;
@@ -231,7 +232,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.flow_label = (uint32_t)pk_read_bits(buf, off, 20);
+      out->ipv6.flow_label = (uint32_t)pk_read_bits(buf, bit_len, off, 20);
       off += 20;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -239,7 +240,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.payload_length = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ipv6.payload_length = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -247,7 +248,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6.next_header = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -255,7 +256,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.hop_limit = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6.hop_limit = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       {
         uint64_t vlen = 16ULL;
@@ -311,7 +312,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->icmp.type = (uint8_t)pk_read_bits(buf, off, 8);
+      out->icmp.type = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -319,7 +320,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->icmp.code = (uint8_t)pk_read_bits(buf, off, 8);
+      out->icmp.code = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -327,7 +328,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->icmp.checksum = (uint16_t)pk_read_bits(buf, off, 16);
+      out->icmp.checksum = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -335,7 +336,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->icmp.rest = (uint32_t)pk_read_bits(buf, off, 32);
+      out->icmp.rest = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
       off += 32;
       uint64_t key0 = (uint64_t)out->icmp.type;
       if (key0 == 3ULL) {
@@ -356,7 +357,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->icmp.type = (uint8_t)pk_read_bits(buf, off, 8);
+      out->icmp.type = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -364,7 +365,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->icmp.code = (uint8_t)pk_read_bits(buf, off, 8);
+      out->icmp.code = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -372,7 +373,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->icmp.checksum = (uint16_t)pk_read_bits(buf, off, 16);
+      out->icmp.checksum = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -380,7 +381,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->icmp.rest = (uint32_t)pk_read_bits(buf, off, 32);
+      out->icmp.rest = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
       off += 32;
       uint64_t key0 = (uint64_t)out->icmp.type;
       if (key0 == 1ULL) {
@@ -404,7 +405,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->inner_ipv4.version = (uint8_t)pk_read_bits(buf, off, 4);
+      out->inner_ipv4.version = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 4 > bit_len) {
         out->outcome = 1;
@@ -412,7 +413,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->inner_ipv4.ihl = (uint8_t)pk_read_bits(buf, off, 4);
+      out->inner_ipv4.ihl = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 6 > bit_len) {
         out->outcome = 1;
@@ -420,7 +421,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->inner_ipv4.dscp = (uint8_t)pk_read_bits(buf, off, 6);
+      out->inner_ipv4.dscp = (uint8_t)pk_read_bits(buf, bit_len, off, 6);
       off += 6;
       if (off + 2 > bit_len) {
         out->outcome = 1;
@@ -428,7 +429,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->inner_ipv4.ecn = (uint8_t)pk_read_bits(buf, off, 2);
+      out->inner_ipv4.ecn = (uint8_t)pk_read_bits(buf, bit_len, off, 2);
       off += 2;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -436,7 +437,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->inner_ipv4.total_len = (uint16_t)pk_read_bits(buf, off, 16);
+      out->inner_ipv4.total_len = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -444,7 +445,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->inner_ipv4.id = (uint16_t)pk_read_bits(buf, off, 16);
+      out->inner_ipv4.id = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 2 > bit_len) {
         out->outcome = 1;
@@ -452,7 +453,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->inner_ipv4.flags_res_df = (uint8_t)pk_read_bits(buf, off, 2);
+      out->inner_ipv4.flags_res_df = (uint8_t)pk_read_bits(buf, bit_len, off, 2);
       off += 2;
       if (off + 14 > bit_len) {
         out->outcome = 1;
@@ -460,7 +461,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->inner_ipv4.mf_frag_off = (uint16_t)pk_read_bits(buf, off, 14);
+      out->inner_ipv4.mf_frag_off = (uint16_t)pk_read_bits(buf, bit_len, off, 14);
       off += 14;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -468,7 +469,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->inner_ipv4.ttl = (uint8_t)pk_read_bits(buf, off, 8);
+      out->inner_ipv4.ttl = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -476,7 +477,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->inner_ipv4.protocol = (uint8_t)pk_read_bits(buf, off, 8);
+      out->inner_ipv4.protocol = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -484,7 +485,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->inner_ipv4.checksum = (uint16_t)pk_read_bits(buf, off, 16);
+      out->inner_ipv4.checksum = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -492,7 +493,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->inner_ipv4.src = (uint32_t)pk_read_bits(buf, off, 32);
+      out->inner_ipv4.src = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
       off += 32;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -500,7 +501,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->inner_ipv4.dst = (uint32_t)pk_read_bits(buf, off, 32);
+      out->inner_ipv4.dst = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
       off += 32;
       out->m_is_icmp = (1ULL) & 0x1ULL;
       uint64_t key0 = (uint64_t)out->inner_ipv4.ihl;
@@ -537,7 +538,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.version = (uint8_t)pk_read_bits(buf, off, 4);
+      out->ipv6.version = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -545,7 +546,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.traffic_class = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6.traffic_class = (uint8_t)pk_read_bits(buf, bit_len, off, 8);
       off += 8;
       if (off + 20 > bit_len) {
         out->outcome = 1;
@@ -553,7 +554,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.flow_label = (uint32_t)pk_read_bits(buf, off, 20);
+      out->ipv6.flow_label = (uint32_t)pk_read_bits(buf, bit_len, off, 20);
       off += 20;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -561,7 +562,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.payload_length = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ipv6.payload_length = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -569,7 +570,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6.next_header = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -577,7 +578,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.hop_limit = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6.hop_limit = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       {
         uint64_t vlen = 16ULL;
@@ -626,7 +627,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.sport = (uint16_t)pk_read_bits(buf, off, 16);
+      out->tcp.sport = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -634,7 +635,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.dport = (uint16_t)pk_read_bits(buf, off, 16);
+      out->tcp.dport = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -642,7 +643,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.seq = (uint32_t)pk_read_bits(buf, off, 32);
+      out->tcp.seq = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
       off += 32;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -650,7 +651,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.ack = (uint32_t)pk_read_bits(buf, off, 32);
+      out->tcp.ack = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
       off += 32;
       if (off + 4 > bit_len) {
         out->outcome = 1;
@@ -658,7 +659,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.data_offset = (uint8_t)pk_read_bits(buf, off, 4);
+      out->tcp.data_offset = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 4 > bit_len) {
         out->outcome = 1;
@@ -666,7 +667,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.reserved = (uint8_t)pk_read_bits(buf, off, 4);
+      out->tcp.reserved = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -674,7 +675,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.flags = (uint8_t)pk_read_bits(buf, off, 8);
+      out->tcp.flags = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -682,7 +683,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.window = (uint16_t)pk_read_bits(buf, off, 16);
+      out->tcp.window = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -690,7 +691,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.checksum = (uint16_t)pk_read_bits(buf, off, 16);
+      out->tcp.checksum = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -698,7 +699,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.urgent = (uint16_t)pk_read_bits(buf, off, 16);
+      out->tcp.urgent = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       out->outcome = 0;
       out->reason = PK_R_NONE;
@@ -713,7 +714,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->udp.sport = (uint16_t)pk_read_bits(buf, off, 16);
+      out->udp.sport = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -721,7 +722,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->udp.dport = (uint16_t)pk_read_bits(buf, off, 16);
+      out->udp.dport = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -729,7 +730,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->udp.length = (uint16_t)pk_read_bits(buf, off, 16);
+      out->udp.length = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -737,7 +738,7 @@ static int pk_katran_flow_parse_core(const uint8_t *buf, uint64_t bit_len, pk_ka
         out->consumed_bits = off;
         return 1;
       }
-      out->udp.checksum = (uint16_t)pk_read_bits(buf, off, 16);
+      out->udp.checksum = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       out->outcome = 0;
       out->reason = PK_R_NONE;

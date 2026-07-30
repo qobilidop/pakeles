@@ -2,16 +2,6 @@
  * regenerate with `pakeles gen c`. */
 #include "parser.h"
 
-static uint64_t pk_read_bits(const uint8_t *buf, uint64_t off, uint32_t n) {
-  uint64_t v = 0;
-  uint32_t i;
-  for (i = 0; i < n; i++) {
-    uint64_t pos = off + i;
-    v = (v << 1) | (uint64_t)((buf[pos >> 3] >> (7 - (pos & 7))) & 1);
-  }
-  return v;
-}
-
 #define PK_S_PARSE_COUNT 0
 #define PK_S_PARSE_ITEM 1
 #define PK_S_MARK_DONE 2
@@ -32,7 +22,7 @@ static int pk_counted_items_parse_core(const uint8_t *buf, uint64_t bit_len, pk_
         out->consumed_bits = off;
         return 1;
       }
-      out->count.n = (uint8_t)pk_read_bits(buf, off, 8);
+      out->count.n = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       out->m_remaining = ((uint64_t)out->count.n) & 0xffULL;
       uint64_t key0 = out->m_remaining;
@@ -52,7 +42,7 @@ static int pk_counted_items_parse_core(const uint8_t *buf, uint64_t bit_len, pk_
         out->consumed_bits = off;
         return 1;
       }
-      out->item.v = (uint8_t)pk_read_bits(buf, off, 8);
+      out->item.v = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       out->m_remaining = ((out->m_remaining - 1ULL)) & 0xffULL;
       uint64_t key0 = out->m_remaining;

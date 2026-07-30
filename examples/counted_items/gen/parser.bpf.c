@@ -43,15 +43,13 @@ typedef enum {
   PK_R_REGION_NOT_EXHAUSTED = 6,
 } pk_counted_items_reason_t;
 
-static __attribute__((always_inline)) uint64_t pk_read_bits(const uint8_t *buf, uint64_t off, uint32_t n) {
-  uint64_t v = 0;
-  uint32_t i;
-  for (i = 0; i < n; i++) {
-    uint64_t pos = off + i;
-    v = (v << 1) | (uint64_t)((buf[pos >> 3] >> (7 - (pos & 7))) & 1);
-  }
-  return v;
-}
+/* Buffer contract: `buf` must hold at least PK_BUF_MASK + 1 bytes.
+ * Every packet index is masked with it — dead at runtime (the
+ * length guards already bound each access), but it bounds the index
+ * register directly, which is what the kernel verifier tracks. */
+#ifndef PK_BUF_MASK
+#define PK_BUF_MASK 4095u
+#endif
 
 #define PK_S_PARSE_COUNT 0
 #define PK_S_PARSE_ITEM 1
@@ -73,7 +71,7 @@ static __attribute__((always_inline)) int pk_counted_items_parse_core(const uint
         out->consumed_bits = off;
         return 1;
       }
-      out->count.n = (uint8_t)pk_read_bits(buf, off, 8);
+      out->count.n = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       out->m_remaining = ((uint64_t)out->count.n) & 0xffULL;
       uint64_t key0 = out->m_remaining;
@@ -93,7 +91,7 @@ static __attribute__((always_inline)) int pk_counted_items_parse_core(const uint
         out->consumed_bits = off;
         return 1;
       }
-      out->item.v = (uint8_t)pk_read_bits(buf, off, 8);
+      out->item.v = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       out->m_remaining = ((out->m_remaining - 1ULL)) & 0xffULL;
       uint64_t key0 = out->m_remaining;

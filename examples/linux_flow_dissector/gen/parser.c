@@ -2,7 +2,8 @@
  * regenerate with `pakeles gen c`. */
 #include "parser.h"
 
-static uint64_t pk_read_bits(const uint8_t *buf, uint64_t off, uint32_t n) {
+static uint64_t pk_read_bits(const uint8_t *buf, uint64_t avail, uint64_t off, uint32_t n) {
+  (void)avail;
   uint64_t v = 0;
   uint32_t i;
   for (i = 0; i < n; i++) {
@@ -42,7 +43,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ethernet.dst = (uint64_t)pk_read_bits(buf, off, 48);
+      out->ethernet.dst = (uint64_t)(((uint64_t)buf[(off >> 3) + 0] << 40) | ((uint64_t)buf[(off >> 3) + 1] << 32) | ((uint64_t)buf[(off >> 3) + 2] << 24) | ((uint64_t)buf[(off >> 3) + 3] << 16) | ((uint64_t)buf[(off >> 3) + 4] << 8) | (uint64_t)buf[(off >> 3) + 5]);
       off += 48;
       if (off + 48 > bit_len) {
         out->outcome = 1;
@@ -50,7 +51,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ethernet.src = (uint64_t)pk_read_bits(buf, off, 48);
+      out->ethernet.src = (uint64_t)(((uint64_t)buf[(off >> 3) + 0] << 40) | ((uint64_t)buf[(off >> 3) + 1] << 32) | ((uint64_t)buf[(off >> 3) + 2] << 24) | ((uint64_t)buf[(off >> 3) + 3] << 16) | ((uint64_t)buf[(off >> 3) + 4] << 8) | (uint64_t)buf[(off >> 3) + 5]);
       off += 48;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -58,7 +59,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ethernet.ethertype = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ethernet.ethertype = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       uint64_t key0 = (uint64_t)out->ethernet.ethertype;
       if (key0 == 2048ULL) {
@@ -94,7 +95,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->vlan_ad.pcp = (uint8_t)pk_read_bits(buf, off, 3);
+      out->vlan_ad.pcp = (uint8_t)pk_read_bits(buf, bit_len, off, 3);
       off += 3;
       if (off + 1 > bit_len) {
         out->outcome = 1;
@@ -102,7 +103,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->vlan_ad.dei = (uint8_t)pk_read_bits(buf, off, 1);
+      out->vlan_ad.dei = (uint8_t)pk_read_bits(buf, bit_len, off, 1);
       off += 1;
       if (off + 12 > bit_len) {
         out->outcome = 1;
@@ -110,7 +111,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->vlan_ad.vid = (uint16_t)pk_read_bits(buf, off, 12);
+      out->vlan_ad.vid = (uint16_t)pk_read_bits(buf, bit_len, off, 12);
       off += 12;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -118,7 +119,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->vlan_ad.encapsulated_proto = (uint16_t)pk_read_bits(buf, off, 16);
+      out->vlan_ad.encapsulated_proto = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       uint64_t key0 = (uint64_t)out->vlan_ad.encapsulated_proto;
       if (key0 == 33024ULL) {
@@ -139,7 +140,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->vlan_q.pcp = (uint8_t)pk_read_bits(buf, off, 3);
+      out->vlan_q.pcp = (uint8_t)pk_read_bits(buf, bit_len, off, 3);
       off += 3;
       if (off + 1 > bit_len) {
         out->outcome = 1;
@@ -147,7 +148,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->vlan_q.dei = (uint8_t)pk_read_bits(buf, off, 1);
+      out->vlan_q.dei = (uint8_t)pk_read_bits(buf, bit_len, off, 1);
       off += 1;
       if (off + 12 > bit_len) {
         out->outcome = 1;
@@ -155,7 +156,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->vlan_q.vid = (uint16_t)pk_read_bits(buf, off, 12);
+      out->vlan_q.vid = (uint16_t)pk_read_bits(buf, bit_len, off, 12);
       off += 12;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -163,7 +164,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->vlan_q.encapsulated_proto = (uint16_t)pk_read_bits(buf, off, 16);
+      out->vlan_q.encapsulated_proto = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       uint64_t key0 = (uint64_t)out->vlan_q.encapsulated_proto;
       if (key0 == 2048ULL) {
@@ -203,7 +204,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.version = (uint8_t)pk_read_bits(buf, off, 4);
+      out->ipv4.version = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 4 > bit_len) {
         out->outcome = 1;
@@ -211,7 +212,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.ihl = (uint8_t)pk_read_bits(buf, off, 4);
+      out->ipv4.ihl = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 6 > bit_len) {
         out->outcome = 1;
@@ -219,7 +220,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.dscp = (uint8_t)pk_read_bits(buf, off, 6);
+      out->ipv4.dscp = (uint8_t)pk_read_bits(buf, bit_len, off, 6);
       off += 6;
       if (off + 2 > bit_len) {
         out->outcome = 1;
@@ -227,7 +228,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.ecn = (uint8_t)pk_read_bits(buf, off, 2);
+      out->ipv4.ecn = (uint8_t)pk_read_bits(buf, bit_len, off, 2);
       off += 2;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -235,7 +236,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.total_len = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ipv4.total_len = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -243,7 +244,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.id = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ipv4.id = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 3 > bit_len) {
         out->outcome = 1;
@@ -251,7 +252,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.flags = (uint8_t)pk_read_bits(buf, off, 3);
+      out->ipv4.flags = (uint8_t)pk_read_bits(buf, bit_len, off, 3);
       off += 3;
       if (off + 13 > bit_len) {
         out->outcome = 1;
@@ -259,7 +260,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.frag_offset = (uint16_t)pk_read_bits(buf, off, 13);
+      out->ipv4.frag_offset = (uint16_t)pk_read_bits(buf, bit_len, off, 13);
       off += 13;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -267,7 +268,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.ttl = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv4.ttl = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -275,7 +276,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.protocol = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv4.protocol = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -283,7 +284,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.checksum = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ipv4.checksum = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -291,7 +292,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.src = (uint32_t)pk_read_bits(buf, off, 32);
+      out->ipv4.src = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
       off += 32;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -299,7 +300,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.dst = (uint32_t)pk_read_bits(buf, off, 32);
+      out->ipv4.dst = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
       off += 32;
       {
         uint64_t vlen = (((uint64_t)out->ipv4.ihl * 4ULL) - 20ULL);
@@ -344,7 +345,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.version = (uint8_t)pk_read_bits(buf, off, 4);
+      out->ipv6.version = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -352,7 +353,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.traffic_class = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6.traffic_class = (uint8_t)pk_read_bits(buf, bit_len, off, 8);
       off += 8;
       if (off + 20 > bit_len) {
         out->outcome = 1;
@@ -360,7 +361,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.flow_label = (uint32_t)pk_read_bits(buf, off, 20);
+      out->ipv6.flow_label = (uint32_t)pk_read_bits(buf, bit_len, off, 20);
       off += 20;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -368,7 +369,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.payload_length = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ipv6.payload_length = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -376,7 +377,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6.next_header = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -384,7 +385,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.hop_limit = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6.hop_limit = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       {
         uint64_t vlen = 16ULL;
@@ -450,7 +451,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ext_opt.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ext_opt.next_header = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -458,7 +459,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ext_opt.hdr_ext_len = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ext_opt.hdr_ext_len = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       {
         uint64_t vlen = (((1ULL + (uint64_t)out->ext_opt.hdr_ext_len) << 3ULL) - 2ULL);
@@ -522,7 +523,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->gre.c = (uint8_t)pk_read_bits(buf, off, 1);
+      out->gre.c = (uint8_t)pk_read_bits(buf, bit_len, off, 1);
       off += 1;
       if (off + 1 > bit_len) {
         out->outcome = 1;
@@ -530,7 +531,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->gre.routing = (uint8_t)pk_read_bits(buf, off, 1);
+      out->gre.routing = (uint8_t)pk_read_bits(buf, bit_len, off, 1);
       off += 1;
       if (off + 1 > bit_len) {
         out->outcome = 1;
@@ -538,7 +539,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->gre.key_flag = (uint8_t)pk_read_bits(buf, off, 1);
+      out->gre.key_flag = (uint8_t)pk_read_bits(buf, bit_len, off, 1);
       off += 1;
       if (off + 1 > bit_len) {
         out->outcome = 1;
@@ -546,7 +547,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->gre.seq_flag = (uint8_t)pk_read_bits(buf, off, 1);
+      out->gre.seq_flag = (uint8_t)pk_read_bits(buf, bit_len, off, 1);
       off += 1;
       if (off + 9 > bit_len) {
         out->outcome = 1;
@@ -554,7 +555,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->gre.reserved = (uint16_t)pk_read_bits(buf, off, 9);
+      out->gre.reserved = (uint16_t)pk_read_bits(buf, bit_len, off, 9);
       off += 9;
       if (off + 3 > bit_len) {
         out->outcome = 1;
@@ -562,7 +563,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->gre.version = (uint8_t)pk_read_bits(buf, off, 3);
+      out->gre.version = (uint8_t)pk_read_bits(buf, bit_len, off, 3);
       off += 3;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -570,7 +571,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->gre.proto = (uint16_t)pk_read_bits(buf, off, 16);
+      out->gre.proto = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       uint64_t key0 = (uint64_t)out->gre.version;
       if (key0 == 0ULL) {
@@ -623,7 +624,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ext_frag.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ext_frag.next_header = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -631,7 +632,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ext_frag.reserved = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ext_frag.reserved = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (off + 13 > bit_len) {
         out->outcome = 1;
@@ -639,7 +640,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ext_frag.frag_off = (uint16_t)pk_read_bits(buf, off, 13);
+      out->ext_frag.frag_off = (uint16_t)pk_read_bits(buf, bit_len, off, 13);
       off += 13;
       if (off + 2 > bit_len) {
         out->outcome = 1;
@@ -647,7 +648,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ext_frag.res2 = (uint8_t)pk_read_bits(buf, off, 2);
+      out->ext_frag.res2 = (uint8_t)pk_read_bits(buf, bit_len, off, 2);
       off += 2;
       if (off + 1 > bit_len) {
         out->outcome = 1;
@@ -655,7 +656,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ext_frag.m_flag = (uint8_t)pk_read_bits(buf, off, 1);
+      out->ext_frag.m_flag = (uint8_t)pk_read_bits(buf, bit_len, off, 1);
       off += 1;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -663,7 +664,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->ext_frag.identification = (uint32_t)pk_read_bits(buf, off, 32);
+      out->ext_frag.identification = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
       off += 32;
       out->outcome = 0;
       out->reason = PK_R_NONE;
@@ -678,7 +679,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->mpls.label = (uint32_t)pk_read_bits(buf, off, 20);
+      out->mpls.label = (uint32_t)pk_read_bits(buf, bit_len, off, 20);
       off += 20;
       if (off + 3 > bit_len) {
         out->outcome = 1;
@@ -686,7 +687,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->mpls.tc = (uint8_t)pk_read_bits(buf, off, 3);
+      out->mpls.tc = (uint8_t)pk_read_bits(buf, bit_len, off, 3);
       off += 3;
       if (off + 1 > bit_len) {
         out->outcome = 1;
@@ -694,7 +695,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->mpls.s = (uint8_t)pk_read_bits(buf, off, 1);
+      out->mpls.s = (uint8_t)pk_read_bits(buf, bit_len, off, 1);
       off += 1;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -702,7 +703,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->mpls.ttl = (uint8_t)pk_read_bits(buf, off, 8);
+      out->mpls.ttl = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       out->outcome = 0;
       out->reason = PK_R_NONE;
@@ -717,7 +718,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.sport = (uint16_t)pk_read_bits(buf, off, 16);
+      out->tcp.sport = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -725,7 +726,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.dport = (uint16_t)pk_read_bits(buf, off, 16);
+      out->tcp.dport = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -733,7 +734,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.seq = (uint32_t)pk_read_bits(buf, off, 32);
+      out->tcp.seq = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
       off += 32;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -741,7 +742,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.ack = (uint32_t)pk_read_bits(buf, off, 32);
+      out->tcp.ack = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
       off += 32;
       if (off + 4 > bit_len) {
         out->outcome = 1;
@@ -749,7 +750,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.data_offset = (uint8_t)pk_read_bits(buf, off, 4);
+      out->tcp.data_offset = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 4 > bit_len) {
         out->outcome = 1;
@@ -757,7 +758,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.reserved = (uint8_t)pk_read_bits(buf, off, 4);
+      out->tcp.reserved = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -765,7 +766,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.flags = (uint8_t)pk_read_bits(buf, off, 8);
+      out->tcp.flags = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -773,7 +774,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.window = (uint16_t)pk_read_bits(buf, off, 16);
+      out->tcp.window = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -781,7 +782,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.checksum = (uint16_t)pk_read_bits(buf, off, 16);
+      out->tcp.checksum = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -789,7 +790,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.urgent = (uint16_t)pk_read_bits(buf, off, 16);
+      out->tcp.urgent = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       {
         uint64_t vlen = (((uint64_t)out->tcp.data_offset * 4ULL) - 20ULL);
@@ -816,7 +817,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->udp.sport = (uint16_t)pk_read_bits(buf, off, 16);
+      out->udp.sport = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -824,7 +825,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->udp.dport = (uint16_t)pk_read_bits(buf, off, 16);
+      out->udp.dport = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -832,7 +833,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->udp.length = (uint16_t)pk_read_bits(buf, off, 16);
+      out->udp.length = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -840,7 +841,7 @@ static int pk_linux_flow_dissector_parse_core(const uint8_t *buf, uint64_t bit_l
         out->consumed_bits = off;
         return 1;
       }
-      out->udp.checksum = (uint16_t)pk_read_bits(buf, off, 16);
+      out->udp.checksum = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       out->outcome = 0;
       out->reason = PK_R_NONE;

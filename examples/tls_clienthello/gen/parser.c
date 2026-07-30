@@ -2,16 +2,6 @@
  * regenerate with `pakeles gen c`. */
 #include "parser.h"
 
-static uint64_t pk_read_bits(const uint8_t *buf, uint64_t off, uint32_t n) {
-  uint64_t v = 0;
-  uint32_t i;
-  for (i = 0; i < n; i++) {
-    uint64_t pos = off + i;
-    v = (v << 1) | (uint64_t)((buf[pos >> 3] >> (7 - (pos & 7))) & 1);
-  }
-  return v;
-}
-
 #define PK_S_S_RECORD 0
 #define PK_S_S_HS 1
 #define PK_S_S_FIXED 2
@@ -59,7 +49,7 @@ static int pk_tls_clienthello_parse_core(const uint8_t *buf, uint64_t bit_len, p
         out->consumed_bits = off;
         return 1;
       }
-      out->record_hdr.ctype = (uint8_t)pk_read_bits(buf, off, 8);
+      out->record_hdr.ctype = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (pk_rsp && off + 16 > pk_region_end[(pk_rsp - 1u) & PK_RMASK]) {
         out->outcome = 1;
@@ -73,7 +63,7 @@ static int pk_tls_clienthello_parse_core(const uint8_t *buf, uint64_t bit_len, p
         out->consumed_bits = off;
         return 1;
       }
-      out->record_hdr.ver = (uint16_t)pk_read_bits(buf, off, 16);
+      out->record_hdr.ver = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (pk_rsp && off + 16 > pk_region_end[(pk_rsp - 1u) & PK_RMASK]) {
         out->outcome = 1;
@@ -87,7 +77,7 @@ static int pk_tls_clienthello_parse_core(const uint8_t *buf, uint64_t bit_len, p
         out->consumed_bits = off;
         return 1;
       }
-      out->record_hdr.rlen = (uint16_t)pk_read_bits(buf, off, 16);
+      out->record_hdr.rlen = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       {
         uint64_t rlen = (uint64_t)out->record_hdr.rlen;
@@ -138,7 +128,7 @@ static int pk_tls_clienthello_parse_core(const uint8_t *buf, uint64_t bit_len, p
         out->consumed_bits = off;
         return 1;
       }
-      out->handshake_hdr.typ = (uint8_t)pk_read_bits(buf, off, 8);
+      out->handshake_hdr.typ = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (pk_rsp && off + 24 > pk_region_end[(pk_rsp - 1u) & PK_RMASK]) {
         out->outcome = 1;
@@ -152,7 +142,7 @@ static int pk_tls_clienthello_parse_core(const uint8_t *buf, uint64_t bit_len, p
         out->consumed_bits = off;
         return 1;
       }
-      out->handshake_hdr.hlen = (uint32_t)pk_read_bits(buf, off, 24);
+      out->handshake_hdr.hlen = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 16) | ((uint64_t)buf[(off >> 3) + 1] << 8) | (uint64_t)buf[(off >> 3) + 2]);
       off += 24;
       {
         uint64_t rlen = (uint64_t)out->handshake_hdr.hlen;
@@ -203,7 +193,7 @@ static int pk_tls_clienthello_parse_core(const uint8_t *buf, uint64_t bit_len, p
         out->consumed_bits = off;
         return 1;
       }
-      out->body_fixed.ver = (uint16_t)pk_read_bits(buf, off, 16);
+      out->body_fixed.ver = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       {
         uint64_t vlen = 32ULL;
@@ -240,7 +230,7 @@ static int pk_tls_clienthello_parse_core(const uint8_t *buf, uint64_t bit_len, p
         out->consumed_bits = off;
         return 1;
       }
-      out->sid_len.slen = (uint8_t)pk_read_bits(buf, off, 8);
+      out->sid_len.slen = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       uint64_t key0 = (uint64_t)out->sid_len.slen;
       if (key0 == 0ULL) {
@@ -386,7 +376,7 @@ static int pk_tls_clienthello_parse_core(const uint8_t *buf, uint64_t bit_len, p
         out->consumed_bits = off;
         return 1;
       }
-      out->cs_len.clen = (uint16_t)pk_read_bits(buf, off, 16);
+      out->cs_len.clen = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       out->m_cs_odd = (((uint64_t)out->cs_len.clen & 1ULL)) & 0x1ULL;
       uint64_t key0 = (uint64_t)out->cs_len.clen;
@@ -449,7 +439,7 @@ static int pk_tls_clienthello_parse_core(const uint8_t *buf, uint64_t bit_len, p
         out->consumed_bits = off;
         return 1;
       }
-      out->comp_len.plen = (uint8_t)pk_read_bits(buf, off, 8);
+      out->comp_len.plen = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       uint64_t key0 = (uint64_t)out->comp_len.plen;
       if (key0 == 0ULL) {
@@ -514,7 +504,7 @@ static int pk_tls_clienthello_parse_core(const uint8_t *buf, uint64_t bit_len, p
         out->consumed_bits = off;
         return 1;
       }
-      out->ext_len.total = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ext_len.total = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       {
         uint64_t rlen = (uint64_t)out->ext_len.total;
@@ -582,7 +572,7 @@ static int pk_tls_clienthello_parse_core(const uint8_t *buf, uint64_t bit_len, p
         out->consumed_bits = off;
         return 1;
       }
-      out->ext.typ = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ext.typ = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       if (pk_rsp && off + 16 > pk_region_end[(pk_rsp - 1u) & PK_RMASK]) {
         out->outcome = 1;
@@ -596,7 +586,7 @@ static int pk_tls_clienthello_parse_core(const uint8_t *buf, uint64_t bit_len, p
         out->consumed_bits = off;
         return 1;
       }
-      out->ext.elen = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ext.elen = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       uint64_t key0 = (uint64_t)out->ext.typ;
       uint64_t key1 = out->m_seen_sni;
@@ -679,7 +669,7 @@ static int pk_tls_clienthello_parse_core(const uint8_t *buf, uint64_t bit_len, p
         out->consumed_bits = off;
         return 1;
       }
-      out->sni_list.list_len = (uint16_t)pk_read_bits(buf, off, 16);
+      out->sni_list.list_len = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       {
         uint64_t rlen = (uint64_t)out->sni_list.list_len;
@@ -722,7 +712,7 @@ static int pk_tls_clienthello_parse_core(const uint8_t *buf, uint64_t bit_len, p
         out->consumed_bits = off;
         return 1;
       }
-      out->sni_entry.ntype = (uint8_t)pk_read_bits(buf, off, 8);
+      out->sni_entry.ntype = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (pk_rsp && off + 16 > pk_region_end[(pk_rsp - 1u) & PK_RMASK]) {
         out->outcome = 1;
@@ -736,7 +726,7 @@ static int pk_tls_clienthello_parse_core(const uint8_t *buf, uint64_t bit_len, p
         out->consumed_bits = off;
         return 1;
       }
-      out->sni_entry.hlen = (uint16_t)pk_read_bits(buf, off, 16);
+      out->sni_entry.hlen = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       uint64_t key0 = (uint64_t)out->sni_entry.ntype;
       if (key0 == 0ULL) {

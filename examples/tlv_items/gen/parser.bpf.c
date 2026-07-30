@@ -44,15 +44,13 @@ typedef enum {
   PK_R_REGION_NOT_EXHAUSTED = 6,
 } pk_tlv_items_reason_t;
 
-static __attribute__((always_inline)) uint64_t pk_read_bits(const uint8_t *buf, uint64_t off, uint32_t n) {
-  uint64_t v = 0;
-  uint32_t i;
-  for (i = 0; i < n; i++) {
-    uint64_t pos = off + i;
-    v = (v << 1) | (uint64_t)((buf[pos >> 3] >> (7 - (pos & 7))) & 1);
-  }
-  return v;
-}
+/* Buffer contract: `buf` must hold at least PK_BUF_MASK + 1 bytes.
+ * Every packet index is masked with it — dead at runtime (the
+ * length guards already bound each access), but it bounds the index
+ * register directly, which is what the kernel verifier tracks. */
+#ifndef PK_BUF_MASK
+#define PK_BUF_MASK 4095u
+#endif
 
 #define PK_S_PARSE_TOTAL 0
 #define PK_S_TLV_LOOP 1
@@ -82,7 +80,7 @@ static __attribute__((always_inline)) int pk_tlv_items_parse_core(const uint8_t 
         out->consumed_bits = off;
         return 1;
       }
-      out->total_len.total = (uint8_t)pk_read_bits(buf, off, 8);
+      out->total_len.total = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
         uint64_t rlen = (uint64_t)out->total_len.total;
@@ -135,7 +133,7 @@ static __attribute__((always_inline)) int pk_tlv_items_parse_core(const uint8_t 
         out->consumed_bits = off;
         return 1;
       }
-      out->item.kind = (uint8_t)pk_read_bits(buf, off, 8);
+      out->item.kind = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (pk_rsp && off + 8 > pk_region_end[(pk_rsp - 1u) & PK_RMASK]) {
         out->outcome = 1;
@@ -149,7 +147,7 @@ static __attribute__((always_inline)) int pk_tlv_items_parse_core(const uint8_t 
         out->consumed_bits = off;
         return 1;
       }
-      out->item.ln = (uint8_t)pk_read_bits(buf, off, 8);
+      out->item.ln = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
         uint64_t vlen = (uint64_t)out->item.ln;

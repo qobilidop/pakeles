@@ -2,16 +2,6 @@
  * regenerate with `pakeles gen c`. */
 #include "parser.h"
 
-static uint64_t pk_read_bits(const uint8_t *buf, uint64_t off, uint32_t n) {
-  uint64_t v = 0;
-  uint32_t i;
-  for (i = 0; i < n; i++) {
-    uint64_t pos = off + i;
-    v = (v << 1) | (uint64_t)((buf[pos >> 3] >> (7 - (pos & 7))) & 1);
-  }
-  return v;
-}
-
 #define PK_S_PARSE_TOTAL 0
 #define PK_S_TLV_LOOP 1
 #define PK_S_PARSE_ITEM 2
@@ -40,7 +30,7 @@ static int pk_tlv_items_parse_core(const uint8_t *buf, uint64_t bit_len, pk_tlv_
         out->consumed_bits = off;
         return 1;
       }
-      out->total_len.total = (uint8_t)pk_read_bits(buf, off, 8);
+      out->total_len.total = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       {
         uint64_t rlen = (uint64_t)out->total_len.total;
@@ -93,7 +83,7 @@ static int pk_tlv_items_parse_core(const uint8_t *buf, uint64_t bit_len, pk_tlv_
         out->consumed_bits = off;
         return 1;
       }
-      out->item.kind = (uint8_t)pk_read_bits(buf, off, 8);
+      out->item.kind = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       if (pk_rsp && off + 8 > pk_region_end[(pk_rsp - 1u) & PK_RMASK]) {
         out->outcome = 1;
@@ -107,7 +97,7 @@ static int pk_tlv_items_parse_core(const uint8_t *buf, uint64_t bit_len, pk_tlv_
         out->consumed_bits = off;
         return 1;
       }
-      out->item.ln = (uint8_t)pk_read_bits(buf, off, 8);
+      out->item.ln = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       {
         uint64_t vlen = (uint64_t)out->item.ln;

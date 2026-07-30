@@ -143,12 +143,21 @@ typedef enum {
   PK_R_REGION_NOT_EXHAUSTED = 6,
 } pk_dpdk_ptype_reason_t;
 
-static __attribute__((always_inline)) uint64_t pk_read_bits(const uint8_t *buf, uint64_t off, uint32_t n) {
+/* Buffer contract: `buf` must hold at least PK_BUF_MASK + 1 bytes.
+ * Every packet index is masked with it — dead at runtime (the
+ * length guards already bound each access), but it bounds the index
+ * register directly, which is what the kernel verifier tracks. */
+#ifndef PK_BUF_MASK
+#define PK_BUF_MASK 4095u
+#endif
+
+static __attribute__((always_inline)) uint64_t pk_read_bits(const uint8_t *buf, uint64_t avail, uint64_t off, uint32_t n) {
+  (void)avail;
   uint64_t v = 0;
   uint32_t i;
   for (i = 0; i < n; i++) {
     uint64_t pos = off + i;
-    v = (v << 1) | (uint64_t)((buf[pos >> 3] >> (7 - (pos & 7))) & 1);
+    v = (v << 1) | (uint64_t)((buf[(pos >> 3) & PK_BUF_MASK] >> (7 - (pos & 7))) & 1);
   }
   return v;
 }
@@ -194,7 +203,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ethernet.dst = (uint64_t)pk_read_bits(buf, off, 48);
+      out->ethernet.dst = (uint64_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 40) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 32) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 4) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 5) & PK_BUF_MASK]);
       off += 48;
       if (off + 48 > bit_len) {
         out->outcome = 1;
@@ -202,7 +211,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ethernet.src = (uint64_t)pk_read_bits(buf, off, 48);
+      out->ethernet.src = (uint64_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 40) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 32) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 4) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 5) & PK_BUF_MASK]);
       off += 48;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -210,7 +219,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ethernet.ethertype = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ethernet.ethertype = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       uint64_t key0 = (uint64_t)out->ethernet.ethertype;
       if (key0 == 2048ULL) {
@@ -262,7 +271,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->vlan.pcp = (uint8_t)pk_read_bits(buf, off, 3);
+      out->vlan.pcp = (uint8_t)pk_read_bits(buf, bit_len, off, 3);
       off += 3;
       if (off + 1 > bit_len) {
         out->outcome = 1;
@@ -270,7 +279,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->vlan.dei = (uint8_t)pk_read_bits(buf, off, 1);
+      out->vlan.dei = (uint8_t)pk_read_bits(buf, bit_len, off, 1);
       off += 1;
       if (off + 12 > bit_len) {
         out->outcome = 1;
@@ -278,7 +287,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->vlan.vid = (uint16_t)pk_read_bits(buf, off, 12);
+      out->vlan.vid = (uint16_t)pk_read_bits(buf, bit_len, off, 12);
       off += 12;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -286,7 +295,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->vlan.proto = (uint16_t)pk_read_bits(buf, off, 16);
+      out->vlan.proto = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       uint64_t key0 = (uint64_t)out->vlan.proto;
       if (key0 == 2048ULL) {
@@ -328,7 +337,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->qinq.first_tag = (uint32_t)pk_read_bits(buf, off, 32);
+      out->qinq.first_tag = (uint32_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK]);
       off += 32;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -336,7 +345,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->qinq.tci = (uint16_t)pk_read_bits(buf, off, 16);
+      out->qinq.tci = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -344,7 +353,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->qinq.proto = (uint16_t)pk_read_bits(buf, off, 16);
+      out->qinq.proto = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       uint64_t key0 = (uint64_t)out->qinq.proto;
       if (key0 == 2048ULL) {
@@ -386,7 +395,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.version = (uint8_t)pk_read_bits(buf, off, 4);
+      out->ipv4.version = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 4 > bit_len) {
         out->outcome = 1;
@@ -394,7 +403,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.ihl = (uint8_t)pk_read_bits(buf, off, 4);
+      out->ipv4.ihl = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 6 > bit_len) {
         out->outcome = 1;
@@ -402,7 +411,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.dscp = (uint8_t)pk_read_bits(buf, off, 6);
+      out->ipv4.dscp = (uint8_t)pk_read_bits(buf, bit_len, off, 6);
       off += 6;
       if (off + 2 > bit_len) {
         out->outcome = 1;
@@ -410,7 +419,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.ecn = (uint8_t)pk_read_bits(buf, off, 2);
+      out->ipv4.ecn = (uint8_t)pk_read_bits(buf, bit_len, off, 2);
       off += 2;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -418,7 +427,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.total_len = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ipv4.total_len = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -426,7 +435,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.id = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ipv4.id = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       if (off + 2 > bit_len) {
         out->outcome = 1;
@@ -434,7 +443,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.flags_res_df = (uint8_t)pk_read_bits(buf, off, 2);
+      out->ipv4.flags_res_df = (uint8_t)pk_read_bits(buf, bit_len, off, 2);
       off += 2;
       if (off + 14 > bit_len) {
         out->outcome = 1;
@@ -442,7 +451,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.mf_frag_off = (uint16_t)pk_read_bits(buf, off, 14);
+      out->ipv4.mf_frag_off = (uint16_t)pk_read_bits(buf, bit_len, off, 14);
       off += 14;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -450,7 +459,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.ttl = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv4.ttl = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -458,7 +467,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.protocol = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv4.protocol = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -466,7 +475,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.checksum = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ipv4.checksum = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -474,7 +483,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.src = (uint32_t)pk_read_bits(buf, off, 32);
+      out->ipv4.src = (uint32_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK]);
       off += 32;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -482,7 +491,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.dst = (uint32_t)pk_read_bits(buf, off, 32);
+      out->ipv4.dst = (uint32_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK]);
       off += 32;
       {
         uint64_t vlen = (((uint64_t)out->ipv4.ihl * 4ULL) - 20ULL);
@@ -531,7 +540,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.version = (uint8_t)pk_read_bits(buf, off, 4);
+      out->ipv6.version = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -539,7 +548,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.traffic_class = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6.traffic_class = (uint8_t)pk_read_bits(buf, bit_len, off, 8);
       off += 8;
       if (off + 20 > bit_len) {
         out->outcome = 1;
@@ -547,7 +556,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.flow_label = (uint32_t)pk_read_bits(buf, off, 20);
+      out->ipv6.flow_label = (uint32_t)pk_read_bits(buf, bit_len, off, 20);
       off += 20;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -555,7 +564,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.payload_length = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ipv6.payload_length = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -563,7 +572,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6.next_header = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -571,7 +580,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.hop_limit = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6.hop_limit = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
         uint64_t vlen = 16ULL;
@@ -643,7 +652,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_ext_opt.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_ext_opt.next_header = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -651,7 +660,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_ext_opt.hdr_ext_len = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_ext_opt.hdr_ext_len = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
         uint64_t vlen = (((1ULL + (uint64_t)out->ipv6_ext_opt.hdr_ext_len) << 3ULL) - 2ULL);
@@ -711,7 +720,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_ext_opt.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_ext_opt.next_header = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -719,7 +728,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_ext_opt.hdr_ext_len = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_ext_opt.hdr_ext_len = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
         uint64_t vlen = (((1ULL + (uint64_t)out->ipv6_ext_opt.hdr_ext_len) << 3ULL) - 2ULL);
@@ -779,7 +788,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_ext_opt.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_ext_opt.next_header = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -787,7 +796,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_ext_opt.hdr_ext_len = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_ext_opt.hdr_ext_len = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
         uint64_t vlen = (((1ULL + (uint64_t)out->ipv6_ext_opt.hdr_ext_len) << 3ULL) - 2ULL);
@@ -847,7 +856,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_ext_opt.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_ext_opt.next_header = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -855,7 +864,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_ext_opt.hdr_ext_len = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_ext_opt.hdr_ext_len = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
         uint64_t vlen = (((1ULL + (uint64_t)out->ipv6_ext_opt.hdr_ext_len) << 3ULL) - 2ULL);
@@ -915,7 +924,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_ext_opt.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_ext_opt.next_header = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -923,7 +932,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_ext_opt.hdr_ext_len = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_ext_opt.hdr_ext_len = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
         uint64_t vlen = (((1ULL + (uint64_t)out->ipv6_ext_opt.hdr_ext_len) << 3ULL) - 2ULL);
@@ -950,7 +959,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_frag.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_frag.next_header = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -958,7 +967,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_frag.reserved = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_frag.reserved = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 13 > bit_len) {
         out->outcome = 1;
@@ -966,7 +975,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_frag.frag_off = (uint16_t)pk_read_bits(buf, off, 13);
+      out->ipv6_frag.frag_off = (uint16_t)pk_read_bits(buf, bit_len, off, 13);
       off += 13;
       if (off + 2 > bit_len) {
         out->outcome = 1;
@@ -974,7 +983,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_frag.res2 = (uint8_t)pk_read_bits(buf, off, 2);
+      out->ipv6_frag.res2 = (uint8_t)pk_read_bits(buf, bit_len, off, 2);
       off += 2;
       if (off + 1 > bit_len) {
         out->outcome = 1;
@@ -982,7 +991,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_frag.m_flag = (uint8_t)pk_read_bits(buf, off, 1);
+      out->ipv6_frag.m_flag = (uint8_t)pk_read_bits(buf, bit_len, off, 1);
       off += 1;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -990,7 +999,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_frag.identification = (uint32_t)pk_read_bits(buf, off, 32);
+      out->ipv6_frag.identification = (uint32_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK]);
       off += 32;
       out->outcome = 0;
       out->reason = PK_R_NONE;
@@ -1005,7 +1014,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->gre.c = (uint8_t)pk_read_bits(buf, off, 1);
+      out->gre.c = (uint8_t)pk_read_bits(buf, bit_len, off, 1);
       off += 1;
       if (off + 1 > bit_len) {
         out->outcome = 1;
@@ -1013,7 +1022,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->gre.r = (uint8_t)pk_read_bits(buf, off, 1);
+      out->gre.r = (uint8_t)pk_read_bits(buf, bit_len, off, 1);
       off += 1;
       if (off + 1 > bit_len) {
         out->outcome = 1;
@@ -1021,7 +1030,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->gre.k = (uint8_t)pk_read_bits(buf, off, 1);
+      out->gre.k = (uint8_t)pk_read_bits(buf, bit_len, off, 1);
       off += 1;
       if (off + 1 > bit_len) {
         out->outcome = 1;
@@ -1029,7 +1038,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->gre.s = (uint8_t)pk_read_bits(buf, off, 1);
+      out->gre.s = (uint8_t)pk_read_bits(buf, bit_len, off, 1);
       off += 1;
       if (off + 9 > bit_len) {
         out->outcome = 1;
@@ -1037,7 +1046,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->gre.reserved = (uint16_t)pk_read_bits(buf, off, 9);
+      out->gre.reserved = (uint16_t)pk_read_bits(buf, bit_len, off, 9);
       off += 9;
       if (off + 3 > bit_len) {
         out->outcome = 1;
@@ -1045,7 +1054,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->gre.version = (uint8_t)pk_read_bits(buf, off, 3);
+      out->gre.version = (uint8_t)pk_read_bits(buf, bit_len, off, 3);
       off += 3;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -1053,7 +1062,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->gre.proto = (uint16_t)pk_read_bits(buf, off, 16);
+      out->gre.proto = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       uint64_t key0 = (uint64_t)out->gre.r;
       if (key0 == 0ULL) {
@@ -1111,7 +1120,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.sport = (uint16_t)pk_read_bits(buf, off, 16);
+      out->tcp.sport = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -1119,7 +1128,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.dport = (uint16_t)pk_read_bits(buf, off, 16);
+      out->tcp.dport = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -1127,7 +1136,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.seq = (uint32_t)pk_read_bits(buf, off, 32);
+      out->tcp.seq = (uint32_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK]);
       off += 32;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -1135,7 +1144,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.ack = (uint32_t)pk_read_bits(buf, off, 32);
+      out->tcp.ack = (uint32_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK]);
       off += 32;
       if (off + 4 > bit_len) {
         out->outcome = 1;
@@ -1143,7 +1152,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.data_offset = (uint8_t)pk_read_bits(buf, off, 4);
+      out->tcp.data_offset = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 4 > bit_len) {
         out->outcome = 1;
@@ -1151,7 +1160,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.reserved = (uint8_t)pk_read_bits(buf, off, 4);
+      out->tcp.reserved = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -1159,7 +1168,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.flags = (uint8_t)pk_read_bits(buf, off, 8);
+      out->tcp.flags = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -1167,7 +1176,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.window = (uint16_t)pk_read_bits(buf, off, 16);
+      out->tcp.window = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -1175,7 +1184,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.checksum = (uint16_t)pk_read_bits(buf, off, 16);
+      out->tcp.checksum = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -1183,7 +1192,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.urgent = (uint16_t)pk_read_bits(buf, off, 16);
+      out->tcp.urgent = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       out->outcome = 0;
       out->reason = PK_R_NONE;
@@ -1198,7 +1207,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ethernet.dst = (uint64_t)pk_read_bits(buf, off, 48);
+      out->ethernet.dst = (uint64_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 40) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 32) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 4) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 5) & PK_BUF_MASK]);
       off += 48;
       if (off + 48 > bit_len) {
         out->outcome = 1;
@@ -1206,7 +1215,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ethernet.src = (uint64_t)pk_read_bits(buf, off, 48);
+      out->ethernet.src = (uint64_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 40) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 32) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 4) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 5) & PK_BUF_MASK]);
       off += 48;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -1214,7 +1223,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ethernet.ethertype = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ethernet.ethertype = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       uint64_t key0 = (uint64_t)out->ethernet.ethertype;
       if (key0 == 2048ULL) {
@@ -1244,7 +1253,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->vlan.pcp = (uint8_t)pk_read_bits(buf, off, 3);
+      out->vlan.pcp = (uint8_t)pk_read_bits(buf, bit_len, off, 3);
       off += 3;
       if (off + 1 > bit_len) {
         out->outcome = 1;
@@ -1252,7 +1261,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->vlan.dei = (uint8_t)pk_read_bits(buf, off, 1);
+      out->vlan.dei = (uint8_t)pk_read_bits(buf, bit_len, off, 1);
       off += 1;
       if (off + 12 > bit_len) {
         out->outcome = 1;
@@ -1260,7 +1269,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->vlan.vid = (uint16_t)pk_read_bits(buf, off, 12);
+      out->vlan.vid = (uint16_t)pk_read_bits(buf, bit_len, off, 12);
       off += 12;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -1268,7 +1277,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->vlan.proto = (uint16_t)pk_read_bits(buf, off, 16);
+      out->vlan.proto = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       uint64_t key0 = (uint64_t)out->vlan.proto;
       if (key0 == 2048ULL) {
@@ -1292,7 +1301,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->qinq.first_tag = (uint32_t)pk_read_bits(buf, off, 32);
+      out->qinq.first_tag = (uint32_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK]);
       off += 32;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -1300,7 +1309,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->qinq.tci = (uint16_t)pk_read_bits(buf, off, 16);
+      out->qinq.tci = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -1308,7 +1317,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->qinq.proto = (uint16_t)pk_read_bits(buf, off, 16);
+      out->qinq.proto = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       uint64_t key0 = (uint64_t)out->qinq.proto;
       if (key0 == 2048ULL) {
@@ -1332,7 +1341,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.version = (uint8_t)pk_read_bits(buf, off, 4);
+      out->ipv4.version = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 4 > bit_len) {
         out->outcome = 1;
@@ -1340,7 +1349,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.ihl = (uint8_t)pk_read_bits(buf, off, 4);
+      out->ipv4.ihl = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 6 > bit_len) {
         out->outcome = 1;
@@ -1348,7 +1357,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.dscp = (uint8_t)pk_read_bits(buf, off, 6);
+      out->ipv4.dscp = (uint8_t)pk_read_bits(buf, bit_len, off, 6);
       off += 6;
       if (off + 2 > bit_len) {
         out->outcome = 1;
@@ -1356,7 +1365,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.ecn = (uint8_t)pk_read_bits(buf, off, 2);
+      out->ipv4.ecn = (uint8_t)pk_read_bits(buf, bit_len, off, 2);
       off += 2;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -1364,7 +1373,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.total_len = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ipv4.total_len = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -1372,7 +1381,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.id = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ipv4.id = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       if (off + 2 > bit_len) {
         out->outcome = 1;
@@ -1380,7 +1389,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.flags_res_df = (uint8_t)pk_read_bits(buf, off, 2);
+      out->ipv4.flags_res_df = (uint8_t)pk_read_bits(buf, bit_len, off, 2);
       off += 2;
       if (off + 14 > bit_len) {
         out->outcome = 1;
@@ -1388,7 +1397,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.mf_frag_off = (uint16_t)pk_read_bits(buf, off, 14);
+      out->ipv4.mf_frag_off = (uint16_t)pk_read_bits(buf, bit_len, off, 14);
       off += 14;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -1396,7 +1405,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.ttl = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv4.ttl = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -1404,7 +1413,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.protocol = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv4.protocol = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -1412,7 +1421,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.checksum = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ipv4.checksum = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -1420,7 +1429,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.src = (uint32_t)pk_read_bits(buf, off, 32);
+      out->ipv4.src = (uint32_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK]);
       off += 32;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -1428,7 +1437,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv4.dst = (uint32_t)pk_read_bits(buf, off, 32);
+      out->ipv4.dst = (uint32_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK]);
       off += 32;
       {
         uint64_t vlen = (((uint64_t)out->ipv4.ihl * 4ULL) - 20ULL);
@@ -1462,7 +1471,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.version = (uint8_t)pk_read_bits(buf, off, 4);
+      out->ipv6.version = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -1470,7 +1479,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.traffic_class = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6.traffic_class = (uint8_t)pk_read_bits(buf, bit_len, off, 8);
       off += 8;
       if (off + 20 > bit_len) {
         out->outcome = 1;
@@ -1478,7 +1487,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.flow_label = (uint32_t)pk_read_bits(buf, off, 20);
+      out->ipv6.flow_label = (uint32_t)pk_read_bits(buf, bit_len, off, 20);
       off += 20;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -1486,7 +1495,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.payload_length = (uint16_t)pk_read_bits(buf, off, 16);
+      out->ipv6.payload_length = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -1494,7 +1503,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6.next_header = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -1502,7 +1511,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6.hop_limit = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6.hop_limit = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
         uint64_t vlen = 16ULL;
@@ -1559,7 +1568,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_ext_opt.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_ext_opt.next_header = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -1567,7 +1576,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_ext_opt.hdr_ext_len = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_ext_opt.hdr_ext_len = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
         uint64_t vlen = (((1ULL + (uint64_t)out->ipv6_ext_opt.hdr_ext_len) << 3ULL) - 2ULL);
@@ -1612,7 +1621,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_ext_opt.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_ext_opt.next_header = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -1620,7 +1629,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_ext_opt.hdr_ext_len = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_ext_opt.hdr_ext_len = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
         uint64_t vlen = (((1ULL + (uint64_t)out->ipv6_ext_opt.hdr_ext_len) << 3ULL) - 2ULL);
@@ -1665,7 +1674,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_ext_opt.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_ext_opt.next_header = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -1673,7 +1682,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_ext_opt.hdr_ext_len = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_ext_opt.hdr_ext_len = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
         uint64_t vlen = (((1ULL + (uint64_t)out->ipv6_ext_opt.hdr_ext_len) << 3ULL) - 2ULL);
@@ -1718,7 +1727,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_ext_opt.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_ext_opt.next_header = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -1726,7 +1735,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_ext_opt.hdr_ext_len = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_ext_opt.hdr_ext_len = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
         uint64_t vlen = (((1ULL + (uint64_t)out->ipv6_ext_opt.hdr_ext_len) << 3ULL) - 2ULL);
@@ -1771,7 +1780,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_ext_opt.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_ext_opt.next_header = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -1779,7 +1788,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_ext_opt.hdr_ext_len = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_ext_opt.hdr_ext_len = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
         uint64_t vlen = (((1ULL + (uint64_t)out->ipv6_ext_opt.hdr_ext_len) << 3ULL) - 2ULL);
@@ -1806,7 +1815,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_frag.next_header = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_frag.next_header = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -1814,7 +1823,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_frag.reserved = (uint8_t)pk_read_bits(buf, off, 8);
+      out->ipv6_frag.reserved = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 13 > bit_len) {
         out->outcome = 1;
@@ -1822,7 +1831,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_frag.frag_off = (uint16_t)pk_read_bits(buf, off, 13);
+      out->ipv6_frag.frag_off = (uint16_t)pk_read_bits(buf, bit_len, off, 13);
       off += 13;
       if (off + 2 > bit_len) {
         out->outcome = 1;
@@ -1830,7 +1839,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_frag.res2 = (uint8_t)pk_read_bits(buf, off, 2);
+      out->ipv6_frag.res2 = (uint8_t)pk_read_bits(buf, bit_len, off, 2);
       off += 2;
       if (off + 1 > bit_len) {
         out->outcome = 1;
@@ -1838,7 +1847,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_frag.m_flag = (uint8_t)pk_read_bits(buf, off, 1);
+      out->ipv6_frag.m_flag = (uint8_t)pk_read_bits(buf, bit_len, off, 1);
       off += 1;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -1846,7 +1855,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_frag.identification = (uint32_t)pk_read_bits(buf, off, 32);
+      out->ipv6_frag.identification = (uint32_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK]);
       off += 32;
       out->outcome = 0;
       out->reason = PK_R_NONE;
@@ -1861,7 +1870,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.sport = (uint16_t)pk_read_bits(buf, off, 16);
+      out->tcp.sport = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -1869,7 +1878,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.dport = (uint16_t)pk_read_bits(buf, off, 16);
+      out->tcp.dport = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -1877,7 +1886,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.seq = (uint32_t)pk_read_bits(buf, off, 32);
+      out->tcp.seq = (uint32_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK]);
       off += 32;
       if (off + 32 > bit_len) {
         out->outcome = 1;
@@ -1885,7 +1894,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.ack = (uint32_t)pk_read_bits(buf, off, 32);
+      out->tcp.ack = (uint32_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK]);
       off += 32;
       if (off + 4 > bit_len) {
         out->outcome = 1;
@@ -1893,7 +1902,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.data_offset = (uint8_t)pk_read_bits(buf, off, 4);
+      out->tcp.data_offset = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 4 > bit_len) {
         out->outcome = 1;
@@ -1901,7 +1910,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.reserved = (uint8_t)pk_read_bits(buf, off, 4);
+      out->tcp.reserved = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
       off += 4;
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -1909,7 +1918,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.flags = (uint8_t)pk_read_bits(buf, off, 8);
+      out->tcp.flags = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -1917,7 +1926,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.window = (uint16_t)pk_read_bits(buf, off, 16);
+      out->tcp.window = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -1925,7 +1934,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.checksum = (uint16_t)pk_read_bits(buf, off, 16);
+      out->tcp.checksum = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -1933,7 +1942,7 @@ static __attribute__((always_inline)) int pk_dpdk_ptype_parse_core(const uint8_t
         out->consumed_bits = off;
         return 1;
       }
-      out->tcp.urgent = (uint16_t)pk_read_bits(buf, off, 16);
+      out->tcp.urgent = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       out->outcome = 0;
       out->reason = PK_R_NONE;

@@ -20,3 +20,5 @@ oracle/katran/factory/witnesses.txt
 oracle/sai_p4/factory/witnesses.txt
 /oracle/tls_clienthello/factory/target/
 oracle/tls_clienthello/factory/witnesses.txt
+/oracle/tls_clienthello/spike/build/
+oracle/tls_clienthello/factory/witnesses.golden.json
