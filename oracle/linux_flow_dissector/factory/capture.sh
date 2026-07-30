@@ -3,7 +3,7 @@
 # (Linux v6.8 selftests, GPL-2.0 — fetched at capture time, NEVER
 # committed; see the rung-1 design doc) in the kernel over corpus.txt.
 # PRIVILEGED — run via:
-#   ./dev-priv.sh oracle/flow_dissector/factory/capture.sh
+#   ./dev-priv.sh oracle/linux_flow_dissector/factory/capture.sh
 set -euo pipefail
 cd "$(dirname "$0")"
 

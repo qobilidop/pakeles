@@ -3,11 +3,14 @@
 //! boss — a mismatch means our description (or our semantics) is wrong
 //! until proven otherwise.
 
+// One module per incumbent, named exactly like its gallery example and
+// its golden factory: `examples/real_world/<X>/`, `oracle/<X>/`,
+// `src/oracle/<X>.rs`.
 pub mod bmv2;
 pub mod dpdk_ptype;
-pub mod flow_dissector;
-pub mod katran;
-pub mod sai;
+pub mod katran_flow;
+pub mod linux_flow_dissector;
+pub mod sai_parser;
 pub mod tls_clienthello;
 
 use crate::interp::{run, FieldValue, Outcome};

@@ -2,7 +2,7 @@
 # Mint the katran_flow golden by replaying the corpus through the pinned
 # katran balancer (dd915fd2, default build, empty maps + the pakeles
 # observation patch) under BPF_PROG_TEST_RUN. PRIVILEGED — run via:
-#   ./dev-priv.sh oracle/katran/factory/capture.sh [corpus]
+#   ./dev-priv.sh oracle/katran_flow/factory/capture.sh [corpus]
 # With no corpus arg, mints the committed golden from corpus.txt; with a
 # corpus arg (e.g. smoke.txt) just prints to stdout.
 set -euo pipefail

@@ -143,7 +143,7 @@ out-of-gate**, run through a separate `dev-priv.sh` (`docker run
 --privileged`) instead:
 
 ```sh
-./dev-priv.sh oracle/flow_dissector/factory/capture.sh
+./dev-priv.sh oracle/linux_flow_dissector/factory/capture.sh
 ```
 
 The everyday gate only diffs the committed, version-tagged golden file —

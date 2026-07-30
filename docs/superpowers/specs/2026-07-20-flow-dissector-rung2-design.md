@@ -140,7 +140,7 @@ IPv6Frag:    next_header : bits(8)
 
 ## 3. Projection (harness-side `flow_keys`)
 
-`project()` in `src/oracle/flow_dissector.rs` gains IPv6-chain semantics. The kernel updates `thoff`/`ip_proto` incrementally as it walks; our projection reads the final parse state:
+`project()` in `src/oracle/linux_flow_dissector.rs` gains IPv6-chain semantics. The kernel updates `thoff`/`ip_proto` incrementally as it walks; our projection reads the final parse state:
 
 - `flow_label` ← `ipv6.flow_label` (already an extractable 20-bit field on the IPv6 header).
 - `nhoff` ← IPv6 header byte start (unchanged from rung 1's IP handling).

@@ -302,19 +302,19 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             };
             let goldens = match goldens {
                 Some(p) => p,
-                None => crate::oracle::sai::discover_committed_golden(std::path::Path::new(
-                    crate::oracle::sai::CONFORMANCE_DIR,
+                None => crate::oracle::sai_parser::discover_committed_golden(std::path::Path::new(
+                    crate::oracle::sai_parser::CONFORMANCE_DIR,
                 ))
                 .context(
                     "no --goldens given and no committed sai.*.golden.json \
                      found under examples/real_world/sai_parser/conformance/",
                 )?,
             };
-            let golden: crate::oracle::sai::GoldenFile = serde_json::from_str(
+            let golden: crate::oracle::sai_parser::GoldenFile = serde_json::from_str(
                 &std::fs::read_to_string(&goldens)
                     .with_context(|| format!("reading sai goldens from {}", goldens.display()))?,
             )?;
-            let report = crate::oracle::sai::diff_goldens(&ir, &golden)?;
+            let report = crate::oracle::sai_parser::diff_goldens(&ir, &golden)?;
             println!(
                 "{} vectors compared, {} mismatches",
                 report.compared,
@@ -334,19 +334,19 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             };
             let goldens = match goldens {
                 Some(p) => p,
-                None => crate::oracle::katran::discover_committed_golden(std::path::Path::new(
-                    crate::oracle::katran::CONFORMANCE_DIR,
-                ))
+                None => crate::oracle::katran_flow::discover_committed_golden(
+                    std::path::Path::new(crate::oracle::katran_flow::CONFORMANCE_DIR),
+                )
                 .context(
                     "no --goldens given and no committed katran.*.golden.json \
                      found under examples/real_world/katran_flow/conformance/",
                 )?,
             };
-            let golden: crate::oracle::katran::GoldenFile =
+            let golden: crate::oracle::katran_flow::GoldenFile =
                 serde_json::from_str(&std::fs::read_to_string(&goldens).with_context(|| {
                     format!("reading katran goldens from {}", goldens.display())
                 })?)?;
-            let report = crate::oracle::katran::diff_goldens(&ir, &golden)?;
+            let report = crate::oracle::katran_flow::diff_goldens(&ir, &golden)?;
             println!(
                 "{} vectors compared, {} mismatches",
                 report.compared,
@@ -430,19 +430,19 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             };
             let goldens = match goldens {
                 Some(p) => p,
-                None => crate::oracle::flow_dissector::discover_committed_golden(
-                    std::path::Path::new(crate::oracle::flow_dissector::CONFORMANCE_DIR),
+                None => crate::oracle::linux_flow_dissector::discover_committed_golden(
+                    std::path::Path::new(crate::oracle::linux_flow_dissector::CONFORMANCE_DIR),
                 )
                 .context(
                     "no --goldens given and no committed flow_keys.linux-*.golden.json \
                      found under examples/real_world/linux_flow_dissector/conformance/",
                 )?,
             };
-            let golden: crate::oracle::flow_dissector::GoldenFile =
+            let golden: crate::oracle::linux_flow_dissector::GoldenFile =
                 serde_json::from_str(&std::fs::read_to_string(&goldens).with_context(|| {
                     format!("reading flow-dissector goldens from {}", goldens.display())
                 })?)?;
-            let report = crate::oracle::flow_dissector::diff_goldens(&ir, &golden)?;
+            let report = crate::oracle::linux_flow_dissector::diff_goldens(&ir, &golden)?;
             println!(
                 "{} vectors compared, {} mismatches",
                 report.compared,
@@ -625,10 +625,10 @@ mod tests {
     fn diff_flow_dissector_on_generated_golden_green() {
         let ir = crate::examples::linux_flow_dissector();
         let pkt = crate::fixtures::tcp_packet();
-        let keys = crate::oracle::flow_dissector::project(&ir, &pkt)
+        let keys = crate::oracle::linux_flow_dissector::project(&ir, &pkt)
             .unwrap()
             .unwrap();
-        let golden = crate::oracle::flow_dissector::GoldenFile {
+        let golden = crate::oracle::linux_flow_dissector::GoldenFile {
             kernel_version: "test".into(),
             keys_subset: vec![
                 "nhoff".into(),
@@ -636,9 +636,9 @@ mod tests {
                 "sport".into(),
                 "dport".into(),
             ],
-            entries: vec![crate::oracle::flow_dissector::GoldenEntry {
+            entries: vec![crate::oracle::linux_flow_dissector::GoldenEntry {
                 packet_hex: pkt.iter().map(|b| format!("{b:02x}")).collect(),
-                disposition: crate::oracle::flow_dissector::Disposition::Ok,
+                disposition: crate::oracle::linux_flow_dissector::Disposition::Ok,
                 keys: Some(keys),
             }],
         };

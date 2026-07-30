@@ -1,7 +1,7 @@
 # Note: SAI P4 parity — a P4-vs-P4 parse differential on `simple_switch`
 
 **Date:** 2026-07-29 (sai_parser autonomous run, plan T6)
-**Artifacts:** `oracle/sai_p4/` (vendored incumbent + verdict-patch
+**Artifacts:** `oracle/sai_parser/` (vendored incumbent + verdict-patch
 factory), `examples/real_world/sai_parser/`, `src/oracle/sai.rs`.
 
 ## The claim
@@ -24,7 +24,7 @@ drives. So two independent P4 programs are compared on one switch:
   in-gate BMv2 differential).
 - **Theirs:** the vendored sonic-pins parser, instrumented to emit the
   identical verdict wire-format (validity bitmap + error) and run over
-  the corpus by `oracle/sai_p4/factory/capture.sh`.
+  the corpus by `oracle/sai_parser/factory/capture.sh`.
 
 `src/oracle/sai.rs` projects our interpreter's result into that same
 (bitmap, err) format and diffs it against the incumbent's golden. The

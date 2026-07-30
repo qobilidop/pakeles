@@ -5,8 +5,8 @@ The third incumbent-agreement example (after `linux_flow_dissector` and
 `balancer.bpf.c` `process_packet` path (pinned commit dd915fd2), whose
 parsed `packet_description` (flow tuple + flags + tos) and XDP verdict
 are read back from an anchored capture-time observation patch and
-compared by `src/oracle/katran.rs` against goldens minted by katran
-itself under BPF_PROG_TEST_RUN (`oracle/katran/factory/`).
+compared by `src/oracle/katran_flow.rs` against goldens minted by katran
+itself under BPF_PROG_TEST_RUN (`oracle/katran_flow/factory/`).
 
 Design doc: docs/superpowers/specs/2026-07-29-katran-design.md (binding).
 

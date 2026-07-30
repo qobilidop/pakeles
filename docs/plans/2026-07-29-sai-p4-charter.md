@@ -53,7 +53,7 @@ target if the full include tree is unwieldy.
 ## Binding references (read first)
 
 - `examples/real_world/dpdk_ptype/` + `src/oracle/dpdk_ptype.rs` and
-  `examples/real_world/katran_flow/` + `src/oracle/katran.rs` — the two freshest
+  `examples/real_world/katran_flow/` + `src/oracle/katran_flow.rs` — the two freshest
   instantiations (projection + laxness + quirk-catalog + gate shape).
 - `src/oracle/bmv2.rs` — the EXISTING simple_switch harness (p4c-bm2-ss
   compile + run + header-bitmap compare); the sai oracle extends this

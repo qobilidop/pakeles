@@ -102,7 +102,7 @@ verdict.
 
 ## 4. Phase-1 harness status (2026-07-29)
 
-DONE — `oracle/katran/factory/{fetch.sh,capture.c,capture.sh}`:
+DONE — `oracle/katran_flow/factory/{fetch.sh,capture.c,capture.sh}`:
 
 - The pinned balancer compiles with plain `clang -target bpf` against
   the fetched tree plus a 7-line pakeles shim for the Meta-internal
@@ -184,7 +184,7 @@ the flow-dissector precedent):**
 
 ## 7. Projection: `ParseResult` → katran keys + verdict
 
-Harness-side (`src/oracle/katran.rs`), from OUR parse trace only. The
+Harness-side (`src/oracle/katran_flow.rs`), from OUR parse trace only. The
 compared tuple, matching the golden's schema:
 
 - `verdict` ∈ {XDP_PASS, XDP_DROP, XDP_TX} and `stage` (bits 1/2):
@@ -237,7 +237,7 @@ flow-dissector's is_encap).
 
 - **Committed golden** (privileged mint, flow-dissector factory
   pattern): `examples/real_world/katran_flow/conformance/katran.<pin>.golden.json`
-  minted ONLY by `oracle/katran/factory/capture.sh` at pin dd915fd2
+  minted ONLY by `oracle/katran_flow/factory/capture.sh` at pin dd915fd2
   with ALL MAPS EMPTY (config C collapses to "empty" now that QUIC is a
   boundary — the core parse needs no vip/real config). Everyday unprivileged gate test diffs our projection against
   it (`committed_goldens_agree` analog, floors, pin guard on the

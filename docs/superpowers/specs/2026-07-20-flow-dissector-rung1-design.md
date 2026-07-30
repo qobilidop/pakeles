@@ -22,7 +22,7 @@ Other approved decisions:
 
 ## 1. Golden factory & golden schema
 
-All under `oracle/flow_dissector/factory/`, still invoked via `./dev-priv.sh oracle/flow_dissector/factory/capture.sh`, still privileged and outside the normal gate.
+All under `oracle/linux_flow_dissector/factory/`, still invoked via `./dev-priv.sh oracle/linux_flow_dissector/factory/capture.sh`, still privileged and outside the normal gate.
 
 1. **Fetch:** `capture.sh` downloads `bpf_flow.c` from the kernel v6.8 tag (raw-file URL + sha256 pinned in the script) into gitignored `build/`. It is the only fetched file; its includes resolve from `linux-libc-dev` and `libbpf-dev` (`bpf/bpf_helpers.h`, `bpf/bpf_endian.h`), added to the privileged image as apt packages.
 2. **Compile:** `clang -O2 -target bpf -c` → `build/bpf_flow.o` — a real ELF with `.maps`, not a bare `.text` blob. Exact flags mirror the selftests Makefile as needed (implementation detail; `bpf_flow.c` uses no CO-RE).
@@ -56,7 +56,7 @@ Reject reasons for kernel-drop paths use default (error) severity; unknown-ether
 
 **eDSL instance affordance:** `Header["name"]` (via `__class_getitem__`) returns an `Instance` proxy: `extract(VLAN["vlan_q"])` extracts under that instance name, and `VLAN["vlan_q"].encapsulated_proto` yields a field reference whose `FieldRef.header` is the instance name. Bare `extract(VLAN)`/`VLAN.field` keep meaning the default instance (= header-type name). The schema already supports all of this; only the Python surface is new.
 
-**Projection updates** (`src/oracle/flow_dissector.rs`, still harness-side option A):
+**Projection updates** (`src/oracle/linux_flow_dissector.rs`, still harness-side option A):
 
 - `n_proto` = `vlan_q.encapsulated_proto` if `vlan_q` was extracted, else `ethernet.ethertype` (covers all paths, including VLAN→MPLS).
 - `nhoff` = byte offset of the post-link layer (start of ipv4/ipv6/mpls header) — already derived from header start bits, so unrolled VLAN shifts it for free.

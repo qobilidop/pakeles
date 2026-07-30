@@ -83,7 +83,7 @@ ext 0 = SNI: list-len16, entry: name_type8 len16 hostname).
 - `docs/superpowers/specs/2026-07-21-flow-dissector-rung3-design.md` —
   where the sized-region/TLV slice was deferred; recover the original
   framing.
-- `examples/real_world/katran_flow/` + `src/oracle/katran.rs` +
+- `examples/real_world/katran_flow/` + `src/oracle/katran_flow.rs` +
   `docs/designs/2026-07-29-katran-ebpf-deliverable.md` — freshest
   oracle/projection/gate shape + the eBPF-loads-in-real-kernel
   deliverable this run extends.

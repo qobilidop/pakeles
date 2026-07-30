@@ -14,7 +14,7 @@
 
 - **No new IR message types.** `proto/pakeles/ir/v1alpha1/ir.proto` is unchanged. Cyclic control flow uses existing free-form `Transition.Target.state`; loop length is bounded by the existing `Parser.max_depth`; the option-body length uses the existing `FieldWidth.byte_len` Expr.
 - **The gate is:** `./dev.sh sh -c 'cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test && buf lint'` plus the Python gate (`ruff`, `pyright` strict = 0 errors, `pytest`). All dev runs through `./dev.sh` (the host has no rust/protoc/tshark/p4c). Each `./dev.sh` invocation is a fresh container; `/tmp` does not persist between runs.
-- **Kernel source of truth:** `oracle/flow_dissector/factory/build/bpf_flow.c` (pinned `v6.8`, sha256 `f01d08e66653fbaad811d289adea078c96a8511433ceaa3877b0eea6a208d41a`). It is gitignored/GPL — never commit it.
+- **Kernel source of truth:** `oracle/linux_flow_dissector/factory/build/bpf_flow.c` (pinned `v6.8`, sha256 `f01d08e66653fbaad811d289adea078c96a8511433ceaa3877b0eea6a208d41a`). It is gitignored/GPL — never commit it.
 - **Default-flags fidelity only.** `BPF_PROG_TEST_RUN` zero-inits `keys->flags`, so Fragment is always terminal and `flow_label` never early-stops. The parser stays purely packet-driven.
 - **Do NOT edit golden files to force green.** A `committed_goldens_agree` failure is a real disagreement — investigate.
 - **Privileged golden re-mint is a user step.** `capture.sh` needs `docker run --privileged` (via `./dev-priv.sh`, allowed by the gitignored `.claude/settings.local.json`). The implementing agent prepares the corpus + `capture.c`; the user runs the privileged mint and commits the new golden, exactly as in rung 1.
@@ -40,8 +40,8 @@ Each task ends green under the full gate.
 ## Task 1: Golden schema v3 — `flow_label` / `is_frag` / `is_first_frag`
 
 **Files:**
-- Modify: `src/oracle/flow_dissector.rs:10-23` (the `FlowKeys` struct), `:129-144` (`field_pair`)
-- Test: `src/oracle/flow_dissector.rs` (`#[cfg(test)] mod tests` / `mod diff_tests`)
+- Modify: `src/oracle/linux_flow_dissector.rs:10-23` (the `FlowKeys` struct), `:129-144` (`field_pair`)
+- Test: `src/oracle/linux_flow_dissector.rs` (`#[cfg(test)] mod tests` / `mod diff_tests`)
 
 **Interfaces:**
 - Produces: `FlowKeys` gains `pub flow_label: u32`, `pub is_frag: bool`, `pub is_first_frag: bool` (all `#[serde(default)]` so v2 goldens — which lack them — still deserialize). `field_pair` gains arms for the three names. Consumed by Tasks 4 (projection writes them) and 5 (capture.c emits them, gate asserts the 14-name subset).
@@ -67,10 +67,10 @@ fn v2_golden_without_v3_fields_still_parses() {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `./dev.sh cargo test -p pakeles oracle::flow_dissector::diff_tests::v2_golden_without_v3_fields_still_parses`
+Run: `./dev.sh cargo test -p pakeles oracle::linux_flow_dissector::diff_tests::v2_golden_without_v3_fields_still_parses`
 Expected: FAIL — `no field 'flow_label' on type 'FlowKeys'` (compile error) or missing-field.
 
-- [ ] **Step 3: Add the three fields to `FlowKeys`** (`src/oracle/flow_dissector.rs:10-23`):
+- [ ] **Step 3: Add the three fields to `FlowKeys`** (`src/oracle/linux_flow_dissector.rs:10-23`):
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -95,7 +95,7 @@ pub struct FlowKeys {
 }
 ```
 
-- [ ] **Step 4: Add `field_pair` arms** (`src/oracle/flow_dissector.rs:130-142`, before the `_ =>` arm):
+- [ ] **Step 4: Add `field_pair` arms** (`src/oracle/linux_flow_dissector.rs:130-142`, before the `_ =>` arm):
 
 ```rust
         "flow_label" => (ours.flow_label.to_string(), golden.flow_label.to_string()),
@@ -108,13 +108,13 @@ pub struct FlowKeys {
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `./dev.sh cargo test -p pakeles oracle::flow_dissector`
+Run: `./dev.sh cargo test -p pakeles oracle::linux_flow_dissector`
 Expected: PASS — all existing `mod tests`/`project_tests`/`diff_tests`/`gate_tests` still pass (the committed v2 golden's 11-name `keys_subset` is unchanged, so the new fields are not yet compared).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/oracle/flow_dissector.rs
+git add src/oracle/linux_flow_dissector.rs
 git commit -m "feat(oracle): golden schema v3 — flow_label/is_frag/is_first_frag (serde-defaulted)"
 ```
 
@@ -441,10 +441,10 @@ git commit -m "feat(p4): header-stack emitter for cyclic graphs (.next/.last sta
 
 **Files:**
 - Modify: `py/src/pakeles/examples/linux_flow_dissector.py` — **the single source of truth** (add `IPv6ExtOpt`, `IPv6Frag`, the three IPv6-chain states, `max_depth=10`).
-- Modify: `src/oracle/flow_dissector.rs:88-114` (`project` — IPv6-chain semantics, last-link reads, new fields).
+- Modify: `src/oracle/linux_flow_dissector.rs:88-114` (`project` — IPv6-chain semantics, last-link reads, new fields).
 - Regenerate: `examples/real_world/linux_flow_dissector/**` (the committed `ir.json`, the mirrored `.py`, and ALL `gen/` artifacts including `gen/parser.p4`) via `./dev.sh scripts/gen-examples.sh`.
 - **Do NOT edit `src/examples.rs`** — it only `include_str!`s the committed `linux_flow_dissector.ir.json` at compile time (the eDSL is authoritative; `gen-examples.sh` produces the `ir.json`). No Rust builder mirror exists.
-- Test: `src/oracle/flow_dissector.rs` (`mod project_tests`), the Python conformance/canonical tests (`py/` + `examples.rs`'s `committed_ir_json_is_canonical`/`committed_py_example_current`), the codegen conformance suites, `p4.rs`'s `committed_p4_artifact_current` for the regenerated example.
+- Test: `src/oracle/linux_flow_dissector.rs` (`mod project_tests`), the Python conformance/canonical tests (`py/` + `examples.rs`'s `committed_ir_json_is_canonical`/`committed_py_example_current`), the codegen conformance suites, `p4.rs`'s `committed_p4_artifact_current` for the regenerated example.
 
 **Interfaces:**
 - Consumes: named instances `Header["name"]` (rung 1), `var_bytes(expr)` + `<<` (already in the eDSL — confirmed, no new code), the stack-aware harness (Task 2), the P4 stack emitter (Task 3).
@@ -552,7 +552,7 @@ Expected: `committed_ir_json_is_canonical`, `committed_py_example_current`, and 
 
 ### 4c — Projection: IPv6-chain flow_keys (last-link)
 
-- [ ] **Step 8: Write failing projection tests** (`mod project_tests` in `src/oracle/flow_dissector.rs`). Byte-identical packets to the Task-5 corpus lines (keep them in sync):
+- [ ] **Step 8: Write failing projection tests** (`mod project_tests` in `src/oracle/linux_flow_dissector.rs`). Byte-identical packets to the Task-5 corpus lines (keep them in sync):
 
 ```rust
 #[test]
@@ -601,10 +601,10 @@ Also add: `projects_ipv6_frag_later` (`frag_off != 0` → `is_frag=true, is_firs
 
 - [ ] **Step 9: Run to verify failure**
 
-Run: `./dev.sh cargo test -p pakeles oracle::flow_dissector::project_tests`
+Run: `./dev.sh cargo test -p pakeles oracle::linux_flow_dissector::project_tests`
 Expected: FAIL — current `project` has no IPv6-chain handling; `ip_proto`/`thoff`/`is_frag` wrong.
 
-- [ ] **Step 10: Extend `project`** (`src/oracle/flow_dissector.rs`). Add a `last` helper (mirror of `hdr` but taking the last match), record `flow_label` from the IPv6 header, and walk the chain. Replace the IPv6 branch + terminal logic:
+- [ ] **Step 10: Extend `project`** (`src/oracle/linux_flow_dissector.rs`). Add a `last` helper (mirror of `hdr` but taking the last match), record `flow_label` from the IPv6 header, and walk the chain. Replace the IPv6 branch + terminal logic:
 
 ```rust
     let last = |inst: &str| res.headers.iter().rev().find(|h| h.instance == inst);
@@ -650,7 +650,7 @@ Expected: PASS where `simple_switch` is available. If the header-stack P4 mis-pa
 
 ```bash
 git add py/src/pakeles/examples/linux_flow_dissector.py \
-        src/oracle/flow_dissector.rs examples/real_world/linux_flow_dissector/
+        src/oracle/linux_flow_dissector.rs examples/real_world/linux_flow_dissector/
 git commit -m "feat(example): rung 2 — IPv6 ext-header chain (self-loop) + last-link projection; max_depth=10"
 ```
 
@@ -659,11 +659,11 @@ git commit -m "feat(example): rung 2 — IPv6 ext-header chain (self-loop) + las
 ## Task 5: Factory (capture.c v3 + `ntohl`), corpus, gate-hardening, README; privileged re-mint
 
 **Files:**
-- Modify: `oracle/flow_dissector/factory/capture.c:76-77` (14-name subset), `:110-127` (emit the three fields, `ntohl(flow_label)`).
-- Modify: `oracle/flow_dissector/factory/corpus.txt` (append rung-2 vectors, drop-aware; keep all rung-0/1 lines first, untouched).
-- Modify: `src/oracle/flow_dissector.rs` gate (`committed_goldens_agree`): add the 14-name subset floor assertion; update the ok/drop shape floor.
+- Modify: `oracle/linux_flow_dissector/factory/capture.c:76-77` (14-name subset), `:110-127` (emit the three fields, `ntohl(flow_label)`).
+- Modify: `oracle/linux_flow_dissector/factory/corpus.txt` (append rung-2 vectors, drop-aware; keep all rung-0/1 lines first, untouched).
+- Modify: `src/oracle/linux_flow_dissector.rs` gate (`committed_goldens_agree`): add the 14-name subset floor assertion; update the ok/drop shape floor.
 - Modify: `examples/real_world/linux_flow_dissector/README.md` (fidelity boundary: default-flags AND `max_depth` divergence).
-- **User step:** privileged re-mint via `./dev-priv.sh oracle/flow_dissector/factory/capture.sh` → commit the new `flow_keys.linux-6.8.0.golden.json`.
+- **User step:** privileged re-mint via `./dev-priv.sh oracle/linux_flow_dissector/factory/capture.sh` → commit the new `flow_keys.linux-6.8.0.golden.json`.
 
 - [ ] **Step 1: Widen the `keys_subset` line in `capture.c`** (`:76-77`):
 
@@ -715,7 +715,7 @@ git commit -m "feat(example): rung 2 — IPv6 ext-header chain (self-loop) + las
 
 Keep the accept-vector hex **byte-identical** to the matching `project_tests` packet (the rung-1 contract). The drop vectors have no projection twin.
 
-- [ ] **Step 4: Harden the gate.** In `committed_goldens_agree` (`src/oracle/flow_dissector.rs`), before the mismatch assertion, add the non-maskable subset floor + updated shape floor:
+- [ ] **Step 4: Harden the gate.** In `committed_goldens_agree` (`src/oracle/linux_flow_dissector.rs`), before the mismatch assertion, add the non-maskable subset floor + updated shape floor:
 
 ```rust
     for name in [
@@ -753,16 +753,16 @@ Keep the accept-vector hex **byte-identical** to the matching `project_tests` pa
 - [ ] **Step 6 (USER, privileged): re-mint + commit the golden.** Instruct the user to run:
 
 ```bash
-./dev-priv.sh oracle/flow_dissector/factory/capture.sh > \
+./dev-priv.sh oracle/linux_flow_dissector/factory/capture.sh > \
   examples/real_world/linux_flow_dissector/conformance/flow_keys.linux-6.8.0.golden.json
 ```
 
 Then verify agreement and commit:
 
 ```bash
-./dev.sh cargo test -p pakeles oracle::flow_dissector::gate_tests::committed_goldens_agree
-git add oracle/flow_dissector/factory/capture.c oracle/flow_dissector/factory/corpus.txt \
-        src/oracle/flow_dissector.rs examples/real_world/linux_flow_dissector/
+./dev.sh cargo test -p pakeles oracle::linux_flow_dissector::gate_tests::committed_goldens_agree
+git add oracle/linux_flow_dissector/factory/capture.c oracle/linux_flow_dissector/factory/corpus.txt \
+        src/oracle/linux_flow_dissector.rs examples/real_world/linux_flow_dissector/
 git commit -m "feat(oracle): rung 2 goldens — IPv6 ext-header chain agreement (flow_label/is_frag), ntohl fix"
 ```
 

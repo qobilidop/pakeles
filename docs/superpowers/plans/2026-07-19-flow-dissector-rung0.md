@@ -135,7 +135,7 @@ git commit -m "feat: linux_flow_dissector example + multi-example gen machinery"
 ### Task 2: `FlowKeys` data model + golden file format
 
 **Files:**
-- Create: `src/oracle/flow_dissector.rs` (start with just the types)
+- Create: `src/oracle/linux_flow_dissector.rs` (start with just the types)
 - Modify: `src/oracle/mod.rs` (add `pub mod flow_dissector;`)
 
 **Interfaces:**
@@ -143,7 +143,7 @@ git commit -m "feat: linux_flow_dissector example + multi-example gen machinery"
 
 - [ ] **Step 1: Write the failing test**
 
-In `src/oracle/flow_dissector.rs`:
+In `src/oracle/linux_flow_dissector.rs`:
 
 ```rust
 //! Flow-dissector differential oracle: our parse (projected to bpf_flow_keys)
@@ -210,7 +210,7 @@ Expected: fails if `serde`/`serde_json` derive isn't wired; add them if needed (
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/oracle/flow_dissector.rs src/oracle/mod.rs
+git add src/oracle/linux_flow_dissector.rs src/oracle/mod.rs
 git commit -m "feat(oracle): flow_keys data model + golden file format"
 ```
 
@@ -219,7 +219,7 @@ git commit -m "feat(oracle): flow_keys data model + golden file format"
 ### Task 3: Harness-side `flow_keys` projection
 
 **Files:**
-- Modify: `src/oracle/flow_dissector.rs`
+- Modify: `src/oracle/linux_flow_dissector.rs`
 
 **Interfaces:**
 - Consumes: `crate::interp::{run, ParseResult, ParsedHeader, FieldValue}`.
@@ -227,7 +227,7 @@ git commit -m "feat(oracle): flow_keys data model + golden file format"
 
 - [ ] **Step 1: Write the failing test**
 
-Add to `src/oracle/flow_dissector.rs`:
+Add to `src/oracle/linux_flow_dissector.rs`:
 
 ```rust
 #[cfg(test)]
@@ -307,7 +307,7 @@ Expected: PASS. (If `thoff`/addr hex differ, the fixture's actual bytes govern �
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/oracle/flow_dissector.rs
+git add src/oracle/linux_flow_dissector.rs
 git commit -m "feat(oracle): parse -> flow_keys projection (harness-side, option A)"
 ```
 
@@ -316,14 +316,14 @@ git commit -m "feat(oracle): parse -> flow_keys projection (harness-side, option
 ### Task 4: `diff flow-dissector` oracle + CLI verb
 
 **Files:**
-- Modify: `src/oracle/flow_dissector.rs` (add `diff_goldens`), `src/cli.rs` (add `Oracle::FlowDissector`)
+- Modify: `src/oracle/linux_flow_dissector.rs` (add `diff_goldens`), `src/cli.rs` (add `Oracle::FlowDissector`)
 
 **Interfaces:**
 - Produces: `pub struct FlowDiffReport { pub compared: usize, pub mismatches: Vec<String> }`, `pub fn diff_goldens(ir: &pb::Ir, golden: &GoldenFile) -> anyhow::Result<FlowDiffReport>`; CLI `pakeles diff flow-dissector --ir <?> --goldens <file>`.
 
 - [ ] **Step 1: Write the failing test**
 
-Add to `src/oracle/flow_dissector.rs`:
+Add to `src/oracle/linux_flow_dissector.rs`:
 
 ```rust
 #[cfg(test)]
@@ -409,7 +409,7 @@ Expected: all PASS (roundtrip + project + diff green + diff-catches-mismatch).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/oracle/flow_dissector.rs src/cli.rs
+git add src/oracle/linux_flow_dissector.rs src/cli.rs
 git commit -m "feat(oracle): diff flow-dissector verb + golden comparison"
 ```
 
@@ -418,10 +418,10 @@ git commit -m "feat(oracle): diff flow-dissector verb + golden comparison"
 ### Task 5: The golden factory (privileged; out of gate)
 
 **Files:**
-- Create: `oracle/flow_dissector/factory/flow_dissector.bpf.c` (in-repo minimal dissector, rung-0)
-- Create: `oracle/flow_dissector/factory/capture.c` (raw-syscall load + `BPF_PROG_TEST_RUN` + emit golden JSON)
-- Create: `oracle/flow_dissector/factory/corpus.txt` (rung-0 packets, one hex per line)
-- Create: `oracle/flow_dissector/factory/capture.sh` (build + run + write golden file)
+- Create: `oracle/linux_flow_dissector/factory/flow_dissector.bpf.c` (in-repo minimal dissector, rung-0)
+- Create: `oracle/linux_flow_dissector/factory/capture.c` (raw-syscall load + `BPF_PROG_TEST_RUN` + emit golden JSON)
+- Create: `oracle/linux_flow_dissector/factory/corpus.txt` (rung-0 packets, one hex per line)
+- Create: `oracle/linux_flow_dissector/factory/capture.sh` (build + run + write golden file)
 - Create: `dev-priv.sh` (privileged variant of `dev.sh`, for the factory only)
 
 **Interfaces:**
@@ -429,7 +429,7 @@ git commit -m "feat(oracle): diff flow-dissector verb + golden comparison"
 
 - [ ] **Step 1: The in-repo flow-dissector BPF program**
 
-`oracle/flow_dissector/factory/flow_dissector.bpf.c` — extend the proven spike program to fill the full rung-0 subset for eth/IPv4/IPv6/TCP/UDP:
+`oracle/linux_flow_dissector/factory/flow_dissector.bpf.c` — extend the proven spike program to fill the full rung-0 subset for eth/IPv4/IPv6/TCP/UDP:
 
 ```c
 #include <linux/bpf.h>
@@ -472,7 +472,7 @@ int dissect(struct __sk_buff *skb) {
 
 - [ ] **Step 2: The capture tool**
 
-`oracle/flow_dissector/factory/capture.c` — reuse the proven spike loader (raw `bpf(BPF_PROG_LOAD, FLOW_DISSECTOR)` + `BPF_PROG_TEST_RUN`), but: read packets (hex) from `corpus.txt`, run each, and print a `GoldenFile` JSON to stdout with `kernel_version` from `uname()` and each entry's `packet_hex` + decoded `FlowKeys` (nhoff, thoff, n_proto=ntohs, addr_proto=ntohs, ip_proto, sport=ntohs, dport=ntohs, ipv4_src/dst as 8-hex, ipv6_src/dst as 32-hex). The raw load + test_run bytes are exactly the spike code that already worked.
+`oracle/linux_flow_dissector/factory/capture.c` — reuse the proven spike loader (raw `bpf(BPF_PROG_LOAD, FLOW_DISSECTOR)` + `BPF_PROG_TEST_RUN`), but: read packets (hex) from `corpus.txt`, run each, and print a `GoldenFile` JSON to stdout with `kernel_version` from `uname()` and each entry's `packet_hex` + decoded `FlowKeys` (nhoff, thoff, n_proto=ntohs, addr_proto=ntohs, ip_proto, sport=ntohs, dport=ntohs, ipv4_src/dst as 8-hex, ipv6_src/dst as 32-hex). The raw load + test_run bytes are exactly the spike code that already worked.
 
 - [ ] **Step 3: The privileged runner scripts**
 
@@ -484,7 +484,7 @@ cd "$(dirname "$0")"
 docker build -q -t pakeles-dev .devcontainer >/dev/null
 exec docker run --rm --privileged -v "$PWD":/work -w /work pakeles-dev "$@"
 ```
-`oracle/flow_dissector/factory/capture.sh`:
+`oracle/linux_flow_dissector/factory/capture.sh`:
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
@@ -500,7 +500,7 @@ echo "captured goldens for kernel ${ver}"
 - [ ] **Step 4: Author the corpus + run the factory (PRIVILEGED)**
 
 Write `corpus.txt` with rung-0 packets (hex, one per line): eth/v4/tcp, eth/v4/udp, eth/v6/tcp, eth/v6/udp (derive from `src/fixtures.rs` or hand-write valid packets).
-Run: `chmod +x dev-priv.sh oracle/flow_dissector/factory/capture.sh && ./dev-priv.sh oracle/flow_dissector/factory/capture.sh`
+Run: `chmod +x dev-priv.sh oracle/linux_flow_dissector/factory/capture.sh && ./dev-priv.sh oracle/linux_flow_dissector/factory/capture.sh`
 Expected: a `flow_keys.linux-<ver>.golden.json` is written under the example's `conformance/`; eyeball that `nhoff`/`thoff`/ports/addresses are sane for each packet.
 
 - [ ] **Step 5: Commit**
@@ -515,14 +515,14 @@ git commit -m "feat(oracle): golden factory — kernel flow_keys via BPF_PROG_TE
 ### Task 6: Close the loop — wire `diff flow-dissector` into the gate
 
 **Files:**
-- Modify: `src/oracle/flow_dissector.rs` (a gate test that diffs the committed goldens), `src/cli.rs` (a CLI smoke test)
+- Modify: `src/oracle/linux_flow_dissector.rs` (a gate test that diffs the committed goldens), `src/cli.rs` (a CLI smoke test)
 
 **Interfaces:**
 - Consumes: the committed `flow_keys.linux-*.golden.json` (Task 5) and `linux_flow_dissector()` (Task 1).
 
 - [ ] **Step 1: Write the gate test**
 
-Add to `src/oracle/flow_dissector.rs` (discovers whatever golden file is committed):
+Add to `src/oracle/linux_flow_dissector.rs` (discovers whatever golden file is committed):
 
 ```rust
 #[test]
@@ -554,7 +554,7 @@ Expected: all green.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/oracle/flow_dissector.rs src/cli.rs
+git add src/oracle/linux_flow_dissector.rs src/cli.rs
 git commit -m "test(oracle): gate on kernel flow_keys agreement (rung 0 DoD)"
 ```
 
@@ -573,7 +573,7 @@ Create `examples/real_world/linux_flow_dissector/README.md` explaining: this is 
 
 - [ ] **Step 2: Root README + factory doc**
 
-Add a line to `README.md` describing `dev-priv.sh` and the golden factory (privileged, out-of-gate; refresh with `./dev-priv.sh oracle/flow_dissector/factory/capture.sh`).
+Add a line to `README.md` describing `dev-priv.sh` and the golden factory (privileged, out-of-gate; refresh with `./dev-priv.sh oracle/linux_flow_dissector/factory/capture.sh`).
 
 - [ ] **Step 3: CI golden-refresh job (manual/scheduled)**
 

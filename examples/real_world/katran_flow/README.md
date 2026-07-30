@@ -20,7 +20,7 @@ flow tuple (src/dst, ports, proto, flags, tos) match. Design doc:
 Unlike DPDK's `rte_net_get_ptype` (a pure userspace function), katran's
 parse writes into an internal `packet_description` and then makes load
 -balancing decisions we do not model. Two problems, both solved in the
-factory ([`oracle/katran/factory/`](../../oracle/katran/factory/)):
+factory ([`oracle/katran_flow/factory/`](../../oracle/katran_flow/factory/)):
 
 1. **Compile + run** the GPL sources (fetched at capture time, never
    committed) with plain `clang -target bpf` plus a 7-line pakeles shim
@@ -34,12 +34,12 @@ factory ([`oracle/katran/factory/`](../../oracle/katran/factory/)):
    vip/LB stage. The verdict is the raw `BPF_PROG_TEST_RUN` return.
 
 The everyday unprivileged gate (`committed_goldens_agree`, `cargo run --
-diff katran`) diffs our projection ([`src/oracle/katran.rs`](../../src/oracle/katran.rs))
+diff katran`) diffs our projection ([`src/oracle/katran_flow.rs`](../../src/oracle/katran_flow.rs))
 against the committed golden. Re-minting is privileged (in-kernel
 TEST_RUN):
 
 ```sh
-./dev-priv.sh oracle/katran/factory/capture.sh
+./dev-priv.sh oracle/katran_flow/factory/capture.sh
 ```
 
 ## Scope: the default-build bounded core

@@ -33,7 +33,7 @@ oracle can run inside the normal dev container, no `dev-priv.sh`.
 
 ## Binding references (read first)
 
-- `examples/real_world/linux_flow_dissector/README.md` + `oracle/flow_dissector/` —
+- `examples/real_world/linux_flow_dissector/README.md` + `oracle/linux_flow_dissector/` —
   the north-star pattern being instantiated a second time.
 - `docs/superpowers/plans/2026-07-29-flow-dissector-rung4b.md` — commit
   discipline, gate, floors-ratchet ordering, build-notes convention.

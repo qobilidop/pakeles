@@ -112,7 +112,7 @@ conformance vectors).
 
 ### Task 2: Projection — n_proto positional-last + GRE-stop accept
 
-**Files:** `src/oracle/flow_dissector.rs`.
+**Files:** `src/oracle/linux_flow_dissector.rs`.
 
 - [x] `n_proto`: LAST `vlan_q` instance's encapsulated proto, else first
   `ethernet` — kernel PROG(VLAN) rewrites `n_proto` for inner tags
@@ -128,7 +128,7 @@ conformance vectors).
 
 ### Task 3: Corpus
 
-**Files:** `oracle/flow_dissector/factory/corpus.txt`.
+**Files:** `oracle/linux_flow_dissector/factory/corpus.txt`.
 
 - [x] Append `# --- rung 4b: GRE ---` section: the 14 matrix vectors,
   byte-identical to Task 2's test hexes.

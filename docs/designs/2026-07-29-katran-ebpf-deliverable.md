@@ -1,8 +1,8 @@
 # Spike: Pakeles-generated eBPF under the real kernel verifier (katran_flow)
 
 **Date:** 2026-07-29 (katran autonomous run, plan T6)
-**Artifacts:** `oracle/katran/spike/{xdp_parser.bpf.c,run.c,run.sh}` —
-`./dev-priv.sh oracle/katran/spike/run.sh` (privileged: real-kernel
+**Artifacts:** `oracle/katran_flow/spike/{xdp_parser.bpf.c,run.c,run.sh}` —
+`./dev-priv.sh oracle/katran_flow/spike/run.sh` (privileged: real-kernel
 BPF_PROG_TEST_RUN).
 **Question:** does Pakeles's *generated* eBPF parser
 (`examples/real_world/katran_flow/gen/parser.bpf.c`) pass the **real Linux kernel

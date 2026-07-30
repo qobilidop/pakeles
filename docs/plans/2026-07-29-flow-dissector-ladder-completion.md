@@ -33,7 +33,7 @@ rung-4b plan doc per the repo's spec → plan → build convention.
 
 ## Phase 1 — rung-4a goldens-mint follow-up
 
-1. Mint: `./dev-priv.sh oracle/flow_dissector/factory/capture.sh` (privileged,
+1. Mint: `./dev-priv.sh oracle/linux_flow_dissector/factory/capture.sh` (privileged,
    kernel 6.8.0 — if the reported kernel version differs from the committed
    golden's tag, STOP and report).
 2. HARD GATE: diff the new golden against

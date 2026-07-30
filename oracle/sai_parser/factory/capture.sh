@@ -2,8 +2,8 @@
 # Mint the sai_parser golden: instrument a copy of the vendored SONiC
 # PINS parser, compile with p4c-bm2-ss, and replay the corpus through
 # simple_switch. Runs in the normal dev container (unprivileged):
-#   ./dev.sh oracle/sai_p4/factory/capture.sh          # mint committed golden
-#   ./dev.sh oracle/sai_p4/factory/capture.sh smoke.txt  # print to stdout
+#   ./dev.sh oracle/sai_parser/factory/capture.sh          # mint committed golden
+#   ./dev.sh oracle/sai_parser/factory/capture.sh smoke.txt  # print to stdout
 set -euo pipefail
 cd "$(dirname "$0")"
 PIN="e77250b8dcab96e6f0e6ba1a9643f66771caa46c"

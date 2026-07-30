@@ -26,9 +26,9 @@ So this example is agreement between two P4 programs on one switch:
 - **Our** generated `sai_parser` P4 ([`gen/parser.p4`](gen/parser.p4)) is
   run against our interpreter in the everyday gate (`bmv2.rs`).
 - **Theirs** — the vendored sonic-pins parser
-  ([`oracle/sai_p4/vendor/`](../../oracle/sai_p4/vendor/), Apache-2.0,
+  ([`oracle/sai_parser/vendor/`](../../oracle/sai_parser/vendor/), Apache-2.0,
   `PROVENANCE.md`) — is instrumented
-  ([`oracle/sai_p4/factory/instrument.py`](../../oracle/sai_p4/factory/instrument.py))
+  ([`oracle/sai_parser/factory/instrument.py`](../../oracle/sai_parser/factory/instrument.py))
   to emit the **same verdict format** Pakeles's P4 backend uses (a
   header-validity bitmap + error byte, forwarded, deparser emits only the
   verdict), compiled with `p4c-bm2-ss`, and run over the corpus. Our
@@ -43,7 +43,7 @@ unavailable here (a phase-1 finding).
 Re-minting (unprivileged, in the normal container):
 
 ```sh
-./dev.sh oracle/sai_p4/factory/capture.sh
+./dev.sh oracle/sai_parser/factory/capture.sh
 ```
 
 ## Scope

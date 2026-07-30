@@ -6,7 +6,7 @@
 ## Motivation
 
 Rung 3 on the ladder is "IPv4/TCP options". The authoritative driver
-(vendored `oracle/flow_dissector/factory/build/bpf_flow.c`) shows the kernel
+(vendored `oracle/linux_flow_dissector/factory/build/bpf_flow.c`) shows the kernel
 flow dissector does **not** parse *into* options — it opaque-skips them:
 
 - **IPv4**: `keys->thoff += iph->ihl << 2`. Pakeles already reproduces this
@@ -61,7 +61,7 @@ to a kernel `BPF_DROP`. Existing `doff=5` corpus packets are unaffected
 
 ## What does NOT change
 
-- **Projection** (`src/oracle/flow_dissector.rs`): TCP options touch no
+- **Projection** (`src/oracle/linux_flow_dissector.rs`): TCP options touch no
   `flow_key` — `sport`/`dport`/`thoff` are all at or before the fixed TCP
   header. No change.
 - **Backends** (C / eBPF / Lua / BMv2 / P4): all already handle `var_bytes`
@@ -73,12 +73,12 @@ to a kernel `BPF_DROP`. Existing `doff=5` corpus packets are unaffected
 ## What does change
 
 1. `linux_flow_dissector.py`: the one-line `options` field.
-2. `oracle/flow_dissector/factory/corpus.txt`: add TCP-options packets —
+2. `oracle/linux_flow_dissector/factory/corpus.txt`: add TCP-options packets —
    a `doff=6` (+4 option bytes) `OK` case on **both** the v4 and v6 arms, a
    `doff<5` drop, and a truncated-options drop. Confirm existing corpus TCP
    packets carry `doff=5` (else they would already mismatch, which the green
    gate rules out).
-3. **Privileged golden re-mint** — `./dev-priv.sh oracle/flow_dissector/factory/capture.sh`
+3. **Privileged golden re-mint** — `./dev-priv.sh oracle/linux_flow_dissector/factory/capture.sh`
    (kernel 6.8.0). A USER step. Regenerates the v3 golden with the new
    vectors; the `keys_subset` name set is unchanged.
 4. Regenerate the gallery — `./dev.sh scripts/gen-examples.sh` — and the

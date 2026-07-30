@@ -51,7 +51,7 @@ unprivileged).
   `docs/superpowers/specs/2026-07-29-dpdk-ptype-design.md` — the
   freshest instantiation: laxness-rule projection, quirk catalog shape,
   build-notes conventions.
-- `examples/real_world/linux_flow_dissector/README.md` + `oracle/flow_dissector/`
+- `examples/real_world/linux_flow_dissector/README.md` + `oracle/linux_flow_dissector/`
   — the privileged golden-factory pattern (BPF_PROG_TEST_RUN, capture.c,
   dev-priv.sh, version-tagged goldens, floors).
 - Memory: `parser-target-roadmap`, `flow-dissector-northstar` (factory +

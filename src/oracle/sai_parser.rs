@@ -1,7 +1,7 @@
 //! SAI (SONiC PINS) differential oracle: our parse of the `sai_parser`
 //! example, projected to the incumbent's (header-validity bitmap,
 //! parser-error) format, vs goldens minted by the instrumented sonic-pins
-//! parser (pin e77250b8) run on `simple_switch` via `oracle/sai_p4/`.
+//! parser (pin e77250b8) run on `simple_switch` via `oracle/sai_parser/`.
 //!
 //! The bitmap bit order is the contract pinned in the design doc §4 and
 //! the incumbent's observation patch: bit 0 = the CPU packet_out_header

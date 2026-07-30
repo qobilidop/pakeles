@@ -14,9 +14,9 @@
 
 - ALL builds/tests run inside the dev container: `./dev.sh <cmd>`. The host has no rust/protoc/tshark/clang. The full gate is:
   `./dev.sh sh -c 'cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test && buf lint && cd py && ruff check . && pyright && pytest'`
-- The factory alone runs privileged: `./dev-priv.sh oracle/flow_dissector/factory/capture.sh`. Never wire it into the normal gate.
+- The factory alone runs privileged: `./dev-priv.sh oracle/linux_flow_dissector/factory/capture.sh`. Never wire it into the normal gate.
 - The Python eDSL is the single authoring source: edit `py/src/pakeles/examples/linux_flow_dissector.py`, then regenerate everything with `./dev.sh scripts/gen-examples.sh`. Never hand-edit `examples/real_world/linux_flow_dissector/{*.ir.json,*.py,gen/*}`.
-- NEVER commit `bpf_flow.c` or any fetched kernel source — it is GPL-2.0, the repo is Apache-2.0. Fetched files live in gitignored `oracle/flow_dissector/factory/build/`.
+- NEVER commit `bpf_flow.c` or any fetched kernel source — it is GPL-2.0, the repo is Apache-2.0. Fetched files live in gitignored `oracle/linux_flow_dissector/factory/build/`.
 - Never edit a committed golden by hand to force green. Goldens are minted only by the factory.
 - The gate must be green at every commit.
 - Commit messages end with:
@@ -258,7 +258,7 @@ git commit -m "feat(edsl): named header instances — Header['name'] with instan
 ### Task 2: Golden schema v2 — disposition + two-sided diff
 
 **Files:**
-- Modify: `src/oracle/flow_dissector.rs`
+- Modify: `src/oracle/linux_flow_dissector.rs`
 
 **Interfaces:**
 - Consumes: nothing new.
@@ -266,7 +266,7 @@ git commit -m "feat(edsl): named header instances — Header['name'] with instan
 
 - [ ] **Step 1: Write the failing tests**
 
-In `src/oracle/flow_dissector.rs`, replace the body of `mod diff_tests` with (keep `golden_from_fixture`, adjusted below):
+In `src/oracle/linux_flow_dissector.rs`, replace the body of `mod diff_tests` with (keep `golden_from_fixture`, adjusted below):
 
 ```rust
 #[cfg(test)]
@@ -358,12 +358,12 @@ Also update `golden_file_roundtrips` in `mod tests` to construct `GoldenEntry` w
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `./dev.sh cargo test oracle::flow_dissector`
+Run: `./dev.sh cargo test oracle::linux_flow_dissector`
 Expected: compile FAILURE (`Disposition` undefined, `keys` not an Option).
 
 - [ ] **Step 3: Implement schema v2 + two-sided diff**
 
-In `src/oracle/flow_dissector.rs`, after `FlowKeys`:
+In `src/oracle/linux_flow_dissector.rs`, after `FlowKeys`:
 
 ```rust
 /// Kernel verdict for a corpus packet: did the flow dissector produce a
@@ -431,7 +431,7 @@ Expected: PASS, including `committed_goldens_agree` (the committed v1 golden par
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/oracle/flow_dissector.rs
+git add src/oracle/linux_flow_dissector.rs
 git commit -m "feat(oracle): golden schema v2 — per-entry disposition, reject<=>drop diff"
 ```
 
@@ -564,7 +564,7 @@ git commit -m "feat(example): rung 1 — VLAN (depth-2, unrolled) + MPLS states,
 ### Task 4: Projection updates (VLAN-shifted offsets, MPLS stop)
 
 **Files:**
-- Modify: `src/oracle/flow_dissector.rs` (`project` + `mod project_tests`)
+- Modify: `src/oracle/linux_flow_dissector.rs` (`project` + `mod project_tests`)
 
 **Interfaces:**
 - Consumes: Task 3's instance names (`vlan_q`, `mpls`).
@@ -661,7 +661,7 @@ Add to `mod project_tests` (packet hexes are corpus lines from Task 6 — keep i
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `./dev.sh cargo test oracle::flow_dissector::project_tests`
+Run: `./dev.sh cargo test oracle::linux_flow_dissector::project_tests`
 Expected: new tests FAIL (`n_proto` = 0x8100/0x88A8 from `ethernet.ethertype`; MPLS accept panics on missing tcp/udp or wrong thoff). `triple_tag_rejects` may already pass — fine.
 
 - [ ] **Step 3: Reimplement the projection body**
@@ -714,7 +714,7 @@ Expected: PASS — rung-0 `project_tests` and `committed_goldens_agree` still gr
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/oracle/flow_dissector.rs
+git add src/oracle/linux_flow_dissector.rs
 git commit -m "feat(oracle): projection follows kernel VLAN/MPLS semantics"
 ```
 
@@ -775,12 +775,12 @@ git commit -m "test: backend conformance suites also run linux_flow_dissector (m
 ### Task 6: Factory rewrite — fetch-pinned upstream `bpf_flow.c`, libbpf loader, drop-aware corpus
 
 **Files:**
-- Modify: `oracle/flow_dissector/factory/capture.sh`
-- Modify: `oracle/flow_dissector/factory/capture.c` (full rewrite)
-- Modify: `oracle/flow_dissector/factory/corpus.txt`
+- Modify: `oracle/linux_flow_dissector/factory/capture.sh`
+- Modify: `oracle/linux_flow_dissector/factory/capture.c` (full rewrite)
+- Modify: `oracle/linux_flow_dissector/factory/corpus.txt`
 - Modify: `.devcontainer/Dockerfile` (add `libbpf-dev`)
 - Modify: `.github/workflows/flow-dissector-goldens.yml` (add `libbpf-dev`; reword "in-repo dissector" comments to "pinned upstream bpf_flow.c")
-- Modify: `.gitignore` (add `oracle/flow_dissector/factory/build/`)
+- Modify: `.gitignore` (add `oracle/linux_flow_dissector/factory/build/`)
 
 **Interfaces:**
 - Consumes: Task 2's v2 JSON shape (`disposition`, optional `keys`) — capture emits it.
@@ -805,7 +805,7 @@ Record the printed sha256 — it goes into `capture.sh` below. Also check for se
 # (Linux v6.8 selftests, GPL-2.0 — fetched at capture time, NEVER
 # committed; see the rung-1 design doc) in the kernel over corpus.txt.
 # PRIVILEGED — run via:
-#   ./dev-priv.sh oracle/flow_dissector/factory/capture.sh
+#   ./dev-priv.sh oracle/linux_flow_dissector/factory/capture.sh
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -835,7 +835,7 @@ build/capture build/bpf_flow.o corpus.txt > "$out"
 echo "captured goldens from upstream bpf_flow.c@${KERNEL_TAG} on kernel ${ver} -> ${out}"
 ```
 
-Substitute the real sha256. Add `oracle/flow_dissector/factory/build/` to `.gitignore`.
+Substitute the real sha256. Add `oracle/linux_flow_dissector/factory/build/` to `.gitignore`.
 
 - [ ] **Step 3: Rewrite `capture.c` as a libbpf loader**
 
@@ -845,7 +845,7 @@ Full replacement:
 // Golden factory: load upstream bpf_flow.c (compiled ELF) with libbpf,
 // populate its tail-call prog-array, and BPF_PROG_TEST_RUN the entry
 // program over each corpus packet, decoding bpf_flow_keys into a
-// GoldenFile v2 JSON on stdout (schema matches src/oracle/flow_dissector.rs:
+// GoldenFile v2 JSON on stdout (schema matches src/oracle/linux_flow_dissector.rs:
 // per-entry disposition "ok"/"drop", keys only when ok).
 //
 // Usage: capture <bpf_flow.o> <corpus.txt>
@@ -1013,13 +1013,13 @@ In `.devcontainer/Dockerfile`, add `libbpf-dev` to the FIRST apt line (the one w
 
 - [ ] **Step 6: Verify what can be verified unprivileged**
 
-Run: `./dev.sh sh -c 'cd oracle/flow_dissector/factory && bash -n capture.sh && cc -O2 -fsyntax-only capture.c && grep -cv "^#\|^$" corpus.txt'`
+Run: `./dev.sh sh -c 'cd oracle/linux_flow_dissector/factory && bash -n capture.sh && cc -O2 -fsyntax-only capture.c && grep -cv "^#\|^$" corpus.txt'`
 Expected: exit 0; corpus line count 14. (Compiling/loading BPF needs privilege — that's Task 7.)
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add oracle/flow_dissector/factory .devcontainer/Dockerfile .github/workflows/flow-dissector-goldens.yml .gitignore
+git add oracle/linux_flow_dissector/factory .devcontainer/Dockerfile .github/workflows/flow-dissector-goldens.yml .gitignore
 git commit -m "feat(factory): upstream bpf_flow.c (pinned fetch) via libbpf; drop-aware corpus"
 ```
 
@@ -1029,8 +1029,8 @@ git commit -m "feat(factory): upstream bpf_flow.c (pinned fetch) via libbpf; dro
 
 **Files:**
 - Regenerate: `examples/real_world/linux_flow_dissector/conformance/flow_keys.linux-6.8.0.golden.json`
-- Delete: `oracle/flow_dissector/factory/flow_dissector.bpf.c`
-- Modify: `src/oracle/flow_dissector.rs` (gate-test corpus-shape floors)
+- Delete: `oracle/linux_flow_dissector/factory/flow_dissector.bpf.c`
+- Modify: `src/oracle/linux_flow_dissector.rs` (gate-test corpus-shape floors)
 - Modify: `examples/real_world/linux_flow_dissector/README.md`, `dev-priv.sh` (comment only if it mentions the in-repo dissector)
 
 **Interfaces:**
@@ -1038,7 +1038,7 @@ git commit -m "feat(factory): upstream bpf_flow.c (pinned fetch) via libbpf; dro
 
 - [ ] **Step 1: Run the privileged factory**
 
-Run (from repo root, on this machine — Colima VM, kernel 6.8.0): `./dev-priv.sh oracle/flow_dissector/factory/capture.sh`
+Run (from repo root, on this machine — Colima VM, kernel 6.8.0): `./dev-priv.sh oracle/linux_flow_dissector/factory/capture.sh`
 Expected: exits 0, rewrites `examples/real_world/linux_flow_dissector/conformance/flow_keys.linux-6.8.0.golden.json`. If the BPF load fails, read the libbpf error — likely a compile-flag or pin issue; fix in the factory, not by reverting to the minimal dissector.
 
 - [ ] **Step 2: Cross-validate rung 0 against upstream**
@@ -1048,7 +1048,7 @@ Expected: the four rung-0 entries keep IDENTICAL `keys` values (now wrapped with
 
 - [ ] **Step 3: Tighten the gate test**
 
-In `committed_goldens_agree` (src/oracle/flow_dissector.rs), replace the `report.compared >= 4` assert with:
+In `committed_goldens_agree` (src/oracle/linux_flow_dissector.rs), replace the `report.compared >= 4` assert with:
 
 ```rust
         let ok = g
@@ -1072,7 +1072,7 @@ Expected: PASS. `committed_goldens_agree` now proves kernel agreement over 14 ve
 - [ ] **Step 5: Retire the minimal dissector**
 
 ```bash
-git rm oracle/flow_dissector/factory/flow_dissector.bpf.c
+git rm oracle/linux_flow_dissector/factory/flow_dissector.bpf.c
 ```
 
 Grep for stale references: `grep -rn "flow_dissector.bpf.c" --exclude-dir=.git .` — update each (README, workflow comments, dev-priv.sh comment, spec references stay historical).

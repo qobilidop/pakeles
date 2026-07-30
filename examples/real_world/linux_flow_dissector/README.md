@@ -34,7 +34,7 @@ boundary — not 100% parity with every dissector quirk.
 
 The oracle is a **golden-diff**, not a live BPF run in the everyday gate:
 
-1. **Golden factory** (privileged, out-of-gate; [`oracle/flow_dissector/factory/`](../../oracle/flow_dissector/factory/)) —
+1. **Golden factory** (privileged, out-of-gate; [`oracle/linux_flow_dissector/factory/`](../../oracle/linux_flow_dissector/factory/)) —
    upstream `bpf_flow.c` (Linux v6.8 selftests, fetched pinned at capture
    time), compiled and loaded as `BPF_PROG_TYPE_FLOW_DISSECTOR`, run over a
    packet corpus via `BPF_PROG_TEST_RUN` inside the real kernel. Its output is a
@@ -42,7 +42,7 @@ The oracle is a **golden-diff**, not a live BPF run in the everyday gate:
    [`conformance/flow_keys.linux-6.8.0.golden.json`](conformance/flow_keys.linux-6.8.0.golden.json),
    making "agrees with Linux 6.8's flow dissector" a precise, reproducible
    claim.
-2. **`diff flow-dissector`** ([`src/oracle/flow_dissector.rs`](../../src/oracle/flow_dissector.rs),
+2. **`diff flow-dissector`** ([`src/oracle/linux_flow_dissector.rs`](../../src/oracle/linux_flow_dissector.rs),
    `cargo run -- diff flow-dissector`) — the everyday, unprivileged gate:
    runs Pakeles's parse, projects the result to the rung-0 subset of
    `struct bpf_flow_keys` (harness-side projection, not in the IR), and
@@ -156,7 +156,7 @@ red until a future rung models them.
 Refreshing the goldens (privileged; never part of the normal gate):
 
 ```sh
-./dev-priv.sh oracle/flow_dissector/factory/capture.sh
+./dev-priv.sh oracle/linux_flow_dissector/factory/capture.sh
 ```
 
 CI can also refresh them via `.github/workflows/flow-dissector-goldens.yml`

@@ -150,7 +150,7 @@ transition, e.g. a default-only select or `.then()`; match `counted_items`'
 
 ### Task 2: Projection — positional-last rework
 
-**Files:** `src/oracle/flow_dissector.rs`.
+**Files:** `src/oracle/linux_flow_dissector.rs`.
 
 - [x] `FlowKeys` gains `#[serde(default)] pub is_encap: bool`; `field_pair`
   arm; `committed_goldens_agree` required-subset list gains `"is_encap"`
@@ -179,20 +179,20 @@ transition, e.g. a default-only select or `.then()`; match `counted_items`'
 
 ### Task 3: capture.c encap fix
 
-**Files:** `oracle/flow_dissector/factory/capture.c`.
+**Files:** `oracle/linux_flow_dissector/factory/capture.c`.
 
 - [x] Address family by `k->addr_proto` (not `n_proto`); `"is_encap"`
   appended to `keys_subset` and each ok-entry (`k->is_encap ? "true" : "false"`).
 - [ ] Compile check (no BPF needed to build the userspace half):
-  `./dev.sh sh -c 'cc -O2 -c oracle/flow_dissector/factory/capture.c -o /dev/null -lbpf 2>&1 || cc -O2 -fsyntax-only oracle/flow_dissector/factory/capture.c'`
+  `./dev.sh sh -c 'cc -O2 -c oracle/linux_flow_dissector/factory/capture.c -o /dev/null -lbpf 2>&1 || cc -O2 -fsyntax-only oracle/linux_flow_dissector/factory/capture.c'`
   (link needs libbpf in the container; syntax-only acceptable).
 - [ ] Commit: `fix(oracle): capture.c — address family by addr_proto (encap-correct), emit is_encap`
 
 ### Task 4: Corpus + CI-minted goldens + floors + subset
 
-**Files:** `oracle/flow_dissector/factory/corpus.txt`,
+**Files:** `oracle/linux_flow_dissector/factory/corpus.txt`,
 `examples/real_world/linux_flow_dissector/conformance/flow_keys.linux-*.golden.json`
-(minted), `src/oracle/flow_dissector.rs` (floors + required subset).
+(minted), `src/oracle/linux_flow_dissector.rs` (floors + required subset).
 
 - [x] Append `# --- rung 4a: IPIP / IPv6-in-IP tunnels ---` section: the
   10 matrix vectors (byte-identical to Task 2's test hexes), plus drops:

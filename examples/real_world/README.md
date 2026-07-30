@@ -6,22 +6,28 @@ That external check is the point: without it, "our parser is correct"
 only means "it passes tests we wrote from a spec we read", which is
 exactly how real parsers drift apart.
 
-| Incumbent | Pinned at | Example |
-|---|---|---|
-| Linux kernel flow dissector | 6.8.0 | `linux_flow_dissector/` |
-| DPDK `rte_net_get_ptype()` | 23.11.4 | `dpdk_ptype/` |
-| Katran (Meta's eBPF L4 load balancer) | dd915fd2 | `katran_flow/` |
-| SONiC PINS `sai_p4` on BMv2 | e77250b8 | `sai_parser/` |
-| TLS ClientHello via rustls | 0.23.43 | `tls_clienthello/` |
+Each example shares its name with the factory that mints its golden and
+the module that projects our parse onto the incumbent's output, so one
+name follows an incumbent across all three:
+
+| Example (here) | Incumbent | Pinned at | Factory | Projection |
+|---|---|---|---|---|
+| `linux_flow_dissector/` | Linux kernel flow dissector | 6.8.0 | `oracle/linux_flow_dissector/` | `src/oracle/linux_flow_dissector.rs` |
+| `dpdk_ptype/` | DPDK `rte_net_get_ptype()` | 23.11.4 | `oracle/dpdk_ptype/` | `src/oracle/dpdk_ptype.rs` |
+| `katran_flow/` | Katran (Meta's eBPF L4 load balancer) | dd915fd2 | `oracle/katran_flow/` | `src/oracle/katran_flow.rs` |
+| `sai_parser/` | SONiC PINS `sai_p4` on BMv2 | e77250b8 | `oracle/sai_parser/` | `src/oracle/sai_parser.rs` |
+| `tls_clienthello/` | TLS ClientHello via rustls | 0.23.43 | `oracle/tls_clienthello/` | `src/oracle/tls_clienthello.rs` |
 
 ## How a claim is built
 
 **The golden is minted by the incumbent, never hand-written.** Each
 example's `conformance/*.golden.json` comes from running the real thing
 — the actual DPDK function, the actual Katran program under
-`BPF_PROG_TEST_RUN`, the actual rustls — via a factory under
-`oracle/<name>/factory/`. If a diff fails, investigate our side; never
-edit the golden. The oracle is the boss.
+`BPF_PROG_TEST_RUN`, the actual rustls — via `oracle/<name>/factory/`
+(see [`oracle/README.md`](../../oracle/README.md) for why that tree is
+separate: it is where third-party code lives, and it is out-of-gate).
+If a diff fails, investigate our side; never edit the golden. The
+oracle is the boss.
 
 **The filename carries the version**, which is what makes a claim
 falsifiable and bounded: not "we agree with DPDK" but "we agree with

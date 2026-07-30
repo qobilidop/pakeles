@@ -1,7 +1,7 @@
 //! Katran differential oracle: our parse of the `katran_flow` example,
 //! projected to katran's parsed keys + XDP verdict, vs goldens minted by
 //! the pinned katran balancer (dd915fd2, default build, empty maps) under
-//! BPF_PROG_TEST_RUN via `oracle/katran/factory/` (with the pakeles
+//! BPF_PROG_TEST_RUN via `oracle/katran_flow/factory/` (with the pakeles
 //! observation patch exporting `packet_description`).
 //!
 //! Katran classifies every packet with an XDP verdict; the parse-relevant

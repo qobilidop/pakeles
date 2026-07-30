@@ -2,7 +2,7 @@
 __pycache__/
 *.pyc
 *.egg-info/
-/oracle/flow_dissector/factory/build/
+/oracle/linux_flow_dissector/factory/build/
 /oracle/dpdk_ptype/factory/build/
 
 # Generated conformance suites (churn on every IR/testgen change; regenerate
@@ -13,11 +13,11 @@ examples/*/*/conformance/vectors.pcap
 # symex perf bench outputs (baselines, inventories)
 /.bench/
 /oracle/dpdk_ptype/spike/build/
-/oracle/katran/factory/build/
-oracle/katran/factory/witnesses.txt
-/oracle/katran/spike/build/
-/oracle/sai_p4/factory/build/
-oracle/sai_p4/factory/witnesses.txt
+/oracle/katran_flow/factory/build/
+oracle/katran_flow/factory/witnesses.txt
+/oracle/katran_flow/spike/build/
+/oracle/sai_parser/factory/build/
+oracle/sai_parser/factory/witnesses.txt
 /oracle/tls_clienthello/factory/target/
 oracle/tls_clienthello/factory/witnesses.txt
 /oracle/tls_clienthello/spike/build/
