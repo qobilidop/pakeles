@@ -57,6 +57,19 @@ graphviz, clang/llvm, and prebuilt p4c + BMv2 grafted from
 ./dev.sh cargo run -- diff bmv2                            # vectors vs BMv2
 ```
 
+## Length-bounded formats (sized regions)
+
+A length field can open a **sized region**: reads inside it are bounded
+by the region, `remaining()` says how much of it is left, and closing it
+requires exact exhaustion. That is what lets one description walk a TLV
+loop — TLS ClientHello extensions, say — with `max_depth` still the sole
+termination authority. A P4-16 parser can extract a length-computed
+varbit blob but cannot parse *inside* it, so `gen p4` refuses
+region-bearing descriptions and commits the refusal as
+`gen/P4-UNSUPPORTED.txt`; the C, eBPF, and Wireshark backends lower them.
+See [`examples/tls_clienthello/`](examples/tls_clienthello/) and
+`docs/superpowers/specs/2026-07-29-sized-region-tlv-ir-design.md`.
+
 Try the dissector in your own Wireshark:
 `tshark -X lua_script:dissector.lua -r some.pcap` (it registers as a
 postdissector, so its tree appears alongside Wireshark's built-in
@@ -101,7 +114,9 @@ form — one authoring surface, one provably-canonical artifact. See
 - `testdata/` — language-neutral fixtures (regenerate: `cargo run --bin gen_fixtures`)
 - `examples/` — the gallery: every artifact one description yields,
   equality-guarded by tests. `eth_ipvx_l4/` is the hello-world;
-  `linux_flow_dissector/` is the kernel-agreement north-star (see below)
+  `linux_flow_dissector/` is the kernel-agreement north-star (see below);
+  `tls_clienthello/` is the TLV flagship (agrees with rustls;
+  `tlv_items/` is its minimal cousin)
 - `docs/superpowers/specs/` — design docs; start with
   `2026-07-18-pakelesir-v0-design.md`
 
