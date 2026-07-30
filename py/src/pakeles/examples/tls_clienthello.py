@@ -40,7 +40,11 @@ from pakeles.fmt import DEC, HEX
 
 class RecordHdr(Header):
     ctype = bits(8, "Content Type", HEX, labels={0x16: "handshake"})
-    ver = bits(16, "Legacy Record Version", HEX)
+    # Split major/minor so an exact select can express rustls's rule:
+    # it accepts any 0x03xx record version and rejects everything else
+    # (probed empirically — 0x0305 accepts, 0x0400 does not).
+    ver_major = bits(8, "Legacy Record Version (major)", HEX)
+    ver_minor = bits(8, "Legacy Record Version (minor)", HEX)
     rlen = bits(16, "Record Length", DEC)
 
 
@@ -121,7 +125,19 @@ def tls_clienthello() -> Parser:
             # on the reject arm).
             "s_record": extract(RecordHdr)
             .push_region(RecordHdr.rlen)
-            .select(RecordHdr.ctype, {0x16: "s_hs"}, default=reject("not a handshake record")),
+            .select(
+                RecordHdr.ctype,
+                {0x16: "s_recver"},
+                default=reject("not a handshake record"),
+            ),
+            # rustls validates the record-layer version at parse time
+            # (InvalidMessage(UnknownProtocolVersion)); found by symex
+            # witness replay, not by the hand-written corpus.
+            "s_recver": StateChain().select(
+                RecordHdr.ver_major,
+                {0x03: "s_hs"},
+                default=reject("unsupported record version"),
+            ),
             # Handshake header: 0x01 = client_hello; hlen must fit the
             # record (structural push check).
             "s_hs": extract(HandshakeHdr)

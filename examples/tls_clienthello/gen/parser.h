@@ -25,12 +25,14 @@ typedef enum {
   PK_R_PARTIAL_EXTENSION_HEADER = 22, /* "partial extension header" */
   PK_R_PARTIAL_EXTENSIONS_LENGTH = 23, /* "partial extensions length" */
   PK_R_SESSION_ID_TOO_LONG = 24, /* "session id too long" */
-  PK_R_UNSUPPORTED_SNI_NAME_TYPE = 25, /* "unsupported sni name type" */
+  PK_R_UNSUPPORTED_RECORD_VERSION = 25, /* "unsupported record version" */
+  PK_R_UNSUPPORTED_SNI_NAME_TYPE = 26, /* "unsupported sni name type" */
 } pk_tls_clienthello_reason_t;
 
 typedef struct {
   uint8_t ctype;
-  uint16_t ver;
+  uint8_t ver_major;
+  uint8_t ver_minor;
   uint16_t rlen;
 } pk_tls_clienthello_record_hdr_t;
 

@@ -3,26 +3,27 @@
 #include "parser.h"
 
 #define PK_S_S_RECORD 0
-#define PK_S_S_HS 1
-#define PK_S_S_FIXED 2
-#define PK_S_S_SID_LEN 3
-#define PK_S_S_SID 4
-#define PK_S_S_CS_LEN 5
-#define PK_S_S_CS_PARITY 6
-#define PK_S_S_CS 7
-#define PK_S_S_COMP_LEN 8
-#define PK_S_S_COMP 9
-#define PK_S_S_EXT_CHECK 10
-#define PK_S_S_EXT_LEN 11
-#define PK_S_S_TLV 12
-#define PK_S_S_EXT 13
-#define PK_S_S_SKIP 14
-#define PK_S_S_SNI 15
-#define PK_S_S_SNI_LIST 16
-#define PK_S_S_SNI_ENTRY 17
-#define PK_S_S_HOST 18
-#define PK_S_S_DONE 19
-#define PK_S_S_DONE_NOEXT 20
+#define PK_S_S_RECVER 1
+#define PK_S_S_HS 2
+#define PK_S_S_FIXED 3
+#define PK_S_S_SID_LEN 4
+#define PK_S_S_SID 5
+#define PK_S_S_CS_LEN 6
+#define PK_S_S_CS_PARITY 7
+#define PK_S_S_CS 8
+#define PK_S_S_COMP_LEN 9
+#define PK_S_S_COMP 10
+#define PK_S_S_EXT_CHECK 11
+#define PK_S_S_EXT_LEN 12
+#define PK_S_S_TLV 13
+#define PK_S_S_EXT 14
+#define PK_S_S_SKIP 15
+#define PK_S_S_SNI 16
+#define PK_S_S_SNI_LIST 17
+#define PK_S_S_SNI_ENTRY 18
+#define PK_S_S_HOST 19
+#define PK_S_S_DONE 20
+#define PK_S_S_DONE_NOEXT 21
 
 static int pk_tls_clienthello_parse_core(const uint8_t *buf, uint64_t bit_len, pk_tls_clienthello_result_t *out) {
   uint64_t off = 0;
@@ -51,20 +52,34 @@ static int pk_tls_clienthello_parse_core(const uint8_t *buf, uint64_t bit_len, p
       }
       out->record_hdr.ctype = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
-      if (pk_rsp && off + 16 > pk_region_end[(pk_rsp - 1u) & PK_RMASK]) {
+      if (pk_rsp && off + 8 > pk_region_end[(pk_rsp - 1u) & PK_RMASK]) {
         out->outcome = 1;
         out->reason = PK_R_OUT_OF_REGION_BOUNDS;
         out->consumed_bits = off;
         return 1;
       }
-      if (off + 16 > bit_len) {
+      if (off + 8 > bit_len) {
         out->outcome = 1;
         out->reason = PK_R_OUT_OF_BOUNDS;
         out->consumed_bits = off;
         return 1;
       }
-      out->record_hdr.ver = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
-      off += 16;
+      out->record_hdr.ver_major = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
+      off += 8;
+      if (pk_rsp && off + 8 > pk_region_end[(pk_rsp - 1u) & PK_RMASK]) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_REGION_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      if (off + 8 > bit_len) {
+        out->outcome = 1;
+        out->reason = PK_R_OUT_OF_BOUNDS;
+        out->consumed_bits = off;
+        return 1;
+      }
+      out->record_hdr.ver_minor = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
+      off += 8;
       if (pk_rsp && off + 16 > pk_region_end[(pk_rsp - 1u) & PK_RMASK]) {
         out->outcome = 1;
         out->reason = PK_R_OUT_OF_REGION_BOUNDS;
@@ -105,11 +120,23 @@ static int pk_tls_clienthello_parse_core(const uint8_t *buf, uint64_t bit_len, p
       }
       uint64_t key0 = (uint64_t)out->record_hdr.ctype;
       if (key0 == 22ULL) {
-        state = PK_S_S_HS;
+        state = PK_S_S_RECVER;
         continue;
       } else {
         out->outcome = 1;
         out->reason = PK_R_NOT_A_HANDSHAKE_RECORD;
+        out->consumed_bits = off;
+        return 1;
+      }
+    }
+    case PK_S_S_RECVER: {
+      uint64_t key0 = (uint64_t)out->record_hdr.ver_major;
+      if (key0 == 3ULL) {
+        state = PK_S_S_HS;
+        continue;
+      } else {
+        out->outcome = 1;
+        out->reason = PK_R_UNSUPPORTED_RECORD_VERSION;
         out->consumed_bits = off;
         return 1;
       }
@@ -896,7 +923,8 @@ const char *pk_tls_clienthello_reason_str(uint16_t reason) {
   case 22: return "partial extension header";
   case 23: return "partial extensions length";
   case 24: return "session id too long";
-  case 25: return "unsupported sni name type";
+  case 25: return "unsupported record version";
+  case 26: return "unsupported sni name type";
   default: return "";
   }
 }

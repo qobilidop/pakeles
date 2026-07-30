@@ -11,7 +11,8 @@ p.experts = { ef_error, ef_info }
 
 local f_hdr_record_hdr = ProtoField.none("pakeles_tls_clienthello.record_hdr", "record_hdr")
 local f_record_hdr_ctype = ProtoField.uint8("pakeles_tls_clienthello.record_hdr.ctype", "Content Type", base.HEX, { [22] = "handshake" })
-local f_record_hdr_ver = ProtoField.uint16("pakeles_tls_clienthello.record_hdr.ver", "Legacy Record Version", base.HEX)
+local f_record_hdr_ver_major = ProtoField.uint8("pakeles_tls_clienthello.record_hdr.ver_major", "Legacy Record Version (major)", base.HEX)
+local f_record_hdr_ver_minor = ProtoField.uint8("pakeles_tls_clienthello.record_hdr.ver_minor", "Legacy Record Version (minor)", base.HEX)
 local f_record_hdr_rlen = ProtoField.uint16("pakeles_tls_clienthello.record_hdr.rlen", "Record Length", base.DEC)
 local f_hdr_handshake_hdr = ProtoField.none("pakeles_tls_clienthello.handshake_hdr", "handshake_hdr")
 local f_handshake_hdr_typ = ProtoField.uint8("pakeles_tls_clienthello.handshake_hdr.typ", "Handshake Type", base.HEX, { [1] = "client_hello" })
@@ -48,11 +49,11 @@ local f_host_name = ProtoField.bytes("pakeles_tls_clienthello.host.name", "name"
 local f_meta_seen_sni = ProtoField.uint64("pakeles_tls_clienthello.meta.seen_sni", "SNI Seen")
 local f_meta_cs_odd = ProtoField.uint64("pakeles_tls_clienthello.meta.cs_odd", "Odd Cipher Length")
 local f_payload = ProtoField.bytes("pakeles_tls_clienthello.payload", "Payload")
-p.fields = { f_hdr_record_hdr, f_record_hdr_ctype, f_record_hdr_ver, f_record_hdr_rlen, f_hdr_handshake_hdr, f_handshake_hdr_typ, f_handshake_hdr_hlen, f_hdr_body_fixed, f_body_fixed_ver, f_body_fixed_random, f_hdr_sid_len, f_sid_len_slen, f_hdr_sid, f_sid_body, f_hdr_cs_len, f_cs_len_clen, f_hdr_cs, f_cs_body, f_hdr_comp_len, f_comp_len_plen, f_hdr_comp, f_comp_body, f_hdr_ext_len, f_ext_len_total, f_hdr_ext, f_ext_typ, f_ext_elen, f_hdr_skip, f_skip_body, f_hdr_sni_list, f_sni_list_list_len, f_hdr_sni_entry, f_sni_entry_ntype, f_sni_entry_hlen, f_hdr_host, f_host_name, f_meta_seen_sni, f_meta_cs_odd, f_payload }
+p.fields = { f_hdr_record_hdr, f_record_hdr_ctype, f_record_hdr_ver_major, f_record_hdr_ver_minor, f_record_hdr_rlen, f_hdr_handshake_hdr, f_handshake_hdr_typ, f_handshake_hdr_hlen, f_hdr_body_fixed, f_body_fixed_ver, f_body_fixed_random, f_hdr_sid_len, f_sid_len_slen, f_hdr_sid, f_sid_body, f_hdr_cs_len, f_cs_len_clen, f_hdr_cs, f_cs_body, f_hdr_comp_len, f_comp_len_plen, f_hdr_comp, f_comp_body, f_hdr_ext_len, f_ext_len_total, f_hdr_ext, f_ext_typ, f_ext_elen, f_hdr_skip, f_skip_body, f_hdr_sni_list, f_sni_list_list_len, f_hdr_sni_entry, f_sni_entry_ntype, f_sni_entry_hlen, f_hdr_host, f_host_name, f_meta_seen_sni, f_meta_cs_odd, f_payload }
 
 local states = {}
 
-local v_comp_len_plen, v_cs_len_clen, v_ext_elen, v_ext_len_total, v_ext_typ, v_handshake_hdr_hlen, v_handshake_hdr_typ, v_record_hdr_ctype, v_record_hdr_rlen, v_sid_len_slen, v_sni_entry_hlen, v_sni_entry_ntype, v_sni_list_list_len
+local v_comp_len_plen, v_cs_len_clen, v_ext_elen, v_ext_len_total, v_ext_typ, v_handshake_hdr_hlen, v_handshake_hdr_typ, v_record_hdr_ctype, v_record_hdr_rlen, v_record_hdr_ver_major, v_sid_len_slen, v_sni_entry_hlen, v_sni_entry_ntype, v_sni_list_list_len
 
 local function add_payload(buf, tree, off)
   if off < buf:len() * 8 then
@@ -79,16 +80,27 @@ function states.s_record(buf, pinfo, tree, off, depth, meta, regions)
   v_record_hdr_ctype = buf():bitfield(off, 8)
   hdr_record_hdr:add(f_record_hdr_ctype, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v_record_hdr_ctype)
   off = off + 8
-  if regions[#regions] and off + 16 > regions[#regions] then
-    hdr_record_hdr:add_proto_expert_info(ef_error, "out of region bounds in record_hdr.ver")
+  if regions[#regions] and off + 8 > regions[#regions] then
+    hdr_record_hdr:add_proto_expert_info(ef_error, "out of region bounds in record_hdr.ver_major")
     return off
   end
-  if off + 16 > avail then
-    hdr_record_hdr:add_proto_expert_info(ef_error, "out of bounds in record_hdr.ver")
+  if off + 8 > avail then
+    hdr_record_hdr:add_proto_expert_info(ef_error, "out of bounds in record_hdr.ver_major")
     return off
   end
-  hdr_record_hdr:add(f_record_hdr_ver, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), buf():bitfield(off, 16))
-  off = off + 16
+  v_record_hdr_ver_major = buf():bitfield(off, 8)
+  hdr_record_hdr:add(f_record_hdr_ver_major, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v_record_hdr_ver_major)
+  off = off + 8
+  if regions[#regions] and off + 8 > regions[#regions] then
+    hdr_record_hdr:add_proto_expert_info(ef_error, "out of region bounds in record_hdr.ver_minor")
+    return off
+  end
+  if off + 8 > avail then
+    hdr_record_hdr:add_proto_expert_info(ef_error, "out of bounds in record_hdr.ver_minor")
+    return off
+  end
+  hdr_record_hdr:add(f_record_hdr_ver_minor, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), buf():bitfield(off, 8))
+  off = off + 8
   if regions[#regions] and off + 16 > regions[#regions] then
     hdr_record_hdr:add_proto_expert_info(ef_error, "out of region bounds in record_hdr.rlen")
     return off
@@ -109,9 +121,24 @@ function states.s_record(buf, pinfo, tree, off, depth, meta, regions)
     regions[#regions + 1] = off + rlen * 8
   end
   if v_record_hdr_ctype == 22 then
-    return states.s_hs(buf, pinfo, tree, off, depth, meta, regions)
+    return states.s_recver(buf, pinfo, tree, off, depth, meta, regions)
   else
     tree:add_proto_expert_info(ef_error, "not a handshake record")
+    return off
+  end
+end
+
+function states.s_recver(buf, pinfo, tree, off, depth, meta, regions)
+  depth = depth + 1
+  if depth > 96 then
+    tree:add_proto_expert_info(ef_error, "max depth exceeded")
+    return off
+  end
+  local avail = buf:len() * 8
+  if v_record_hdr_ver_major == 3 then
+    return states.s_hs(buf, pinfo, tree, off, depth, meta, regions)
+  else
+    tree:add_proto_expert_info(ef_error, "unsupported record version")
     return off
   end
 end

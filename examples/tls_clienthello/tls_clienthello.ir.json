@@ -23,12 +23,22 @@
             }
           },
           {
-            "name": "ver",
+            "name": "ver_major",
             "width": {
-              "bits": 16
+              "bits": 8
             },
             "display": {
-              "name": "Legacy Record Version",
+              "name": "Legacy Record Version (major)",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "ver_minor",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Legacy Record Version (minor)",
               "format": "DISPLAY_FORMAT_HEX"
             }
           },
@@ -340,7 +350,7 @@
                   }
                 ],
                 "next": {
-                  "state": "s_hs"
+                  "state": "s_recver"
                 }
               }
             ],
@@ -361,6 +371,38 @@
             }
           }
         ]
+      },
+      {
+        "name": "s_recver",
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "record_hdr",
+                  "field": "ver_major"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "3"
+                  }
+                ],
+                "next": {
+                  "state": "s_hs"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "reject": {
+                "reason": "unsupported record version"
+              }
+            }
+          }
+        }
       },
       {
         "name": "s_hs",

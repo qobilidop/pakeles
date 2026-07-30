@@ -76,6 +76,10 @@ skipped by (type, length).
    the sized-region design: an exact-pop shortfall whose region end
    lies beyond the buffer is truncation-class, not structural
    (design doc, build-time refinements §3).
+6. **The record version is validated at parse time, and loosely:**
+   any `0x03xx` passes (including `0x0305`, which no RFC defines),
+   anything else is `InvalidMessage(UnknownProtocolVersion)`. Found by
+   witness replay, not by hand — see below.
 
 ## eBPF SNI deliverable
 
@@ -98,6 +102,41 @@ Three verifier rejections en route produced three general codegen
 fixes (derived-scalar bounds, a byte-load fast path worth ~8x on
 reads, index masking instead of per-load branches) — see
 [`docs/designs/2026-07-29-tls-ebpf-deliverable.md`](../../docs/designs/2026-07-29-tls-ebpf-deliverable.md).
+
+## Witness replay (the adversarial pass)
+
+`./dev.sh oracle/tls_clienthello/factory/replay-witnesses.sh` feeds the
+symex-generated witness set — solver-derived packets that sit exactly
+on each path boundary, not hand-written cases — through the same
+pinned rustls and the same compatibility matrix.
+
+**56 witnesses, 8 divergences, all explained; one produced a fix.**
+
+- **Fixed (4 witnesses): the record-layer version check.** rustls
+  rejects a record whose version is not `0x03xx` with
+  `InvalidMessage(UnknownProtocolVersion)` — probed empirically
+  (`0x0305` accepts, `0x0400` and `0x0200` do not). The hand-written
+  corpus never varied that field; the solver did on its first pass.
+  Now modeled: `RecordHdr.ver_major` is split out so an exact select
+  expresses the rule, and `s_recver` rejects otherwise.
+- **Boundary, 7 witnesses: record buffering beats malformedness.**
+  rustls is record-oriented — it buffers a whole record before parsing
+  its content — so any buffer shorter than `5 + record_length` is
+  `incomplete` no matter how broken the bytes inside are, and a
+  handshake longer than its record is `incomplete` because that is
+  legal cross-record fragmentation. A packet-pure parser dives in and
+  meets the structural error first. Both sides reject; the class
+  differs. This is the fragmentation boundary declared in Scope, now
+  witnessed and quantified rather than merely asserted.
+- **Boundary, 1 witness: SNI hostname content validation.** A
+  hostname of 32 NUL bytes is framing-perfect, so we accept and
+  extract it; rustls applies DNS-name validation and returns
+  `PeerMisbehaved(ServerNameMustContainOneHostName)`. Same family as
+  quirk 1 — framing-exact walk versus per-field content grammar.
+
+The replay is deliberately NOT a gate: these are boundary-probing
+packets, and the agreement claim rests on the committed corpus. It is
+run when the example or the incumbent pin changes.
 
 ## Conformance
 
