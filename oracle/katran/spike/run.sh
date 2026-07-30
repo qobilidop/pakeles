@@ -5,7 +5,7 @@
 #   ./dev-priv.sh oracle/katran/spike/run.sh
 set -euo pipefail
 cd "$(dirname "$0")"
-gen=../../../examples/katran_flow/gen
+gen=../../../examples/real_world/katran_flow/gen
 mkdir -p build
 # Compile the XDP wrapper (which #includes the committed generated
 # parser.bpf.c) to a BPF object.

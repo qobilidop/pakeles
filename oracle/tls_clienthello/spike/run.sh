@@ -17,7 +17,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 mkdir -p build
-gen=../../../examples/tls_clienthello/gen
+gen=../../../examples/real_world/tls_clienthello/gen
 src=xdp_parser.bpf.c
 cflags=(-I"$gen")
 

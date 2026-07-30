@@ -3,7 +3,7 @@
 **Date:** 2026-07-29 (dpdk-ptype autonomous run, charter phase 6)
 **Artifacts:** `oracle/dpdk_ptype/spike/{spike.c,run.sh}` — build+run with
 `./dev.sh oracle/dpdk_ptype/spike/run.sh`.
-**Question:** can the generated `examples/dpdk_ptype/gen/parser.c` serve
+**Question:** can the generated `examples/real_world/dpdk_ptype/gen/parser.c` serve
 as (or alongside) DPDK's software classifier `rte_net_get_ptype()`?
 Framing bar: EverParse's reported ≤2% overhead on adopted validators.
 

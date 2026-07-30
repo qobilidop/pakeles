@@ -32,7 +32,7 @@
   - If any conformance floor trips low, recalibrate (as in the symex rework).
 - [ ] **Step 4: Commit.**
 ```bash
-git add py/src/pakeles/examples/linux_flow_dissector.py examples/linux_flow_dissector
+git add py/src/pakeles/examples/linux_flow_dissector.py examples/real_world/linux_flow_dissector
 git commit -m "feat(example): rung 3 — TCP options as a doff-sized var_bytes region"
 ```
 
@@ -40,7 +40,7 @@ git commit -m "feat(example): rung 3 — TCP options as a doff-sized var_bytes r
 
 **Files:**
 - Modify: `oracle/flow_dissector/factory/corpus.txt`
-- Regenerate (privileged): `examples/linux_flow_dissector/conformance/flow_keys.linux-6.8.0.golden.json`
+- Regenerate (privileged): `examples/real_world/linux_flow_dissector/conformance/flow_keys.linux-6.8.0.golden.json`
 
 - [ ] **Step 1: Confirm existing corpus TCP packets are `doff=5`.** In `corpus.txt`, TCP packets carry `...5018ffff...` (the `5` nibble = doff). Grep to be sure none is `doff≠5` with mismatched framing (a green gate already implies this, but verify).
 - [ ] **Step 2: Append a rung-3 section to `corpus.txt`** (4 packets). Ethernet `aabbccddeeff112233445566`; TCP sport `3039`/dport `01bb`; a 4-byte MSS option `020405b4` where present:
@@ -61,14 +61,14 @@ aabbccddeeff1122334455660800 45000028123440004006dead0a0000010a000002 303901bb00
 - [ ] **Step 5: Kernel agreement green.** `./dev.sh cargo test committed_goldens_agree` MUST pass — Pakeles agrees packet-for-packet with in-kernel `bpf_flow.c@v6.8` on the 2 new OK (v4+v6 TCP options, ports read) and 2 new drops (doff<5, truncated). Also re-run the shape-floor assertions in the golden test (bump `ok`/`drop` floors if they now exceed the committed count).
 - [ ] **Step 6: Commit.**
 ```bash
-git add oracle/flow_dissector/factory/corpus.txt examples/linux_flow_dissector/conformance/flow_keys.linux-6.8.0.golden.json
+git add oracle/flow_dissector/factory/corpus.txt examples/real_world/linux_flow_dissector/conformance/flow_keys.linux-6.8.0.golden.json
 git commit -m "feat(oracle): rung 3 goldens — kernel agreement over TCP options (doff-sized)"
 ```
 
 ## Task 3: Docs + final gate + integrate
 
 **Files:**
-- Modify: `examples/linux_flow_dissector/README.md` (or the repo README carrying the divergence boundary)
+- Modify: `examples/real_world/linux_flow_dissector/README.md` (or the repo README carrying the divergence boundary)
 
 - [ ] **Step 1: Update the known-divergence boundary.** Move "TCP options" from the future-rungs list to handled; note the doff<5 / truncated-options drops now agree with the kernel.
 - [ ] **Step 2: Full gate green** (Rust + buf + ruff/pyright/pytest), plus anti-drift pins (`committed_ir_json_is_canonical`, gen-artifact currency).

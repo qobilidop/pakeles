@@ -275,7 +275,7 @@ fn field_pair(name: &str, ours: &FlowKeys, golden: &FlowKeys) -> (String, String
 /// The conformance directory holding the committed goldens, shared by the
 /// CLI's default `--goldens` resolution and the `committed_goldens_agree`
 /// gate test.
-pub const CONFORMANCE_DIR: &str = "examples/linux_flow_dissector/conformance";
+pub const CONFORMANCE_DIR: &str = "examples/real_world/linux_flow_dissector/conformance";
 
 /// Find the committed kernel-captured golden file under `dir` (filename
 /// starts with `flow_keys.linux-`). Shared by the CLI's default `--goldens`
@@ -1276,7 +1276,7 @@ mod gate_tests {
 
     /// Rung 1's definition of done: Pakeles's projected `flow_keys` agree
     /// with the kernel-captured goldens committed in
-    /// `examples/linux_flow_dissector/conformance/` — goldens minted from
+    /// `examples/real_world/linux_flow_dissector/conformance/` — goldens minted from
     /// upstream `bpf_flow.c` itself, covering the full corpus including
     /// VLAN/MPLS and agreement on kernel drops, not just accepts. If this
     /// fails, that's a real disagreement between our parse/projection and

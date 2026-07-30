@@ -442,7 +442,7 @@ git commit -m "feat(p4): header-stack emitter for cyclic graphs (.next/.last sta
 **Files:**
 - Modify: `py/src/pakeles/examples/linux_flow_dissector.py` — **the single source of truth** (add `IPv6ExtOpt`, `IPv6Frag`, the three IPv6-chain states, `max_depth=10`).
 - Modify: `src/oracle/flow_dissector.rs:88-114` (`project` — IPv6-chain semantics, last-link reads, new fields).
-- Regenerate: `examples/linux_flow_dissector/**` (the committed `ir.json`, the mirrored `.py`, and ALL `gen/` artifacts including `gen/parser.p4`) via `./dev.sh scripts/gen-examples.sh`.
+- Regenerate: `examples/real_world/linux_flow_dissector/**` (the committed `ir.json`, the mirrored `.py`, and ALL `gen/` artifacts including `gen/parser.p4`) via `./dev.sh scripts/gen-examples.sh`.
 - **Do NOT edit `src/examples.rs`** — it only `include_str!`s the committed `linux_flow_dissector.ir.json` at compile time (the eDSL is authoritative; `gen-examples.sh` produces the `ir.json`). No Rust builder mirror exists.
 - Test: `src/oracle/flow_dissector.rs` (`mod project_tests`), the Python conformance/canonical tests (`py/` + `examples.rs`'s `committed_ir_json_is_canonical`/`committed_py_example_current`), the codegen conformance suites, `p4.rs`'s `committed_p4_artifact_current` for the regenerated example.
 
@@ -546,7 +546,7 @@ class IPv6Frag(Header):  # fragment header (nexthdr 44)
 - [ ] **Step 7: Regenerate all artifacts + check canonical/mirror invariants**
 
 Run: `./dev.sh scripts/gen-examples.sh`
-This regenerates `examples/linux_flow_dissector/linux_flow_dissector.ir.json`, the mirrored `.py`, and every `gen/` artifact (`parser.p4`, `parser.c`, `parser.bpf.c`, `dissector.lua`, `doc.md`, `graph.{dot,svg}`). The P4 regeneration exercises the Task-3 header-stack emitter on the real looped example — if it errors, that is a Task-3 emitter gap surfaced here.
+This regenerates `examples/real_world/linux_flow_dissector/linux_flow_dissector.ir.json`, the mirrored `.py`, and every `gen/` artifact (`parser.p4`, `parser.c`, `parser.bpf.c`, `dissector.lua`, `doc.md`, `graph.{dot,svg}`). The P4 regeneration exercises the Task-3 header-stack emitter on the real looped example — if it errors, that is a Task-3 emitter gap surfaced here.
 Then: `./dev.sh cargo test -p pakeles examples::` and `./dev.sh sh -c 'cd py && python -m pytest -k linux_flow_dissector -v'`
 Expected: `committed_ir_json_is_canonical`, `committed_py_example_current`, and `committed_p4_artifact_current` (for the regenerated example) all green; the Python example round-trips to the regenerated `ir.json`. Note: `gen-examples.sh` must run privileged? No — it is unprivileged codegen; only the golden re-mint (Task 5) needs privilege.
 
@@ -650,7 +650,7 @@ Expected: PASS where `simple_switch` is available. If the header-stack P4 mis-pa
 
 ```bash
 git add py/src/pakeles/examples/linux_flow_dissector.py \
-        src/oracle/flow_dissector.rs examples/linux_flow_dissector/
+        src/oracle/flow_dissector.rs examples/real_world/linux_flow_dissector/
 git commit -m "feat(example): rung 2 — IPv6 ext-header chain (self-loop) + last-link projection; max_depth=10"
 ```
 
@@ -662,7 +662,7 @@ git commit -m "feat(example): rung 2 — IPv6 ext-header chain (self-loop) + las
 - Modify: `oracle/flow_dissector/factory/capture.c:76-77` (14-name subset), `:110-127` (emit the three fields, `ntohl(flow_label)`).
 - Modify: `oracle/flow_dissector/factory/corpus.txt` (append rung-2 vectors, drop-aware; keep all rung-0/1 lines first, untouched).
 - Modify: `src/oracle/flow_dissector.rs` gate (`committed_goldens_agree`): add the 14-name subset floor assertion; update the ok/drop shape floor.
-- Modify: `examples/linux_flow_dissector/README.md` (fidelity boundary: default-flags AND `max_depth` divergence).
+- Modify: `examples/real_world/linux_flow_dissector/README.md` (fidelity boundary: default-flags AND `max_depth` divergence).
 - **User step:** privileged re-mint via `./dev-priv.sh oracle/flow_dissector/factory/capture.sh` → commit the new `flow_keys.linux-6.8.0.golden.json`.
 
 - [ ] **Step 1: Widen the `keys_subset` line in `capture.c`** (`:76-77`):
@@ -735,7 +735,7 @@ Keep the accept-vector hex **byte-identical** to the matching `project_tests` pa
 
 **Sequencing note:** this assertion goes RED until the golden is re-minted (Step 6). Land Steps 1–5 in one commit and Step 6 (the re-minted golden) atomically after the mint, so `main`/the branch tip is never RED. During local dev before the mint, run the gate with this test temporarily `#[ignore]`d, or keep Steps 4 uncommitted until the golden arrives.
 
-- [ ] **Step 5: Update the README fidelity boundary** (`examples/linux_flow_dissector/README.md`, the known-divergence section). Add two bullets:
+- [ ] **Step 5: Update the README fidelity boundary** (`examples/real_world/linux_flow_dissector/README.md`, the known-divergence section). Add two bullets:
 
 ```markdown
 - **IPv6 extension headers (default flags):** we model `flags == 0` (what
@@ -754,7 +754,7 @@ Keep the accept-vector hex **byte-identical** to the matching `project_tests` pa
 
 ```bash
 ./dev-priv.sh oracle/flow_dissector/factory/capture.sh > \
-  examples/linux_flow_dissector/conformance/flow_keys.linux-6.8.0.golden.json
+  examples/real_world/linux_flow_dissector/conformance/flow_keys.linux-6.8.0.golden.json
 ```
 
 Then verify agreement and commit:
@@ -762,7 +762,7 @@ Then verify agreement and commit:
 ```bash
 ./dev.sh cargo test -p pakeles oracle::flow_dissector::gate_tests::committed_goldens_agree
 git add oracle/flow_dissector/factory/capture.c oracle/flow_dissector/factory/corpus.txt \
-        src/oracle/flow_dissector.rs examples/linux_flow_dissector/
+        src/oracle/flow_dissector.rs examples/real_world/linux_flow_dissector/
 git commit -m "feat(oracle): rung 2 goldens — IPv6 ext-header chain agreement (flow_label/is_frag), ntohl fix"
 ```
 

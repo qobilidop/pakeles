@@ -7,8 +7,8 @@ __pycache__/
 
 # Generated conformance suites (churn on every IR/testgen change; regenerate
 # with ./dev.sh scripts/gen-examples.sh). Re-committed when the codebase stabilizes.
-examples/*/conformance/vectors.json
-examples/*/conformance/vectors.pcap
+examples/*/*/conformance/vectors.json
+examples/*/*/conformance/vectors.pcap
 
 # symex perf bench outputs (baselines, inventories)
 /.bench/

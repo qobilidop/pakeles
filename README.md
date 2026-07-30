@@ -67,7 +67,7 @@ termination authority. A P4-16 parser can extract a length-computed
 varbit blob but cannot parse *inside* it, so `gen p4` refuses
 region-bearing descriptions and commits the refusal as
 `gen/P4-UNSUPPORTED.txt`; the C, eBPF, and Wireshark backends lower them.
-See [`examples/tls_clienthello/`](examples/tls_clienthello/) and
+See [`examples/real_world/tls_clienthello/`](examples/real_world/tls_clienthello/) and
 `docs/superpowers/specs/2026-07-29-sized-region-tlv-ir-design.md`.
 
 Try the dissector in your own Wireshark:
@@ -113,10 +113,15 @@ form — one authoring surface, one provably-canonical artifact. See
 - `py/` — the Python authoring eDSL (`pakeles` on PyPI, eventually)
 - `testdata/` — language-neutral fixtures (regenerate: `cargo run --bin gen_fixtures`)
 - `examples/` — the gallery: every artifact one description yields,
-  equality-guarded by tests. `eth_ipvx_l4/` is the hello-world;
-  `linux_flow_dissector/` is the kernel-agreement north-star (see below);
-  `tls_clienthello/` is the TLV flagship (agrees with rustls;
-  `tlv_items/` is its minimal cousin)
+  equality-guarded by tests, in two groups:
+  - `synthetic/` — formats constructed to isolate one capability.
+    `eth_ipvx_l4/` is the hello-world (branching demux), `counted_items/`
+    exercises parse metadata, `tlv_items/` exercises sized regions.
+  - `real_world/` — models of parsers that already exist in the world,
+    each checked packet-for-packet against the real implementation at a
+    pinned version. `linux_flow_dissector/` is the kernel-agreement
+    north-star (see below); `tls_clienthello/` is the TLV flagship
+    (agrees with rustls 0.23.43).
 - `docs/superpowers/specs/` — design docs; start with
   `2026-07-18-pakelesir-v0-design.md`
 
@@ -125,7 +130,7 @@ Regenerate the gallery from its single source (the eDSL):
 
 ## Kernel agreement: the flow-dissector golden factory
 
-[`examples/linux_flow_dissector/`](examples/linux_flow_dissector/) is a
+[`examples/real_world/linux_flow_dissector/`](examples/real_world/linux_flow_dissector/) is a
 north-star example: its `diff flow-dissector` oracle checks that Pakeles's
 extracted flow keys agree with a flow dissector run in the kernel (rung 0:
 an in-repo dissector, fidelity-equal to upstream `bpf_flow.c` for these
@@ -143,5 +148,5 @@ out-of-gate**, run through a separate `dev-priv.sh` (`docker run
 
 The everyday gate only diffs the committed, version-tagged golden file —
 no privilege, no BPF, in the normal loop. See
-[`examples/linux_flow_dissector/README.md`](examples/linux_flow_dissector/README.md)
+[`examples/real_world/linux_flow_dissector/README.md`](examples/real_world/linux_flow_dissector/README.md)
 for the full oracle architecture.

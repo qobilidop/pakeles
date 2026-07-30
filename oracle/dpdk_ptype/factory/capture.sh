@@ -12,6 +12,6 @@ cd "$(dirname "$0")"
 mkdir -p build
 gcc -O2 -o build/capture capture.c $(pkg-config --cflags --libs libdpdk)
 ver="$(pkg-config --modversion libdpdk)"
-out="../../../examples/dpdk_ptype/conformance/ptype.dpdk-${ver}.golden.json"
+out="../../../examples/real_world/dpdk_ptype/conformance/ptype.dpdk-${ver}.golden.json"
 ./build/capture corpus.txt > "$out"
 echo "minted $out"

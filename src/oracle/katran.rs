@@ -259,7 +259,7 @@ pub struct KatranDiffReport {
 }
 
 /// The conformance directory holding the committed goldens.
-pub const CONFORMANCE_DIR: &str = "examples/katran_flow/conformance";
+pub const CONFORMANCE_DIR: &str = "examples/real_world/katran_flow/conformance";
 
 /// Find the committed katran-minted golden file (`katran.<pin>.golden.json`).
 pub fn discover_committed_golden(dir: &std::path::Path) -> Option<std::path::PathBuf> {

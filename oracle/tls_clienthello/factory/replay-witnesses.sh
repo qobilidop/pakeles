@@ -5,13 +5,13 @@
 #
 #   ./dev.sh oracle/tls_clienthello/factory/replay-witnesses.sh
 #
-# Requires examples/tls_clienthello/conformance/vectors.json (gitignored;
+# Requires examples/real_world/tls_clienthello/conformance/vectors.json (gitignored;
 # regenerate with `./dev.sh scripts/gen-examples.sh` or
 # `cargo run --bin gen_examples tls_clienthello`).
 set -euo pipefail
 cd "$(dirname "$0")"
 
-vectors=../../../examples/tls_clienthello/conformance/vectors.json
+vectors=../../../examples/real_world/tls_clienthello/conformance/vectors.json
 [ -f "$vectors" ] || { echo "missing $vectors — regenerate the gallery first"; exit 2; }
 
 python3 - "$vectors" > witnesses.txt <<'EOF'

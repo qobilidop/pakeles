@@ -2,7 +2,8 @@
 //! yields, committed for browsing and equality-guarded by tests.
 
 fn regenerate(name: &str) -> anyhow::Result<()> {
-    let dir = std::path::Path::new("examples").join(name);
+    let dir =
+        std::path::PathBuf::from(pakeles::examples::gallery_dir(name).expect("gallery example"));
     let gen = dir.join("gen");
     let conformance = dir.join("conformance");
     std::fs::create_dir_all(&gen)?;
@@ -53,24 +54,20 @@ fn regenerate(name: &str) -> anyhow::Result<()> {
         .arg(gen.join("graph.svg"))
         .arg(gen.join("graph.dot"))
         .status();
-    println!("examples/{name} regenerated");
+    println!("{} regenerated", dir.display());
     Ok(())
 }
 
 fn main() -> anyhow::Result<()> {
-    let all = [
-        "eth_ipvx_l4",
-        "linux_flow_dissector",
-        "counted_items",
-        "tlv_items",
-        "tls_clienthello",
-        "dpdk_ptype",
-        "katran_flow",
-        "sai_parser",
-    ];
+    // Both gallery groups, from the one place the split is encoded.
+    let all: Vec<&str> = pakeles::examples::SYNTHETIC
+        .iter()
+        .chain(pakeles::examples::REAL_WORLD.iter())
+        .copied()
+        .collect();
     let args: Vec<String> = std::env::args().skip(1).collect();
     let names: Vec<&str> = if args.is_empty() {
-        all.to_vec()
+        all.clone()
     } else {
         for a in &args {
             anyhow::ensure!(all.contains(&a.as_str()), "unknown example `{a}`");

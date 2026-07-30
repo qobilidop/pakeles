@@ -84,7 +84,7 @@ git commit -m "feat(py): eth_ipvx_l4 module emits protojson on stdout (phase-1)"
 
 **Interfaces:**
 - Consumes: `python3 -m pakeles.examples.eth_ipvx_l4` (Task 1); `pakeles fmt-ir --ir <in> --out <out>`; `crate::ir::from_json`.
-- Produces: `scripts/gen-examples.sh` regenerates the whole gallery from the eDSL. `gen_examples` now consumes `examples/eth_ipvx_l4/eth_ipvx_l4.ir.json`.
+- Produces: `scripts/gen-examples.sh` regenerates the whole gallery from the eDSL. `gen_examples` now consumes `examples/synthetic/eth_ipvx_l4/eth_ipvx_l4.ir.json`.
 
 - [ ] **Step 1: Create the orchestration script**
 
@@ -97,7 +97,7 @@ Create `scripts/gen-examples.sh`:
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-ir="examples/eth_ipvx_l4/eth_ipvx_l4.ir.json"
+ir="examples/synthetic/eth_ipvx_l4/eth_ipvx_l4.ir.json"
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
 
@@ -165,7 +165,7 @@ git commit -m "build: regenerate gallery from the eDSL; gen_examples reads ir.js
 - Modify: `src/examples.rs` (delete builder body + builder-specific tests; add loader + canonical-form guard)
 
 **Interfaces:**
-- Consumes: `crate::ir::{from_json, to_json}`; the committed `examples/eth_ipvx_l4/eth_ipvx_l4.ir.json`.
+- Consumes: `crate::ir::{from_json, to_json}`; the committed `examples/synthetic/eth_ipvx_l4/eth_ipvx_l4.ir.json`.
 - Produces: `pub fn eth_ipvx_l4() -> pb::Ir` — now loads the embedded committed IR (same signature; all ~14 call sites unchanged).
 
 - [ ] **Step 1: Replace the module contents**
@@ -187,7 +187,7 @@ use crate::ir::pb;
 /// The gallery example, parsed from the embedded committed IR.
 pub fn eth_ipvx_l4() -> pb::Ir {
     crate::ir::from_json(include_str!(
-        "../examples/eth_ipvx_l4/eth_ipvx_l4.ir.json"
+        "../examples/synthetic/eth_ipvx_l4/eth_ipvx_l4.ir.json"
     ))
     .expect("committed example IR must parse")
 }
@@ -207,7 +207,7 @@ mod tests {
         // canonical serializer emits — the anti-drift "canonical form"
         // guard (replaces the old builder-vs-committed check).
         let committed =
-            std::fs::read_to_string("examples/eth_ipvx_l4/eth_ipvx_l4.ir.json").unwrap();
+            std::fs::read_to_string("examples/synthetic/eth_ipvx_l4/eth_ipvx_l4.ir.json").unwrap();
         let round = crate::ir::to_json(&crate::ir::from_json(&committed).unwrap()).unwrap();
         assert_eq!(
             round, committed,
@@ -219,7 +219,7 @@ mod tests {
     fn committed_py_example_current() {
         let canonical =
             std::fs::read_to_string("py/src/pakeles/examples/eth_ipvx_l4.py").unwrap();
-        let mirrored = std::fs::read_to_string("examples/eth_ipvx_l4/eth_ipvx_l4.py").unwrap();
+        let mirrored = std::fs::read_to_string("examples/synthetic/eth_ipvx_l4/eth_ipvx_l4.py").unwrap();
         assert_eq!(
             canonical, mirrored,
             "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
@@ -378,13 +378,13 @@ git commit -m "test: interp mechanics on inline IRs; one example smoke test"
 In `Cargo.toml`, add to the `include = [...]` array (keep existing entries):
 
 ```toml
-    "examples/eth_ipvx_l4/eth_ipvx_l4.ir.json",
+    "examples/synthetic/eth_ipvx_l4/eth_ipvx_l4.ir.json",
 ```
 
 - [ ] **Step 2: Verify the package still builds with only included files**
 
 Run: `./dev.sh cargo publish --dry-run 2>&1 | tail -15`
-Expected: packaging succeeds; the file list includes `examples/eth_ipvx_l4/eth_ipvx_l4.ir.json`; no "file not found for include_str!" error.
+Expected: packaging succeeds; the file list includes `examples/synthetic/eth_ipvx_l4/eth_ipvx_l4.ir.json`; no "file not found for include_str!" error.
 
 - [ ] **Step 3: Document the regeneration command**
 

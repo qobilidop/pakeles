@@ -132,7 +132,10 @@ pub fn suite_from_json(s: &str) -> Result<pb::TestSuite> {
 /// codebase stabilizes.
 #[cfg(test)]
 pub(crate) fn committed_suite_or_skip(name: &str) -> Option<pb::TestSuite> {
-    let path = format!("examples/{name}/conformance/vectors.json");
+    let path = format!(
+        "{}/conformance/vectors.json",
+        crate::examples::gallery_dir(name)?
+    );
     if !std::path::Path::new(&path).exists() {
         eprintln!("skipping: {path} not generated (run ./dev.sh scripts/gen-examples.sh)");
         return None;
@@ -212,7 +215,7 @@ mod tests {
 
     #[test]
     fn committed_vectors_pcap_current() {
-        let pcap_path = "examples/eth_ipvx_l4/conformance/vectors.pcap";
+        let pcap_path = "examples/synthetic/eth_ipvx_l4/conformance/vectors.pcap";
         let Some(suite) = committed_suite_or_skip("eth_ipvx_l4") else {
             return;
         };

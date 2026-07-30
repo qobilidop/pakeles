@@ -16,7 +16,7 @@ rung-4b plan doc per the repo's spec → plan → build convention.
   vendored `bpf_flow.c` only where the design says "verified against".
 - `docs/superpowers/plans/2026-07-28-flow-dissector-rung4a.md` — 4a plan +
   follow-up notes.
-- `examples/linux_flow_dissector/README.md` — divergence/boundary text to
+- `examples/real_world/linux_flow_dissector/README.md` — divergence/boundary text to
   update.
 - Memory: `flow-dissector-northstar` (follow-up details, stray-session
   incidents), `symex-perf` (bench workflow, dev.sh gotchas).
@@ -37,7 +37,7 @@ rung-4b plan doc per the repo's spec → plan → build convention.
    kernel 6.8.0 — if the reported kernel version differs from the committed
    golden's tag, STOP and report).
 2. HARD GATE: diff the new golden against
-   `examples/linux_flow_dissector/conformance/flow_keys.linux-6.8.0.golden.json`.
+   `examples/real_world/linux_flow_dissector/conformance/flow_keys.linux-6.8.0.golden.json`.
    Every pre-existing entry must be byte-identical; the only changes allowed
    are the 12 rung-4a tunnel vectors and the `is_encap` field. Any drift in an
    existing entry: STOP, report, do not commit.

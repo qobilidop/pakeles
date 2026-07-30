@@ -11,7 +11,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 mkdir -p build/sweep
-ir=../../../examples/tls_clienthello/tls_clienthello.ir.json
+ir=../../../examples/real_world/tls_clienthello/tls_clienthello.ir.json
 cc -O2 -o build/run run.c -lbpf
 
 for d in 96 64 48 32 24 23 22 20 16 12; do
@@ -24,7 +24,7 @@ EOF
   (cd ../../.. && cargo run --quiet -- gen bpf \
      --ir "oracle/tls_clienthello/spike/build/sweep/ir-$d.json" \
      --out "oracle/tls_clienthello/spike/build/sweep/parser-$d.bpf.c")
-  cp ../../../examples/tls_clienthello/gen/parser.h build/sweep/
+  cp ../../../examples/real_world/tls_clienthello/gen/parser.h build/sweep/
   clang -O2 -g -target bpf -DPK_BUF_MASK=511u -I build/sweep \
     -I"/usr/include/$(uname -m)-linux-gnu" \
     -DPK_SWEEP_SRC="\"parser-$d.bpf.c\"" \

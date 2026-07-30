@@ -455,7 +455,7 @@ pub struct PtypeDiffReport {
 }
 
 /// The conformance directory holding the committed goldens.
-pub const CONFORMANCE_DIR: &str = "examples/dpdk_ptype/conformance";
+pub const CONFORMANCE_DIR: &str = "examples/real_world/dpdk_ptype/conformance";
 
 /// Find the committed DPDK-minted golden file under `dir` (filename
 /// starts with `ptype.dpdk-`).
@@ -511,7 +511,7 @@ mod gate_tests {
 
     /// The definition of done: our projected `(ptype, hdr_lens)` agree
     /// with the DPDK-minted goldens committed in
-    /// `examples/dpdk_ptype/conformance/` over the whole corpus —
+    /// `examples/real_world/dpdk_ptype/conformance/` over the whole corpus —
     /// accepts exactly, truncations via the laxness rule. If this
     /// fails, that's a real disagreement between our parse/projection
     /// and DPDK 23.11 — investigate against rte_net.c; do NOT edit the

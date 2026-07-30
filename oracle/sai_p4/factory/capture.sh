@@ -14,7 +14,7 @@ cp ../vendor/common/*.p4 build/common/
 if [ $# -ge 1 ]; then
   python3 capture.py build/parser/sai.json "$1" "$PIN"
 else
-  out="../../../examples/sai_parser/conformance/sai.${PIN:0:12}.golden.json"
+  out="../../../examples/real_world/sai_parser/conformance/sai.${PIN:0:12}.golden.json"
   mkdir -p "$(dirname "$out")"
   python3 capture.py build/parser/sai.json corpus.txt "$PIN" > "$out"
   echo "minted $out (sonic-pins@${PIN})"

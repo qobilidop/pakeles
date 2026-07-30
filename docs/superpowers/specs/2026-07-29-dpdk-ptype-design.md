@@ -229,7 +229,7 @@ of magnitude below the flow dissector's 57k; no cycle machinery.
 ## 5. Gate shape (both live + committed golden)
 
 1. **Committed golden** (the reproducible claim):
-   `examples/dpdk_ptype/conformance/ptype.dpdk-23.11.4.golden.json`,
+   `examples/real_world/dpdk_ptype/conformance/ptype.dpdk-23.11.4.golden.json`,
    minted ONLY by `oracle/dpdk_ptype/factory/capture.sh` (build
    `capture.c` against the container's libdpdk, run over
    `oracle/dpdk_ptype/factory/corpus.txt`). Schema:

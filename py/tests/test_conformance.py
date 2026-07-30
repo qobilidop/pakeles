@@ -17,6 +17,8 @@ from pakeles.examples.eth_ipvx_l4 import eth_ipvx_l4
 from pakeles.examples.katran_flow import katran_flow
 from pakeles.examples.linux_flow_dissector import linux_flow_dissector
 from pakeles.examples.sai_parser import sai_parser
+from pakeles.examples.tls_clienthello import tls_clienthello
+from pakeles.examples.tlv_items import tlv_items
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = Path(__file__).resolve().parents[1] / "src"
@@ -25,24 +27,34 @@ BUILDERS = {
     "eth_ipvx_l4": eth_ipvx_l4,
     "linux_flow_dissector": linux_flow_dissector,
     "counted_items": counted_items,
+    "tlv_items": tlv_items,
     "dpdk_ptype": dpdk_ptype,
     "katran_flow": katran_flow,
     "sai_parser": sai_parser,
+    "tls_clienthello": tls_clienthello,
 }
 
-ALL_EXAMPLES = [
-    "eth_ipvx_l4",
+# Gallery groups, mirroring src/examples.rs (SYNTHETIC / REAL_WORLD):
+# constructed to isolate a capability vs. checked against a real
+# implementation.
+SYNTHETIC = ["eth_ipvx_l4", "counted_items", "tlv_items"]
+REAL_WORLD = [
     "linux_flow_dissector",
-    "counted_items",
     "dpdk_ptype",
     "katran_flow",
     "sai_parser",
+    "tls_clienthello",
 ]
+ALL_EXAMPLES = SYNTHETIC + REAL_WORLD
+
+
+def gallery_dir(name: str) -> str:
+    return f"examples/{'synthetic' if name in SYNTHETIC else 'real_world'}/{name}"
 
 
 @pytest.mark.parametrize("name", ALL_EXAMPLES)
 def test_python_authoring_matches_gallery(name: str) -> None:
-    gallery = ROOT / f"examples/{name}/{name}.ir.json"
+    gallery = ROOT / f"{gallery_dir(name)}/{name}.ir.json"
     ours = BUILDERS[name]().to_pb()
     committed = json_format.Parse(gallery.read_text(), ir_pb2.Ir())
     assert ours == committed

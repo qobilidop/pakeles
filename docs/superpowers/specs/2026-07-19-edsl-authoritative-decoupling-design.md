@@ -59,7 +59,7 @@ preserving (3).
 ## Architecture: the regeneration pipeline
 
 Single source of truth: `py/src/pakeles/examples/eth_ipvx_l4.py`.
-Everything in `examples/eth_ipvx_l4/` is derived and committed.
+Everything in `examples/synthetic/eth_ipvx_l4/` is derived and committed.
 
 ```
 py/src/pakeles/examples/eth_ipvx_l4.py       ← SINGLE SOURCE (eDSL)
@@ -68,7 +68,7 @@ py/src/pakeles/examples/eth_ipvx_l4.py       ← SINGLE SOURCE (eDSL)
 pakeles fmt-ir                                ← Rust: canonical serializer + validator
    │
    ▼
-examples/eth_ipvx_l4/eth_ipvx_l4.ir.json     ← committed normative contract (canonical)
+examples/synthetic/eth_ipvx_l4/eth_ipvx_l4.ir.json     ← committed normative contract (canonical)
    │  phase 2 (Rust): gen_examples reads the ir.json
    ▼
 gen/*   +   conformance/*   +   gallery .py mirror
@@ -94,7 +94,7 @@ loader that embeds the committed `ir.json` at compile time:
 ```rust
 pub fn eth_ipvx_l4() -> pb::Ir {
     crate::ir::from_json(include_str!(
-        "../examples/eth_ipvx_l4/eth_ipvx_l4.ir.json"
+        "../examples/synthetic/eth_ipvx_l4/eth_ipvx_l4.ir.json"
     )).expect("committed example IR must parse")
 }
 ```
@@ -165,7 +165,7 @@ gen-examples.sh` is a developer tool, not a CI step.
 - `src/interp/mod.rs`, `src/symex/**` tests — convert mechanics tests to
   inline `ParserBuilder` IRs; keep one interp smoke test on the loaded
   example.
-- `Cargo.toml` — add `examples/eth_ipvx_l4/eth_ipvx_l4.ir.json` to the
+- `Cargo.toml` — add `examples/synthetic/eth_ipvx_l4/eth_ipvx_l4.ir.json` to the
   publish `include` list.
 - `py/src/pakeles/examples/eth_ipvx_l4.py` — ensure it is runnable as
   phase-1 emit (a `__main__` that prints `to_json()` to stdout, or an

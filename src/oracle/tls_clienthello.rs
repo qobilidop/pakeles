@@ -131,7 +131,7 @@ pub struct TlsDiffReport {
 }
 
 /// The conformance directory holding the committed goldens.
-pub const CONFORMANCE_DIR: &str = "examples/tls_clienthello/conformance";
+pub const CONFORMANCE_DIR: &str = "examples/real_world/tls_clienthello/conformance";
 
 /// Find the committed rustls-minted golden (`clienthello.rustls-*.golden.json`).
 pub fn discover_committed_golden(dir: &std::path::Path) -> Option<std::path::PathBuf> {

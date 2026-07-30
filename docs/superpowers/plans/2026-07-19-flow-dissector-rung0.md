@@ -24,11 +24,11 @@
 **Files:**
 - Create: `py/src/pakeles/examples/linux_flow_dissector.py`
 - Modify: `src/bin/gen_examples.rs` (iterate a list of examples), `scripts/gen-examples.sh` (phase-1 loop)
-- Create (generated, committed): `examples/linux_flow_dissector/` (`linux_flow_dissector.ir.json`, `.py` mirror, `gen/*`, `conformance/*`)
+- Create (generated, committed): `examples/real_world/linux_flow_dissector/` (`linux_flow_dissector.ir.json`, `.py` mirror, `gen/*`, `conformance/*`)
 - Modify: `src/examples.rs` (add a loader + guards for the new example)
 
 **Interfaces:**
-- Produces: `pub fn linux_flow_dissector() -> pb::Ir` (loader, mirrors `eth_ipvx_l4()`); a committed gallery under `examples/linux_flow_dissector/`.
+- Produces: `pub fn linux_flow_dissector() -> pb::Ir` (loader, mirrors `eth_ipvx_l4()`); a committed gallery under `examples/real_world/linux_flow_dissector/`.
 
 - [ ] **Step 1: Author the eDSL example**
 
@@ -108,7 +108,7 @@ Add alongside `eth_ipvx_l4()`:
 /// The linux_flow_dissector example, parsed from its committed IR.
 pub fn linux_flow_dissector() -> pb::Ir {
     crate::ir::from_json(include_str!(
-        "../examples/linux_flow_dissector/linux_flow_dissector.ir.json"
+        "../examples/real_world/linux_flow_dissector/linux_flow_dissector.ir.json"
     ))
     .expect("committed linux_flow_dissector IR must parse")
 }
@@ -120,15 +120,15 @@ In the `tests` module add guards mirroring the existing ones (`embedded_ir_parse
 
 Run: `./dev.sh scripts/gen-examples.sh` (creates/commits the new gallery dir).
 Then: `./dev.sh sh -c 'cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test && cd py && ruff check . && pyright && pytest' 2>&1 | grep -E "test result:|passed|error|FAILED|Finished"`
-Expected: all green; the new example's guards pass; `git status examples/linux_flow_dissector` shows the committed artifacts.
+Expected: all green; the new example's guards pass; `git status examples/real_world/linux_flow_dissector` shows the committed artifacts.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add py/src/pakeles/examples/linux_flow_dissector.py src/bin/gen_examples.rs scripts/gen-examples.sh src/examples.rs examples/linux_flow_dissector Cargo.toml
+git add py/src/pakeles/examples/linux_flow_dissector.py src/bin/gen_examples.rs scripts/gen-examples.sh src/examples.rs examples/real_world/linux_flow_dissector Cargo.toml
 git commit -m "feat: linux_flow_dissector example + multi-example gen machinery"
 ```
-(Add `examples/linux_flow_dissector/linux_flow_dissector.ir.json` to Cargo's `include` list for the new `include_str!`.)
+(Add `examples/real_world/linux_flow_dissector/linux_flow_dissector.ir.json` to Cargo's `include` list for the new `include_str!`.)
 
 ---
 
@@ -394,7 +394,7 @@ In `src/cli.rs`, add to `enum Oracle`:
     FlowDissector {
         #[arg(long)]
         ir: Option<PathBuf>,
-        #[arg(long, default_value = "examples/linux_flow_dissector/conformance/flow_keys.golden.json")]
+        #[arg(long, default_value = "examples/real_world/linux_flow_dissector/conformance/flow_keys.golden.json")]
         goldens: PathBuf,
     },
 ```
@@ -493,7 +493,7 @@ ver="$(uname -r)"
 clang -O2 -target bpf -I/usr/include/aarch64-linux-gnu -c flow_dissector.bpf.c -o /tmp/fd.o
 llvm-objcopy -O binary --only-section=.text /tmp/fd.o /tmp/fd.text
 clang -O2 -o /tmp/capture capture.c
-/tmp/capture /tmp/fd.text corpus.txt > "../../../examples/linux_flow_dissector/conformance/flow_keys.linux-${ver%%-*}.golden.json"
+/tmp/capture /tmp/fd.text corpus.txt > "../../../examples/real_world/linux_flow_dissector/conformance/flow_keys.linux-${ver%%-*}.golden.json"
 echo "captured goldens for kernel ${ver}"
 ```
 
@@ -506,7 +506,7 @@ Expected: a `flow_keys.linux-<ver>.golden.json` is written under the example's `
 - [ ] **Step 5: Commit**
 
 ```bash
-git add oracle/ dev-priv.sh examples/linux_flow_dissector/conformance/flow_keys.linux-*.golden.json
+git add oracle/ dev-priv.sh examples/real_world/linux_flow_dissector/conformance/flow_keys.linux-*.golden.json
 git commit -m "feat(oracle): golden factory — kernel flow_keys via BPF_PROG_TEST_RUN"
 ```
 
@@ -527,7 +527,7 @@ Add to `src/oracle/flow_dissector.rs` (discovers whatever golden file is committ
 ```rust
 #[test]
 fn committed_goldens_agree() {
-    let dir = std::path::Path::new("examples/linux_flow_dissector/conformance");
+    let dir = std::path::Path::new("examples/real_world/linux_flow_dissector/conformance");
     let golden_path = std::fs::read_dir(dir).unwrap().filter_map(|e| e.ok())
         .map(|e| e.path())
         .find(|p| p.file_name().unwrap().to_str().unwrap().starts_with("flow_keys.linux-"))
@@ -563,13 +563,13 @@ git commit -m "test(oracle): gate on kernel flow_keys agreement (rung 0 DoD)"
 ### Task 7: Docs + CI golden-refresh job
 
 **Files:**
-- Modify: `README.md`, `examples/linux_flow_dissector/README.md` (create), `.github/workflows/ci.yml`
+- Modify: `README.md`, `examples/real_world/linux_flow_dissector/README.md` (create), `.github/workflows/ci.yml`
 
 **Interfaces:** none (docs + CI).
 
 - [ ] **Step 1: Gallery README**
 
-Create `examples/linux_flow_dissector/README.md` explaining: this is the flow-dissector north-star (rung 0 = eth/IPv4/IPv6/TCP/UDP), the golden-diff oracle, that goldens are kernel-`BPF_PROG_TEST_RUN` captures (rung-0 source = in-repo dissector, fidelity-equal to upstream `bpf_flow.c`; upstream arrives at rung 1), and the scope boundary (bounded core, not the heuristic tail). Link the design spec.
+Create `examples/real_world/linux_flow_dissector/README.md` explaining: this is the flow-dissector north-star (rung 0 = eth/IPv4/IPv6/TCP/UDP), the golden-diff oracle, that goldens are kernel-`BPF_PROG_TEST_RUN` captures (rung-0 source = in-repo dissector, fidelity-equal to upstream `bpf_flow.c`; upstream arrives at rung 1), and the scope boundary (bounded core, not the heuristic tail). Link the design spec.
 
 - [ ] **Step 2: Root README + factory doc**
 
@@ -583,7 +583,7 @@ Add a separate `.github/workflows/flow-dissector-goldens.yml` job (workflow_disp
 
 Run the full gate once more (expect green), then:
 ```bash
-git add README.md examples/linux_flow_dissector/README.md .github/workflows/flow-dissector-goldens.yml
+git add README.md examples/real_world/linux_flow_dissector/README.md .github/workflows/flow-dissector-goldens.yml
 git commit -m "docs,ci: flow-dissector gallery README + golden-refresh job"
 ```
 

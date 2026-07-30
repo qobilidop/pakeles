@@ -15,7 +15,7 @@
 - ALL builds/tests run inside the dev container: `./dev.sh <cmd>`. The host has no rust/protoc/tshark/clang. The full gate is:
   `./dev.sh sh -c 'cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test && buf lint && cd py && ruff check . && pyright && pytest'`
 - The factory alone runs privileged: `./dev-priv.sh oracle/flow_dissector/factory/capture.sh`. Never wire it into the normal gate.
-- The Python eDSL is the single authoring source: edit `py/src/pakeles/examples/linux_flow_dissector.py`, then regenerate everything with `./dev.sh scripts/gen-examples.sh`. Never hand-edit `examples/linux_flow_dissector/{*.ir.json,*.py,gen/*}`.
+- The Python eDSL is the single authoring source: edit `py/src/pakeles/examples/linux_flow_dissector.py`, then regenerate everything with `./dev.sh scripts/gen-examples.sh`. Never hand-edit `examples/real_world/linux_flow_dissector/{*.ir.json,*.py,gen/*}`.
 - NEVER commit `bpf_flow.c` or any fetched kernel source — it is GPL-2.0, the repo is Apache-2.0. Fetched files live in gitignored `oracle/flow_dissector/factory/build/`.
 - Never edit a committed golden by hand to force green. Goldens are minted only by the factory.
 - The gate must be green at every commit.
@@ -441,7 +441,7 @@ git commit -m "feat(oracle): golden schema v2 — per-entry disposition, reject<
 
 **Files:**
 - Modify: `py/src/pakeles/examples/linux_flow_dissector.py`
-- Regenerate (never hand-edit): `examples/linux_flow_dissector/{linux_flow_dissector.ir.json,linux_flow_dissector.py,gen/*,conformance/vectors.json,conformance/vectors.pcap}`
+- Regenerate (never hand-edit): `examples/real_world/linux_flow_dissector/{linux_flow_dissector.ir.json,linux_flow_dissector.py,gen/*,conformance/vectors.json,conformance/vectors.pcap}`
 
 **Interfaces:**
 - Consumes: Task 1's `Header["name"]` / `Instance` surface.
@@ -545,7 +545,7 @@ def linux_flow_dissector() -> Parser:
 - [ ] **Step 2: Regenerate the gallery**
 
 Run: `./dev.sh scripts/gen-examples.sh`
-Expected: exits 0, prints `gallery regenerated from py/src/pakeles/examples/*.py`. `git status` shows `examples/linux_flow_dissector/` regenerated (ir.json, mirrored .py, gen/*, conformance/vectors.*) and `examples/eth_ipvx_l4/` untouched. If P4 generation fails on the instance-count assert, note: this example has exactly 8 instances — the bitmap limit — so it must pass; a 9th would be a real error.
+Expected: exits 0, prints `gallery regenerated from py/src/pakeles/examples/*.py`. `git status` shows `examples/real_world/linux_flow_dissector/` regenerated (ir.json, mirrored .py, gen/*, conformance/vectors.*) and `examples/synthetic/eth_ipvx_l4/` untouched. If P4 generation fails on the instance-count assert, note: this example has exactly 8 instances — the bitmap limit — so it must pass; a 9th would be a real error.
 
 - [ ] **Step 3: Run the full gate**
 
@@ -555,7 +555,7 @@ Expected: PASS. Notably `committed_goldens_agree` stays green: the rung-0 golden
 - [ ] **Step 4: Commit**
 
 ```bash
-git add py/src/pakeles/examples/linux_flow_dissector.py examples/linux_flow_dissector
+git add py/src/pakeles/examples/linux_flow_dissector.py examples/real_world/linux_flow_dissector
 git commit -m "feat(example): rung 1 — VLAN (depth-2, unrolled) + MPLS states, kernel-faithful"
 ```
 
@@ -784,7 +784,7 @@ git commit -m "test: backend conformance suites also run linux_flow_dissector (m
 
 **Interfaces:**
 - Consumes: Task 2's v2 JSON shape (`disposition`, optional `keys`) — capture emits it.
-- Produces: `capture.sh` end-to-end mints `examples/linux_flow_dissector/conformance/flow_keys.linux-<ver>.golden.json` from upstream `bpf_flow.c`. Task 7 runs it privileged.
+- Produces: `capture.sh` end-to-end mints `examples/real_world/linux_flow_dissector/conformance/flow_keys.linux-<ver>.golden.json` from upstream `bpf_flow.c`. Task 7 runs it privileged.
 
 - [ ] **Step 1: Establish the pin**
 
@@ -822,7 +822,7 @@ fi
 
 ver="$(uname -r)"
 short="${ver%%-*}"
-out="../../../examples/linux_flow_dissector/conformance/flow_keys.linux-${short}.golden.json"
+out="../../../examples/real_world/linux_flow_dissector/conformance/flow_keys.linux-${short}.golden.json"
 mkdir -p "$(dirname "$out")"
 
 # -I the multiarch dir so <asm/types.h> resolves under -target bpf (works
@@ -1028,10 +1028,10 @@ git commit -m "feat(factory): upstream bpf_flow.c (pinned fetch) via libbpf; dro
 ### Task 7: Mint goldens, cross-validate, retire the minimal dissector, docs
 
 **Files:**
-- Regenerate: `examples/linux_flow_dissector/conformance/flow_keys.linux-6.8.0.golden.json`
+- Regenerate: `examples/real_world/linux_flow_dissector/conformance/flow_keys.linux-6.8.0.golden.json`
 - Delete: `oracle/flow_dissector/factory/flow_dissector.bpf.c`
 - Modify: `src/oracle/flow_dissector.rs` (gate-test corpus-shape floors)
-- Modify: `examples/linux_flow_dissector/README.md`, `dev-priv.sh` (comment only if it mentions the in-repo dissector)
+- Modify: `examples/real_world/linux_flow_dissector/README.md`, `dev-priv.sh` (comment only if it mentions the in-repo dissector)
 
 **Interfaces:**
 - Consumes: everything prior. This is the rung-1 definition-of-done task.
@@ -1039,11 +1039,11 @@ git commit -m "feat(factory): upstream bpf_flow.c (pinned fetch) via libbpf; dro
 - [ ] **Step 1: Run the privileged factory**
 
 Run (from repo root, on this machine — Colima VM, kernel 6.8.0): `./dev-priv.sh oracle/flow_dissector/factory/capture.sh`
-Expected: exits 0, rewrites `examples/linux_flow_dissector/conformance/flow_keys.linux-6.8.0.golden.json`. If the BPF load fails, read the libbpf error — likely a compile-flag or pin issue; fix in the factory, not by reverting to the minimal dissector.
+Expected: exits 0, rewrites `examples/real_world/linux_flow_dissector/conformance/flow_keys.linux-6.8.0.golden.json`. If the BPF load fails, read the libbpf error — likely a compile-flag or pin issue; fix in the factory, not by reverting to the minimal dissector.
 
 - [ ] **Step 2: Cross-validate rung 0 against upstream**
 
-Run: `git diff -- examples/linux_flow_dissector/conformance/`
+Run: `git diff -- examples/real_world/linux_flow_dissector/conformance/`
 Expected: the four rung-0 entries keep IDENTICAL `keys` values (now wrapped with `"disposition": "ok"`); 5 new ok entries and 5 new drop entries follow. **Any changed rung-0 key value is a finding, not noise** — it means the in-repo dissector diverged from upstream; STOP and investigate before proceeding (this comparison is the promised cross-validation).
 
 - [ ] **Step 3: Tighten the gate test**
@@ -1079,7 +1079,7 @@ Grep for stale references: `grep -rn "flow_dissector.bpf.c" --exclude-dir=.git .
 
 - [ ] **Step 6: Update the example README**
 
-In `examples/linux_flow_dissector/README.md`: replace the rung-0 fidelity caveat (goldens from an in-repo approximation) with the rung-1 statement: goldens are minted from **upstream `bpf_flow.c` (Linux v6.8 selftests, fetched pinned at capture time) run in the kernel via `BPF_PROG_TEST_RUN`**; agreement now covers VLAN (depth ≤ 2, kernel sequencing rules) and MPLS (single-entry stop), including agreement on kernel drops. Mention the regenerated state graph (`gen/graph.svg` already updated by Task 3).
+In `examples/real_world/linux_flow_dissector/README.md`: replace the rung-0 fidelity caveat (goldens from an in-repo approximation) with the rung-1 statement: goldens are minted from **upstream `bpf_flow.c` (Linux v6.8 selftests, fetched pinned at capture time) run in the kernel via `BPF_PROG_TEST_RUN`**; agreement now covers VLAN (depth ≤ 2, kernel sequencing rules) and MPLS (single-entry stop), including agreement on kernel drops. Mention the regenerated state graph (`gen/graph.svg` already updated by Task 3).
 
 - [ ] **Step 7: Final gate + commit**
 

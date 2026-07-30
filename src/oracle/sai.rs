@@ -81,7 +81,7 @@ pub struct SaiDiffReport {
     pub mismatches: Vec<String>,
 }
 
-pub const CONFORMANCE_DIR: &str = "examples/sai_parser/conformance";
+pub const CONFORMANCE_DIR: &str = "examples/real_world/sai_parser/conformance";
 
 /// Find the committed sonic-pins-minted golden (`sai.<pin>.golden.json`).
 pub fn discover_committed_golden(dir: &std::path::Path) -> Option<std::path::PathBuf> {

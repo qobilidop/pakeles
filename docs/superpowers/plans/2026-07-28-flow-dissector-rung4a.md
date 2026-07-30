@@ -108,7 +108,7 @@ IPv4 headers in vectors use ihl=5; IPv6 `plen` consistent with payload.)
 ### Task 1: eDSL — FlowMeta + tunnel states/arms + max_depth, full regen
 
 **Files:** `py/src/pakeles/examples/linux_flow_dissector.py`;
-regenerated `examples/linux_flow_dissector/{linux_flow_dissector.ir.json,linux_flow_dissector.py,gen/*,conformance/vectors.json,conformance/vectors.pcap}`.
+regenerated `examples/real_world/linux_flow_dissector/{linux_flow_dissector.ir.json,linux_flow_dissector.py,gen/*,conformance/vectors.json,conformance/vectors.pcap}`.
 
 - [x] Add to the example (docstring gains a rung-4a paragraph):
 
@@ -191,7 +191,7 @@ transition, e.g. a default-only select or `.then()`; match `counted_items`'
 ### Task 4: Corpus + CI-minted goldens + floors + subset
 
 **Files:** `oracle/flow_dissector/factory/corpus.txt`,
-`examples/linux_flow_dissector/conformance/flow_keys.linux-*.golden.json`
+`examples/real_world/linux_flow_dissector/conformance/flow_keys.linux-*.golden.json`
 (minted), `src/oracle/flow_dissector.rs` (floors + required subset).
 
 - [x] Append `# --- rung 4a: IPIP / IPv6-in-IP tunnels ---` section: the
@@ -200,7 +200,7 @@ transition, e.g. a default-only select or `.then()`; match `counted_items`'
   unsupported inner proto (e.g. inner protocol 89 → both drop).
 - [ ] Push branch/commit to main first (workflow_dispatch runs on the
   default branch), then: `gh workflow run flow-dissector-goldens.yml`,
-  poll `gh run watch`, download: `gh run download <id> -n flow-dissector-goldens -D examples/linux_flow_dissector/conformance/`,
+  poll `gh run watch`, download: `gh run download <id> -n flow-dissector-goldens -D examples/real_world/linux_flow_dissector/conformance/`,
   link the run URL in the commit message. Review the diff: existing
   entries must be byte-identical (capture.c's family fix only affects
   encap entries, absent until now); new entries' keys must match Task 2's
@@ -213,7 +213,7 @@ transition, e.g. a default-only select or `.then()`; match `counted_items`'
 
 ### Task 5: Docs — README fidelity boundaries, design-doc statuses
 
-**Files:** `examples/linux_flow_dissector/README.md`,
+**Files:** `examples/real_world/linux_flow_dissector/README.md`,
 `docs/superpowers/specs/2026-07-24-flow-dissector-rung4a-design.md` (status),
 `docs/superpowers/specs/2026-07-19-linux-flow-dissector-design.md` (ladder table).
 

@@ -82,7 +82,7 @@ the golden commit.
 
 **Files:** `py/src/pakeles/examples/dpdk_ptype.py` (+ `__init__.py`),
 `scripts/gen-examples.sh` (add to loop), `src/examples.rs` (embed +
-canonical/mirror/validate tests), regenerated `examples/dpdk_ptype/*`.
+canonical/mirror/validate tests), regenerated `examples/real_world/dpdk_ptype/*`.
 
 - [x] Headers + 27-state DAG per design §4 (multi-key frag selects;
   QinQ blind-tag header; TCP fixed-20; GRE no-version-select;
@@ -104,7 +104,7 @@ canonical/mirror/validate tests), regenerated `examples/dpdk_ptype/*`.
   §3: accept path + mappable-reject table; hard error (distinct
   variant) on unmappable classes.
 - [x] `diff_goldens` + `diff dpdk-ptype` CLI (default goldens
-  discovery under `examples/dpdk_ptype/conformance/`).
+  discovery under `examples/real_world/dpdk_ptype/conformance/`).
 - [x] Projection unit tests: byte-identical twins of the corpus matrix
   (accepts + trunc + quirk lines), expected values hand-derived from
   the design (independently of the harness — the golden mint is the
@@ -115,7 +115,7 @@ canonical/mirror/validate tests), regenerated `examples/dpdk_ptype/*`.
 ### Task 3: corpus + capture.sh + golden mint
 
 **Files:** `oracle/dpdk_ptype/factory/corpus.txt`, `capture.sh`,
-`examples/dpdk_ptype/conformance/ptype.dpdk-23.11.4.golden.json`.
+`examples/real_world/dpdk_ptype/conformance/ptype.dpdk-23.11.4.golden.json`.
 
 - [x] corpus.txt: the matrix above, commented sections, hexes identical
   to Task 2's test twins.
@@ -136,7 +136,7 @@ canonical/mirror/validate tests), regenerated `examples/dpdk_ptype/*`.
 - [x] Live differential test, tool-gated on `pkg-config libdpdk` +
   gcc (BMv2-precedent gating): rebuild harness, fresh capture,
   byte-compare vs committed golden + full diff.
-- [x] `examples/dpdk_ptype/README.md`: what it is, the two-oracle
+- [x] `examples/real_world/dpdk_ptype/README.md`: what it is, the two-oracle
   shape, honest boundary section (excluded laxness classes, ihl<5,
   single-segment, no UDP tunnels), quirks section (from phase 5).
 - [x] Floors ratchet commit (separate, after golden).
@@ -159,7 +159,7 @@ canonical/mirror/validate tests), regenerated `examples/dpdk_ptype/*`.
 **Files:** `oracle/dpdk_ptype/spike/` (adapter + bench, not gate-wired),
 `docs/designs/2026-07-29-dpdk-integration-spike.md`.
 
-- [x] Adapter: `examples/dpdk_ptype/gen/parser.c` output →
+- [x] Adapter: `examples/real_world/dpdk_ptype/gen/parser.c` output →
   `(RTE_PTYPE_* mask, rte_net_hdr_lens)` (single-segment; reuse the
   Rust projection's mapping rules, in C).
 - [x] Correctness harness: adapter ≡ `rte_net_get_ptype` over corpus +

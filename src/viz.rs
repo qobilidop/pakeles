@@ -163,7 +163,8 @@ mod tests {
     fn committed_dot_current() {
         let dot = to_dot(&eth_ipvx_l4());
         assert!(dot.contains("\"parse_ipv4\" -> \"parse_tcp\""));
-        let committed = std::fs::read_to_string("examples/eth_ipvx_l4/gen/graph.dot").unwrap();
+        let committed =
+            std::fs::read_to_string("examples/synthetic/eth_ipvx_l4/gen/graph.dot").unwrap();
         assert_eq!(
             dot, committed,
             "examples/ drifted; regenerate: ./dev.sh cargo run --bin gen_examples"

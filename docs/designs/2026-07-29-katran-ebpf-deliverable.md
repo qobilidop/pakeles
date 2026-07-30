@@ -5,7 +5,7 @@
 `./dev-priv.sh oracle/katran/spike/run.sh` (privileged: real-kernel
 BPF_PROG_TEST_RUN).
 **Question:** does Pakeles's *generated* eBPF parser
-(`examples/katran_flow/gen/parser.bpf.c`) pass the **real Linux kernel
+(`examples/real_world/katran_flow/gen/parser.bpf.c`) pass the **real Linux kernel
 verifier** and produce correct results in-kernel? This is the
 audience-facing claim for the eBPF-community pitch — the everyday gate
 already runs the generated program in rbpf (a userspace eBPF VM whose

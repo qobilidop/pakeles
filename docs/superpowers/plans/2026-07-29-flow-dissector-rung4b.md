@@ -97,7 +97,7 @@ Drops (4):
 ### Task 1: eDSL — GRE/GREOpt + states + arms, full regen
 
 **Files:** `py/src/pakeles/examples/linux_flow_dissector.py`; regenerated
-`examples/linux_flow_dissector/*` (ir.json, py copy, `gen/*`,
+`examples/real_world/linux_flow_dissector/*` (ir.json, py copy, `gen/*`,
 conformance vectors).
 
 - [x] Example changes per Decisions (docstring gains the rung-4b

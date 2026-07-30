@@ -12,7 +12,7 @@ cd "$(dirname "$0")"
 # NB: the dev image sets a global CARGO_TARGET_DIR, so run via cargo
 # rather than a ./target path.
 ver="$(grep -A1 '^name = "rustls"$' Cargo.lock | grep version | cut -d'"' -f2)"
-out="../../../examples/tls_clienthello/conformance/clienthello.rustls-${ver}.golden.json"
+out="../../../examples/real_world/tls_clienthello/conformance/clienthello.rustls-${ver}.golden.json"
 mkdir -p "$(dirname "$out")"
 RUSTLS_VERSION="$ver" cargo run --release --quiet -- capture corpus.txt > "$out"
 echo "minted $out"

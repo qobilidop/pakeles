@@ -797,8 +797,11 @@ mod tests {
             ("sai_parser", sai_parser()),
         ] {
             let lua = generate_lua(&ir).unwrap();
-            let committed =
-                std::fs::read_to_string(format!("examples/{name}/gen/dissector.lua")).unwrap();
+            let committed = std::fs::read_to_string(format!(
+                "{}/gen/dissector.lua",
+                crate::examples::gallery_dir(name).unwrap()
+            ))
+            .unwrap();
             assert_eq!(
                 lua, committed,
                 "examples/{name} dissector.lua drifted; regenerate: ./dev.sh scripts/gen-examples.sh"

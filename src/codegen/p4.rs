@@ -774,8 +774,11 @@ mod tests {
             ("sai_parser", crate::examples::sai_parser()),
         ] {
             let p4 = generate_p4(&ir).unwrap();
-            let committed =
-                std::fs::read_to_string(format!("examples/{name}/gen/parser.p4")).unwrap();
+            let committed = std::fs::read_to_string(format!(
+                "{}/gen/parser.p4",
+                crate::examples::gallery_dir(name).unwrap()
+            ))
+            .unwrap();
             assert_eq!(
                 p4, committed,
                 "examples/{name} parser.p4 drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
@@ -791,7 +794,7 @@ mod tests {
         let err = generate_p4(&crate::examples::tlv_items()).unwrap_err();
         assert!(err.to_string().contains("P4-16 parser expressiveness"));
         assert!(
-            std::path::Path::new("examples/tlv_items/gen/P4-UNSUPPORTED.txt").exists(),
+            std::path::Path::new("examples/synthetic/tlv_items/gen/P4-UNSUPPORTED.txt").exists(),
             "marker artifact missing; regenerate: ./dev.sh scripts/gen-examples.sh"
         );
     }

@@ -1348,8 +1348,11 @@ mod tests {
                 ("parser.c", &arts.source),
                 ("parser.bpf.c", &bpf),
             ] {
-                let committed =
-                    std::fs::read_to_string(format!("examples/{name}/gen/{file}")).unwrap();
+                let committed = std::fs::read_to_string(format!(
+                    "{}/gen/{file}",
+                    crate::examples::gallery_dir(name).unwrap()
+                ))
+                .unwrap();
                 assert_eq!(
                     *fresh, committed,
                     "examples/{name} {file} drifted; regenerate: ./dev.sh scripts/gen-examples.sh"

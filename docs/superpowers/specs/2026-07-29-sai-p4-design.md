@@ -112,7 +112,7 @@ exercised only when injecting on port 510, which the corpus does not).
 ## 7. Gate shape
 
 - **Committed golden** (version-tagged by the sonic-pins commit):
-  `examples/sai_parser/conformance/sai.<pin>.golden.json`, minted by
+  `examples/real_world/sai_parser/conformance/sai.<pin>.golden.json`, minted by
   `oracle/sai_p4/factory/capture.sh` (compile the patched incumbent,
   run the corpus through `simple_switch`, read the verdict). Everyday
   gate test diffs our projection against it.

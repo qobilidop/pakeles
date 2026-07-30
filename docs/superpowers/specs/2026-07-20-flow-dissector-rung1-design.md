@@ -38,7 +38,7 @@ The CI golden-refresh workflow gains the two apt packages; otherwise unchanged. 
 
 **No IR schema change.** New surface is example-level + one eDSL affordance.
 
-**Header types** (in `examples/linux_flow_dissector/linux_flow_dissector.py`):
+**Header types** (in `examples/real_world/linux_flow_dissector/linux_flow_dissector.py`):
 
 - `VLAN`: `pcp` (3), `dei` (1), `vid` (12), `encapsulated_proto` (16). tshark tags where clean (`vlan.priority`, `vlan.dei`, `vlan.id`, `vlan.etype`).
 - `MPLS`: `label` (20), `tc` (3), `s` (1), `ttl` (8). tshark tags where clean (`mpls.label`, `mpls.exp`, `mpls.bottom`, `mpls.ttl`).

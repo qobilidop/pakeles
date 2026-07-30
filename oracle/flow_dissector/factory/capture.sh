@@ -20,7 +20,7 @@ fi
 
 ver="$(uname -r)"
 short="${ver%%-*}"
-out="../../../examples/linux_flow_dissector/conformance/flow_keys.linux-${short}.golden.json"
+out="../../../examples/real_world/linux_flow_dissector/conformance/flow_keys.linux-${short}.golden.json"
 mkdir -p "$(dirname "$out")"
 
 # -I the multiarch dir so <asm/types.h> resolves under -target bpf (works

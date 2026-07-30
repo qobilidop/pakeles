@@ -148,7 +148,10 @@ enum Oracle {
         #[arg(long)]
         ir: Option<PathBuf>,
         /// Vector suite (testvec JSON). Defaults to the gallery suite.
-        #[arg(long, default_value = "examples/eth_ipvx_l4/conformance/vectors.json")]
+        #[arg(
+            long,
+            default_value = "examples/synthetic/eth_ipvx_l4/conformance/vectors.json"
+        )]
         vectors: PathBuf,
     },
     /// Diff our projected (bitmap, err) against sonic-pins-minted goldens.
@@ -178,7 +181,7 @@ enum Oracle {
         ir: Option<PathBuf>,
         /// Golden file path. Defaults to the committed DPDK-minted
         /// goldens (`ptype.dpdk-*.golden.json`) under
-        /// examples/dpdk_ptype/conformance/.
+        /// examples/real_world/dpdk_ptype/conformance/.
         #[arg(long)]
         goldens: Option<PathBuf>,
     },
@@ -188,7 +191,7 @@ enum Oracle {
         ir: Option<PathBuf>,
         /// Golden file path. Defaults to the committed kernel-captured
         /// goldens (`flow_keys.linux-*.golden.json`) under
-        /// examples/linux_flow_dissector/conformance/.
+        /// examples/real_world/linux_flow_dissector/conformance/.
         #[arg(long)]
         goldens: Option<PathBuf>,
     },
@@ -304,7 +307,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
                 ))
                 .context(
                     "no --goldens given and no committed sai.*.golden.json \
-                     found under examples/sai_parser/conformance/",
+                     found under examples/real_world/sai_parser/conformance/",
                 )?,
             };
             let golden: crate::oracle::sai::GoldenFile = serde_json::from_str(
@@ -336,7 +339,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
                 ))
                 .context(
                     "no --goldens given and no committed katran.*.golden.json \
-                     found under examples/katran_flow/conformance/",
+                     found under examples/real_world/katran_flow/conformance/",
                 )?,
             };
             let golden: crate::oracle::katran::GoldenFile =
@@ -368,7 +371,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
                 )
                 .context(
                     "no --goldens given and no committed clienthello.rustls-*.golden.json \
-                     found under examples/tls_clienthello/conformance/",
+                     found under examples/real_world/tls_clienthello/conformance/",
                 )?,
             };
             let golden: crate::oracle::tls_clienthello::GoldenFile =
@@ -400,7 +403,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
                 ))
                 .context(
                     "no --goldens given and no committed ptype.dpdk-*.golden.json \
-                     found under examples/dpdk_ptype/conformance/",
+                     found under examples/real_world/dpdk_ptype/conformance/",
                 )?,
             };
             let golden: crate::oracle::dpdk_ptype::GoldenFile =
@@ -432,7 +435,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
                 )
                 .context(
                     "no --goldens given and no committed flow_keys.linux-*.golden.json \
-                     found under examples/linux_flow_dissector/conformance/",
+                     found under examples/real_world/linux_flow_dissector/conformance/",
                 )?,
             };
             let golden: crate::oracle::flow_dissector::GoldenFile =

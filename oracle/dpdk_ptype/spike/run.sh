@@ -7,12 +7,12 @@
 # witness set, then the benchmark over the corpus.
 set -euo pipefail
 cd "$(dirname "$0")"
-gen=../../../examples/dpdk_ptype/gen
+gen=../../../examples/real_world/dpdk_ptype/gen
 mkdir -p build
 gcc -O2 -I"$gen" -o build/spike spike.c "$gen/parser.c" $(pkg-config --cflags --libs libdpdk)
 python3 - <<'PY'
 import json
-s = json.load(open("../../../examples/dpdk_ptype/conformance/vectors.json"))
+s = json.load(open("../../../examples/real_world/dpdk_ptype/conformance/vectors.json"))
 seen, out = set(), []
 for v in s["vectors"]:
     bl = int(v["packet"]["bitLen"])

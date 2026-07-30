@@ -83,11 +83,11 @@ ext 0 = SNI: list-len16, entry: name_type8 len16 hostname).
 - `docs/superpowers/specs/2026-07-21-flow-dissector-rung3-design.md` —
   where the sized-region/TLV slice was deferred; recover the original
   framing.
-- `examples/katran_flow/` + `src/oracle/katran.rs` +
+- `examples/real_world/katran_flow/` + `src/oracle/katran.rs` +
   `docs/designs/2026-07-29-katran-ebpf-deliverable.md` — freshest
   oracle/projection/gate shape + the eBPF-loads-in-real-kernel
   deliverable this run extends.
-- `examples/dpdk_ptype/` — C-backend projection + laxness precedent.
+- `examples/real_world/dpdk_ptype/` — C-backend projection + laxness precedent.
 - Memory: `parser-target-roadmap`, `p4-parity-ambition` (max_depth =
   sole termination authority — the TLV loop MUST honor this),
   `symex-perf` (field-variable encoding, incremental session, arm

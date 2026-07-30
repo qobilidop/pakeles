@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-29 (sai_parser autonomous run, plan T6)
 **Artifacts:** `oracle/sai_p4/` (vendored incumbent + verdict-patch
-factory), `examples/sai_parser/`, `src/oracle/sai.rs`.
+factory), `examples/real_world/sai_parser/`, `src/oracle/sai.rs`.
 
 ## The claim
 
@@ -19,7 +19,7 @@ The incumbent is a P4 program on BMv2 `simple_switch` — the same engine
 Pakeles's own P4 backend targets and the everyday `bmv2.rs` gate already
 drives. So two independent P4 programs are compared on one switch:
 
-- **Ours:** `examples/sai_parser/gen/parser.p4`, generated from the IR,
+- **Ours:** `examples/real_world/sai_parser/gen/parser.p4`, generated from the IR,
   checked against the Pakeles interpreter by `bmv2.rs` (the existing
   in-gate BMv2 differential).
 - **Theirs:** the vendored sonic-pins parser, instrumented to emit the

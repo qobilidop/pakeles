@@ -17,7 +17,7 @@ if [ $# -ge 1 ]; then
   build/capture build/balancer.o "$1"
 else
   short="${KATRAN_PIN:0:12}"
-  out="../../../examples/katran_flow/conformance/katran.${short}.golden.json"
+  out="../../../examples/real_world/katran_flow/conformance/katran.${short}.golden.json"
   mkdir -p "$(dirname "$out")"
   build/capture build/balancer.o corpus.txt > "$out"
   echo "minted $out (katran@${KATRAN_PIN})"

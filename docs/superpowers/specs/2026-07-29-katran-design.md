@@ -236,7 +236,7 @@ flow-dissector's is_encap).
 ## 9. Gate shape
 
 - **Committed golden** (privileged mint, flow-dissector factory
-  pattern): `examples/katran_flow/conformance/katran.<pin>.golden.json`
+  pattern): `examples/real_world/katran_flow/conformance/katran.<pin>.golden.json`
   minted ONLY by `oracle/katran/factory/capture.sh` at pin dd915fd2
   with ALL MAPS EMPTY (config C collapses to "empty" now that QUIC is a
   boundary — the core parse needs no vip/real config). Everyday unprivileged gate test diffs our projection against

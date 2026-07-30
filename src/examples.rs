@@ -12,16 +12,48 @@
 
 use crate::ir::pb;
 
+/// Gallery examples built to isolate one IR capability (no incumbent
+/// to agree with) — `examples/synthetic/`.
+pub const SYNTHETIC: [&str; 3] = ["eth_ipvx_l4", "counted_items", "tlv_items"];
+
+/// Gallery examples checked against a real implementation at a pinned
+/// version — `examples/real_world/`.
+pub const REAL_WORLD: [&str; 5] = [
+    "linux_flow_dissector",
+    "dpdk_ptype",
+    "katran_flow",
+    "sai_parser",
+    "tls_clienthello",
+];
+
+/// Directory holding a gallery example, e.g.
+/// `examples/real_world/tls_clienthello`. The single place the
+/// synthetic/real_world split is encoded for path building. `None` for
+/// a name that is not in the gallery (test-only IRs built inline, like
+/// `builder::tlv_mini`, have no committed directory).
+pub fn gallery_dir(name: &str) -> Option<String> {
+    let group = if SYNTHETIC.contains(&name) {
+        "synthetic"
+    } else if REAL_WORLD.contains(&name) {
+        "real_world"
+    } else {
+        return None;
+    };
+    Some(format!("examples/{group}/{name}"))
+}
+
 /// The gallery example, parsed from the embedded committed IR.
 pub fn eth_ipvx_l4() -> pb::Ir {
-    crate::ir::from_json(include_str!("../examples/eth_ipvx_l4/eth_ipvx_l4.ir.json"))
-        .expect("committed example IR must parse")
+    crate::ir::from_json(include_str!(
+        "../examples/synthetic/eth_ipvx_l4/eth_ipvx_l4.ir.json"
+    ))
+    .expect("committed example IR must parse")
 }
 
 /// The linux_flow_dissector example, parsed from its committed IR.
 pub fn linux_flow_dissector() -> pb::Ir {
     crate::ir::from_json(include_str!(
-        "../examples/linux_flow_dissector/linux_flow_dissector.ir.json"
+        "../examples/real_world/linux_flow_dissector/linux_flow_dissector.ir.json"
     ))
     .expect("committed linux_flow_dissector IR must parse")
 }
@@ -29,28 +61,34 @@ pub fn linux_flow_dissector() -> pb::Ir {
 /// The dpdk_ptype example (DPDK rte_net_get_ptype agreement), parsed
 /// from its committed IR.
 pub fn dpdk_ptype() -> pb::Ir {
-    crate::ir::from_json(include_str!("../examples/dpdk_ptype/dpdk_ptype.ir.json"))
-        .expect("committed dpdk_ptype IR must parse")
+    crate::ir::from_json(include_str!(
+        "../examples/real_world/dpdk_ptype/dpdk_ptype.ir.json"
+    ))
+    .expect("committed dpdk_ptype IR must parse")
 }
 
 /// The katran_flow example (Katran XDP parse-path agreement), parsed
 /// from its committed IR.
 pub fn katran_flow() -> pb::Ir {
-    crate::ir::from_json(include_str!("../examples/katran_flow/katran_flow.ir.json"))
-        .expect("committed katran_flow IR must parse")
+    crate::ir::from_json(include_str!(
+        "../examples/real_world/katran_flow/katran_flow.ir.json"
+    ))
+    .expect("committed katran_flow IR must parse")
 }
 
 /// The sai_parser example (SONiC PINS parser agreement), parsed from
 /// its committed IR.
 pub fn sai_parser() -> pb::Ir {
-    crate::ir::from_json(include_str!("../examples/sai_parser/sai_parser.ir.json"))
-        .expect("committed sai_parser IR must parse")
+    crate::ir::from_json(include_str!(
+        "../examples/real_world/sai_parser/sai_parser.ir.json"
+    ))
+    .expect("committed sai_parser IR must parse")
 }
 
 /// The metadata-v1 toy example, parsed from the embedded committed IR.
 pub fn counted_items() -> pb::Ir {
     crate::ir::from_json(include_str!(
-        "../examples/counted_items/counted_items.ir.json"
+        "../examples/synthetic/counted_items/counted_items.ir.json"
     ))
     .expect("committed example IR must parse")
 }
@@ -58,15 +96,17 @@ pub fn counted_items() -> pb::Ir {
 /// The sized-region toy example (length-bounded TLV items), parsed
 /// from the embedded committed IR.
 pub fn tlv_items() -> pb::Ir {
-    crate::ir::from_json(include_str!("../examples/tlv_items/tlv_items.ir.json"))
-        .expect("committed example IR must parse")
+    crate::ir::from_json(include_str!(
+        "../examples/synthetic/tlv_items/tlv_items.ir.json"
+    ))
+    .expect("committed example IR must parse")
 }
 
 /// The TLS ClientHello / SNI flagship (rustls agreement), parsed from
 /// its committed IR.
 pub fn tls_clienthello() -> pb::Ir {
     crate::ir::from_json(include_str!(
-        "../examples/tls_clienthello/tls_clienthello.ir.json"
+        "../examples/real_world/tls_clienthello/tls_clienthello.ir.json"
     ))
     .expect("committed tls_clienthello IR must parse")
 }
@@ -86,7 +126,7 @@ mod tests {
         // canonical serializer emits — the anti-drift "canonical form"
         // guard (replaces the old builder-vs-committed check).
         let committed =
-            std::fs::read_to_string("examples/eth_ipvx_l4/eth_ipvx_l4.ir.json").unwrap();
+            std::fs::read_to_string("examples/synthetic/eth_ipvx_l4/eth_ipvx_l4.ir.json").unwrap();
         let round = crate::ir::to_json(&crate::ir::from_json(&committed).unwrap()).unwrap();
         assert_eq!(
             round, committed,
@@ -97,7 +137,8 @@ mod tests {
     #[test]
     fn committed_py_example_current() {
         let canonical = std::fs::read_to_string("py/src/pakeles/examples/eth_ipvx_l4.py").unwrap();
-        let mirrored = std::fs::read_to_string("examples/eth_ipvx_l4/eth_ipvx_l4.py").unwrap();
+        let mirrored =
+            std::fs::read_to_string("examples/synthetic/eth_ipvx_l4/eth_ipvx_l4.py").unwrap();
         assert_eq!(
             canonical, mirrored,
             "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
@@ -114,9 +155,10 @@ mod tests {
         // The committed file must already be exactly what the Rust
         // canonical serializer emits — the anti-drift "canonical form"
         // guard (replaces the old builder-vs-committed check).
-        let committed =
-            std::fs::read_to_string("examples/linux_flow_dissector/linux_flow_dissector.ir.json")
-                .unwrap();
+        let committed = std::fs::read_to_string(
+            "examples/real_world/linux_flow_dissector/linux_flow_dissector.ir.json",
+        )
+        .unwrap();
         let round = crate::ir::to_json(&crate::ir::from_json(&committed).unwrap()).unwrap();
         assert_eq!(
             round, committed,
@@ -128,9 +170,10 @@ mod tests {
     fn linux_flow_dissector_committed_py_example_current() {
         let canonical =
             std::fs::read_to_string("py/src/pakeles/examples/linux_flow_dissector.py").unwrap();
-        let mirrored =
-            std::fs::read_to_string("examples/linux_flow_dissector/linux_flow_dissector.py")
-                .unwrap();
+        let mirrored = std::fs::read_to_string(
+            "examples/real_world/linux_flow_dissector/linux_flow_dissector.py",
+        )
+        .unwrap();
         assert_eq!(
             canonical, mirrored,
             "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
@@ -147,7 +190,8 @@ mod tests {
         // The committed file must already be exactly what the Rust
         // canonical serializer emits — the anti-drift "canonical form"
         // guard (replaces the old builder-vs-committed check).
-        let committed = std::fs::read_to_string("examples/dpdk_ptype/dpdk_ptype.ir.json").unwrap();
+        let committed =
+            std::fs::read_to_string("examples/real_world/dpdk_ptype/dpdk_ptype.ir.json").unwrap();
         let round = crate::ir::to_json(&crate::ir::from_json(&committed).unwrap()).unwrap();
         assert_eq!(
             round, committed,
@@ -158,7 +202,8 @@ mod tests {
     #[test]
     fn dpdk_ptype_committed_py_example_current() {
         let canonical = std::fs::read_to_string("py/src/pakeles/examples/dpdk_ptype.py").unwrap();
-        let mirrored = std::fs::read_to_string("examples/dpdk_ptype/dpdk_ptype.py").unwrap();
+        let mirrored =
+            std::fs::read_to_string("examples/real_world/dpdk_ptype/dpdk_ptype.py").unwrap();
         assert_eq!(
             canonical, mirrored,
             "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
@@ -173,7 +218,7 @@ mod tests {
     #[test]
     fn katran_flow_committed_ir_json_is_canonical() {
         let committed =
-            std::fs::read_to_string("examples/katran_flow/katran_flow.ir.json").unwrap();
+            std::fs::read_to_string("examples/real_world/katran_flow/katran_flow.ir.json").unwrap();
         let round = crate::ir::to_json(&crate::ir::from_json(&committed).unwrap()).unwrap();
         assert_eq!(
             round, committed,
@@ -184,7 +229,8 @@ mod tests {
     #[test]
     fn katran_flow_committed_py_example_current() {
         let canonical = std::fs::read_to_string("py/src/pakeles/examples/katran_flow.py").unwrap();
-        let mirrored = std::fs::read_to_string("examples/katran_flow/katran_flow.py").unwrap();
+        let mirrored =
+            std::fs::read_to_string("examples/real_world/katran_flow/katran_flow.py").unwrap();
         assert_eq!(
             canonical, mirrored,
             "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
@@ -198,7 +244,8 @@ mod tests {
 
     #[test]
     fn sai_parser_committed_ir_json_is_canonical() {
-        let committed = std::fs::read_to_string("examples/sai_parser/sai_parser.ir.json").unwrap();
+        let committed =
+            std::fs::read_to_string("examples/real_world/sai_parser/sai_parser.ir.json").unwrap();
         let round = crate::ir::to_json(&crate::ir::from_json(&committed).unwrap()).unwrap();
         assert_eq!(
             round, committed,
@@ -209,7 +256,8 @@ mod tests {
     #[test]
     fn sai_parser_committed_py_example_current() {
         let canonical = std::fs::read_to_string("py/src/pakeles/examples/sai_parser.py").unwrap();
-        let mirrored = std::fs::read_to_string("examples/sai_parser/sai_parser.py").unwrap();
+        let mirrored =
+            std::fs::read_to_string("examples/real_world/sai_parser/sai_parser.py").unwrap();
         assert_eq!(
             canonical, mirrored,
             "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
@@ -227,7 +275,8 @@ mod tests {
         // canonical serializer emits — the anti-drift "canonical form"
         // guard (replaces the old builder-vs-committed check).
         let committed =
-            std::fs::read_to_string("examples/counted_items/counted_items.ir.json").unwrap();
+            std::fs::read_to_string("examples/synthetic/counted_items/counted_items.ir.json")
+                .unwrap();
         let round = crate::ir::to_json(&crate::ir::from_json(&committed).unwrap()).unwrap();
         assert_eq!(
             round, committed,
@@ -239,7 +288,8 @@ mod tests {
     fn counted_items_committed_py_example_current() {
         let canonical =
             std::fs::read_to_string("py/src/pakeles/examples/counted_items.py").unwrap();
-        let mirrored = std::fs::read_to_string("examples/counted_items/counted_items.py").unwrap();
+        let mirrored =
+            std::fs::read_to_string("examples/synthetic/counted_items/counted_items.py").unwrap();
         assert_eq!(
             canonical, mirrored,
             "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
@@ -253,7 +303,8 @@ mod tests {
 
     #[test]
     fn tlv_items_committed_ir_json_is_canonical() {
-        let committed = std::fs::read_to_string("examples/tlv_items/tlv_items.ir.json").unwrap();
+        let committed =
+            std::fs::read_to_string("examples/synthetic/tlv_items/tlv_items.ir.json").unwrap();
         let round = crate::ir::to_json(&crate::ir::from_json(&committed).unwrap()).unwrap();
         assert_eq!(
             round, committed,
@@ -264,7 +315,8 @@ mod tests {
     #[test]
     fn tlv_items_committed_py_example_current() {
         let canonical = std::fs::read_to_string("py/src/pakeles/examples/tlv_items.py").unwrap();
-        let mirrored = std::fs::read_to_string("examples/tlv_items/tlv_items.py").unwrap();
+        let mirrored =
+            std::fs::read_to_string("examples/synthetic/tlv_items/tlv_items.py").unwrap();
         assert_eq!(
             canonical, mirrored,
             "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
@@ -279,7 +331,8 @@ mod tests {
     #[test]
     fn tls_clienthello_committed_ir_json_is_canonical() {
         let committed =
-            std::fs::read_to_string("examples/tls_clienthello/tls_clienthello.ir.json").unwrap();
+            std::fs::read_to_string("examples/real_world/tls_clienthello/tls_clienthello.ir.json")
+                .unwrap();
         let round = crate::ir::to_json(&crate::ir::from_json(&committed).unwrap()).unwrap();
         assert_eq!(
             round, committed,
@@ -292,7 +345,8 @@ mod tests {
         let canonical =
             std::fs::read_to_string("py/src/pakeles/examples/tls_clienthello.py").unwrap();
         let mirrored =
-            std::fs::read_to_string("examples/tls_clienthello/tls_clienthello.py").unwrap();
+            std::fs::read_to_string("examples/real_world/tls_clienthello/tls_clienthello.py")
+                .unwrap();
         assert_eq!(
             canonical, mirrored,
             "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
