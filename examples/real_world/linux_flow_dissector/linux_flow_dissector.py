@@ -50,6 +50,7 @@ packets are plain version-0 GRE on both sides — faithful by construction.
 from pakeles import (
     ArmKey,
     Header,
+    LabeledEnum,
     Metadata,
     Parser,
     State,
@@ -66,6 +67,35 @@ from pakeles import (
 from pakeles.fmt import DEC, ETHER, HEX, IPV4
 
 
+class EtherType(LabeledEnum):
+    """The EtherType registry slice the dissector touches — one
+    vocabulary for the select arms and the fields' display labels."""
+
+    IPV4 = 0x0800, "IPv4"
+    ARP = 0x0806
+    TEB = 0x6558
+    VLAN_Q = 0x8100, "802.1Q VLAN"
+    IPV6 = 0x86DD, "IPv6"
+    MPLS_UC = 0x8847, "MPLS unicast"
+    MPLS_MC = 0x8848, "MPLS multicast"
+    VLAN_AD = 0x88A8, "802.1AD (QinQ)"
+
+
+class IPProto(LabeledEnum):
+    """IP protocol numbers, kernel `IPPROTO_*` names — 41 is
+    `IPPROTO_IPV6`, the IPv6-in-IP encapsulation next-header."""
+
+    HOPOPTS = 0
+    ICMP = 1
+    IPIP = 4
+    TCP = 6
+    UDP = 17
+    IPV6 = 41, "IPv6-in-IP"
+    FRAGMENT = 44
+    GRE = 47
+    DSTOPTS = 60
+
+
 class Ethernet(Header):
     dst = bits(48, "Destination", ETHER, tshark="eth.dst")
     src = bits(48, "Source", ETHER, tshark="eth.src")
@@ -74,15 +104,15 @@ class Ethernet(Header):
         "Type",
         HEX,
         tshark="eth.type",
-        labels={
-            0x0800: "IPv4",
-            0x0806: "ARP",
-            0x8100: "802.1Q VLAN",
-            0x86DD: "IPv6",
-            0x88A8: "802.1AD (QinQ)",
-            0x8847: "MPLS unicast",
-            0x8848: "MPLS multicast",
-        },
+        labels=[
+            EtherType.IPV4,
+            EtherType.IPV6,
+            EtherType.ARP,
+            EtherType.VLAN_Q,
+            EtherType.VLAN_AD,
+            EtherType.MPLS_UC,
+            EtherType.MPLS_MC,
+        ],
     )
 
 
@@ -95,12 +125,12 @@ class VLAN(Header):
         "Type",
         HEX,
         tshark="vlan.etype",
-        labels={
-            0x0800: "IPv4",
-            0x86DD: "IPv6",
-            0x8847: "MPLS unicast",
-            0x8848: "MPLS multicast",
-        },
+        labels=[
+            EtherType.IPV4,
+            EtherType.IPV6,
+            EtherType.MPLS_UC,
+            EtherType.MPLS_MC,
+        ],
     )
 
 
@@ -130,7 +160,14 @@ class IPv4(Header):
         "Protocol",
         DEC,
         tshark="ip.proto",
-        labels={1: "ICMP", 4: "IPIP", 6: "TCP", 17: "UDP", 41: "IPv6-in-IP", 47: "GRE"},
+        labels=[
+            IPProto.ICMP,
+            IPProto.IPIP,
+            IPProto.TCP,
+            IPProto.UDP,
+            IPProto.IPV6,
+            IPProto.GRE,
+        ],
     )
     checksum = bits(16, "Header Checksum", HEX, tshark="ip.checksum")
     src = bits(32, "Source Address", IPV4, tshark="ip.src")
@@ -148,7 +185,14 @@ class IPv6(Header):
         "Next Header",
         DEC,
         tshark="ipv6.nxt",
-        labels={1: "ICMP", 4: "IPIP", 6: "TCP", 17: "UDP", 41: "IPv6-in-IP", 47: "GRE"},
+        labels=[
+            IPProto.ICMP,
+            IPProto.IPIP,
+            IPProto.TCP,
+            IPProto.UDP,
+            IPProto.IPV6,
+            IPProto.GRE,
+        ],
     )
     hop_limit = bits(8, "Hop Limit", DEC, tshark="ipv6.hlim")
     # 128-bit addresses exceed the fixed-`bits` ceiling: opaque 16-byte runs.
@@ -189,7 +233,7 @@ class GRE(Header):  # 4-byte base; the kernel masks only C/K/S/version
         16,
         "Protocol Type",
         HEX,
-        labels={0x0800: "IPv4", 0x86DD: "IPv6", 0x6558: "TEB"},
+        labels=[EtherType.IPV4, EtherType.IPV6, EtherType.TEB],
     )
 
 
@@ -244,11 +288,11 @@ class LinuxFlowDissector(Parser):
         return extract(Ethernet).select(
             Ethernet.ethertype,
             {
-                0x0800: self.parse_ipv4,
-                0x86DD: self.parse_ipv6,
-                0x8100: self.parse_vlan_q,
-                0x88A8: self.parse_vlan_ad,
-                oneof(0x8847, 0x8848): self.parse_mpls,
+                EtherType.IPV4: self.parse_ipv4,
+                EtherType.IPV6: self.parse_ipv6,
+                EtherType.VLAN_Q: self.parse_vlan_q,
+                EtherType.VLAN_AD: self.parse_vlan_ad,
+                oneof(EtherType.MPLS_UC, EtherType.MPLS_MC): self.parse_mpls,
             },
             default=reject("unsupported ethertype", info=True),
         )
@@ -258,7 +302,7 @@ class LinuxFlowDissector(Parser):
         followed by exactly one 802.1Q C-tag."""
         return extract(vlan_ad).select(
             vlan_ad.encapsulated_proto,
-            {0x8100: self.parse_vlan_q},
+            {EtherType.VLAN_Q: self.parse_vlan_q},
             default=reject("802.1AD must be followed by 802.1Q"),
         )
 
@@ -269,10 +313,12 @@ class LinuxFlowDissector(Parser):
         return extract(vlan_q).select(
             vlan_q.encapsulated_proto,
             {
-                0x0800: self.parse_ipv4,
-                0x86DD: self.parse_ipv6,
-                oneof(0x8847, 0x8848): self.parse_mpls,
-                oneof(0x8100, 0x88A8): reject("vlan stacking beyond kernel depth"),
+                EtherType.IPV4: self.parse_ipv4,
+                EtherType.IPV6: self.parse_ipv6,
+                oneof(EtherType.MPLS_UC, EtherType.MPLS_MC): self.parse_mpls,
+                oneof(EtherType.VLAN_Q, EtherType.VLAN_AD): reject(
+                    "vlan stacking beyond kernel depth"
+                ),
             },
             default=reject("unsupported ethertype", info=True),
         )
@@ -281,19 +327,19 @@ class LinuxFlowDissector(Parser):
         """The kernel's parse_ip_proto dispatch, shared by the IPv4,
         IPv6, and IPv6-extension-option states."""
         return {
-            4: self.parse_ipip,
-            6: self.parse_tcp,
-            17: self.parse_udp,
-            41: self.parse_ip6ip,
-            47: self.parse_gre,
+            IPProto.IPIP: self.parse_ipip,
+            IPProto.TCP: self.parse_tcp,
+            IPProto.UDP: self.parse_udp,
+            IPProto.IPV6: self.parse_ip6ip,
+            IPProto.GRE: self.parse_gre,
         }
 
     def _ipv6_arms(self) -> dict[ArmKey, Target]:
         """parse_ip_proto plus the extension-header arms."""
         return {
-            0x00: self.parse_ipv6_opt,  # HopByHop
-            0x3C: self.parse_ipv6_opt,  # DestOpts (60)
-            0x2C: self.parse_ipv6_frag,  # Fragment (44)
+            IPProto.HOPOPTS: self.parse_ipv6_opt,
+            IPProto.DSTOPTS: self.parse_ipv6_opt,
+            IPProto.FRAGMENT: self.parse_ipv6_frag,
             **self._ip_proto_arms(),
         }
 
@@ -351,9 +397,9 @@ class LinuxFlowDissector(Parser):
             .select(
                 GRE.proto,
                 {
-                    0x0800: self.parse_ipv4,
-                    0x86DD: self.parse_ipv6,
-                    0x6558: self.parse_ethernet,
+                    EtherType.IPV4: self.parse_ipv4,
+                    EtherType.IPV6: self.parse_ipv6,
+                    EtherType.TEB: self.parse_ethernet,
                 },
                 default=reject("unsupported gre proto", info=True),
             )

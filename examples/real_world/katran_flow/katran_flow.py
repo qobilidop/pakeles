@@ -41,6 +41,7 @@ TEST_RUN cannot deliver them).
 
 from pakeles import (
     Header,
+    LabeledEnum,
     Metadata,
     Parser,
     State,
@@ -55,13 +56,41 @@ from pakeles import (
 )
 from pakeles.fmt import DEC, ETHER, HEX, IPV4
 
-_IP_PROTO_LABELS = {1: "ICMP", 4: "IPIP", 6: "TCP", 17: "UDP", 41: "IPv6-in-IP", 58: "ICMPv6"}
+
+class EtherType(LabeledEnum):
+    IPV4 = 0x0800, "IPv4"
+    ARP = 0x0806
+    IPV6 = 0x86DD, "IPv6"
+
+
+class IPProto(LabeledEnum):
+    """Kernel `IPPROTO_*` names; 41 (`IPPROTO_IPV6`) is IPv6-in-IP."""
+
+    ICMP = 1
+    IPIP = 4
+    TCP = 6
+    UDP = 17
+    IPV6 = 41, "IPv6-in-IP"
+    FRAGMENT = 44
+    ICMPV6 = 58, "ICMPv6"
+
+
+# The labeled slice of IPProto on protocol/next_header fields (FRAGMENT
+# is dispatched — a reject arm — but not part of the display set).
+_IP_PROTO_LABELS = [
+    IPProto.ICMP,
+    IPProto.IPIP,
+    IPProto.TCP,
+    IPProto.UDP,
+    IPProto.IPV6,
+    IPProto.ICMPV6,
+]
 
 
 class Ethernet(Header):
     dst = bits(48, "Destination", ETHER)
     src = bits(48, "Source", ETHER)
-    ethertype = bits(16, "Type", HEX, labels={0x0800: "IPv4", 0x0806: "ARP", 0x86DD: "IPv6"})
+    ethertype = bits(16, "Type", HEX, labels=EtherType)
 
 
 class IPv4(Header):
@@ -142,7 +171,7 @@ class KatranFlow(Parser):
         accepts as XDP_PASS without entering the parser."""
         return extract(Ethernet).select(
             Ethernet.ethertype,
-            {0x0800: self.parse_ipv4, 0x86DD: self.parse_ipv6},
+            {EtherType.IPV4: self.parse_ipv4, EtherType.IPV6: self.parse_ipv6},
             default=accept(),
         )
 
@@ -158,7 +187,11 @@ class KatranFlow(Parser):
         """Proto dispatch (no extract): ICMP inner, TCP, UDP, else PASS."""
         return select(
             IPv4.protocol,
-            {1: self.parse_icmp, 6: self.parse_tcp, 17: self.parse_udp},
+            {
+                IPProto.ICMP: self.parse_icmp,
+                IPProto.TCP: self.parse_tcp,
+                IPProto.UDP: self.parse_udp,
+            },
             default=accept(),
         )
 
@@ -169,10 +202,10 @@ class KatranFlow(Parser):
         return extract(IPv6).select(
             IPv6.next_header,
             {
-                0x2C: reject("ipv6 fragment", info=False),  # 44
-                58: self.parse_icmp6,
-                6: self.parse_tcp,
-                17: self.parse_udp,
+                IPProto.FRAGMENT: reject("ipv6 fragment", info=False),
+                IPProto.ICMPV6: self.parse_icmp6,
+                IPProto.TCP: self.parse_tcp,
+                IPProto.UDP: self.parse_udp,
             },
             default=accept(),
         )
@@ -212,7 +245,7 @@ class KatranFlow(Parser):
     def parse_inner_ipv4_proto(self) -> State:
         return select(
             inner_ipv4.protocol,
-            {6: self.parse_tcp, 17: self.parse_udp},
+            {IPProto.TCP: self.parse_tcp, IPProto.UDP: self.parse_udp},
             default=accept(),
         )
 
@@ -228,7 +261,7 @@ class KatranFlow(Parser):
             .assign(KatranMeta.is_icmp, 1)
             .select(
                 IPv6.next_header,
-                {6: self.parse_tcp, 17: self.parse_udp},
+                {IPProto.TCP: self.parse_tcp, IPProto.UDP: self.parse_udp},
                 default=accept(),
             )
         )

@@ -13,6 +13,7 @@ import re
 from typing import ClassVar
 
 from pakeles._expr import BoundField, Expr, FieldSpec, Operand, coerce_expr
+from pakeles._labels import LabelsArg, coerce_labels
 from pakeles._pb import ir_pb2
 
 
@@ -29,15 +30,18 @@ def bits(
     format: ir_pb2.DisplayFormat = ir_pb2.DISPLAY_FORMAT_UNSPECIFIED,
     *,
     doc: str = "",
-    labels: dict[int, str] | None = None,
+    labels: LabelsArg | None = None,
     tshark: str | None = None,
 ) -> FieldSpec:
-    """A fixed-width field (1..64 bits, big-endian MSB-first)."""
+    """A fixed-width field (1..64 bits, big-endian MSB-first).
+
+    `labels` maps values to display names: a `{value: label}` dict, a
+    `LabeledEnum` class, or a curated iterable of its members."""
     if not 1 <= width <= 64:
         raise ValueError(f"bits width must be 1..64, got {width}")
     spec = FieldSpec(width_bits=width, display_name=display, format=format, doc=doc)
-    if labels:
-        spec.labels = dict(labels)
+    if labels is not None:
+        spec.labels = coerce_labels(labels)
     if tshark is not None:
         spec.annotations["tshark.key"] = tshark
     return spec

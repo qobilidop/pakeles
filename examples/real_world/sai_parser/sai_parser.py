@@ -28,6 +28,7 @@ the CPU arm is not modeled and the corpus never injects on port 510).
 from pakeles import (
     ArmKey,
     Header,
+    LabeledEnum,
     Parser,
     State,
     Target,
@@ -38,21 +39,32 @@ from pakeles import (
 )
 from pakeles.fmt import DEC, ETHER, HEX, IPV4
 
-_ETHERTYPE = {0x0800: "IPv4", 0x0806: "ARP", 0x8100: "802.1Q VLAN", 0x86DD: "IPv6"}
-_IP_PROTO = {1: "ICMP", 6: "TCP", 17: "UDP", 58: "ICMPv6"}
+
+class EtherType(LabeledEnum):
+    IPV4 = 0x0800, "IPv4"
+    ARP = 0x0806
+    VLAN = 0x8100, "802.1Q VLAN"
+    IPV6 = 0x86DD, "IPv6"
+
+
+class IPProto(LabeledEnum):
+    ICMP = 1
+    TCP = 6
+    UDP = 17
+    ICMPV6 = 58, "ICMPv6"
 
 
 class Ethernet(Header):
     dst = bits(48, "Destination", ETHER)
     src = bits(48, "Source", ETHER)
-    ether_type = bits(16, "EtherType", HEX, labels=_ETHERTYPE)
+    ether_type = bits(16, "EtherType", HEX, labels=EtherType)
 
 
 class VLAN(Header):
     pcp = bits(3, "PCP", DEC)
     dei = bits(1, "DEI", DEC)
     vid = bits(12, "VLAN ID", DEC)
-    ether_type = bits(16, "EtherType", HEX, labels=_ETHERTYPE)
+    ether_type = bits(16, "EtherType", HEX, labels=EtherType)
 
 
 class IPv4(Header):
@@ -65,7 +77,7 @@ class IPv4(Header):
     flags = bits(3, "Flags", HEX)
     frag_offset = bits(13, "Fragment Offset", DEC)
     ttl = bits(8, "TTL", DEC)
-    protocol = bits(8, "Protocol", DEC, labels=_IP_PROTO)
+    protocol = bits(8, "Protocol", DEC, labels=IPProto)
     header_checksum = bits(16, "Header Checksum", HEX)
     src_addr = bits(32, "Source", IPV4)
     dst_addr = bits(32, "Destination", IPV4)
@@ -76,7 +88,7 @@ class IPv6(Header):
     traffic_class = bits(8, "Traffic Class", HEX)
     flow_label = bits(20, "Flow Label", HEX)
     payload_length = bits(16, "Payload Length", DEC)
-    next_header = bits(8, "Next Header", DEC, labels=_IP_PROTO)
+    next_header = bits(8, "Next Header", DEC, labels=IPProto)
     hop_limit = bits(8, "Hop Limit", DEC)
     src_addr = var_bytes(16)
     dst_addr = var_bytes(16)
@@ -125,13 +137,17 @@ class SaiParser(Parser):
     max_depth = 6
 
     def _l3_arms(self) -> dict[ArmKey, Target]:
-        return {0x0800: self.parse_ipv4, 0x86DD: self.parse_ipv6, 0x0806: self.parse_arp}
+        return {
+            EtherType.IPV4: self.parse_ipv4,
+            EtherType.IPV6: self.parse_ipv6,
+            EtherType.ARP: self.parse_arp,
+        }
 
     def parse_ethernet(self) -> State:
         """EtherType demux; 802.1Q -> vlan; else accept."""
         return extract(Ethernet).select(
             Ethernet.ether_type,
-            {**self._l3_arms(), 0x8100: self.parse_vlan},
+            {**self._l3_arms(), EtherType.VLAN: self.parse_vlan},
             default=accept(),
         )
 
@@ -143,7 +159,11 @@ class SaiParser(Parser):
     def parse_ipv4(self) -> State:
         return extract(IPv4).select(
             IPv4.protocol,
-            {1: self.parse_icmp, 6: self.parse_tcp, 17: self.parse_udp},
+            {
+                IPProto.ICMP: self.parse_icmp,
+                IPProto.TCP: self.parse_tcp,
+                IPProto.UDP: self.parse_udp,
+            },
             default=accept(),
         )
 
@@ -151,7 +171,11 @@ class SaiParser(Parser):
         """No extension-header handling: next_header taken as L4 directly."""
         return extract(IPv6).select(
             IPv6.next_header,
-            {58: self.parse_icmp, 6: self.parse_tcp, 17: self.parse_udp},
+            {
+                IPProto.ICMPV6: self.parse_icmp,
+                IPProto.TCP: self.parse_tcp,
+                IPProto.UDP: self.parse_udp,
+            },
             default=accept(),
         )
 

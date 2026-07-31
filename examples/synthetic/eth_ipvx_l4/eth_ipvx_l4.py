@@ -11,25 +11,30 @@ IPv6 addresses are 128-bit, above the fixed-`bits` ceiling, so they are
 `var_bytes` opaque runs (rendered as hex; not tshark-diffed).
 """
 
-from pakeles import Header, Parser, State, bits, extract, reject, var_bytes
+from pakeles import Header, LabeledEnum, Parser, State, bits, extract, reject, var_bytes
 from pakeles.fmt import DEC, ETHER, HEX, IPV4
+
+
+class EtherType(LabeledEnum):
+    """The EtherType slice this parser knows: one vocabulary for both
+    the select arms below and the field's display labels."""
+
+    IPV4 = 0x0800, "IPv4"
+    ARP = 0x0806
+    VLAN = 0x8100, "802.1Q VLAN"
+    IPV6 = 0x86DD, "IPv6"
+
+
+class IPProto(LabeledEnum):
+    ICMP = 1
+    TCP = 6
+    UDP = 17
 
 
 class Ethernet(Header):
     dst = bits(48, "Destination", ETHER, tshark="eth.dst")
     src = bits(48, "Source", ETHER, tshark="eth.src")
-    ethertype = bits(
-        16,
-        "Type",
-        HEX,
-        tshark="eth.type",
-        labels={
-            0x0800: "IPv4",
-            0x0806: "ARP",
-            0x8100: "802.1Q VLAN",
-            0x86DD: "IPv6",
-        },
-    )
+    ethertype = bits(16, "Type", HEX, tshark="eth.type", labels=EtherType)
 
 
 class IPv4(Header):
@@ -42,13 +47,7 @@ class IPv4(Header):
     flags = bits(3, "Flags", HEX)
     frag_offset = bits(13, "Fragment Offset", DEC)
     ttl = bits(8, "Time to Live", DEC, tshark="ip.ttl")
-    protocol = bits(
-        8,
-        "Protocol",
-        DEC,
-        tshark="ip.proto",
-        labels={1: "ICMP", 6: "TCP", 17: "UDP"},
-    )
+    protocol = bits(8, "Protocol", DEC, tshark="ip.proto", labels=IPProto)
     checksum = bits(16, "Header Checksum", HEX, tshark="ip.checksum")
     src = bits(32, "Source Address", IPV4, tshark="ip.src")
     dst = bits(32, "Destination Address", IPV4, tshark="ip.dst")
@@ -60,13 +59,7 @@ class IPv6(Header):
     traffic_class = bits(8, "Traffic Class", HEX)
     flow_label = bits(20, "Flow Label", HEX)
     payload_length = bits(16, "Payload Length", DEC, tshark="ipv6.plen")
-    next_header = bits(
-        8,
-        "Next Header",
-        DEC,
-        tshark="ipv6.nxt",
-        labels={1: "ICMP", 6: "TCP", 17: "UDP"},
-    )
+    next_header = bits(8, "Next Header", DEC, tshark="ipv6.nxt", labels=IPProto)
     hop_limit = bits(8, "Hop Limit", DEC, tshark="ipv6.hlim")
     # 128-bit addresses exceed the fixed-`bits` ceiling: opaque 16-byte runs.
     src = var_bytes(16)
@@ -99,21 +92,21 @@ class EthIpvxL4(Parser):
     def parse_ethernet(self) -> State:
         return extract(Ethernet).select(
             Ethernet.ethertype,
-            {0x0800: self.parse_ipv4, 0x86DD: self.parse_ipv6},
+            {EtherType.IPV4: self.parse_ipv4, EtherType.IPV6: self.parse_ipv6},
             default=reject("unsupported ethertype", info=True),
         )
 
     def parse_ipv4(self) -> State:
         return extract(IPv4).select(
             IPv4.protocol,
-            {6: self.parse_tcp, 17: self.parse_udp},
+            {IPProto.TCP: self.parse_tcp, IPProto.UDP: self.parse_udp},
             default=reject("unsupported ip protocol", info=True),
         )
 
     def parse_ipv6(self) -> State:
         return extract(IPv6).select(
             IPv6.next_header,
-            {6: self.parse_tcp, 17: self.parse_udp},
+            {IPProto.TCP: self.parse_tcp, IPProto.UDP: self.parse_udp},
             default=reject("unsupported ip protocol", info=True),
         )
 
