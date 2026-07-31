@@ -34,6 +34,14 @@ jobs:
           restore-keys: cargo-
 
       # Mirrors dev.sh mounts, with host dirs standing in for its volumes.
+      # gen_vectors regenerates the gitignored conformance suites from
+      # the committed IRs before testing — without it, every
+      # backend-conformance test would silently skip on a fresh
+      # checkout. It writes ONLY conformance/vectors.*; the committed
+      # gen/ artifacts stay untouched so their equality guards keep
+      # comparing committed against fresh. Release profile: the big
+      # suites (linux_flow_dissector, dpdk_ptype) are symex-bound and
+      # several times slower in debug.
       - name: Gate
         run: |
           mkdir -p .ci/cargo-registry .ci/target
@@ -42,4 +50,4 @@ jobs:
             -v "$PWD/.ci/target":/target \
             -v "$PWD/.ci/cargo-registry":/usr/local/cargo/registry \
             pakeles-dev \
-            sh -c 'cargo fmt --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace && buf lint && cd python && ruff check . && pyright && pytest'
+            sh -c 'cargo fmt --check && cargo clippy --workspace --all-targets -- -D warnings && cargo run --release --quiet --bin gen_vectors && cargo test --workspace && buf lint && cd python && ruff check . && pyright && pytest'

@@ -1,48 +1,11 @@
 //! Regenerates the examples/ gallery: every artifact one description
 //! yields, committed for browsing and equality-guarded by tests.
 
-use std::path::PathBuf;
-
-/// Repo root, derived from this crate's manifest dir — the bin works
-/// from any CWD.
-fn repo_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .expect("repo root")
-}
-
-/// The real-world gallery examples. This dev tool addresses them by
-/// path (keep in step with the workspace members and
-/// scripts/gen-examples.sh) so that it — like the CLI — carries no
-/// dependency on the example crates.
-const REAL_WORLD: [&str; 5] = [
-    "linux_flow_dissector",
-    "dpdk_ptype",
-    "katran_flow",
-    "sai_parser",
-    "tls_clienthello",
-];
-
-/// Every gallery example and its directory.
-fn gallery() -> Vec<(&'static str, PathBuf)> {
-    let root = repo_root();
-    pakeles::examples::SYNTHETIC
-        .iter()
-        .map(|n| (*n, root.join("examples/synthetic").join(n)))
-        .chain(
-            REAL_WORLD
-                .iter()
-                .map(|n| (*n, root.join("examples/real_world").join(n))),
-        )
-        .collect()
-}
+use pakeles_dev::{gallery, repo_root};
 
 fn regenerate(name: &str, dir: &std::path::Path) -> anyhow::Result<()> {
     let gen = dir.join("gen");
-    let conformance = dir.join("conformance");
     std::fs::create_dir_all(&gen)?;
-    std::fs::create_dir_all(&conformance)?;
     let ir = pakeles::ir::from_json(&std::fs::read_to_string(
         dir.join(format!("{name}.ir.json")),
     )?)?;
@@ -77,13 +40,7 @@ fn regenerate(name: &str, dir: &std::path::Path) -> anyhow::Result<()> {
         }
         Err(e) => return Err(e),
     }
-    let suite = pakeles::symex::testgen::generate(&ir)?;
-    std::fs::write(
-        conformance.join("vectors.json"),
-        pakeles::testvec::suite_to_json(&suite)?,
-    )?;
-    let (packets, _) = pakeles::testvec::suite_to_packets(&suite);
-    pakeles::pcapio::write_pcap(&conformance.join("vectors.pcap"), &packets)?;
+    pakeles_dev::write_vector_suite(name, dir)?;
     // Synthetic examples are embedded by the core crate from in-crate
     // mirrors (self-contained packaging); keep the mirror current.
     if pakeles::examples::SYNTHETIC.contains(&name) {

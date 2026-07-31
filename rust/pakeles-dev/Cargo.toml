@@ -3,7 +3,7 @@ name = "pakeles-dev"
 version = "0.1.0"
 edition = "2021"
 publish = false
-description = "Repo maintenance bins: pakeles-pbgen (vendored protobuf code), gen_fixtures (testdata), gen_examples (the gallery), symex_bench"
+description = "Repo maintenance bins: pakeles-pbgen (vendored protobuf code), gen_fixtures (testdata), gen_examples (the gallery), gen_vectors (the conformance suites, run by CI), symex_bench"
 
 [[bin]]
 name = "pakeles-pbgen"
@@ -12,6 +12,11 @@ path = "src/bin/pbgen.rs"
 [[bin]]
 name = "gen_examples"
 path = "src/bin/gen_examples.rs"
+required-features = ["symex"]
+
+[[bin]]
+name = "gen_vectors"
+path = "src/bin/gen_vectors.rs"
 required-features = ["symex"]
 
 [[bin]]

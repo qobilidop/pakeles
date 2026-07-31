@@ -4,8 +4,11 @@ __pycache__/
 *.pyc
 *.egg-info/
 
-# Generated conformance suites (churn on every IR/testgen change; regenerate
-# with ./dev.sh scripts/gen-examples.sh). Re-committed when the codebase stabilizes.
+# Generated conformance suites: they churn on every IR/testgen change,
+# so they stay uncommitted — locally regenerate with
+# ./dev.sh scripts/gen-examples.sh (or just `cargo run --bin
+# gen_vectors`); CI regenerates them before testing, so their absence
+# never weakens the gate.
 examples/*/*/conformance/vectors.json
 examples/*/*/conformance/vectors.pcap
 
