@@ -1,7 +1,7 @@
 //! The built-in synthetic gallery examples, loaded from their
 //! committed IR.
 //!
-//! The eDSL (`py/src/pakeles/examples/*.py`) is the single source of
+//! The eDSL (`python/src/pakeles/examples/*.py`) is the single source of
 //! truth; `scripts/gen-examples.sh` emits the canonical `ir.json` per
 //! example. Here we embed each committed file at compile time — this
 //! doubles as the CLI's default IR, so it must work outside the repo
@@ -77,7 +77,7 @@ mod tests {
     fn committed_py_example_current() {
         for name in SYNTHETIC {
             let canonical =
-                std::fs::read_to_string(format!("py/src/pakeles/examples/{name}.py")).unwrap();
+                std::fs::read_to_string(format!("python/src/pakeles/examples/{name}.py")).unwrap();
             let mirrored =
                 std::fs::read_to_string(format!("examples/synthetic/{name}/{name}.py")).unwrap();
             assert_eq!(

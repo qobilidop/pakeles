@@ -54,7 +54,7 @@ fn regenerate(name: &str, dir: &std::path::Path) -> anyhow::Result<()> {
         dir.join(format!("{name}.ir.json")),
     )?)?;
     std::fs::copy(
-        repo_root().join(format!("py/src/pakeles/examples/{name}.py")),
+        repo_root().join(format!("python/src/pakeles/examples/{name}.py")),
         dir.join(format!("{name}.py")),
     )?;
     std::fs::write(

@@ -13,11 +13,11 @@ for group in synthetic real_world; do
     dir="examples/$group/$name"
     mkdir -p "$dir"
     tmp="$(mktemp)"
-    PYTHONPATH=py/src python3 -m "pakeles.examples.$name" > "$tmp"
+    PYTHONPATH=python/src python3 -m "pakeles.examples.$name" > "$tmp"
     cargo run --quiet --bin pakeles -- fmt-ir --ir "$tmp" --out "$dir/$name.ir.json"
     rm -f "$tmp"
   done
 done
 cargo run --quiet --bin gen_fixtures
 cargo run --quiet --bin gen_examples
-echo "gallery regenerated from py/src/pakeles/examples/*.py"
+echo "gallery regenerated from python/src/pakeles/examples/*.py"

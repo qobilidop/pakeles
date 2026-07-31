@@ -8,7 +8,7 @@ CLI (`pakeles lint`).
 Dev loop (from the repo root, inside the dev container):
 
 ```sh
-./dev.sh sh -c 'cd py && ruff check . && pyright && pytest'
+./dev.sh sh -c 'cd python && ruff check . && pyright && pytest'
 ```
 
 `src/pakeles/examples/*.py` — one module per gallery example — is the
@@ -22,6 +22,6 @@ Regenerate the vendored proto modules after editing `proto/`:
 ```sh
 ./dev.sh sh -c 'protoc --proto_path=proto --python_out=/tmp/pbgen --pyi_out=/tmp/pbgen \
     proto/pakeles/ir/v1alpha1/ir.proto proto/pakeles/testvec/v1alpha1/testvec.proto \
-  && cp /tmp/pbgen/pakeles/ir/v1alpha1/ir_pb2.py* py/src/pakeles/_pb/ \
-  && cp /tmp/pbgen/pakeles/testvec/v1alpha1/testvec_pb2.py* py/src/pakeles/_pb/'
+  && cp /tmp/pbgen/pakeles/ir/v1alpha1/ir_pb2.py* python/src/pakeles/_pb/ \
+  && cp /tmp/pbgen/pakeles/testvec/v1alpha1/testvec_pb2.py* python/src/pakeles/_pb/'
 ```

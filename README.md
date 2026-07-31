@@ -14,7 +14,7 @@ provably agree. Parsing is the decidable subset of packet
 processing — parsers here are bounded by construction, which is what
 makes cross-artifact equivalence provable rather than merely tested.
 
-A description is authored in the Python eDSL (`py/`) and canonicalized
+A description is authored in the Python eDSL (`python/`) and canonicalized
 by the Rust CLI; everything else derives from it — reference
 interpretation, Graphviz parse graphs, markdown docs, a path-complete
 conformance suite compiled by symbolic execution (every parse path —
@@ -103,7 +103,7 @@ source, and the Rust CLI validates and canonicalizes it. The
 committed gallery `ir.json` is proto-equality-tested against the
 eDSL's output, and separately proven to already be in Rust-canonical
 form — one authoring surface, one provably-canonical artifact. See
-`py/README.md`.
+`python/README.md`.
 
 ## Layout
 
@@ -121,7 +121,7 @@ and everything about one real-world incumbent lives in one directory.
 - `pakeles-testkit/` — the shared conformance harnesses every gallery
   example runs (compile-and-execute each backend, equality-guard each
   committed artifact)
-- `py/` — the Python authoring eDSL (`pakeles` on PyPI, eventually)
+- `python/` — the Python authoring eDSL (`pakeles` on PyPI, eventually)
 - `testdata/` — language-neutral fixtures (regenerate: `cargo run --bin gen_fixtures`)
 - `examples/` — the gallery: every artifact one description yields,
   equality-guarded by tests, in two groups:

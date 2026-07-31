@@ -312,9 +312,10 @@ mod gallery_tests {
     /// The mirrored .py must match the authoritative eDSL module.
     #[test]
     fn committed_py_example_current() {
-        let canonical =
-            std::fs::read_to_string(dir().join("../../../py/src/pakeles/examples/sai_parser.py"))
-                .unwrap();
+        let canonical = std::fs::read_to_string(
+            dir().join("../../../python/src/pakeles/examples/sai_parser.py"),
+        )
+        .unwrap();
         let mirrored = std::fs::read_to_string(dir().join("sai_parser.py")).unwrap();
         assert_eq!(
             canonical, mirrored,

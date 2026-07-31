@@ -1376,7 +1376,7 @@ mod gallery_tests {
     #[test]
     fn committed_py_example_current() {
         let canonical = std::fs::read_to_string(
-            dir().join("../../../py/src/pakeles/examples/linux_flow_dissector.py"),
+            dir().join("../../../python/src/pakeles/examples/linux_flow_dissector.py"),
         )
         .unwrap();
         let mirrored = std::fs::read_to_string(dir().join("linux_flow_dissector.py")).unwrap();
