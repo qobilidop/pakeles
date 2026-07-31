@@ -13,14 +13,14 @@ itself over the committed corpus.
 [`conformance/katran.dd915fd2e21a.golden.json`](conformance/katran.dd915fd2e21a.golden.json)
 — for every packet the XDP verdict, the export `stage`, and the parsed
 flow tuple (src/dst, ports, proto, flags, tos) match. Design doc:
-[`docs/superpowers/specs/2026-07-29-katran-design.md`](../../docs/superpowers/specs/2026-07-29-katran-design.md).
+[`docs/superpowers/specs/2026-07-29-katran-design.md`](../../../docs/superpowers/specs/2026-07-29-katran-design.md).
 
 ## The two-oracle gate
 
 Unlike DPDK's `rte_net_get_ptype` (a pure userspace function), katran's
 parse writes into an internal `packet_description` and then makes load
 -balancing decisions we do not model. Two problems, both solved in the
-factory ([`oracle/katran_flow/factory/`](../../oracle/katran_flow/factory/)):
+factory ([`oracle/katran_flow/factory/`](../../../oracle/katran_flow/factory/)):
 
 1. **Compile + run** the GPL sources (fetched at capture time, never
    committed) with plain `clang -target bpf` plus a 7-line pakeles shim
@@ -34,7 +34,7 @@ factory ([`oracle/katran_flow/factory/`](../../oracle/katran_flow/factory/)):
    vip/LB stage. The verdict is the raw `BPF_PROG_TEST_RUN` return.
 
 The everyday unprivileged gate (`committed_goldens_agree`, `cargo run --
-diff katran`) diffs our projection ([`src/oracle/katran_flow.rs`](../../src/oracle/katran_flow.rs))
+diff katran`) diffs our projection ([`src/oracle/katran_flow.rs`](../../../src/oracle/katran_flow.rs))
 against the committed golden. Re-minting is privileged (in-kernel
 TEST_RUN):
 

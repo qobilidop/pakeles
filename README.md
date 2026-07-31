@@ -4,34 +4,34 @@
 
 > [!WARNING]
 > **Work in progress, iterating fast — don't use this yet.** The IR
-> schema (`v1alpha1`), the CLI, and every API change without notice,
-> and compatibility is deliberately not promised at this stage. Watch
+> schema (`v1alpha1`), the CLI, and every API change without notice;
+> compatibility is deliberately not promised at this stage. Watch
 > the repo if you're curious; don't build on it.
 
 A toolchain built around a serializable IR (the Pakeles IR) for
 wire-format parsers — one description yields many artifacts that
-provably agree: reference
-interpretation, generated dissectors and datapath parsers, validators,
-and golden test vectors. Parsing is the decidable subset of packet
+provably agree. Parsing is the decidable subset of packet
 processing — parsers here are bounded by construction, which is what
 makes cross-artifact equivalence provable rather than merely tested.
 
-Status: slice 6 ("the authoring surface"). One description
-(Ethernet → {IPv4 | IPv6} → {TCP | UDP} — a *branching* parse graph that
-demultiplexes on EtherType and IP protocol)
-is authored in the Python eDSL (`py/`) and canonicalized by the Rust
-CLI — serialized as proto3, interpreted, visualized,
-differentially tested against `tshark`, compiled by symbolic execution
-into a path-complete conformance suite (every parse path — truncations
-and rejects included — gets a solver-derived witness packet), and compiled into four
-more implementations that provably agree with it: a working Wireshark
-dissector (`gen lua`, verified inside real tshark), a portable C99
-parser (`gen c`, verified field-for-field on all 244 vectors), an
-eBPF program (`gen bpf`, clang-compiled BPF bytecode verified under
+A description is authored in the Python eDSL (`py/`) and canonicalized
+by the Rust CLI; everything else derives from it — reference
+interpretation, Graphviz parse graphs, markdown docs, a path-complete
+conformance suite compiled by symbolic execution (every parse path —
+truncations and rejects included — gets a solver-derived witness
+packet), and four generated implementations that provably agree: a
+working Wireshark dissector (`gen lua`, verified inside real tshark), a
+portable C99 parser (`gen c`, verified field-for-field on the vector
+suite), an eBPF program (`gen bpf`, clang-compiled and verified under
 the rbpf VM), and a P4-16 program (`gen p4`, p4c-compiled and
-verdict-verified on BMv2's `simple_switch` — the decidability ceiling
-demonstrated by construction). Docs generate from the same description
-via `pakeles doc`.
+verdict-verified on BMv2's `simple_switch`).
+
+The gallery (`examples/`) exercises all of it: three synthetic
+descriptions that each isolate one IR capability, and five models of
+parsers that already run in the world — the Linux flow dissector,
+DPDK's `rte_net_get_ptype()`, Meta's Katran, SONiC PINS `sai_p4`, and
+TLS ClientHello / SNI — each verified to agree with the real
+implementation, packet for packet, at a pinned version.
 
 ## Quickstart
 
@@ -57,6 +57,11 @@ graphviz, clang/llvm, and prebuilt p4c + BMv2 grafted from
 ./dev.sh cargo run -- diff bmv2                            # vectors vs BMv2
 ```
 
+Try the generated dissector in your own Wireshark:
+`tshark -X lua_script:dissector.lua -r some.pcap` (it registers as a
+postdissector, so its tree appears alongside Wireshark's built-in
+dissection — side-by-side comparison for free).
+
 ## Length-bounded formats (sized regions)
 
 A length field can open a **sized region**: reads inside it are bounded
@@ -69,11 +74,6 @@ region-bearing descriptions and commits the refusal as
 `gen/P4-UNSUPPORTED.txt`; the C, eBPF, and Wireshark backends lower them.
 See [`examples/real_world/tls_clienthello/`](examples/real_world/tls_clienthello/) and
 `docs/superpowers/specs/2026-07-29-sized-region-tlv-ir-design.md`.
-
-Try the dissector in your own Wireshark:
-`tshark -X lua_script:dissector.lua -r some.pcap` (it registers as a
-postdissector, so its tree appears alongside Wireshark's built-in
-dissection — side-by-side comparison for free).
 
 ## Authoring in Python
 
@@ -109,7 +109,8 @@ form — one authoring surface, one provably-canonical artifact. See
 - `src/` — `ir` (types + validation), `builder`, `interp` (reference
   interpreter), `symex` (symbolic engine: testgen/lint/cov, z3 behind a
   solver trait), `codegen` (backends: Wireshark Lua, C99/eBPF, P4-16),
-  `docgen`, `viz`, `oracle` (tshark + BMv2 diffs), `cli`
+  `docgen`, `viz`, `oracle` (diffs against tshark, BMv2, and each
+  real-world incumbent), `cli`
 - `py/` — the Python authoring eDSL (`pakeles` on PyPI, eventually)
 - `testdata/` — language-neutral fixtures (regenerate: `cargo run --bin gen_fixtures`)
 - `examples/` — the gallery: every artifact one description yields,
@@ -122,6 +123,8 @@ form — one authoring surface, one provably-canonical artifact. See
     pinned version. `linux_flow_dissector/` is the kernel-agreement
     north-star (see below); `tls_clienthello/` is the TLV flagship
     (agrees with rustls 0.23.43).
+- `oracle/` — the golden factories and spikes behind `real_world/`;
+  the only tree where third-party code lives (see its README)
 - `docs/superpowers/specs/` — design docs; start with
   `2026-07-18-pakelesir-v0-design.md`
 
@@ -132,10 +135,9 @@ Regenerate the gallery from its single source (the eDSL):
 
 [`examples/real_world/linux_flow_dissector/`](examples/real_world/linux_flow_dissector/) is a
 north-star example: its `diff flow-dissector` oracle checks that Pakeles's
-extracted flow keys agree with a flow dissector run in the kernel (rung 0:
-an in-repo dissector, fidelity-equal to upstream `bpf_flow.c` for these
-protocols; upstream arrives at rung 1), via golden `flow_keys` captured by
-running a BPF program in the kernel (`BPF_PROG_TEST_RUN`). That capture
+extracted flow keys agree with the kernel's own flow dissector (upstream
+`bpf_flow.c`, Linux 6.8), via golden `flow_keys` captured by
+running that BPF program in the kernel (`BPF_PROG_TEST_RUN`). That capture
 needs real kernel privilege
 (`CAP_BPF`/`CAP_SYS_ADMIN`), which the normal `./dev.sh` container
 deliberately doesn't have — so the golden factory is **privileged and

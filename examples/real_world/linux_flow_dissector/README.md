@@ -7,14 +7,18 @@ its eBPF twin `bpf_flow.c`) — the most complicated, most widely-run *bounded*
 packet parser in existence. It runs on essentially every packet on every
 Linux box. No synthetic example carries that credibility.
 
-The initiative lands in **rungs**, each one flow-dissector feature, the IR
-capability it forces, and the `flow_keys` fields it newly makes correct. See
+The initiative landed in **rungs**, each one flow-dissector feature, the IR
+capability it forced, and the `flow_keys` fields it newly made correct. See
 the full roadmap and rationale in
-[`docs/superpowers/specs/2026-07-19-linux-flow-dissector-design.md`](../../docs/superpowers/specs/2026-07-19-linux-flow-dissector-design.md).
+[`docs/superpowers/specs/2026-07-19-linux-flow-dissector-design.md`](../../../docs/superpowers/specs/2026-07-19-linux-flow-dissector-design.md).
 
-This directory is **rung 0**: Ethernet → {IPv4 | IPv6} → {TCP | UDP} — the
-same demultiplexing shape as [`eth_ipvx_l4`](../eth_ipvx_l4), touching no new
-IR capability. Rung 0's contribution is the *oracle*, not the parse.
+The ladder is **complete** (rungs 0–4b): the description covers the whole
+bounded core scoped below — Ethernet, VLAN/MPLS stacks, IPv4/IPv6 with
+extension headers, IPv4/TCP options, and IPIP/IPv6-in-IP/GRE tunnels (TEB
+included) — with kernel agreement proven over the full committed corpus.
+It began as rung 0, the same demultiplexing shape as
+[`eth_ipvx_l4`](../../synthetic/eth_ipvx_l4); the sections below record
+what each later rung added and why.
 
 ## Scope: the bounded core, not the heuristic tail
 
@@ -34,7 +38,7 @@ boundary — not 100% parity with every dissector quirk.
 
 The oracle is a **golden-diff**, not a live BPF run in the everyday gate:
 
-1. **Golden factory** (privileged, out-of-gate; [`oracle/linux_flow_dissector/factory/`](../../oracle/linux_flow_dissector/factory/)) —
+1. **Golden factory** (privileged, out-of-gate; [`oracle/linux_flow_dissector/factory/`](../../../oracle/linux_flow_dissector/factory/)) —
    upstream `bpf_flow.c` (Linux v6.8 selftests, fetched pinned at capture
    time), compiled and loaded as `BPF_PROG_TYPE_FLOW_DISSECTOR`, run over a
    packet corpus via `BPF_PROG_TEST_RUN` inside the real kernel. Its output is a
@@ -42,7 +46,7 @@ The oracle is a **golden-diff**, not a live BPF run in the everyday gate:
    [`conformance/flow_keys.linux-6.8.0.golden.json`](conformance/flow_keys.linux-6.8.0.golden.json),
    making "agrees with Linux 6.8's flow dissector" a precise, reproducible
    claim.
-2. **`diff flow-dissector`** ([`src/oracle/linux_flow_dissector.rs`](../../src/oracle/linux_flow_dissector.rs),
+2. **`diff flow-dissector`** ([`src/oracle/linux_flow_dissector.rs`](../../../src/oracle/linux_flow_dissector.rs),
    `cargo run -- diff flow-dissector`) — the everyday, unprivileged gate:
    runs Pakeles's parse, projects the result to the rung-0 subset of
    `struct bpf_flow_keys` (harness-side projection, not in the IR), and
@@ -177,7 +181,7 @@ carries it for every ok entry). Fields outside the current rung's subset are not
 
 | File | What it is |
 |---|---|
-| [`linux_flow_dissector.py`](linux_flow_dissector.py) | The description, authored in the Python eDSL — a field-for-field port of the Rust builder ([`src/examples.rs`](../../src/examples.rs)); proto-equal to the IR below |
+| [`linux_flow_dissector.py`](linux_flow_dissector.py) | The description, authored in the Python eDSL — the single source; proto-equal to the IR below |
 | [`linux_flow_dissector.ir.json`](linux_flow_dissector.ir.json) | The normative Pakeles IR (protojson) |
 | [`gen/`](gen/) | Every generated artifact: Wireshark dissector, C99 parser, eBPF program, P4-16 program, docs, parse graph — same equality-guarded derivation as `eth_ipvx_l4` |
 | [`conformance/vectors.json`](conformance/vectors.json) / [`vectors.pcap`](conformance/vectors.pcap) | Path-complete symbolic-execution suite (same discipline as `eth_ipvx_l4`) |

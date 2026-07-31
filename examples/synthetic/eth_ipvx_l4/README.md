@@ -19,19 +19,19 @@ flowchart LR
     IR -->|"gen bpf"| BPF["gen/parser.bpf.c"]
     IR -->|"gen p4"| P4["gen/parser.p4"]
     IR -->|"doc / viz"| DOCS["gen/doc.md, gen/graph.svg"]
-    IR -->|"testgen (symbolic execution)"| V["conformance/\n244 path-complete vectors"]
+    IR -->|"testgen (symbolic execution)"| V["conformance/\npath-complete vectors"]
     V -.->|conformance| LUA & C & BPF & P4
 ```
 
 Every file is committed **and equality-guarded**: if anything here
 drifts from what the toolchain generates, CI fails. Regenerate with
-`./dev.sh cargo run --bin gen_examples`.
+`./dev.sh scripts/gen-examples.sh`.
 
 ## The input
 
 | File | What it is | Verified by |
 |---|---|---|
-| [`eth_ipvx_l4.py`](eth_ipvx_l4.py) | The description, authored in the Python eDSL (mirrored from [`py/`](../../py)) | proto-equal to `eth_ipvx_l4.ir.json`, which the independent Rust builder ([`src/examples.rs`](../../src/examples.rs)) also produces |
+| [`eth_ipvx_l4.py`](eth_ipvx_l4.py) | The description, authored in the Python eDSL (mirrored from [`py/`](../../../py)) | proto-equal to `eth_ipvx_l4.ir.json`, which is separately proven to be in Rust-canonical form ([`src/examples.rs`](../../../src/examples.rs)) |
 
 ## The contract
 
@@ -44,9 +44,9 @@ drifts from what the toolchain generates, CI fails. Regenerate with
 | File | What it is | Verified by |
 |---|---|---|
 | [`gen/dissector.lua`](gen/dissector.lua) | Working Wireshark dissector (Lua 5.2) | field comparisons inside real `tshark`, zero mismatches |
-| [`gen/parser.h`](gen/parser.h) / [`gen/parser.c`](gen/parser.c) | Portable C99 parser (zero-copy, bit-granular) | field-for-field on **all 244 vectors**; compiles `-Wall -Wextra -Werror` clean |
-| [`gen/parser.bpf.c`](gen/parser.bpf.c) | Self-contained eBPF variant (verifier-shaped core) | verdict-level on all 244 vectors under the rbpf VM |
-| [`gen/parser.p4`](gen/parser.p4) | P4-16 program (v1model) | verdict-level on all 42 byte-aligned vectors under BMv2 `simple_switch`; `p4test` + `p4c-bm2-ss` warning-free |
+| [`gen/parser.h`](gen/parser.h) / [`gen/parser.c`](gen/parser.c) | Portable C99 parser (zero-copy, bit-granular) | field-for-field on **every vector in the committed suite**; compiles `-Wall -Wextra -Werror` clean |
+| [`gen/parser.bpf.c`](gen/parser.bpf.c) | Self-contained eBPF variant (verifier-shaped core) | verdict-level on every vector under the rbpf VM |
+| [`gen/parser.p4`](gen/parser.p4) | P4-16 program (v1model) | verdict-level on the byte-aligned vectors under BMv2 `simple_switch`; `p4test` + `p4c-bm2-ss` warning-free |
 
 ## Derived: presentation
 
@@ -59,8 +59,8 @@ drifts from what the toolchain generates, CI fails. Regenerate with
 
 | File | What it is | Verified by |
 |---|---|---|
-| [`conformance/vectors.json`](conformance/vectors.json) | Path-complete suite: 244 solver-derived vectors (24 accept / 18 reject / 202 truncation — every parse path across both IP versions and both transports gets a witness packet) | replayed by the reference interpreter in CI; cross-validated by path ids |
-| [`conformance/vectors.pcap`](conformance/vectors.pcap) | The 42 byte-aligned vectors as a capture file | same vectors, wire form |
+| [`conformance/vectors.json`](conformance/vectors.json) | Path-complete suite: 61 solver-derived vectors (4 accept / 4 reject / 53 truncation — every parse path across both IP versions and both transports gets a witness packet) | replayed by the reference interpreter in CI; cross-validated by path ids |
+| [`conformance/vectors.pcap`](conformance/vectors.pcap) | The 8 byte-aligned vectors as a capture file | same vectors, wire form |
 
 ## A note on IPv6 addresses
 

@@ -12,18 +12,18 @@ packet-for-packet with DPDK itself over the committed corpus.
 [`conformance/ptype.dpdk-23.11.4.golden.json`](conformance/ptype.dpdk-23.11.4.golden.json)
 — accepts compared exactly (mask + all seven hdr_lens fields),
 truncation lines via the laxness rule below. Design doc:
-[`docs/superpowers/specs/2026-07-29-dpdk-ptype-design.md`](../../docs/superpowers/specs/2026-07-29-dpdk-ptype-design.md).
+[`docs/superpowers/specs/2026-07-29-dpdk-ptype-design.md`](../../../docs/superpowers/specs/2026-07-29-dpdk-ptype-design.md).
 
 ## The two-oracle gate
 
 1. **Committed golden** (reproducible, environment-free):
-   [`oracle/dpdk_ptype/factory/capture.c`](../../oracle/dpdk_ptype/factory/capture.c)
+   [`oracle/dpdk_ptype/factory/capture.c`](../../../oracle/dpdk_ptype/factory/capture.c)
    feeds each corpus packet to the real `rte_net_get_ptype()` through a
    hand-built single-segment stack mbuf — the function is pure over
    mbuf data, so **no EAL, no hugepages, no privilege** — and the
    version-tagged JSON it emits is committed here. The everyday gate
    test `committed_goldens_agree` diffs our projection
-   ([`src/oracle/dpdk_ptype.rs`](../../src/oracle/dpdk_ptype.rs),
+   ([`src/oracle/dpdk_ptype.rs`](../../../src/oracle/dpdk_ptype.rs),
    `cargo run -- diff dpdk-ptype`) against it.
 2. **Live differential** (no staleness): where the dev container's
    DPDK + gcc are present, `live_dpdk_capture_matches_committed_golden`

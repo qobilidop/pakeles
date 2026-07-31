@@ -101,7 +101,7 @@ verifier.
 Three verifier rejections en route produced three general codegen
 fixes (derived-scalar bounds, a byte-load fast path worth ~8x on
 reads, index masking instead of per-load branches) — see
-[`docs/designs/2026-07-29-tls-ebpf-deliverable.md`](../../docs/designs/2026-07-29-tls-ebpf-deliverable.md).
+[`docs/designs/2026-07-29-tls-ebpf-deliverable.md`](../../../docs/designs/2026-07-29-tls-ebpf-deliverable.md).
 
 ## Witness replay (the adversarial pass)
 

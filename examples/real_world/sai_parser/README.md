@@ -14,25 +14,25 @@ per-packet (extracted-header bitmap, parser-error) agrees packet-for
 [`conformance/sai.e77250b8dcab.golden.json`](conformance/sai.e77250b8dcab.golden.json)
 — for every packet the extracted-header bitmap and the parser-error flag
 match. Design doc:
-[`docs/superpowers/specs/2026-07-29-sai-p4-design.md`](../../docs/superpowers/specs/2026-07-29-sai-p4-design.md).
+[`docs/superpowers/specs/2026-07-29-sai-p4-design.md`](../../../docs/superpowers/specs/2026-07-29-sai-p4-design.md).
 
 ## A P4-vs-P4 differential on one `simple_switch`
 
 Uniquely among the four targets, the incumbent is itself a **P4 program**
 run on **BMv2 `simple_switch`** — the exact toolchain Pakeles's own BMv2
-oracle ([`src/oracle/bmv2.rs`](../../src/oracle/bmv2.rs)) already drives.
+oracle ([`src/oracle/bmv2.rs`](../../../src/oracle/bmv2.rs)) already drives.
 So this example is agreement between two P4 programs on one switch:
 
 - **Our** generated `sai_parser` P4 ([`gen/parser.p4`](gen/parser.p4)) is
   run against our interpreter in the everyday gate (`bmv2.rs`).
 - **Theirs** — the vendored sonic-pins parser
-  ([`oracle/sai_parser/vendor/`](../../oracle/sai_parser/vendor/), Apache-2.0,
+  ([`oracle/sai_parser/vendor/`](../../../oracle/sai_parser/vendor/), Apache-2.0,
   `PROVENANCE.md`) — is instrumented
-  ([`oracle/sai_parser/factory/instrument.py`](../../oracle/sai_parser/factory/instrument.py))
+  ([`oracle/sai_parser/factory/instrument.py`](../../../oracle/sai_parser/factory/instrument.py))
   to emit the **same verdict format** Pakeles's P4 backend uses (a
   header-validity bitmap + error byte, forwarded, deparser emits only the
   verdict), compiled with `p4c-bm2-ss`, and run over the corpus. Our
-  projection ([`src/oracle/sai.rs`](../../src/oracle/sai.rs)) is diffed
+  projection ([`src/oracle/sai_parser.rs`](../../../src/oracle/sai_parser.rs)) is diffed
   against the resulting golden.
 
 The observation patch was necessary because the prebuilt `simple_switch`
