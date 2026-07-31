@@ -7,7 +7,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 synthetic="eth_ipvx_l4 counted_items tlv_items"
-real_world="linux_flow_dissector dpdk_ptype katran_flow sai_parser tls_clienthello"
+real_world="linux_flow_dissector dpdk_ptype katran_parser sai_parser tls_clienthello"
 for group in synthetic real_world; do
   eval "names=\$$group"
   for name in $names; do

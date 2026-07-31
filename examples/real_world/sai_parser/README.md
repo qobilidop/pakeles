@@ -2,7 +2,7 @@
 
 The fourth **incumbent-agreement** example (after
 [`linux_flow_dissector`](../linux_flow_dissector),
-[`dpdk_ptype`](../dpdk_ptype), and [`katran_flow`](../katran_flow)): a
+[`dpdk_ptype`](../dpdk_ptype), and [`katran_parser`](../katran_parser)): a
 field-for-field model of the **SONiC PINS `sai_p4` parser** — the packet
 parser of Google/SONiC's production switch pipeline
 ([sonic-net/sonic-pins](https://github.com/sonic-net/sonic-pins)) — whose

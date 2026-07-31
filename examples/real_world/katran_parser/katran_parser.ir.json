@@ -1,7 +1,7 @@
 {
   "irVersion": "0.1.0",
   "parser": {
-    "name": "katran_flow",
+    "name": "katran_parser",
     "headerTypes": [
       {
         "name": "ethernet",

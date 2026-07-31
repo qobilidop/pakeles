@@ -1,4 +1,4 @@
-# katran_flow golden corpus — replayed through the pinned katran
+# katran_parser golden corpus — replayed through the pinned katran
 # balancer (dd915fd2, default build, empty maps) under
 # BPF_PROG_TEST_RUN by oracle/katran/factory/capture.sh. Hexes are
 # byte-identical twins of src/oracle/katran.rs project_tests.

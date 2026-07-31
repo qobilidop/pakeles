@@ -5,8 +5,8 @@ The third incumbent-agreement example (after `linux_flow_dissector` and
 `balancer.bpf.c` `process_packet` path (pinned commit dd915fd2), whose
 parsed `packet_description` (flow tuple + flags + tos) and XDP verdict
 are read back from an anchored capture-time observation patch and
-compared by the example crate (`examples/real_world/katran_flow/src/lib.rs`) against goldens minted by katran
-itself under BPF_PROG_TEST_RUN (`examples/real_world/katran_flow/factory/`).
+compared by the example crate (`examples/real_world/katran_parser/src/lib.rs`) against goldens minted by katran
+itself under BPF_PROG_TEST_RUN (`examples/real_world/katran_parser/factory/`).
 
 Design doc: docs/superpowers/specs/2026-07-29-katran-design.md (binding).
 
@@ -162,7 +162,7 @@ class KatranMeta(Metadata):
     )
 
 
-class KatranFlow(Parser):
+class KatranParser(Parser):
     max_depth = 8
     metadata = KatranMeta
 
@@ -276,4 +276,4 @@ class KatranFlow(Parser):
 
 
 if __name__ == "__main__":
-    print(KatranFlow.to_json())
+    print(KatranParser.to_json())

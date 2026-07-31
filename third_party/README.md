@@ -9,7 +9,7 @@ repo, it lives (or lands) here, and nowhere else.**
   `examples/real_world/sai_parser/factory/`.
 - Katran's GPL-2.0 sources are **fetch-only**: they land in a
   gitignored build directory at capture time
-  (`examples/real_world/katran_flow/factory/fetch.sh`) and are
+  (`examples/real_world/katran_parser/factory/fetch.sh`) and are
   deliberately never committed.
 
 Everything else in the repo — including every `factory/` and `spike/`

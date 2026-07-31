@@ -1,4 +1,4 @@
-# Example: `katran_flow`
+# Example: `katran_parser`
 
 The third **incumbent-agreement** example (after
 [`linux_flow_dissector`](../linux_flow_dissector) and
@@ -34,13 +34,13 @@ factory ([`factory/`](factory/)):
    vip/LB stage. The verdict is the raw `BPF_PROG_TEST_RUN` return.
 
 The everyday unprivileged gate (`committed_goldens_agree`; run it by
-hand with `cargo run -p pakeles-example-katran-flow`) diffs our
+hand with `cargo run -p pakeles-example-katran-parser`) diffs our
 projection ([`src/lib.rs`](src/lib.rs))
 against the committed golden. Re-minting is privileged (in-kernel
 TEST_RUN):
 
 ```sh
-./dev-priv.sh examples/real_world/katran_flow/factory/capture.sh
+./dev-priv.sh examples/real_world/katran_parser/factory/capture.sh
 ```
 
 ## Scope: the default-build bounded core
@@ -110,13 +110,13 @@ the two prior incumbents on the very same packets:
 
 | File | What it is |
 |---|---|
-| [`katran_flow.py`](katran_flow.py) | The description in the Python eDSL |
-| [`katran_flow.ir.json`](katran_flow.ir.json) | The normative Pakeles IR |
+| [`katran_parser.py`](katran_parser.py) | The description in the Python eDSL |
+| [`katran_parser.ir.json`](katran_parser.ir.json) | The normative Pakeles IR |
 | [`gen/`](gen/) | Wireshark dissector, C99 + eBPF parsers, P4-16, docs, parse graph |
 | [`conformance/`](conformance/) | Symbolic-execution vectors + the katran-minted golden |
 
 ## Try it
 
 ```sh
-./dev.sh cargo run -p pakeles-example-katran-flow   # our keys+verdict vs the committed golden
+./dev.sh cargo run -p pakeles-example-katran-parser   # our keys+verdict vs the committed golden
 ```

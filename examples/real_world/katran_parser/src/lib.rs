@@ -1,7 +1,7 @@
-//! Katran differential oracle: our parse of the `katran_flow` example,
+//! Katran differential oracle: our parse of the `katran_parser` example,
 //! projected to katran's parsed keys + XDP verdict, vs goldens minted by
 //! the pinned katran balancer (dd915fd2, default build, empty maps) under
-//! BPF_PROG_TEST_RUN via `oracle/katran_flow/factory/` (with the pakeles
+//! BPF_PROG_TEST_RUN via `oracle/katran_parser/factory/` (with the pakeles
 //! observation patch exporting `packet_description`).
 //!
 //! Katran classifies every packet with an XDP verdict; the parse-relevant
@@ -104,7 +104,7 @@ fn v4_addr_hex(v: u64) -> String {
     hex(&b)
 }
 
-/// Project our `katran_flow` parse to (verdict, stage, flow).
+/// Project our `katran_parser` parse to (verdict, stage, flow).
 pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Projection> {
     let res = pakeles::interp::run(ir, packet)?;
 
@@ -269,9 +269,9 @@ pub fn conformance_dir() -> std::path::PathBuf {
 pub fn ir() -> pb::Ir {
     pakeles::ir::from_json(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/katran_flow.ir.json"
+        "/katran_parser.ir.json"
     )))
-    .expect("committed katran_flow IR must parse")
+    .expect("committed katran_parser IR must parse")
 }
 
 /// Find the committed katran-minted golden file (`katran.<pin>.golden.json`).
@@ -347,7 +347,7 @@ pub fn cli_diff(
     let goldens = match goldens {
         Some(p) => p.to_path_buf(),
         None => discover_committed_golden(&conformance_dir()).context(
-            "no --goldens given and no committed katran.*.golden.json found under katran_flow/conformance/",
+            "no --goldens given and no committed katran.*.golden.json found under katran_parser/conformance/",
         )?,
     };
     let golden: GoldenFile = serde_json::from_str(
@@ -562,7 +562,7 @@ mod gallery_tests {
     /// serializer emits — the anti-drift "canonical form" guard.
     #[test]
     fn committed_ir_json_is_canonical() {
-        let committed = std::fs::read_to_string(dir().join("katran_flow.ir.json")).unwrap();
+        let committed = std::fs::read_to_string(dir().join("katran_parser.ir.json")).unwrap();
         let round = pakeles::ir::to_json(&pakeles::ir::from_json(&committed).unwrap()).unwrap();
         assert_eq!(
             round, committed,

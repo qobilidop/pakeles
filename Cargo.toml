@@ -12,7 +12,7 @@ members = [
     "rust/pakeles-dev",
     "examples/real_world/linux_flow_dissector",
     "examples/real_world/dpdk_ptype",
-    "examples/real_world/katran_flow",
+    "examples/real_world/katran_parser",
     "examples/real_world/sai_parser",
     "examples/real_world/tls_clienthello",
 ]

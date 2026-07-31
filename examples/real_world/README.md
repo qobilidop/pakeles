@@ -21,9 +21,30 @@ example's gate; deleting an example is deleting one directory.
 |---|---|---|
 | `linux_flow_dissector/` | Linux kernel flow dissector | 6.8.0 |
 | `dpdk_ptype/` | DPDK `rte_net_get_ptype()` | 23.11.4 |
-| `katran_flow/` | Katran (Meta's eBPF L4 load balancer) | dd915fd2 |
+| `katran_parser/` | Katran (Meta's eBPF L4 load balancer) | dd915fd2 |
 | `sai_parser/` | SONiC PINS `sai_p4` on BMv2 | e77250b8 |
 | `tls_clienthello/` | TLS ClientHello via rustls | 0.23.43 |
+
+## Naming
+
+`<namespace>_<component>`, and the directory name is THE name: it
+becomes the IR parser name (`snake(ClassName)`), the `.py` / `.ir.json`
+filenames, and the crate suffix, so pick it once and pick it well.
+
+- **Namespace: whose thing we model.** The incumbent's, normally
+  (`linux`, `dpdk`, `katran`, `sai`). The protocol's when the model
+  target is the wire format itself and the incumbent is only the
+  referee (`tls_clienthello` — rustls checks it, but what's modeled is
+  the ClientHello, so `rustls_` would misstate the subject).
+- **Component: the incumbent's own noun** for its parsing component or
+  that component's output artifact — never our paraphrase. "Flow
+  dissector" is the kernel's term, `ptype` is DPDK's noun for the
+  classification (the `RTE_PTYPE_*` namespace — preferred over the
+  `get_ptype` function spelling: second tokens name things, not
+  calls), `parser` is the P4 pipeline stage `sai_parser.p4` names
+  itself after. Where the incumbent doesn't name one, plain `parser`
+  (`katran_parser` — the parse slice of `process_packet`; naming the
+  whole function would overclaim the LB logic we don't model).
 
 ## How a claim is built
 

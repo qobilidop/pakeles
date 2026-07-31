@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Build + load Pakeles's generated katran_flow parser as a real kernel
+# Build + load Pakeles's generated katran_parser parser as a real kernel
 # XDP program (verifier runs at load) and TEST_RUN it over the corpus,
 # cross-checking outcomes against the pakeles interpreter. PRIVILEGED:
-#   ./dev-priv.sh examples/real_world/katran_flow/spike/run.sh
+#   ./dev-priv.sh examples/real_world/katran_parser/spike/run.sh
 set -euo pipefail
 cd "$(dirname "$0")"
 gen=../gen

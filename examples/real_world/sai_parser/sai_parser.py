@@ -1,7 +1,7 @@
 """A field-for-field model of the SONiC PINS `sai_p4` parser.
 
 The fourth incumbent-agreement example (after `linux_flow_dissector`,
-`dpdk_ptype`, and `katran_flow`): the parse graph mirrors sonic-net/
+`dpdk_ptype`, and `katran_parser`): the parse graph mirrors sonic-net/
 sonic-pins `p4_symbolic/testdata/parser/sai_parser.p4` (pinned commit
 e77250b8), whose per-packet (extracted-header bitmap, parser-error)
 is read back from the instrumented incumbent run on `simple_switch`

@@ -19,7 +19,7 @@ pub fn repo_root() -> PathBuf {
 pub const REAL_WORLD: [&str; 5] = [
     "linux_flow_dissector",
     "dpdk_ptype",
-    "katran_flow",
+    "katran_parser",
     "sai_parser",
     "tls_clienthello",
 ];

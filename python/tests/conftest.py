@@ -19,7 +19,7 @@ SYNTHETIC = ["eth_ipvx_l4", "counted_items", "tlv_items"]
 REAL_WORLD = [
     "linux_flow_dissector",
     "dpdk_ptype",
-    "katran_flow",
+    "katran_parser",
     "sai_parser",
     "tls_clienthello",
 ]

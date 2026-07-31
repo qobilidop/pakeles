@@ -1,4 +1,4 @@
-digraph "katran_flow" {
+digraph "katran_parser" {
   rankdir=TB;
   node [fontname="Helvetica"];
   "parse_ethernet" [shape=box, label="parse_ethernet\nextract ethernet", tooltip="XDP entry: EtherType demux, no VLAN/MPLS. Non-IP (incl. ARP)\naccepts as XDP_PASS without entering the parser.", href="#"];

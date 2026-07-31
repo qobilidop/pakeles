@@ -1,5 +1,5 @@
 [package]
-name = "pakeles-example-katran-flow"
+name = "pakeles-example-katran-parser"
 version = "0.1.0"
 edition = "2021"
 publish = false

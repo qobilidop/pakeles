@@ -1,9 +1,9 @@
-// eBPF deliverable spike: does Pakeles's GENERATED katran_flow parser
+// eBPF deliverable spike: does Pakeles's GENERATED katran_parser parser
 // pass the real Linux kernel verifier and produce correct results under
 // BPF_PROG_TEST_RUN? (The everyday gate already runs it in rbpf, a
 // userspace eBPF VM with a weaker verifier; this is the kernel's own.)
 //
-// The generated parser core (`pk_katran_flow_parse_core`) reads a
+// The generated parser core (`pk_katran_parser_parse_core`) reads a
 // contiguous buffer of `bit_len` bits. XDP packets are not guaranteed
 // contiguous or bounded, so this thin wrapper copies a bounded prefix
 // into a per-CPU array-map scratch buffer (BPF stack is 512 B; the
@@ -64,8 +64,8 @@ int pk_xdp_parse(struct xdp_md *ctx) {
         n = i + 1;
     }
 
-    pk_katran_flow_result_t r = {0};
-    pk_katran_flow_parse_core(buf, (__u64)n * 8, &r);
+    pk_katran_parser_result_t r = {0};
+    pk_katran_parser_parse_core(buf, (__u64)n * 8, &r);
 
     struct pk_result *o = bpf_map_lookup_elem(&pk_out, &z);
     if (!o)
