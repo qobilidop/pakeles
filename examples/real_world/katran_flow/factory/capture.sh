@@ -2,7 +2,7 @@
 # Mint the katran_flow golden by replaying the corpus through the pinned
 # katran balancer (dd915fd2, default build, empty maps + the pakeles
 # observation patch) under BPF_PROG_TEST_RUN. PRIVILEGED — run via:
-#   ./dev-priv.sh oracle/katran_flow/factory/capture.sh [corpus]
+#   ./dev-priv.sh examples/real_world/katran_flow/factory/capture.sh [corpus]
 # With no corpus arg, mints the committed golden from corpus.txt; with a
 # corpus arg (e.g. smoke.txt) just prints to stdout.
 set -euo pipefail
@@ -17,7 +17,7 @@ if [ $# -ge 1 ]; then
   build/capture build/balancer.o "$1"
 else
   short="${KATRAN_PIN:0:12}"
-  out="../../../examples/real_world/katran_flow/conformance/katran.${short}.golden.json"
+  out="../conformance/katran.${short}.golden.json"
   mkdir -p "$(dirname "$out")"
   build/capture build/balancer.o corpus.txt > "$out"
   echo "minted $out (katran@${KATRAN_PIN})"

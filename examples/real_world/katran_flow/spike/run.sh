@@ -2,10 +2,10 @@
 # Build + load Pakeles's generated katran_flow parser as a real kernel
 # XDP program (verifier runs at load) and TEST_RUN it over the corpus,
 # cross-checking outcomes against the pakeles interpreter. PRIVILEGED:
-#   ./dev-priv.sh oracle/katran_flow/spike/run.sh
+#   ./dev-priv.sh examples/real_world/katran_flow/spike/run.sh
 set -euo pipefail
 cd "$(dirname "$0")"
-gen=../../../examples/real_world/katran_flow/gen
+gen=../gen
 mkdir -p build
 # Compile the XDP wrapper (which #includes the committed generated
 # parser.bpf.c) to a BPF object.

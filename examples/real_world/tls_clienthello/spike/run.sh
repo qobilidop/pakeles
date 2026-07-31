@@ -6,8 +6,8 @@
 # generated core run in userspace (gate-proven equal to the
 # interpreter). PRIVILEGED:
 #
-#   ./dev-priv.sh oracle/tls_clienthello/spike/run.sh          # committed IR (max_depth 96)
-#   PK_DEPTH=22 ./dev-priv.sh oracle/tls_clienthello/spike/run.sh
+#   ./dev-priv.sh examples/real_world/tls_clienthello/spike/run.sh          # committed IR (max_depth 96)
+#   PK_DEPTH=22 ./dev-priv.sh examples/real_world/tls_clienthello/spike/run.sh
 #
 # PK_DEPTH regenerates the parser with a reduced max_depth — nothing
 # else changes. The committed max_depth 96 exceeds the kernel's 1M
@@ -17,7 +17,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 mkdir -p build
-gen=../../../examples/real_world/tls_clienthello/gen
+gen=../gen
 src=xdp_parser.bpf.c
 cflags=(-I"$gen")
 
@@ -29,12 +29,12 @@ ir = json.load(open(sys.argv[1]))
 ir["parser"]["maxDepth"] = int(sys.argv[2])
 print(json.dumps(ir))
 EOF
-  (cd ../../.. && cargo run --quiet -- gen bpf \
-     --ir oracle/tls_clienthello/spike/build/depth/ir.json \
-     --out oracle/tls_clienthello/spike/build/depth/parser.bpf.c)
-  (cd ../../.. && cargo run --quiet -- gen c \
-     --ir oracle/tls_clienthello/spike/build/depth/ir.json \
-     --out-dir oracle/tls_clienthello/spike/build/depth)
+  (cd ../../../.. && cargo run --quiet --bin pakeles -- gen bpf \
+     --ir examples/real_world/tls_clienthello/spike/build/depth/ir.json \
+     --out examples/real_world/tls_clienthello/spike/build/depth/parser.bpf.c)
+  (cd ../../../.. && cargo run --quiet --bin pakeles -- gen c \
+     --ir examples/real_world/tls_clienthello/spike/build/depth/ir.json \
+     --out-dir examples/real_world/tls_clienthello/spike/build/depth)
   gen=build/depth
   cflags=(-I build/depth)
   echo "using max_depth=$PK_DEPTH"

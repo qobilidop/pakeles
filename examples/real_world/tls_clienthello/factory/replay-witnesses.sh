@@ -3,7 +3,7 @@
 # rustls harness and diff every witness through the same compatibility
 # matrix the gate uses. Unprivileged:
 #
-#   ./dev.sh oracle/tls_clienthello/factory/replay-witnesses.sh
+#   ./dev.sh examples/real_world/tls_clienthello/factory/replay-witnesses.sh
 #
 # Requires examples/real_world/tls_clienthello/conformance/vectors.json (gitignored;
 # regenerate with `./dev.sh scripts/gen-examples.sh` or
@@ -11,7 +11,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-vectors=../../../examples/real_world/tls_clienthello/conformance/vectors.json
+vectors=../conformance/vectors.json
 [ -f "$vectors" ] || { echo "missing $vectors — regenerate the gallery first"; exit 2; }
 
 python3 - "$vectors" > witnesses.txt <<'EOF'
@@ -32,5 +32,5 @@ EOF
 ver="$(grep -A1 '^name = "rustls"$' Cargo.lock | grep version | cut -d'"' -f2)"
 RUSTLS_VERSION="$ver" cargo run --release --quiet -- capture witnesses.txt > witnesses.golden.json
 echo "replaying $(grep -c '^[0-9a-f]' witnesses.txt) witnesses against rustls $ver"
-cd ../../..
-cargo run --quiet -- diff tls-clienthello --goldens oracle/tls_clienthello/factory/witnesses.golden.json
+cd ../../../..
+cargo run --quiet --bin pakeles -- diff tls-clienthello --goldens examples/real_world/tls_clienthello/factory/witnesses.golden.json

@@ -3,7 +3,7 @@
 # parser: at which `max_depth` does the fully-unrolled TLV parser still
 # fit the kernel's 1M-instruction budget? PRIVILEGED:
 #
-#   ./dev-priv.sh oracle/tls_clienthello/spike/depth-sweep.sh
+#   ./dev-priv.sh examples/real_world/tls_clienthello/spike/depth-sweep.sh
 #
 # Only max_depth varies — the parser graph, the region machinery, and
 # the codegen are exactly the committed ones. Each depth is a fresh
@@ -11,7 +11,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 mkdir -p build/sweep
-ir=../../../examples/real_world/tls_clienthello/tls_clienthello.ir.json
+ir=../tls_clienthello.ir.json
 cc -O2 -o build/run run.c -lbpf
 
 for d in 96 64 48 32 24 23 22 20 16 12; do
@@ -21,10 +21,10 @@ ir = json.load(open(sys.argv[1]))
 ir["parser"]["maxDepth"] = int(sys.argv[2])
 print(json.dumps(ir))
 EOF
-  (cd ../../.. && cargo run --quiet -- gen bpf \
-     --ir "oracle/tls_clienthello/spike/build/sweep/ir-$d.json" \
-     --out "oracle/tls_clienthello/spike/build/sweep/parser-$d.bpf.c")
-  cp ../../../examples/real_world/tls_clienthello/gen/parser.h build/sweep/
+  (cd ../../../.. && cargo run --quiet --bin pakeles -- gen bpf \
+     --ir "examples/real_world/tls_clienthello/spike/build/sweep/ir-$d.json" \
+     --out "examples/real_world/tls_clienthello/spike/build/sweep/parser-$d.bpf.c")
+  cp ../gen/parser.h build/sweep/
   clang -O2 -g -target bpf -DPK_BUF_MASK=511u -I build/sweep \
     -I"/usr/include/$(uname -m)-linux-gnu" \
     -DPK_SWEEP_SRC="\"parser-$d.bpf.c\"" \

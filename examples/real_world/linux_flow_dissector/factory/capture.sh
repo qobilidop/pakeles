@@ -3,7 +3,7 @@
 # (Linux v6.8 selftests, GPL-2.0 — fetched at capture time, NEVER
 # committed; see the rung-1 design doc) in the kernel over corpus.txt.
 # PRIVILEGED — run via:
-#   ./dev-priv.sh oracle/linux_flow_dissector/factory/capture.sh
+#   ./dev-priv.sh examples/real_world/linux_flow_dissector/factory/capture.sh
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -20,7 +20,7 @@ fi
 
 ver="$(uname -r)"
 short="${ver%%-*}"
-out="../../../examples/real_world/linux_flow_dissector/conformance/flow_keys.linux-${short}.golden.json"
+out="../conformance/flow_keys.linux-${short}.golden.json"
 mkdir -p "$(dirname "$out")"
 
 # -I the multiarch dir so <asm/types.h> resolves under -target bpf (works
