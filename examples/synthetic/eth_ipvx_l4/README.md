@@ -31,7 +31,7 @@ drifts from what the toolchain generates, CI fails. Regenerate with
 
 | File | What it is | Verified by |
 |---|---|---|
-| [`eth_ipvx_l4.py`](eth_ipvx_l4.py) | The description, authored in the Python eDSL (mirrored from [`python/`](../../../python)) | proto-equal to `eth_ipvx_l4.ir.json`, which is separately proven to be in Rust-canonical form ([`rust/pakeles/src/examples.rs`](../../../rust/pakeles/src/examples.rs)) |
+| [`eth_ipvx_l4.py`](eth_ipvx_l4.py) | The description, authored in the Python eDSL (the single authoritative source) | proto-equal to `eth_ipvx_l4.ir.json`, which is separately proven to be in Rust-canonical form ([`rust/pakeles/src/examples.rs`](../../../rust/pakeles/src/examples.rs)) |
 
 ## The contract
 

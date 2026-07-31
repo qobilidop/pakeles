@@ -9,15 +9,16 @@ import json
 
 import pytest
 
+from conftest import example_parser, load_example
 from pakeles import Parser, State, extract, goto, reject
-from pakeles.examples.linux_flow_dissector import (
-    TCP,
-    UDP,
-    VLAN,
-    Ethernet,
-    IPv4,
-    LinuxFlowDissector,
-)
+
+_lfd = load_example("linux_flow_dissector")
+TCP = _lfd.TCP
+UDP = _lfd.UDP
+VLAN = _lfd.VLAN
+Ethernet = _lfd.Ethernet
+IPv4 = _lfd.IPv4
+LinuxFlowDissector = example_parser("linux_flow_dissector")
 
 # --- inheritance: ladder rungs on a shared mixin ----------------------
 

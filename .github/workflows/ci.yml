@@ -50,4 +50,4 @@ jobs:
             -v "$PWD/.ci/target":/target \
             -v "$PWD/.ci/cargo-registry":/usr/local/cargo/registry \
             pakeles-dev \
-            sh -c 'cargo fmt --check && cargo clippy --workspace --all-targets -- -D warnings && cargo run --release --quiet --bin gen_vectors && cargo test --workspace && buf lint && cd python && ruff check . && pyright && pytest'
+            sh -c 'cargo fmt --check && cargo clippy --workspace --all-targets -- -D warnings && cargo run --release --quiet --bin gen_vectors && cargo test --workspace && buf lint && ruff check . && pyright && cd python && pytest'

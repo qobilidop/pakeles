@@ -153,8 +153,9 @@ everything about one real-world incumbent lives in one directory.
 - `python/` — the Python eDSL (`pakeles` on PyPI, eventually);
   vendors its generated `_pb` modules the same way
 - `testdata/` — language-neutral fixtures (regenerate: `cargo run --bin gen_fixtures`)
-- `examples/` — the gallery: every artifact one description yields,
-  equality-guarded by tests, in two groups:
+- `examples/` — the gallery: each `<name>.py` description (the single
+  authoritative source — no in-package copy) beside every artifact it
+  yields, equality-guarded by tests, in two groups:
   - `synthetic/` — formats constructed to isolate one capability.
     `eth_ipvx_l4/` is the hello-world (branching demux), `counted_items/`
     exercises parse metadata, `tlv_items/` exercises sized regions.

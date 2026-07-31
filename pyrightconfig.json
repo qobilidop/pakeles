@@ -1,0 +1,18 @@
+{
+    "include": ["python/src", "python/tests", "examples"],
+    "exclude": [
+        "python/src/pakeles/_pb",
+        "**/factory",
+        "**/spike",
+        "**/gen",
+        "**/__pycache__"
+    ],
+    "typeCheckingMode": "strict",
+    "reportMissingModuleSource": false,
+    "executionEnvironments": [
+        {
+            "root": ".",
+            "extraPaths": ["python/src", "python/tests"]
+        }
+    ]
+}

@@ -1437,20 +1437,6 @@ mod gallery_tests {
         );
     }
 
-    /// The mirrored .py must match the authoritative eDSL module.
-    #[test]
-    fn committed_py_example_current() {
-        let canonical = std::fs::read_to_string(
-            dir().join("../../../python/src/pakeles/examples/linux_flow_dissector.py"),
-        )
-        .unwrap();
-        let mirrored = std::fs::read_to_string(dir().join("linux_flow_dissector.py")).unwrap();
-        assert_eq!(
-            canonical, mirrored,
-            "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
-        );
-    }
-
     #[test]
     fn committed_gen_artifacts_current() {
         pakeles_testkit::committed_artifacts_current(&ir(), dir());

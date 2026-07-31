@@ -9,14 +9,18 @@ README.
 Dev loop (from the repo root, inside the dev container):
 
 ```sh
-./dev.sh sh -c 'cd python && ruff check . && pyright && pytest'
+./dev.sh sh -c 'ruff check . && pyright && cd python && pytest'
 ```
 
-`src/pakeles/examples/*.py` — one module per gallery example — is the
-single source of truth for `examples/`. Regenerate every derived
-artifact (canonical `ir.json`, `gen/*`, vectors) with
-`./dev.sh scripts/gen-examples.sh` — phase 1 runs the eDSL, phase 2
-canonicalizes and derives.
+(ruff and pyright run from the repo root: their configs there also
+cover the gallery descriptions.)
+
+The gallery descriptions live with their artifacts —
+`examples/<group>/<name>/<name>.py` is the single authoritative
+source, importing this package; there is no in-package copy.
+Regenerate every derived artifact (canonical `ir.json`, `gen/*`,
+vectors) with `./dev.sh scripts/gen-examples.sh` — phase 1 runs each
+description, phase 2 canonicalizes and derives.
 
 Regenerate the vendored proto modules after editing `proto/`:
 

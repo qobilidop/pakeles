@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Regenerate the gallery from its single source of truth, the Python eDSL.
+# Regenerate the gallery from its single source of truth: the eDSL
+# description committed beside each example (examples/<group>/<name>/<name>.py).
 # Group membership: synthetic is encoded in rust/pakeles/src/examples.rs,
 # real_world in the workspace members ([workspace] in Cargo.toml +
 # gen_examples's gallery table); keep these lists in step with them.
@@ -13,11 +14,11 @@ for group in synthetic real_world; do
     dir="examples/$group/$name"
     mkdir -p "$dir"
     tmp="$(mktemp)"
-    PYTHONPATH=python/src python3 -m "pakeles.examples.$name" > "$tmp"
+    PYTHONPATH=python/src python3 "$dir/$name.py" > "$tmp"
     cargo run --quiet --bin pakeles -- fmt-ir --ir "$tmp" --out "$dir/$name.ir.json"
     rm -f "$tmp"
   done
 done
 cargo run --quiet --bin gen_fixtures
 cargo run --quiet --bin gen_examples
-echo "gallery regenerated from python/src/pakeles/examples/*.py"
+echo "gallery regenerated from examples/*/*/[name].py"

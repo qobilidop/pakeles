@@ -1,0 +1,20 @@
+# Repo-wide Python lint config: covers python/ and the authoritative
+# gallery descriptions in examples/<group>/<name>/<name>.py.
+line-length = 88
+extend-exclude = [
+    "python/src/pakeles/_pb",  # vendored generated protobuf modules
+    "**/factory",              # incumbent-side capture scripts, not eDSL surface
+    "**/spike",
+    "**/gen",                  # generated artifacts
+    ".claude",
+    "third_party",
+    "target",
+]
+
+[lint]
+extend-select = ["I"]
+
+[lint.isort]
+# From the repo root ruff cannot infer first-party from the src
+# layout; declare it (conftest = the tests' gallery loader).
+known-first-party = ["pakeles", "conftest"]
