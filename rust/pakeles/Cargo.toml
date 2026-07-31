@@ -14,6 +14,14 @@ categories = ["parsing", "network-programming"]
 # (src/examples/, equality-guarded against examples/synthetic/).
 include = ["src/**", "Cargo.toml"]
 
+# The incumbent-agnostic CLI ships with the crate (its commands know
+# nothing about the gallery's incumbents — each example crate carries
+# its own diff binary). Library consumers: default-features = false.
+[[bin]]
+name = "pakeles"
+path = "src/main.rs"
+required-features = ["cli"]
+
 [dependencies]
 prost = "0.13"
 pbjson = "0.7"
@@ -24,10 +32,12 @@ anyhow = "1"
 thiserror = "2"
 pcap-parser = "0.16"
 z3 = { version = "0.12", optional = true }
+clap = { version = "4", features = ["derive"], optional = true }
 
 [features]
-default = ["symex"]
+default = ["symex", "cli"]
 symex = ["dep:z3"]
+cli = ["dep:clap"]
 
 [dev-dependencies]
 pakeles-testkit = { path = "../pakeles-testkit" }

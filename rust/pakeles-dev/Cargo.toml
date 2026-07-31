@@ -1,0 +1,30 @@
+[package]
+name = "pakeles-dev"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Repo maintenance bins: pakeles-pbgen (vendored protobuf code), gen_fixtures (testdata), gen_examples (the gallery), symex_bench"
+
+[[bin]]
+name = "pakeles-pbgen"
+path = "src/bin/pbgen.rs"
+
+[[bin]]
+name = "gen_examples"
+path = "src/bin/gen_examples.rs"
+required-features = ["symex"]
+
+[[bin]]
+name = "symex_bench"
+path = "src/bin/symex_bench.rs"
+required-features = ["symex"]
+
+[features]
+default = ["symex"]
+symex = ["pakeles/symex"]
+
+[dependencies]
+pakeles = { path = "../pakeles", default-features = false }
+prost-build = "0.13"
+pbjson-build = "0.7"
+anyhow = "1"

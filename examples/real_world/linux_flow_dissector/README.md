@@ -46,8 +46,8 @@ The oracle is a **golden-diff**, not a live BPF run in the everyday gate:
    [`conformance/flow_keys.linux-6.8.0.golden.json`](conformance/flow_keys.linux-6.8.0.golden.json),
    making "agrees with Linux 6.8's flow dissector" a precise, reproducible
    claim.
-2. **`diff flow-dissector`** ([`src/lib.rs`](src/lib.rs),
-   `cargo run --bin pakeles -- diff flow-dissector`) — the everyday, unprivileged gate:
+2. **The golden diff** ([`src/lib.rs`](src/lib.rs);
+   `cargo run -p pakeles-example-linux-flow-dissector`) — the everyday, unprivileged gate:
    runs Pakeles's parse, projects the result to the rung-0 subset of
    `struct bpf_flow_keys` (harness-side projection, not in the IR), and
    compares field-for-field against the committed goldens. No BPF, no
@@ -190,6 +190,6 @@ carries it for every ok entry). Fields outside the current rung's subset are not
 ## Try it
 
 ```sh
-./dev.sh cargo run --bin pakeles -- diff flow-dissector   # everyday gate: our flow_keys vs committed goldens
+./dev.sh cargo run -p pakeles-example-linux-flow-dissector   # everyday gate: our flow_keys vs committed goldens
 tshark -X lua_script:gen/dissector.lua -r conformance/vectors.pcap -V
 ```

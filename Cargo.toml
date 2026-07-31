@@ -8,9 +8,8 @@
 resolver = "2"
 members = [
     "rust/pakeles",
-    "rust/pakeles-cli",
     "rust/pakeles-testkit",
-    "rust/pakeles-pbgen",
+    "rust/pakeles-dev",
     "examples/real_world/linux_flow_dissector",
     "examples/real_world/dpdk_ptype",
     "examples/real_world/katran_flow",

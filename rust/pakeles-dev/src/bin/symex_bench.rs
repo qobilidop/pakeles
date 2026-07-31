@@ -11,16 +11,20 @@ use pakeles::symex::testgen;
 use std::time::Instant;
 
 fn ir_for(name: &str) -> anyhow::Result<pakeles::ir::pb::Ir> {
-    Ok(match name {
-        "eth_ipvx_l4" => pakeles::examples::eth_ipvx_l4(),
-        "linux_flow_dissector" => pakeles_example_linux_flow_dissector::ir(),
-        "counted_items" => pakeles::examples::counted_items(),
-        "dpdk_ptype" => pakeles_example_dpdk_ptype::ir(),
-        "katran_flow" => pakeles_example_katran_flow::ir(),
-        "sai_parser" => pakeles_example_sai_parser::ir(),
-        "encap_proxy" => pakeles::builder::encap_proxy(),
-        _ => anyhow::bail!("unknown example `{name}` (gallery names or `encap_proxy`)"),
-    })
+    if name == "encap_proxy" {
+        return Ok(pakeles::builder::encap_proxy());
+    }
+    // Gallery examples load from their committed IR on disk — the
+    // bench needs no dependency on the example crates, and picks up an
+    // edited IR without a rebuild.
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    for group in ["synthetic", "real_world"] {
+        let path = root.join(format!("examples/{group}/{name}/{name}.ir.json"));
+        if path.exists() {
+            return pakeles::ir::load(&path);
+        }
+    }
+    anyhow::bail!("unknown example `{name}` (gallery names or `encap_proxy`)")
 }
 
 fn kind_str(k: &PathKind) -> String {

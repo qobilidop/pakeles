@@ -57,6 +57,11 @@ and gains:
 - A bare `cargo test` at the root runs every workspace member (virtual
   root — all members are default).
 - The CLI is `cargo run --bin pakeles -- ...` from anywhere in the
-  workspace.
+  workspace. It is incumbent-agnostic (and therefore lives in the
+  `pakeles` crate itself, behind a default-on `cli` feature): each
+  incumbent's golden diff is its own example crate's binary —
+  `cargo run` inside the example directory. Repo maintenance bins
+  (pbgen, gen_fixtures, gen_examples, symex_bench) live in
+  `rust/pakeles-dev`.
 - After editing `proto/`: run `pakeles-pbgen`, then the python protoc
   step (`python/README.md`), then `scripts/gen-examples.sh`.

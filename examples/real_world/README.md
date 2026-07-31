@@ -12,7 +12,9 @@ one directory**: the description (`<name>.py`, `<name>.ir.json`), the
 generated artifacts (`gen/`), the goldens and vector suite
 (`conformance/`), the golden factory (`factory/`, plus `spike/` where
 exploratory harnesses exist), and the projection + gate tests
-(`src/lib.rs`). `cargo test -p pakeles-example-<name>` runs one
+(`src/lib.rs`), plus the diff command itself (`src/main.rs` —
+`cargo run -p pakeles-example-<name>`, or just `cargo run` from inside
+the directory). `cargo test -p pakeles-example-<name>` runs one
 example's gate; deleting an example is deleting one directory.
 
 | Example (here) | Incumbent | Pinned at |

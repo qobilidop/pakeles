@@ -239,12 +239,6 @@ fn hex(b: Vec<u8>) -> String {
     b.iter().map(|x| format!("{x:02x}")).collect()
 }
 
-/// Report from diffing our projected `flow_keys` against a `GoldenFile`.
-pub struct FlowDiffReport {
-    pub compared: usize,
-    pub mismatches: Vec<String>,
-}
-
 /// Stringify one `keys_subset` field from both `ours` and `golden` for
 /// comparison. Unknown field names surface as a guaranteed mismatch rather
 /// than silently passing.
@@ -315,8 +309,11 @@ pub fn discover_committed_golden(dir: &std::path::Path) -> Option<std::path::Pat
 
 /// Diff our `project`ed `flow_keys` against a golden file's entries, over
 /// the golden's declared `keys_subset` fields.
-pub fn diff_goldens(ir: &pb::Ir, golden: &GoldenFile) -> anyhow::Result<FlowDiffReport> {
-    let mut report = FlowDiffReport {
+pub fn diff_goldens(
+    ir: &pb::Ir,
+    golden: &GoldenFile,
+) -> anyhow::Result<pakeles::oracle::GoldenDiffReport> {
+    let mut report = pakeles::oracle::GoldenDiffReport {
         compared: 0,
         mismatches: Vec::new(),
     };
@@ -348,6 +345,31 @@ pub fn diff_goldens(ir: &pb::Ir, golden: &GoldenFile) -> anyhow::Result<FlowDiff
         }
     }
     Ok(report)
+}
+
+/// The example's diff command (`src/main.rs` calls this): the
+/// default IR, committed-golden discovery, and the diff. Everything
+/// about diffing this incumbent lives in this crate.
+pub fn cli_diff(
+    ir: Option<&std::path::Path>,
+    goldens: Option<&std::path::Path>,
+) -> anyhow::Result<pakeles::oracle::GoldenDiffReport> {
+    use anyhow::Context as _;
+    let ir = match ir {
+        None => self::ir(),
+        Some(p) => pakeles::ir::load(p)?,
+    };
+    let goldens = match goldens {
+        Some(p) => p.to_path_buf(),
+        None => discover_committed_golden(&conformance_dir()).context(
+            "no --goldens given and no committed flow_keys.linux-*.golden.json found under linux_flow_dissector/conformance/",
+        )?,
+    };
+    let golden: GoldenFile = serde_json::from_str(
+        &std::fs::read_to_string(&goldens)
+            .with_context(|| format!("reading goldens from {}", goldens.display()))?,
+    )?;
+    diff_goldens(&ir, &golden)
 }
 
 #[cfg(test)]
@@ -1292,6 +1314,49 @@ mod diff_tests {
 #[cfg(test)]
 mod gate_tests {
     use super::*;
+
+    /// The --goldens override path (what the factories' replay scripts
+    /// use): a runtime-minted golden diffs clean.
+    #[test]
+    fn cli_diff_accepts_goldens_override() {
+        let ir = ir();
+        let pkt = pakeles::fixtures::tcp_packet();
+        let keys = project(&ir, &pkt).unwrap().unwrap();
+        let golden = GoldenFile {
+            kernel_version: "test".into(),
+            keys_subset: vec![
+                "nhoff".into(),
+                "thoff".into(),
+                "sport".into(),
+                "dport".into(),
+            ],
+            entries: vec![GoldenEntry {
+                packet_hex: pkt.iter().map(|b| format!("{b:02x}")).collect(),
+                disposition: Disposition::Ok,
+                keys: Some(keys),
+            }],
+        };
+        let dir = std::env::temp_dir().join("pakeles_cli_diff_override");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("golden.json");
+        std::fs::write(&path, serde_json::to_string(&golden).unwrap()).unwrap();
+        let report = cli_diff(None, Some(&path)).unwrap();
+        assert_eq!(report.compared, 1);
+        assert!(report.mismatches.is_empty());
+    }
+
+    /// The diff binary's default path: discover the committed golden,
+    /// diff, come back clean.
+    #[test]
+    fn cli_diff_discovers_committed_golden_and_agrees() {
+        let report = cli_diff(None, None).unwrap();
+        assert!(report.compared > 0);
+        assert!(
+            report.mismatches.is_empty(),
+            "{}",
+            report.mismatches.join("\n")
+        );
+    }
 
     /// Rung 1's definition of done: Pakeles's projected `flow_keys` agree
     /// with the kernel-captured goldens committed in

@@ -33,4 +33,4 @@ ver="$(grep -A1 '^name = "rustls"$' Cargo.lock | grep version | cut -d'"' -f2)"
 RUSTLS_VERSION="$ver" cargo run --release --quiet -- capture witnesses.txt > witnesses.golden.json
 echo "replaying $(grep -c '^[0-9a-f]' witnesses.txt) witnesses against rustls $ver"
 cd ../../../..
-cargo run --quiet --bin pakeles -- diff tls-clienthello --goldens examples/real_world/tls_clienthello/factory/witnesses.golden.json
+cargo run --quiet -p pakeles-example-tls-clienthello -- --goldens examples/real_world/tls_clienthello/factory/witnesses.golden.json

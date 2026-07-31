@@ -12,36 +12,29 @@ fn repo_root() -> PathBuf {
         .expect("repo root")
 }
 
-/// Every gallery example and its directory: synthetic from the core
-/// crate's list, real-world from each example crate (the directory a
-/// crate reports for itself is the single source of truth).
+/// The real-world gallery examples. This dev tool addresses them by
+/// path (keep in step with the workspace members and
+/// scripts/gen-examples.sh) so that it — like the CLI — carries no
+/// dependency on the example crates.
+const REAL_WORLD: [&str; 5] = [
+    "linux_flow_dissector",
+    "dpdk_ptype",
+    "katran_flow",
+    "sai_parser",
+    "tls_clienthello",
+];
+
+/// Every gallery example and its directory.
 fn gallery() -> Vec<(&'static str, PathBuf)> {
     let root = repo_root();
     pakeles::examples::SYNTHETIC
         .iter()
         .map(|n| (*n, root.join("examples/synthetic").join(n)))
-        .chain([
-            (
-                "linux_flow_dissector",
-                pakeles_example_linux_flow_dissector::dir().to_path_buf(),
-            ),
-            (
-                "dpdk_ptype",
-                pakeles_example_dpdk_ptype::dir().to_path_buf(),
-            ),
-            (
-                "katran_flow",
-                pakeles_example_katran_flow::dir().to_path_buf(),
-            ),
-            (
-                "sai_parser",
-                pakeles_example_sai_parser::dir().to_path_buf(),
-            ),
-            (
-                "tls_clienthello",
-                pakeles_example_tls_clienthello::dir().to_path_buf(),
-            ),
-        ])
+        .chain(
+            REAL_WORLD
+                .iter()
+                .map(|n| (*n, root.join("examples/real_world").join(n))),
+        )
         .collect()
 }
 

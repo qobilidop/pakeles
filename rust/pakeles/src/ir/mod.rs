@@ -30,6 +30,17 @@ pub fn to_json(ir: &pb::Ir) -> Result<String> {
     Ok(serde_json::to_string_pretty(ir)?)
 }
 
+/// Read, parse, and validate an IR file (protojson) — the standard way
+/// any consumer loads an IR from disk.
+pub fn load(path: &std::path::Path) -> anyhow::Result<pb::Ir> {
+    use anyhow::Context as _;
+    let text = std::fs::read_to_string(path)
+        .with_context(|| format!("reading IR from {}", path.display()))?;
+    let ir = from_json(&text)?;
+    validate::validate(&ir).map_err(|e| anyhow::anyhow!("invalid IR:\n  {}", e.join("\n  ")))?;
+    Ok(ir)
+}
+
 pub fn from_json(s: &str) -> Result<pb::Ir> {
     Ok(serde_json::from_str(s)?)
 }

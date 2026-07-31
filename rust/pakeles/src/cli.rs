@@ -32,9 +32,10 @@ enum Command {
         #[arg(long)]
         ir: Option<PathBuf>,
     },
-    /// Diff our parse against a reference oracle; exit 1 on mismatch.
+    /// Diff our parse against a toolchain-generic oracle (tshark,
+    /// BMv2); exit 1 on mismatch. Incumbent diffs live with their
+    /// examples: `cargo run -p pakeles-example-<x>`.
     Diff {
-        /// Which oracle to diff against (more arrive with later slices).
         #[command(subcommand)]
         oracle: Oracle,
     },
@@ -157,60 +158,12 @@ enum Oracle {
         )]
         vectors: PathBuf,
     },
-    /// Diff our projected (bitmap, err) against sonic-pins-minted goldens.
-    Sai {
-        #[arg(long)]
-        ir: Option<PathBuf>,
-        #[arg(long)]
-        goldens: Option<PathBuf>,
-    },
-    /// Diff our projected katran keys + verdict against katran-minted goldens.
-    Katran {
-        #[arg(long)]
-        ir: Option<PathBuf>,
-        #[arg(long)]
-        goldens: Option<PathBuf>,
-    },
-    /// Diff our projected (verdict-class, SNI) against rustls-minted goldens.
-    TlsClienthello {
-        #[arg(long)]
-        ir: Option<PathBuf>,
-        #[arg(long)]
-        goldens: Option<PathBuf>,
-    },
-    /// Diff our projected (ptype, hdr_lens) against DPDK-minted goldens.
-    DpdkPtype {
-        #[arg(long)]
-        ir: Option<PathBuf>,
-        /// Golden file path. Defaults to the committed DPDK-minted
-        /// goldens (`ptype.dpdk-*.golden.json`) under
-        /// examples/real_world/dpdk_ptype/conformance/.
-        #[arg(long)]
-        goldens: Option<PathBuf>,
-    },
-    /// Diff our projected flow_keys against kernel-captured goldens.
-    FlowDissector {
-        #[arg(long)]
-        ir: Option<PathBuf>,
-        /// Golden file path. Defaults to the committed kernel-captured
-        /// goldens (`flow_keys.linux-*.golden.json`) under
-        /// examples/real_world/linux_flow_dissector/conformance/.
-        #[arg(long)]
-        goldens: Option<PathBuf>,
-    },
 }
 
 fn load_ir(path: &Option<PathBuf>) -> Result<pb::Ir> {
     match path {
         None => Ok(pakeles::examples::eth_ipvx_l4()),
-        Some(p) => {
-            let text = std::fs::read_to_string(p)
-                .with_context(|| format!("reading IR from {}", p.display()))?;
-            let ir = pakeles::ir::from_json(&text)?;
-            pakeles::ir::validate::validate(&ir)
-                .map_err(|e| anyhow::anyhow!("invalid IR:\n  {}", e.join("\n  ")))?;
-            Ok(ir)
-        }
+        Some(p) => pakeles::ir::load(p),
     }
 }
 
@@ -289,166 +242,6 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
                 report.compared,
                 report.skipped_bit_granular,
                 report.skipped_depth_bound,
-                report.mismatches.len()
-            );
-            for m in &report.mismatches {
-                println!("  {m}");
-            }
-            Ok(if report.mismatches.is_empty() { 0 } else { 1 })
-        }
-        Command::Diff {
-            oracle: Oracle::Sai { ir, goldens },
-        } => {
-            let ir = match &ir {
-                None => pakeles_example_sai_parser::ir(),
-                Some(_) => load_ir(&ir)?,
-            };
-            let goldens = match goldens {
-                Some(p) => p,
-                None => pakeles_example_sai_parser::discover_committed_golden(
-                    &pakeles_example_sai_parser::conformance_dir(),
-                )
-                .context(
-                    "no --goldens given and no committed sai.*.golden.json \
-                     found under examples/real_world/sai_parser/conformance/",
-                )?,
-            };
-            let golden: pakeles_example_sai_parser::GoldenFile = serde_json::from_str(
-                &std::fs::read_to_string(&goldens)
-                    .with_context(|| format!("reading sai goldens from {}", goldens.display()))?,
-            )?;
-            let report = pakeles_example_sai_parser::diff_goldens(&ir, &golden)?;
-            println!(
-                "{} vectors compared, {} mismatches",
-                report.compared,
-                report.mismatches.len()
-            );
-            for m in &report.mismatches {
-                println!("  {m}");
-            }
-            Ok(if report.mismatches.is_empty() { 0 } else { 1 })
-        }
-        Command::Diff {
-            oracle: Oracle::Katran { ir, goldens },
-        } => {
-            let ir = match &ir {
-                None => pakeles_example_katran_flow::ir(),
-                Some(_) => load_ir(&ir)?,
-            };
-            let goldens = match goldens {
-                Some(p) => p,
-                None => pakeles_example_katran_flow::discover_committed_golden(
-                    &pakeles_example_katran_flow::conformance_dir(),
-                )
-                .context(
-                    "no --goldens given and no committed katran.*.golden.json \
-                     found under examples/real_world/katran_flow/conformance/",
-                )?,
-            };
-            let golden: pakeles_example_katran_flow::GoldenFile =
-                serde_json::from_str(&std::fs::read_to_string(&goldens).with_context(|| {
-                    format!("reading katran goldens from {}", goldens.display())
-                })?)?;
-            let report = pakeles_example_katran_flow::diff_goldens(&ir, &golden)?;
-            println!(
-                "{} vectors compared, {} mismatches",
-                report.compared,
-                report.mismatches.len()
-            );
-            for m in &report.mismatches {
-                println!("  {m}");
-            }
-            Ok(if report.mismatches.is_empty() { 0 } else { 1 })
-        }
-        Command::Diff {
-            oracle: Oracle::TlsClienthello { ir, goldens },
-        } => {
-            let ir = match &ir {
-                None => pakeles_example_tls_clienthello::ir(),
-                Some(_) => load_ir(&ir)?,
-            };
-            let goldens = match goldens {
-                Some(p) => p,
-                None => pakeles_example_tls_clienthello::discover_committed_golden(
-                    &pakeles_example_tls_clienthello::conformance_dir(),
-                )
-                .context(
-                    "no --goldens given and no committed clienthello.rustls-*.golden.json \
-                     found under examples/real_world/tls_clienthello/conformance/",
-                )?,
-            };
-            let golden: pakeles_example_tls_clienthello::GoldenFile =
-                serde_json::from_str(&std::fs::read_to_string(&goldens).with_context(|| {
-                    format!("reading tls-clienthello goldens from {}", goldens.display())
-                })?)?;
-            let report = pakeles_example_tls_clienthello::diff_goldens(&ir, &golden)?;
-            println!(
-                "{} vectors compared, {} mismatches",
-                report.compared,
-                report.mismatches.len()
-            );
-            for m in &report.mismatches {
-                println!("  {m}");
-            }
-            Ok(if report.mismatches.is_empty() { 0 } else { 1 })
-        }
-        Command::Diff {
-            oracle: Oracle::DpdkPtype { ir, goldens },
-        } => {
-            let ir = match &ir {
-                None => pakeles_example_dpdk_ptype::ir(),
-                Some(_) => load_ir(&ir)?,
-            };
-            let goldens = match goldens {
-                Some(p) => p,
-                None => pakeles_example_dpdk_ptype::discover_committed_golden(
-                    &pakeles_example_dpdk_ptype::conformance_dir(),
-                )
-                .context(
-                    "no --goldens given and no committed ptype.dpdk-*.golden.json \
-                     found under examples/real_world/dpdk_ptype/conformance/",
-                )?,
-            };
-            let golden: pakeles_example_dpdk_ptype::GoldenFile =
-                serde_json::from_str(&std::fs::read_to_string(&goldens).with_context(|| {
-                    format!("reading dpdk-ptype goldens from {}", goldens.display())
-                })?)?;
-            let report = pakeles_example_dpdk_ptype::diff_goldens(&ir, &golden)?;
-            println!(
-                "{} vectors compared, {} mismatches",
-                report.compared,
-                report.mismatches.len()
-            );
-            for m in &report.mismatches {
-                println!("  {m}");
-            }
-            Ok(if report.mismatches.is_empty() { 0 } else { 1 })
-        }
-        Command::Diff {
-            oracle: Oracle::FlowDissector { ir, goldens },
-        } => {
-            let ir = match &ir {
-                None => pakeles_example_linux_flow_dissector::ir(),
-                Some(_) => load_ir(&ir)?,
-            };
-            let goldens = match goldens {
-                Some(p) => p,
-                None => pakeles_example_linux_flow_dissector::discover_committed_golden(
-                    &pakeles_example_linux_flow_dissector::conformance_dir(),
-                )
-                .context(
-                    "no --goldens given and no committed flow_keys.linux-*.golden.json \
-                     found under examples/real_world/linux_flow_dissector/conformance/",
-                )?,
-            };
-            let golden: pakeles_example_linux_flow_dissector::GoldenFile =
-                serde_json::from_str(&std::fs::read_to_string(&goldens).with_context(|| {
-                    format!("reading flow-dissector goldens from {}", goldens.display())
-                })?)?;
-            let report = pakeles_example_linux_flow_dissector::diff_goldens(&ir, &golden)?;
-            println!(
-                "{} vectors compared, {} mismatches",
-                report.compared,
                 report.mismatches.len()
             );
             for m in &report.mismatches {
@@ -638,50 +431,6 @@ mod tests {
             &from_root("testdata/basic.pcap"),
         ])
         .unwrap();
-        assert_eq!(code, 0);
-    }
-
-    #[test]
-    fn diff_flow_dissector_on_generated_golden_green() {
-        let ir = pakeles_example_linux_flow_dissector::ir();
-        let pkt = pakeles::fixtures::tcp_packet();
-        let keys = pakeles_example_linux_flow_dissector::project(&ir, &pkt)
-            .unwrap()
-            .unwrap();
-        let golden = pakeles_example_linux_flow_dissector::GoldenFile {
-            kernel_version: "test".into(),
-            keys_subset: vec![
-                "nhoff".into(),
-                "thoff".into(),
-                "sport".into(),
-                "dport".into(),
-            ],
-            entries: vec![pakeles_example_linux_flow_dissector::GoldenEntry {
-                packet_hex: pkt.iter().map(|b| format!("{b:02x}")).collect(),
-                disposition: pakeles_example_linux_flow_dissector::Disposition::Ok,
-                keys: Some(keys),
-            }],
-        };
-        let dir = std::env::temp_dir().join("pakeles_diff_flow_dissector");
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("golden.json");
-        std::fs::write(&path, serde_json::to_string(&golden).unwrap()).unwrap();
-        let code = main_with(&[
-            "pakeles",
-            "diff",
-            "flow-dissector",
-            "--goldens",
-            path.to_str().unwrap(),
-        ])
-        .unwrap();
-        assert_eq!(code, 0);
-    }
-
-    #[test]
-    fn diff_flow_dissector_default_goldens_discovers_committed_file() {
-        // No --goldens: should discover the committed
-        // flow_keys.linux-*.golden.json and agree with it.
-        let code = main_with(&["pakeles", "diff", "flow-dissector"]).unwrap();
         assert_eq!(code, 0);
     }
 

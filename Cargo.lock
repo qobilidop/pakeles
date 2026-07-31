@@ -441,6 +441,7 @@ name = "pakeles"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap",
  "pakeles-testkit",
  "pbjson",
  "pbjson-types",
@@ -453,18 +454,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "pakeles-cli"
+name = "pakeles-dev"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap",
  "pakeles",
- "pakeles-example-dpdk-ptype",
- "pakeles-example-katran-flow",
- "pakeles-example-linux-flow-dissector",
- "pakeles-example-sai-parser",
- "pakeles-example-tls-clienthello",
- "serde_json",
+ "pbjson-build",
+ "prost-build",
 ]
 
 [[package]]
@@ -472,6 +468,7 @@ name = "pakeles-example-dpdk-ptype"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap",
  "pakeles",
  "pakeles-testkit",
  "serde",
@@ -483,6 +480,7 @@ name = "pakeles-example-katran-flow"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap",
  "pakeles",
  "pakeles-testkit",
  "serde",
@@ -494,6 +492,7 @@ name = "pakeles-example-linux-flow-dissector"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap",
  "pakeles",
  "pakeles-testkit",
  "serde",
@@ -505,6 +504,7 @@ name = "pakeles-example-sai-parser"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap",
  "pakeles",
  "pakeles-testkit",
  "serde",
@@ -516,19 +516,11 @@ name = "pakeles-example-tls-clienthello"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap",
  "pakeles",
  "pakeles-testkit",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "pakeles-pbgen"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "pbjson-build",
- "prost-build",
 ]
 
 [[package]]

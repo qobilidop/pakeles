@@ -99,5 +99,5 @@ replayed through the real parser on `simple_switch` — **0 divergences**.
 ## Try it
 
 ```sh
-./dev.sh cargo run --bin pakeles -- diff sai   # our (bitmap, err) vs the committed golden
+./dev.sh cargo run -p pakeles-example-sai-parser   # our (bitmap, err) vs the committed golden
 ```

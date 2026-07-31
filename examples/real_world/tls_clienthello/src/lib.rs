@@ -125,11 +125,6 @@ fn check(ours: &OurClass, golden: &GoldenEntry) -> Option<String> {
     }
 }
 
-pub struct TlsDiffReport {
-    pub compared: usize,
-    pub mismatches: Vec<String>,
-}
-
 /// The conformance directory holding the committed goldens.
 /// This example's directory (the crate manifest dir): the description,
 /// committed IR, `gen/`, `conformance/`, and `factory/` all live here.
@@ -165,8 +160,11 @@ pub fn discover_committed_golden(dir: &std::path::Path) -> Option<std::path::Pat
         })
 }
 
-pub fn diff_goldens(ir: &pb::Ir, golden: &GoldenFile) -> anyhow::Result<TlsDiffReport> {
-    let mut report = TlsDiffReport {
+pub fn diff_goldens(
+    ir: &pb::Ir,
+    golden: &GoldenFile,
+) -> anyhow::Result<pakeles::oracle::GoldenDiffReport> {
+    let mut report = pakeles::oracle::GoldenDiffReport {
         compared: 0,
         mismatches: Vec::new(),
     };
@@ -181,9 +179,47 @@ pub fn diff_goldens(ir: &pb::Ir, golden: &GoldenFile) -> anyhow::Result<TlsDiffR
     Ok(report)
 }
 
+/// The example's diff command (`src/main.rs` calls this): the
+/// default IR, committed-golden discovery, and the diff. Everything
+/// about diffing this incumbent lives in this crate.
+pub fn cli_diff(
+    ir: Option<&std::path::Path>,
+    goldens: Option<&std::path::Path>,
+) -> anyhow::Result<pakeles::oracle::GoldenDiffReport> {
+    use anyhow::Context as _;
+    let ir = match ir {
+        None => self::ir(),
+        Some(p) => pakeles::ir::load(p)?,
+    };
+    let goldens = match goldens {
+        Some(p) => p.to_path_buf(),
+        None => discover_committed_golden(&conformance_dir()).context(
+            "no --goldens given and no committed clienthello.rustls-*.golden.json found under tls_clienthello/conformance/",
+        )?,
+    };
+    let golden: GoldenFile = serde_json::from_str(
+        &std::fs::read_to_string(&goldens)
+            .with_context(|| format!("reading goldens from {}", goldens.display()))?,
+    )?;
+    diff_goldens(&ir, &golden)
+}
+
 #[cfg(test)]
 mod gate_tests {
     use super::*;
+
+    /// The diff binary's default path: discover the committed golden,
+    /// diff, come back clean.
+    #[test]
+    fn cli_diff_discovers_committed_golden_and_agrees() {
+        let report = cli_diff(None, None).unwrap();
+        assert!(report.compared > 0);
+        assert!(
+            report.mismatches.is_empty(),
+            "{}",
+            report.mismatches.join("\n")
+        );
+    }
 
     /// Definition of done: our projection is matrix-compatible with the
     /// committed rustls-minted golden over the whole corpus. A failure

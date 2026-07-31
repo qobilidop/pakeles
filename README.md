@@ -55,7 +55,7 @@ graphviz, clang/llvm, and prebuilt p4c + BMv2 grafted from
 ./dev.sh cargo run --bin pakeles -- gen bpf --out parser.bpf.c        # eBPF variant
 ./dev.sh cargo run --bin pakeles -- gen p4 --out parser.p4            # P4-16 (v1model)
 ./dev.sh cargo run --bin pakeles -- diff bmv2                         # vectors vs BMv2
-./dev.sh cargo run --bin pakeles -- diff flow-dissector               # vs the kernel golden
+./dev.sh cargo run -p pakeles-example-linux-flow-dissector            # vs the kernel golden
 ./dev.sh cargo test -p pakeles-example-tls-clienthello                # one example's gate
 ```
 
@@ -116,22 +116,24 @@ everything about one real-world incumbent lives in one directory.
 - `proto/pakeles/{ir,testvec}/v1alpha1/` — the normative schemas
   (proto3), the contract both language surfaces vendor their
   generated code from
-- `rust/` — the toolchain crates (a cargo workspace rooted here at `/`):
-  - `pakeles/` — the core: `ir` (types + validation), `builder`,
-    `interp` (reference interpreter), `symex` (symbolic engine:
-    testgen/lint/cov, z3 behind a solver trait), `codegen` (backends:
-    Wireshark Lua, C99/eBPF, P4-16), `docgen`, `viz`, `oracle` (the
-    toolchain-generic tshark + BMv2 diffs). Vendors its generated
-    protobuf code (`src/gen/`) and the embedded synthetic IRs
-    (`src/examples/`), both equality-guarded — packaged crates are
-    self-contained; consumers never need protoc.
-  - `pakeles-cli/` — the `pakeles` binary; depends on the core and on
-    every example crate (it owns the `diff <incumbent>` subcommands)
+- `rust/` — the toolchain crates (a cargo workspace rooted at `/`):
+  - `pakeles/` — the library AND the `pakeles` binary (the CLI is
+    incumbent-agnostic — run/viz/gen/testgen/doc/fmt-ir plus the
+    tshark/BMv2 diffs — so it lives with the core; clap sits behind a
+    default-on `cli` feature). Contains `ir` (types + validation),
+    `builder`, `interp` (reference interpreter), `symex` (symbolic
+    engine: testgen/lint/cov, z3 behind a solver trait), `codegen`
+    (backends: Wireshark Lua, C99/eBPF, P4-16), `docgen`, `viz`,
+    `oracle` (tshark + BMv2 diffs). Vendors its generated protobuf
+    code (`src/gen/`) and the embedded synthetic IRs (`src/examples/`),
+    both equality-guarded — packaged crates are self-contained;
+    consumers never need protoc.
   - `pakeles-testkit/` — the shared conformance harnesses every
     gallery example runs (compile-and-execute each backend,
     equality-guard each committed artifact)
-  - `pakeles-pbgen/` — regenerates the vendored protobuf code after a
-    `proto/` change (`cargo run --bin pakeles-pbgen`)
+  - `pakeles-dev/` — repo maintenance bins: `pakeles-pbgen`
+    (regenerate the vendored protobuf code after a `proto/` change),
+    `gen_fixtures`, `gen_examples`, `symex_bench`
 - `python/` — the Python authoring eDSL (`pakeles` on PyPI,
   eventually); vendors its generated `_pb` modules the same way
 - `testdata/` — language-neutral fixtures (regenerate: `cargo run --bin gen_fixtures`)
@@ -143,7 +145,8 @@ everything about one real-world incumbent lives in one directory.
   - `real_world/` — one workspace member per incumbent: the
     description, committed IR, generated artifacts, goldens, golden
     factory, and the projection + gate tests (`src/lib.rs`) all in one
-    directory; `cargo test -p pakeles-example-<x>` runs one gate.
+    directory; `cargo test -p pakeles-example-<x>` runs one gate and
+    `cargo run -p pakeles-example-<x>` runs its golden diff.
     `linux_flow_dissector/` is the kernel-agreement north-star (see
     below); `tls_clienthello/` is the TLV flagship (agrees with rustls
     0.23.43).
@@ -158,7 +161,7 @@ Regenerate the gallery from its single source (the eDSL):
 ## Kernel agreement: the flow-dissector golden factory
 
 [`examples/real_world/linux_flow_dissector/`](examples/real_world/linux_flow_dissector/) is a
-north-star example: its `diff flow-dissector` oracle checks that Pakeles's
+north-star example: its golden-diff oracle checks that Pakeles's
 extracted flow keys agree with the kernel's own flow dissector (upstream
 `bpf_flow.c`, Linux 6.8), via golden `flow_keys` captured by
 running that BPF program in the kernel (`BPF_PROG_TEST_RUN`). That capture

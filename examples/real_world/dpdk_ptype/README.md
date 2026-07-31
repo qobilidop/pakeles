@@ -24,7 +24,7 @@ truncation lines via the laxness rule below. Design doc:
    version-tagged JSON it emits is committed here. The everyday gate
    test `committed_goldens_agree` diffs our projection
    ([`src/lib.rs`](src/lib.rs),
-   `cargo run --bin pakeles -- diff dpdk-ptype`) against it.
+   `cargo run -p pakeles-example-dpdk-ptype`) against it.
 2. **Live differential** (no staleness): where the dev container's
    DPDK + gcc are present, `live_dpdk_capture_matches_committed_golden`
    rebuilds the harness, re-runs the corpus, and requires the fresh
@@ -138,6 +138,6 @@ Faithfully modeled, never "corrected":
 ## Try it
 
 ```sh
-./dev.sh cargo run --bin pakeles -- diff dpdk-ptype   # our (ptype, hdr_lens) vs the committed goldens
+./dev.sh cargo run -p pakeles-example-dpdk-ptype   # our (ptype, hdr_lens) vs the committed goldens
 tshark -X lua_script:gen/dissector.lua -r conformance/vectors.pcap -V
 ```

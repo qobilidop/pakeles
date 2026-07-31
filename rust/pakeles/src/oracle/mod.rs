@@ -13,6 +13,30 @@ use crate::ir::pb;
 use anyhow::{bail, Context, Result};
 use std::path::Path;
 
+/// The uniform result of diffing our parse against an incumbent-minted
+/// golden file. Every example crate's `diff_goldens` returns this, so
+/// the CLI prints one way and exits one way for every incumbent.
+#[derive(Debug, Default)]
+pub struct GoldenDiffReport {
+    pub compared: usize,
+    pub mismatches: Vec<String>,
+}
+
+impl std::fmt::Display for GoldenDiffReport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(
+            f,
+            "{} vectors compared, {} mismatches",
+            self.compared,
+            self.mismatches.len()
+        )?;
+        for m in &self.mismatches {
+            writeln!(f, "  {m}")?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub struct FieldDiff {
     pub packet: usize,

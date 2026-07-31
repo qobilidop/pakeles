@@ -33,8 +33,9 @@ factory ([`factory/`](factory/)):
    exports the parsed `packet_description` at two points *before* any
    vip/LB stage. The verdict is the raw `BPF_PROG_TEST_RUN` return.
 
-The everyday unprivileged gate (`committed_goldens_agree`,
-`cargo run --bin pakeles -- diff katran`) diffs our projection ([`src/lib.rs`](src/lib.rs))
+The everyday unprivileged gate (`committed_goldens_agree`; run it by
+hand with `cargo run -p pakeles-example-katran-flow`) diffs our
+projection ([`src/lib.rs`](src/lib.rs))
 against the committed golden. Re-minting is privileged (in-kernel
 TEST_RUN):
 
@@ -117,5 +118,5 @@ the two prior incumbents on the very same packets:
 ## Try it
 
 ```sh
-./dev.sh cargo run --bin pakeles -- diff katran   # our keys+verdict vs the committed golden
+./dev.sh cargo run -p pakeles-example-katran-flow   # our keys+verdict vs the committed golden
 ```
