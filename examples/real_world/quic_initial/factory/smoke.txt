@@ -1,0 +1,33 @@
+# quic_initial factory smoke — the Phase-1 oracle-probe differential
+# table reproduced IN-CONTAINER through the factory binary itself
+# (quiche 0.29.3 primary lane, quinn-proto 0.11.16 secondary lane;
+# `one` mode, actual output lines). Confirms the probe findings hold
+# in the minting environment:
+#   1. valid Initial: both Ok; only quinn exposes len.
+#   2. fixed-bit-clear: quiche Ok / quinn "fixed bit unset"
+#      (divergence rule 1).
+#   3. unknown version: quiche Ok(Initial, reads token via the
+#      v1-type nibble) / quinn UnsupportedVersion (rule 2).
+#   4. version 0 (VN): both Ok; quiche walks the version list,
+#      quinn does not.
+#   5. truncated in token: both err, each in its own vocabulary.
+
+# --- valid v1 Initial (dcid 8, scid 5, token 5 B, length 18) ---
+$ cargo run --release --quiet -- one c000000001081111111111111111052222222222053333333333401200000000000000000000000000000000000000
+{"quiche":{"dcid":"1111111111111111","len":null,"scid":"2222222222","token":"3333333333","ty":"Initial","verdict":"ok","version":1,"versions":null},"quinn":{"dcid":"1111111111111111","len":18,"scid":"2222222222","token":"3333333333","ty":"Initial","verdict":"ok","version":1,"versions":null}}
+
+# --- fixed-bit-clear Initial (first=0x80): quiche Ok, quinn err ---
+$ cargo run --release --quiet -- one 8000000001081111111111111111052222222222053333333333401200000000000000000000000000000000000000
+{"quiche":{"dcid":"1111111111111111","len":null,"scid":"2222222222","token":"3333333333","ty":"Initial","verdict":"ok","version":1,"versions":null},"quinn":{"error":"invalid header: fixed bit unset","verdict":"err"}}
+
+# --- unknown version 0xdeadbeef: quiche Ok(Initial), quinn UnsupportedVersion ---
+$ cargo run --release --quiet -- one c0deadbeef081111111111111111052222222222053333333333401200000000000000000000000000000000000000
+{"quiche":{"dcid":"1111111111111111","len":null,"scid":"2222222222","token":"3333333333","ty":"Initial","verdict":"ok","version":3735928559,"versions":null},"quinn":{"error":"unsupported version deadbeef","verdict":"err"}}
+
+# --- version 0 (VN, list [v1, draft-29]): quiche walks the list, quinn does not ---
+$ cargo run --release --quiet -- one c00000000008111111111111111105222222222200000001ff00001d
+{"quiche":{"dcid":"1111111111111111","len":null,"scid":"2222222222","token":null,"ty":"VersionNegotiation","verdict":"ok","version":0,"versions":[1,4278190109]},"quinn":{"dcid":"1111111111111111","len":null,"scid":"2222222222","token":null,"ty":"VersionNegotiate","verdict":"ok","version":null,"versions":null}}
+
+# --- truncated inside token bytes: both err, different vocab ---
+$ cargo run --release --quiet -- one c00000000108111111111111111105222222222240053333
+{"quiche":{"error":"BufferTooShort","verdict":"err"},"quinn":{"error":"invalid header: token out of bounds","verdict":"err"}}

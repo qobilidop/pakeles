@@ -500,6 +500,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "pakeles-example-quic-initial"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "pakeles",
+ "pakeles-testkit",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "pakeles-example-sai-parser"
 version = "0.1.0"
 dependencies = [

@@ -19,9 +19,11 @@ parse_version:  extract Version{v:32}
                 select v: 1 -> v1_dcid_len
                           0 -> vn_mark        (assign kind=VN)
                           default -> unk_mark (assign kind=UNKNOWN_VERSION)
-vn_mark/unk_mark: -> other_dcid  (shared uncapped path)
-other_dcid:     extract OtherDcid{ln:8, cid:var_bytes(ln)} -> other_scid
-other_scid:     extract OtherScid{ln:8, cid:var_bytes(ln)} -> accept
+vn_mark/unk_mark: -> other_cids  (shared uncapped path)
+other_cids:     extract OtherCids{dcid_len:8, dcid:var_bytes(dcid_len),
+                                  scid_len:8, scid:var_bytes(scid_len)}
+                -> accept   (one header: stays at the 16-instance
+                             verdict-bitmap cap)
 v1_dcid_len:    extract DcidLen{ln:8}
                 select ln: 0..=20 -> v1_dcid ; default -> reject (cid cap)
 v1_dcid:        extract Dcid{cid:var_bytes(DcidLen.ln)} -> v1_scid_len
@@ -79,6 +81,20 @@ Decisions locked:
 - **Non-minimal varints accepted** (RFC 9000 §16 permits them except
   where a spec says otherwise; octets/quiche/quinn all accept them
   in these positions). Corpus exercises them.
+- **`gen lua` refuses this description** (discovered at build): varint
+  tails run to 56 bits and composed values to 62, past Lua 5.2's
+  number model (bit32 semantics, 53-bit double mantissa). The refusal
+  is committed as a `LUA-UNSUPPORTED.txt` marker — the `gen p4`
+  refusal precedent, now generalized in gen_examples + testkit. C,
+  eBPF, and docs/viz backends all lower this parser.
+- **`gen p4` refuses too** (discovered at build): no regions here, but
+  a varint-sized field's length RANGE must fit a static `varbit`
+  bound, and even the 2-byte token form implies 16383 bytes = 131064
+  bits (cap: 65535). Classified into the existing designed-refusal
+  family → committed `P4-UNSUPPORTED.txt`. So QUIC varints yield a
+  SECOND parity-plus boundary, distinct in kind from the TLV/region
+  one: P4 can express the two-field split control flow, but not a
+  faithful extraction of the sized payload the varint denotes.
 
 ## Projection & laxness
 

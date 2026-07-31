@@ -22,3 +22,5 @@ examples/real_world/*/spike/build/
 examples/real_world/*/factory/witnesses.txt
 /examples/real_world/tls_clienthello/factory/target/
 examples/real_world/tls_clienthello/factory/witnesses.golden.json
+/examples/real_world/quic_initial/factory/target/
+examples/real_world/quic_initial/factory/witnesses.golden.json

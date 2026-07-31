@@ -1,0 +1,1755 @@
+{
+  "irVersion": "0.1.0",
+  "parser": {
+    "name": "quic_initial",
+    "headerTypes": [
+      {
+        "name": "first_byte",
+        "fields": [
+          {
+            "name": "form",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Header Form",
+              "valueLabels": [
+                {
+                  "label": "Short (1-RTT)"
+                },
+                {
+                  "value": "1",
+                  "label": "Long"
+                }
+              ]
+            }
+          },
+          {
+            "name": "fixed",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Fixed Bit",
+              "doc": "not enforced (quiche's stance; quinn rejects 0)"
+            }
+          },
+          {
+            "name": "ty",
+            "width": {
+              "bits": 2
+            },
+            "display": {
+              "name": "Long Packet Type",
+              "valueLabels": [
+                {
+                  "label": "Initial"
+                },
+                {
+                  "value": "1",
+                  "label": "0-RTT"
+                },
+                {
+                  "value": "2",
+                  "label": "Handshake"
+                },
+                {
+                  "value": "3",
+                  "label": "Retry"
+                }
+              ],
+              "doc": "meaningful when form=1"
+            }
+          },
+          {
+            "name": "low",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Type-Specific Bits",
+              "doc": "under header protection - out of claim"
+            }
+          }
+        ]
+      },
+      {
+        "name": "version",
+        "fields": [
+          {
+            "name": "v",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Version",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "label": "Version Negotiation"
+                },
+                {
+                  "value": "1",
+                  "label": "QUIC v1"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "other_cids",
+        "fields": [
+          {
+            "name": "dcid_len",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "DCID Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "dcid",
+            "width": {
+              "byteLen": {
+                "field": {
+                  "header": "other_cids",
+                  "field": "dcid_len"
+                }
+              }
+            }
+          },
+          {
+            "name": "scid_len",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "SCID Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "scid",
+            "width": {
+              "byteLen": {
+                "field": {
+                  "header": "other_cids",
+                  "field": "scid_len"
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "dcid_len",
+        "fields": [
+          {
+            "name": "ln",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "DCID Length",
+              "format": "DISPLAY_FORMAT_DEC",
+              "doc": "v1 caps at 20 (RFC 9000 §17.2)"
+            }
+          }
+        ]
+      },
+      {
+        "name": "dcid",
+        "fields": [
+          {
+            "name": "cid",
+            "width": {
+              "byteLen": {
+                "field": {
+                  "header": "dcid_len",
+                  "field": "ln"
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "scid_len",
+        "fields": [
+          {
+            "name": "ln",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "SCID Length",
+              "format": "DISPLAY_FORMAT_DEC",
+              "doc": "v1 caps at 20 (RFC 9000 §17.2)"
+            }
+          }
+        ]
+      },
+      {
+        "name": "scid",
+        "fields": [
+          {
+            "name": "cid",
+            "width": {
+              "byteLen": {
+                "field": {
+                  "header": "scid_len",
+                  "field": "ln"
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "tok_lead",
+        "fields": [
+          {
+            "name": "prefix",
+            "width": {
+              "bits": 2
+            },
+            "display": {
+              "name": "Token Varint Width",
+              "valueLabels": [
+                {
+                  "label": "1-byte"
+                },
+                {
+                  "value": "1",
+                  "label": "2-byte"
+                },
+                {
+                  "value": "2",
+                  "label": "4-byte"
+                },
+                {
+                  "value": "3",
+                  "label": "8-byte"
+                }
+              ]
+            }
+          },
+          {
+            "name": "v6",
+            "width": {
+              "bits": 6
+            },
+            "display": {
+              "name": "Token Varint High Bits"
+            }
+          }
+        ]
+      },
+      {
+        "name": "tok0",
+        "fields": [
+          {
+            "name": "body",
+            "width": {
+              "byteLen": {
+                "field": {
+                  "header": "tok_lead",
+                  "field": "v6"
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "tok1",
+        "fields": [
+          {
+            "name": "t",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Token Varint Tail"
+            }
+          },
+          {
+            "name": "body",
+            "width": {
+              "byteLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_OR",
+                  "lhs": {
+                    "bin": {
+                      "op": "BIN_OP_KIND_SHL",
+                      "lhs": {
+                        "field": {
+                          "header": "tok_lead",
+                          "field": "v6"
+                        }
+                      },
+                      "rhs": {
+                        "constant": "8"
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "field": {
+                      "header": "tok1",
+                      "field": "t"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "tok2",
+        "fields": [
+          {
+            "name": "t",
+            "width": {
+              "bits": 24
+            },
+            "display": {
+              "name": "Token Varint Tail"
+            }
+          },
+          {
+            "name": "body",
+            "width": {
+              "byteLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_OR",
+                  "lhs": {
+                    "bin": {
+                      "op": "BIN_OP_KIND_SHL",
+                      "lhs": {
+                        "field": {
+                          "header": "tok_lead",
+                          "field": "v6"
+                        }
+                      },
+                      "rhs": {
+                        "constant": "24"
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "field": {
+                      "header": "tok2",
+                      "field": "t"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "tok3",
+        "fields": [
+          {
+            "name": "t",
+            "width": {
+              "bits": 56
+            },
+            "display": {
+              "name": "Token Varint Tail"
+            }
+          },
+          {
+            "name": "body",
+            "width": {
+              "byteLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_OR",
+                  "lhs": {
+                    "bin": {
+                      "op": "BIN_OP_KIND_SHL",
+                      "lhs": {
+                        "field": {
+                          "header": "tok_lead",
+                          "field": "v6"
+                        }
+                      },
+                      "rhs": {
+                        "constant": "56"
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "field": {
+                      "header": "tok3",
+                      "field": "t"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "len_lead",
+        "fields": [
+          {
+            "name": "prefix",
+            "width": {
+              "bits": 2
+            },
+            "display": {
+              "name": "Length Varint Width",
+              "valueLabels": [
+                {
+                  "label": "1-byte"
+                },
+                {
+                  "value": "1",
+                  "label": "2-byte"
+                },
+                {
+                  "value": "2",
+                  "label": "4-byte"
+                },
+                {
+                  "value": "3",
+                  "label": "8-byte"
+                }
+              ]
+            }
+          },
+          {
+            "name": "v6",
+            "width": {
+              "bits": 6
+            },
+            "display": {
+              "name": "Length Varint High Bits"
+            }
+          }
+        ]
+      },
+      {
+        "name": "len1",
+        "fields": [
+          {
+            "name": "t",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Length Varint Tail"
+            }
+          }
+        ]
+      },
+      {
+        "name": "len2",
+        "fields": [
+          {
+            "name": "t",
+            "width": {
+              "bits": 24
+            },
+            "display": {
+              "name": "Length Varint Tail"
+            }
+          }
+        ]
+      },
+      {
+        "name": "len3",
+        "fields": [
+          {
+            "name": "t",
+            "width": {
+              "bits": 56
+            },
+            "display": {
+              "name": "Length Varint Tail"
+            }
+          }
+        ]
+      }
+    ],
+    "states": [
+      {
+        "name": "parse_first",
+        "extracts": [
+          {
+            "headerType": "first_byte"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "first_byte",
+                  "field": "form"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "short_accept"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_version"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "reject": {
+                "reason": "unreachable: 1-bit key"
+              }
+            }
+          }
+        },
+        "annotations": {
+          "doc": "Header form bit routes short vs long; the rest of the first\nbyte rides along (type bits meaningful only for long headers)."
+        }
+      },
+      {
+        "name": "short_accept",
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "7"
+            }
+          }
+        ],
+        "annotations": {
+          "doc": "Classify-only: the short-header DCID length is out-of-band\nLB configuration (the katran-config-gate analog)."
+        }
+      },
+      {
+        "name": "parse_version",
+        "extracts": [
+          {
+            "headerType": "version"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "version",
+                  "field": "v"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid_len"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "vn_mark"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "state": "unknown_mark"
+            }
+          }
+        },
+        "annotations": {
+          "doc": "Version routes v1 (deep parse) vs VN vs unknown; RFC 8999\ninvariants guarantee CIDs follow in every case."
+        }
+      },
+      {
+        "name": "vn_mark",
+        "transition": {
+          "direct": {
+            "state": "parse_other_cids"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "5"
+            }
+          }
+        ],
+        "annotations": {
+          "doc": "Version list deliberately not walked (quinn's stance; quiche\nwalks it - documented divergence)."
+        }
+      },
+      {
+        "name": "unknown_mark",
+        "transition": {
+          "direct": {
+            "state": "parse_other_cids"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "6"
+            }
+          }
+        ],
+        "annotations": {
+          "doc": "Unknown versions parse through (quiche's stance; quinn\nrejects with UnsupportedVersion after the CIDs)."
+        }
+      },
+      {
+        "name": "parse_other_cids",
+        "extracts": [
+          {
+            "headerType": "other_cids"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "annotations": {
+          "doc": "Non-v1 CIDs are uncapped: quiche enforces the 20-byte cap\nonly for versions it supports."
+        }
+      },
+      {
+        "name": "parse_dcid_len",
+        "extracts": [
+          {
+            "headerType": "dcid_len"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "dcid_len",
+                  "field": "ln"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "3"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "5"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "7"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "8"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "9"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "10"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "11"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "12"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "13"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "14"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "15"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "16"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "17"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "18"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "19"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "20"
+                  }
+                ],
+                "next": {
+                  "state": "parse_dcid"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "reject": {
+                "reason": "dcid too long for v1"
+              }
+            }
+          }
+        },
+        "annotations": {
+          "doc": "The v1 cap check sits between the length byte and the CID\nbytes, mirroring quiche's check-before-read order."
+        }
+      },
+      {
+        "name": "parse_dcid",
+        "extracts": [
+          {
+            "headerType": "dcid"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "parse_scid_len"
+          }
+        }
+      },
+      {
+        "name": "parse_scid_len",
+        "extracts": [
+          {
+            "headerType": "scid_len"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "scid_len",
+                  "field": "ln"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "3"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "5"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "7"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "8"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "9"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "10"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "11"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "12"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "13"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "14"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "15"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "16"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "17"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "18"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "19"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "20"
+                  }
+                ],
+                "next": {
+                  "state": "parse_scid"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "reject": {
+                "reason": "scid too long for v1"
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_scid",
+        "extracts": [
+          {
+            "headerType": "scid"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "first_byte",
+                  "field": "ty"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "initial_mark"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "zero_rtt_mark"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2"
+                  }
+                ],
+                "next": {
+                  "state": "handshake_mark"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "3"
+                  }
+                ],
+                "next": {
+                  "state": "retry_accept"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "reject": {
+                "reason": "unreachable: 2-bit key"
+              }
+            }
+          }
+        },
+        "annotations": {
+          "doc": "CIDs done; the long-type bits pick the tail grammar."
+        }
+      },
+      {
+        "name": "initial_mark",
+        "transition": {
+          "direct": {
+            "state": "parse_tok_lead"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "1"
+            }
+          }
+        ]
+      },
+      {
+        "name": "zero_rtt_mark",
+        "transition": {
+          "direct": {
+            "state": "parse_len_lead"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "2"
+            }
+          }
+        ],
+        "annotations": {
+          "doc": "No token by grammar; straight to the length varint (quinn's\nparse extent - quiche stops after the SCID here)."
+        }
+      },
+      {
+        "name": "handshake_mark",
+        "transition": {
+          "direct": {
+            "state": "parse_len_lead"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "3"
+            }
+          }
+        ]
+      },
+      {
+        "name": "retry_accept",
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "4"
+            }
+          }
+        ],
+        "annotations": {
+          "doc": "Classify-only: the Retry token is 'rest minus 16-byte tag',\nwhich needs remaining()-16 as a byte length - banned in v1\n(named boundary, see the charter)."
+        }
+      },
+      {
+        "name": "parse_tok_lead",
+        "extracts": [
+          {
+            "headerType": "tok_lead"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "tok_lead",
+                  "field": "prefix"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "tok_w1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "tok_w2"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2"
+                  }
+                ],
+                "next": {
+                  "state": "tok_w4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "3"
+                  }
+                ],
+                "next": {
+                  "state": "tok_w8"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "reject": {
+                "reason": "unreachable: 2-bit key"
+              }
+            }
+          }
+        },
+        "annotations": {
+          "doc": "The self-sizing varint, arm 1 of 2: token length. The 2-bit\nprefix is an ordinary fixed field; each width arm re-composes\nthe value inline because var-width fields cannot cross the\narms' join (see the design doc's three walls)."
+        }
+      },
+      {
+        "name": "tok_w1",
+        "extracts": [
+          {
+            "headerType": "tok0"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "parse_len_lead"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "token_len",
+            "value": {
+              "field": {
+                "header": "tok_lead",
+                "field": "v6"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "tok_w2",
+        "extracts": [
+          {
+            "headerType": "tok1"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "parse_len_lead"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "token_len",
+            "value": {
+              "bin": {
+                "op": "BIN_OP_KIND_OR",
+                "lhs": {
+                  "bin": {
+                    "op": "BIN_OP_KIND_SHL",
+                    "lhs": {
+                      "field": {
+                        "header": "tok_lead",
+                        "field": "v6"
+                      }
+                    },
+                    "rhs": {
+                      "constant": "8"
+                    }
+                  }
+                },
+                "rhs": {
+                  "field": {
+                    "header": "tok1",
+                    "field": "t"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "tok_w4",
+        "extracts": [
+          {
+            "headerType": "tok2"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "parse_len_lead"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "token_len",
+            "value": {
+              "bin": {
+                "op": "BIN_OP_KIND_OR",
+                "lhs": {
+                  "bin": {
+                    "op": "BIN_OP_KIND_SHL",
+                    "lhs": {
+                      "field": {
+                        "header": "tok_lead",
+                        "field": "v6"
+                      }
+                    },
+                    "rhs": {
+                      "constant": "24"
+                    }
+                  }
+                },
+                "rhs": {
+                  "field": {
+                    "header": "tok2",
+                    "field": "t"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "tok_w8",
+        "extracts": [
+          {
+            "headerType": "tok3"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "parse_len_lead"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "token_len",
+            "value": {
+              "bin": {
+                "op": "BIN_OP_KIND_OR",
+                "lhs": {
+                  "bin": {
+                    "op": "BIN_OP_KIND_SHL",
+                    "lhs": {
+                      "field": {
+                        "header": "tok_lead",
+                        "field": "v6"
+                      }
+                    },
+                    "rhs": {
+                      "constant": "56"
+                    }
+                  }
+                },
+                "rhs": {
+                  "field": {
+                    "header": "tok3",
+                    "field": "t"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "parse_len_lead",
+        "extracts": [
+          {
+            "headerType": "len_lead"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "len_lead",
+                  "field": "prefix"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "len_w1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "len_w2"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2"
+                  }
+                ],
+                "next": {
+                  "state": "len_w4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "3"
+                  }
+                ],
+                "next": {
+                  "state": "len_w8"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "reject": {
+                "reason": "unreachable: 2-bit key"
+              }
+            }
+          }
+        },
+        "annotations": {
+          "doc": "The self-sizing varint, arm 2 of 2: payload length. Shared\nby Initial, 0-RTT, and Handshake (kind already in metadata);\nthe value is observed, not consumed - parsing stops before the\nprotected packet number."
+        }
+      },
+      {
+        "name": "len_w1",
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "length",
+            "value": {
+              "field": {
+                "header": "len_lead",
+                "field": "v6"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "len_w2",
+        "extracts": [
+          {
+            "headerType": "len1"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "length",
+            "value": {
+              "bin": {
+                "op": "BIN_OP_KIND_OR",
+                "lhs": {
+                  "bin": {
+                    "op": "BIN_OP_KIND_SHL",
+                    "lhs": {
+                      "field": {
+                        "header": "len_lead",
+                        "field": "v6"
+                      }
+                    },
+                    "rhs": {
+                      "constant": "8"
+                    }
+                  }
+                },
+                "rhs": {
+                  "field": {
+                    "header": "len1",
+                    "field": "t"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "len_w4",
+        "extracts": [
+          {
+            "headerType": "len2"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "length",
+            "value": {
+              "bin": {
+                "op": "BIN_OP_KIND_OR",
+                "lhs": {
+                  "bin": {
+                    "op": "BIN_OP_KIND_SHL",
+                    "lhs": {
+                      "field": {
+                        "header": "len_lead",
+                        "field": "v6"
+                      }
+                    },
+                    "rhs": {
+                      "constant": "24"
+                    }
+                  }
+                },
+                "rhs": {
+                  "field": {
+                    "header": "len2",
+                    "field": "t"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "len_w8",
+        "extracts": [
+          {
+            "headerType": "len3"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "length",
+            "value": {
+              "bin": {
+                "op": "BIN_OP_KIND_OR",
+                "lhs": {
+                  "bin": {
+                    "op": "BIN_OP_KIND_SHL",
+                    "lhs": {
+                      "field": {
+                        "header": "len_lead",
+                        "field": "v6"
+                      }
+                    },
+                    "rhs": {
+                      "constant": "56"
+                    }
+                  }
+                },
+                "rhs": {
+                  "field": {
+                    "header": "len3",
+                    "field": "t"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "startState": "parse_first",
+    "maxDepth": 12,
+    "metadata": [
+      {
+        "name": "kind",
+        "bits": 3,
+        "display": {
+          "name": "Packet Kind",
+          "doc": "a PacketKind value"
+        }
+      },
+      {
+        "name": "token_len",
+        "bits": 64,
+        "display": {
+          "name": "Token Length",
+          "format": "DISPLAY_FORMAT_DEC"
+        }
+      },
+      {
+        "name": "length",
+        "bits": 64,
+        "display": {
+          "name": "Payload Length",
+          "format": "DISPLAY_FORMAT_DEC"
+        }
+      }
+    ]
+  }
+}

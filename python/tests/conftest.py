@@ -22,6 +22,7 @@ REAL_WORLD = [
     "katran_parser",
     "sai_parser",
     "tls_clienthello",
+    "quic_initial",
 ]
 ALL_EXAMPLES = SYNTHETIC + REAL_WORLD
 

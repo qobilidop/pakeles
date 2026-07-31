@@ -1,0 +1,2 @@
+gen p4: varbit bound for `tok1.body` too large (131064 bits); self-sizing lengths this wide exceed P4-16 parser expressiveness
+(see docs/superpowers/specs/2026-07-29-sized-region-tlv-ir-design.md)

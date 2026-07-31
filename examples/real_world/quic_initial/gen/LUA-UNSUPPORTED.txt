@@ -1,0 +1,2 @@
+gen lua: referenced field `tok3.t` wider than 32 bits is not supported by the Lua backend yet
+(see docs/designs/2026-07-31-quic-initial-design.md)

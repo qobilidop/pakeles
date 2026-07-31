@@ -15,7 +15,11 @@ members = [
     "examples/real_world/katran_parser",
     "examples/real_world/sai_parser",
     "examples/real_world/tls_clienthello",
+    "examples/real_world/quic_initial",
 ]
-# The TLS golden factory is its own pinned-lockfile crate (the rustls
+# Golden factories are their own pinned-lockfile crates (the incumbent
 # pin IS the agreement claim) — never part of this workspace.
-exclude = ["examples/real_world/tls_clienthello/factory"]
+exclude = [
+    "examples/real_world/tls_clienthello/factory",
+    "examples/real_world/quic_initial/factory",
+]

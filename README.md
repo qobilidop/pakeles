@@ -27,11 +27,12 @@ the rbpf VM), and a P4-16 program (`gen p4`, p4c-compiled and
 verdict-verified on BMv2's `simple_switch`).
 
 The gallery (`examples/`) exercises all of it: three synthetic
-descriptions that each isolate one IR capability, and five models of
+descriptions that each isolate one IR capability, and six models of
 parsers that already run in the world — the Linux flow dissector,
-DPDK's `rte_net_get_ptype()`, Meta's Katran, SONiC PINS `sai_p4`, and
-TLS ClientHello / SNI — each verified to agree with the real
-implementation, packet for packet, at a pinned version.
+DPDK's `rte_net_get_ptype()`, Meta's Katran, SONiC PINS `sai_p4`, TLS
+ClientHello / SNI, and the QUIC v1 Initial long header — each verified
+to agree with the real implementation, packet for packet, at a pinned
+version.
 
 ## Quickstart
 
