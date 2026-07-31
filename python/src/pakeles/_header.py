@@ -16,7 +16,7 @@ from pakeles._expr import BoundField, Expr, FieldSpec, Operand, coerce_expr
 from pakeles._pb import ir_pb2
 
 
-def _snake(name: str) -> str:
+def snake(name: str) -> str:
     """CamelCase -> snake_case, splitting only at lower/digit->Upper
     boundaries: IPv4 -> ipv4, OptMss -> opt_mss. Acronym-adjacent names
     (TCPOption) should pass an explicit name= instead."""
@@ -63,7 +63,7 @@ class Header:
 
     def __init_subclass__(cls, name: str | None = None, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
-        cls._name = name if name is not None else _snake(cls.__name__)
+        cls._name = name if name is not None else snake(cls.__name__)
         fields: list[FieldSpec] = []
         seen: set[str] = set()
         for attr, value in vars(cls).items():

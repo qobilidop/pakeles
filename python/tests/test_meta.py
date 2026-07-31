@@ -1,7 +1,16 @@
 import pytest
 from google.protobuf import json_format
 
-from pakeles import Header, Meta, assign, bits, extract, meta_bits, parser
+from pakeles import (
+    Header,
+    Meta,
+    ParserDef,
+    StateChain,
+    assign,
+    bits,
+    extract,
+    meta_bits,
+)
 from pakeles._pb import ir_pb2
 
 
@@ -14,30 +23,31 @@ class M(Meta):
     acc = meta_bits(8, init=5)
 
 
-def build():
-    return parser(
-        "t",
-        max_depth=4,
-        metadata=M,
-        start="s0",
-        states={
-            "s0": extract(H)
+class TMeta(ParserDef):
+    name = "t"
+    max_depth = 4
+    metadata = M
+
+    def s0(self) -> StateChain:
+        return (
+            extract(H)
             .assign(M.acc, H.n)
             .assign(M.flag, 1)
-            .select(M.acc, {0: "done"}, default="s0"),
-            "done": assign(M.flag, M.flag + 1).accept(),
-        },
-    )
+            .select(M.acc, {0: self.done}, default=self.s0)
+        )
+
+    def done(self) -> StateChain:
+        return assign(M.flag, M.flag + 1).accept()
 
 
 def test_metadata_declarations_serialize():
-    ir = json_format.Parse(build().to_json(), ir_pb2.Ir())
+    ir = json_format.Parse(TMeta.build().to_json(), ir_pb2.Ir())
     md = ir.parser.metadata
     assert [(m.name, m.bits, m.init) for m in md] == [("flag", 1, 0), ("acc", 8, 5)]
 
 
 def test_assigns_serialize_in_order():
-    ir = json_format.Parse(build().to_json(), ir_pb2.Ir())
+    ir = json_format.Parse(TMeta.build().to_json(), ir_pb2.Ir())
     s0 = next(s for s in ir.parser.states if s.name == "s0")
     assert [a.metadata for a in s0.assigns] == ["acc", "flag"]
     assert s0.assigns[0].value.field.header == "h"
@@ -47,7 +57,7 @@ def test_assigns_serialize_in_order():
 
 
 def test_select_on_metadata_key():
-    ir = json_format.Parse(build().to_json(), ir_pb2.Ir())
+    ir = json_format.Parse(TMeta.build().to_json(), ir_pb2.Ir())
     s0 = next(s for s in ir.parser.states if s.name == "s0")
     assert s0.transition.select.keys[0].metadata.name == "acc"
 
@@ -78,11 +88,13 @@ def test_assign_rejects_field_from_a_different_metadata_class():
         flag = meta_bits(1)
         acc = meta_bits(8, init=5)
 
+    class T2(ParserDef):
+        name = "t2"
+        max_depth = 4
+        metadata = M
+
+        def s0(self) -> StateChain:
+            return assign(OtherM.flag, 1).accept()
+
     with pytest.raises(ValueError):
-        parser(
-            "t2",
-            max_depth=4,
-            metadata=M,
-            start="s0",
-            states={"s0": assign(OtherM.flag, 1).accept()},
-        )
+        T2.build()

@@ -11,7 +11,7 @@ IPv6 addresses are 128-bit, above the fixed-`bits` ceiling, so they are
 `var_bytes` opaque runs (rendered as hex; not tshark-diffed).
 """
 
-from pakeles import Header, Parser, bits, extract, parser, reject, var_bytes
+from pakeles import Header, ParserDef, StateChain, bits, extract, reject, var_bytes
 from pakeles.fmt import DEC, ETHER, HEX, IPV4
 
 
@@ -93,32 +93,36 @@ class UDP(Header):
     checksum = bits(16, "Checksum", HEX)
 
 
-def eth_ipvx_l4() -> Parser:
-    return parser(
-        "eth_ipvx_l4",
-        max_depth=4,
-        start="parse_ethernet",
-        states={
-            "parse_ethernet": extract(Ethernet).select(
-                Ethernet.ethertype,
-                {0x0800: "parse_ipv4", 0x86DD: "parse_ipv6"},
-                default=reject("unsupported ethertype", info=True),
-            ),
-            "parse_ipv4": extract(IPv4).select(
-                IPv4.protocol,
-                {6: "parse_tcp", 17: "parse_udp"},
-                default=reject("unsupported ip protocol", info=True),
-            ),
-            "parse_ipv6": extract(IPv6).select(
-                IPv6.next_header,
-                {6: "parse_tcp", 17: "parse_udp"},
-                default=reject("unsupported ip protocol", info=True),
-            ),
-            "parse_tcp": extract(TCP).accept(),
-            "parse_udp": extract(UDP).accept(),
-        },
-    )
+class EthIpvxL4(ParserDef):
+    max_depth = 4
+
+    def parse_ethernet(self) -> StateChain:
+        return extract(Ethernet).select(
+            Ethernet.ethertype,
+            {0x0800: self.parse_ipv4, 0x86DD: self.parse_ipv6},
+            default=reject("unsupported ethertype", info=True),
+        )
+
+    def parse_ipv4(self) -> StateChain:
+        return extract(IPv4).select(
+            IPv4.protocol,
+            {6: self.parse_tcp, 17: self.parse_udp},
+            default=reject("unsupported ip protocol", info=True),
+        )
+
+    def parse_ipv6(self) -> StateChain:
+        return extract(IPv6).select(
+            IPv6.next_header,
+            {6: self.parse_tcp, 17: self.parse_udp},
+            default=reject("unsupported ip protocol", info=True),
+        )
+
+    def parse_tcp(self) -> StateChain:
+        return extract(TCP).accept()
+
+    def parse_udp(self) -> StateChain:
+        return extract(UDP).accept()
 
 
 if __name__ == "__main__":
-    print(eth_ipvx_l4().to_json())
+    print(EthIpvxL4.build().to_json())

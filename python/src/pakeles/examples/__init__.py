@@ -1,5 +1,6 @@
 """Example protocol descriptions authored with the eDSL.
 
-`eth_ipvx_l4` mirrors the Rust builder's gallery description and is
-proto-equality-tested against `examples/synthetic/eth_ipvx_l4/eth_ipvx_l4.ir.json`.
+One `ParserDef` class per gallery example; each module is
+proto-equality-tested against its committed gallery
+`examples/{synthetic,real_world}/<name>/<name>.ir.json`.
 """

@@ -26,15 +26,16 @@ the CPU arm is not modeled and the corpus never injects on port 510).
 """
 
 from pakeles import (
+    ArmKey,
     Header,
-    Parser,
+    ParserDef,
+    StateChain,
+    Target,
     accept,
     bits,
     extract,
-    parser,
     var_bytes,
 )
-from pakeles._states import ArmKey, Target
 from pakeles.fmt import DEC, ETHER, HEX, IPV4
 
 _ETHERTYPE = {0x0800: "IPv4", 0x0806: "ARP", 0x8100: "802.1Q VLAN", 0x86DD: "IPv6"}
@@ -120,45 +121,52 @@ class UDP(Header):
     checksum = bits(16, "Checksum", HEX)
 
 
-def _l3_arms() -> dict[ArmKey, Target]:
-    return {0x0800: "parse_ipv4", 0x86DD: "parse_ipv6", 0x0806: "parse_arp"}
+class SaiParser(ParserDef):
+    max_depth = 6
 
+    def _l3_arms(self) -> dict[ArmKey, Target]:
+        return {0x0800: self.parse_ipv4, 0x86DD: self.parse_ipv6, 0x0806: self.parse_arp}
 
-def sai_parser() -> Parser:
-    return parser(
-        "sai_parser",
-        max_depth=6,
-        start="parse_ethernet",
-        states={
-            # parse_ethernet: EtherType demux; 802.1Q -> vlan; else accept.
-            "parse_ethernet": extract(Ethernet).select(
-                Ethernet.ether_type,
-                {**_l3_arms(), 0x8100: "parse_vlan"},
-                default=accept(),
-            ),
-            # parse_8021q_vlan: same L3 demux; no further VLAN (double-tag
-            # 0x88a8 unmodeled upstream -> accept).
-            "parse_vlan": extract(VLAN).select(
-                VLAN.ether_type, _l3_arms(), default=accept()
-            ),
-            "parse_ipv4": extract(IPv4).select(
-                IPv4.protocol,
-                {1: "parse_icmp", 6: "parse_tcp", 17: "parse_udp"},
-                default=accept(),
-            ),
-            # No extension-header handling: next_header taken as L4 directly.
-            "parse_ipv6": extract(IPv6).select(
-                IPv6.next_header,
-                {58: "parse_icmp", 6: "parse_tcp", 17: "parse_udp"},
-                default=accept(),
-            ),
-            "parse_arp": extract(ARP).accept(),
-            "parse_icmp": extract(ICMP).accept(),
-            "parse_tcp": extract(TCP).accept(),
-            "parse_udp": extract(UDP).accept(),
-        },
-    )
+    def parse_ethernet(self) -> StateChain:
+        """EtherType demux; 802.1Q -> vlan; else accept."""
+        return extract(Ethernet).select(
+            Ethernet.ether_type,
+            {**self._l3_arms(), 0x8100: self.parse_vlan},
+            default=accept(),
+        )
+
+    def parse_vlan(self) -> StateChain:
+        """parse_8021q_vlan: same L3 demux; no further VLAN (double-tag
+        0x88a8 unmodeled upstream -> accept)."""
+        return extract(VLAN).select(VLAN.ether_type, self._l3_arms(), default=accept())
+
+    def parse_ipv4(self) -> StateChain:
+        return extract(IPv4).select(
+            IPv4.protocol,
+            {1: self.parse_icmp, 6: self.parse_tcp, 17: self.parse_udp},
+            default=accept(),
+        )
+
+    def parse_ipv6(self) -> StateChain:
+        """No extension-header handling: next_header taken as L4 directly."""
+        return extract(IPv6).select(
+            IPv6.next_header,
+            {58: self.parse_icmp, 6: self.parse_tcp, 17: self.parse_udp},
+            default=accept(),
+        )
+
+    def parse_arp(self) -> StateChain:
+        return extract(ARP).accept()
+
+    def parse_icmp(self) -> StateChain:
+        return extract(ICMP).accept()
+
+    def parse_tcp(self) -> StateChain:
+        return extract(TCP).accept()
+
+    def parse_udp(self) -> StateChain:
+        return extract(UDP).accept()
 
 
 if __name__ == "__main__":
-    print(sai_parser().to_json())
+    print(SaiParser.build().to_json())

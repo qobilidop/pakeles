@@ -19,11 +19,10 @@ plain cyclic state bounded by the global depth budget.
 
 from pakeles import (
     Header,
-    Parser,
+    ParserDef,
     StateChain,
     bits,
     extract,
-    parser,
     remaining,
     var_bytes,
 )
@@ -40,25 +39,23 @@ class Item(Header):
     val = var_bytes(ln)
 
 
-def tlv_items() -> Parser:
-    return parser(
-        "tlv_items",
-        max_depth=8,
-        start="parse_total",
-        states={
-            "parse_total": extract(TotalLen)
-            .push_region(TotalLen.total)
-            .then("tlv_loop"),
-            # Loop head: region exhausted -> close; else another item.
-            "tlv_loop": StateChain().select(
-                remaining(), {0: "close"}, default="parse_item"
-            ),
-            "parse_item": extract(Item).then("tlv_loop"),
-            # Exact-mode pop: trailing bytes inside the region reject.
-            "close": StateChain().pop_region().accept(),
-        },
-    )
+class TlvItems(ParserDef):
+    max_depth = 8
+
+    def parse_total(self) -> StateChain:
+        return extract(TotalLen).push_region(TotalLen.total).then(self.tlv_loop)
+
+    def tlv_loop(self) -> StateChain:
+        """Loop head: region exhausted -> close; else another item."""
+        return StateChain().select(remaining(), {0: self.close}, default=self.parse_item)
+
+    def parse_item(self) -> StateChain:
+        return extract(Item).then(self.tlv_loop)
+
+    def close(self) -> StateChain:
+        """Exact-mode pop: trailing bytes inside the region reject."""
+        return StateChain().pop_region().accept()
 
 
 if __name__ == "__main__":
-    print(tlv_items().to_json())
+    print(TlvItems.build().to_json())

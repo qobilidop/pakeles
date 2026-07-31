@@ -2,7 +2,7 @@
 # pyright: reportPrivateUsage=false
 import pytest
 
-from pakeles import Header, bits, extract, parser, var_bytes
+from pakeles import Header, ParserDef, StateChain, bits, extract, var_bytes
 from pakeles._pb import ir_pb2
 
 
@@ -34,8 +34,14 @@ def test_var_bytes_rebound_to_named_instance():
     # length expression references a sibling field of the same header
     # ("hdr_ext_len"), and that reference must follow the header to the
     # instance name, not stay pinned to the type name.
-    states = {"opt": extract(Opt["custom_opt"]).accept()}
-    ir = parser("t", max_depth=1, start="opt", states=states).to_pb()
+    class T(ParserDef):
+        name = "t"
+        max_depth = 1
+
+        def opt(self) -> StateChain:
+            return extract(Opt["custom_opt"]).accept()
+
+    ir = T.build().to_pb()
 
     assert [h.name for h in ir.parser.header_types] == ["opt"]
     ht = ir.parser.header_types[0]
@@ -54,8 +60,14 @@ def test_var_bytes_rebound_to_named_instance():
 def test_var_bytes_default_instance_unchanged():
     # Default case (no custom instance name): the instance equals the
     # type name, so the rebind is a no-op and refs stay on the type name.
-    states = {"opt": extract(Opt).accept()}
-    ir = parser("t", max_depth=1, start="opt", states=states).to_pb()
+    class T(ParserDef):
+        name = "t"
+        max_depth = 1
+
+        def opt(self) -> StateChain:
+            return extract(Opt).accept()
+
+    ir = T.build().to_pb()
     ht = ir.parser.header_types[0]
     byte_len_field = _find_byte_len_field(ht)
     refs = _field_refs(byte_len_field.width.byte_len)
@@ -67,9 +79,15 @@ def test_var_bytes_two_instance_names_rejected():
     # instance names has no single instance to rebind field refs to; the
     # IR does not model per-instance header types, so this must fail
     # fast rather than silently rebind to one of them.
-    states = {"opt": extract(Opt["a"]).extract(Opt["b"]).accept()}
+    class T(ParserDef):
+        name = "t"
+        max_depth = 1
+
+        def opt(self) -> StateChain:
+            return extract(Opt["a"]).extract(Opt["b"]).accept()
+
     with pytest.raises(ValueError, match="multiple instance names"):
-        parser("t", max_depth=1, start="opt", states=states).to_pb()
+        T.build().to_pb()
 
 
 def test_var_bytes_cross_header_refs_not_rebound():
@@ -85,11 +103,17 @@ def test_var_bytes_cross_header_refs_not_rebound():
         pad = bits(8)
         body = var_bytes(Base.n * 4 + pad)
 
-    states = {
-        "base": extract(Base).then("sized"),
-        "sized": extract(Sized["custom_sized"]).accept(),
-    }
-    ir = parser("t", max_depth=2, start="base", states=states).to_pb()
+    class T(ParserDef):
+        name = "t"
+        max_depth = 2
+
+        def base(self) -> StateChain:
+            return extract(Base).then(self.sized)
+
+        def sized(self) -> StateChain:
+            return extract(Sized["custom_sized"]).accept()
+
+    ir = T.build().to_pb()
     ht = next(h for h in ir.parser.header_types if h.name == "sized")
     byte_len_field = _find_byte_len_field(ht)
     refs = _field_refs(byte_len_field.width.byte_len)

@@ -48,15 +48,17 @@ packets are plain version-0 GRE on both sides — faithful by construction.
 """
 
 from pakeles import (
+    ArmKey,
     Header,
     Meta,
-    Parser,
+    ParserDef,
+    StateChain,
+    Target,
     accept,
     assign,
     bits,
     extract,
     meta_bits,
-    parser,
     reject,
     var_bytes,
 )
@@ -220,127 +222,147 @@ class FlowMeta(Meta):
     )
 
 
-def linux_flow_dissector() -> Parser:
-    return parser(
-        "linux_flow_dissector",
-        max_depth=10,
-        metadata=FlowMeta,
-        start="parse_ethernet",
-        states={
-            "parse_ethernet": extract(Ethernet).select(
-                Ethernet.ethertype,
-                {
-                    0x0800: "parse_ipv4",
-                    0x86DD: "parse_ipv6",
-                    0x8100: "parse_vlan_q",
-                    0x88A8: "parse_vlan_ad",
-                    0x8847: "parse_mpls",
-                    0x8848: "parse_mpls",
-                },
-                default=reject("unsupported ethertype", info=True),
-            ),
-            # Upstream PROG(VLAN), 802.1AD arm: the outer S-tag must be
-            # followed by exactly one 802.1Q C-tag.
-            "parse_vlan_ad": extract(VLAN["vlan_ad"]).select(
-                VLAN["vlan_ad"].encapsulated_proto,
-                {0x8100: "parse_vlan_q"},
-                default=reject("802.1AD must be followed by 802.1Q"),
-            ),
-            # Upstream PROG(VLAN), common tail: the final (or only) tag;
-            # a further Q/AD tag is a kernel drop (no triple tagging, no
-            # double-Q).
-            "parse_vlan_q": extract(VLAN["vlan_q"]).select(
-                VLAN["vlan_q"].encapsulated_proto,
-                {
-                    0x0800: "parse_ipv4",
-                    0x86DD: "parse_ipv6",
-                    0x8847: "parse_mpls",
-                    0x8848: "parse_mpls",
-                    0x8100: reject("vlan stacking beyond kernel depth"),
-                    0x88A8: reject("vlan stacking beyond kernel depth"),
-                },
-                default=reject("unsupported ethertype", info=True),
-            ),
-            "parse_ipv4": extract(IPv4).select(
-                IPv4.protocol,
-                {
-                    4: "parse_ipip",
-                    6: "parse_tcp",
-                    17: "parse_udp",
-                    41: "parse_ip6ip",
-                    47: "parse_gre",
-                },
-                default=reject("unsupported ip protocol", info=True),
-            ),
-            "parse_ipv6": extract(IPv6).select(
-                IPv6.next_header,
-                {
-                    0x00: "parse_ipv6_opt",  # HopByHop
-                    0x3C: "parse_ipv6_opt",  # DestOpts (60)
-                    0x2C: "parse_ipv6_frag",  # Fragment (44)
-                    4: "parse_ipip",
-                    6: "parse_tcp",
-                    17: "parse_udp",
-                    41: "parse_ip6ip",
-                    47: "parse_gre",
-                },
-                default=reject("unsupported ip protocol", info=True),
-            ),
-            # Kernel PROG(IPV6OP): walk the option, dispatch on its own
-            # next_header — HopByHop/DestOpts loop back (self-edge).
-            "parse_ipv6_opt": extract(IPv6ExtOpt["ext_opt"]).select(
-                IPv6ExtOpt["ext_opt"].next_header,
-                {
-                    0x00: "parse_ipv6_opt",
-                    0x3C: "parse_ipv6_opt",
-                    0x2C: "parse_ipv6_frag",
-                    4: "parse_ipip",
-                    6: "parse_tcp",
-                    17: "parse_udp",
-                    41: "parse_ip6ip",
-                    47: "parse_gre",
-                },
-                default=reject("unsupported ip protocol", info=True),
-            ),
-            # Kernel parse_ip_proto encap arms (IPPROTO_IPIP / IPPROTO_IPV6,
-            # default flags: STOP_AT_ENCAP off): mark is_encap and re-enter
-            # the state machine as the inner family — pure back edges, no
-            # header read; the max_depth budget bounds the nesting.
-            "parse_ipip": assign(FlowMeta.is_encap, 1).then("parse_ipv4"),
-            "parse_ip6ip": assign(FlowMeta.is_encap, 1).then("parse_ipv6"),
-            # Kernel IPPROTO_GRE arm, step order is the crux: version != 0
-            # is an immediate BPF_OK — no thoff advance, no is_encap, the
-            # optional region never read. Only version 0 walks the C/K/S
-            # optionals (parse_gre_opt), sets is_encap, and dispatches.
-            "parse_gre": extract(GRE).select(
-                GRE.version,
-                {0: "parse_gre_opt"},
-                default=accept(),
-            ),
-            # TEB (0x6558) re-enters parse_ethernet itself: the kernel reads
-            # the inner Ethernet and runs its full parse_eth_proto
-            # dispatcher, so inner VLAN/MPLS/IPvX all live.
-            "parse_gre_opt": extract(GREOpt["gre_opt"])
+class LinuxFlowDissector(ParserDef):
+    max_depth = 10
+    metadata = FlowMeta
+
+    def parse_ethernet(self) -> StateChain:
+        return extract(Ethernet).select(
+            Ethernet.ethertype,
+            {
+                0x0800: self.parse_ipv4,
+                0x86DD: self.parse_ipv6,
+                0x8100: self.parse_vlan_q,
+                0x88A8: self.parse_vlan_ad,
+                0x8847: self.parse_mpls,
+                0x8848: self.parse_mpls,
+            },
+            default=reject("unsupported ethertype", info=True),
+        )
+
+    def parse_vlan_ad(self) -> StateChain:
+        """Upstream PROG(VLAN), 802.1AD arm: the outer S-tag must be
+        followed by exactly one 802.1Q C-tag."""
+        return extract(VLAN["vlan_ad"]).select(
+            VLAN["vlan_ad"].encapsulated_proto,
+            {0x8100: self.parse_vlan_q},
+            default=reject("802.1AD must be followed by 802.1Q"),
+        )
+
+    def parse_vlan_q(self) -> StateChain:
+        """Upstream PROG(VLAN), common tail: the final (or only) tag;
+        a further Q/AD tag is a kernel drop (no triple tagging, no
+        double-Q)."""
+        return extract(VLAN["vlan_q"]).select(
+            VLAN["vlan_q"].encapsulated_proto,
+            {
+                0x0800: self.parse_ipv4,
+                0x86DD: self.parse_ipv6,
+                0x8847: self.parse_mpls,
+                0x8848: self.parse_mpls,
+                0x8100: reject("vlan stacking beyond kernel depth"),
+                0x88A8: reject("vlan stacking beyond kernel depth"),
+            },
+            default=reject("unsupported ethertype", info=True),
+        )
+
+    def _ip_proto_arms(self) -> dict[ArmKey, Target]:
+        """The kernel's parse_ip_proto dispatch, shared by the IPv4,
+        IPv6, and IPv6-extension-option states."""
+        return {
+            4: self.parse_ipip,
+            6: self.parse_tcp,
+            17: self.parse_udp,
+            41: self.parse_ip6ip,
+            47: self.parse_gre,
+        }
+
+    def _ipv6_arms(self) -> dict[ArmKey, Target]:
+        """parse_ip_proto plus the extension-header arms."""
+        return {
+            0x00: self.parse_ipv6_opt,  # HopByHop
+            0x3C: self.parse_ipv6_opt,  # DestOpts (60)
+            0x2C: self.parse_ipv6_frag,  # Fragment (44)
+            **self._ip_proto_arms(),
+        }
+
+    def parse_ipv4(self) -> StateChain:
+        return extract(IPv4).select(
+            IPv4.protocol,
+            self._ip_proto_arms(),
+            default=reject("unsupported ip protocol", info=True),
+        )
+
+    def parse_ipv6(self) -> StateChain:
+        return extract(IPv6).select(
+            IPv6.next_header,
+            self._ipv6_arms(),
+            default=reject("unsupported ip protocol", info=True),
+        )
+
+    def parse_ipv6_opt(self) -> StateChain:
+        """Kernel PROG(IPV6OP): walk the option, dispatch on its own
+        next_header — HopByHop/DestOpts loop back (self-edge)."""
+        return extract(IPv6ExtOpt["ext_opt"]).select(
+            IPv6ExtOpt["ext_opt"].next_header,
+            self._ipv6_arms(),
+            default=reject("unsupported ip protocol", info=True),
+        )
+
+    def parse_ipip(self) -> StateChain:
+        """Kernel parse_ip_proto encap arms (IPPROTO_IPIP / IPPROTO_IPV6,
+        default flags: STOP_AT_ENCAP off): mark is_encap and re-enter
+        the state machine as the inner family — pure back edges, no
+        header read; the max_depth budget bounds the nesting."""
+        return assign(FlowMeta.is_encap, 1).then(self.parse_ipv4)
+
+    def parse_ip6ip(self) -> StateChain:
+        return assign(FlowMeta.is_encap, 1).then(self.parse_ipv6)
+
+    def parse_gre(self) -> StateChain:
+        """Kernel IPPROTO_GRE arm, step order is the crux: version != 0
+        is an immediate BPF_OK — no thoff advance, no is_encap, the
+        optional region never read. Only version 0 walks the C/K/S
+        optionals (parse_gre_opt), sets is_encap, and dispatches."""
+        return extract(GRE).select(
+            GRE.version,
+            {0: self.parse_gre_opt},
+            default=accept(),
+        )
+
+    def parse_gre_opt(self) -> StateChain:
+        """TEB (0x6558) re-enters parse_ethernet itself: the kernel reads
+        the inner Ethernet and runs its full parse_eth_proto dispatcher,
+        so inner VLAN/MPLS/IPvX all live."""
+        return (
+            extract(GREOpt["gre_opt"])
             .assign(FlowMeta.is_encap, 1)
             .select(
                 GRE.proto,
                 {
-                    0x0800: "parse_ipv4",
-                    0x86DD: "parse_ipv6",
-                    0x6558: "parse_ethernet",
+                    0x0800: self.parse_ipv4,
+                    0x86DD: self.parse_ipv6,
+                    0x6558: self.parse_ethernet,
                 },
                 default=reject("unsupported gre proto", info=True),
-            ),
-            # Kernel PROG(IPV6FR) under default flags: read the fragment
-            # header and stop (BPF_OK), always.
-            "parse_ipv6_frag": extract(IPv6Frag["ext_frag"]).accept(),
-            # Upstream PROG(MPLS): read one label entry, stop, BPF_OK.
-            "parse_mpls": extract(MPLS).accept(),
-            "parse_tcp": extract(TCP).accept(),
-            "parse_udp": extract(UDP).accept(),
-        },
-    )
+            )
+        )
+
+    def parse_ipv6_frag(self) -> StateChain:
+        """Kernel PROG(IPV6FR) under default flags: read the fragment
+        header and stop (BPF_OK), always."""
+        return extract(IPv6Frag["ext_frag"]).accept()
+
+    def parse_mpls(self) -> StateChain:
+        """Upstream PROG(MPLS): read one label entry, stop, BPF_OK."""
+        return extract(MPLS).accept()
+
+    def parse_tcp(self) -> StateChain:
+        return extract(TCP).accept()
+
+    def parse_udp(self) -> StateChain:
+        return extract(UDP).accept()
 
 
 if __name__ == "__main__":
-    print(linux_flow_dissector().to_json())
+    print(LinuxFlowDissector.build().to_json())

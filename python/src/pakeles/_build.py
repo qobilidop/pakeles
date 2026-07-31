@@ -1,7 +1,9 @@
 """Assemble a validated-enough `ir_pb2.Ir` from headers + states.
 
-Fast-fail checks only (unknown state names, oversized select keys);
-the Rust CLI (`pakeles lint`) remains the validation authority.
+`Parser` is the built artifact: `ParserDef.build()` (the authoring
+surface) assembles one from its state methods. Fast-fail checks only
+(unknown state names, oversized select keys); the Rust CLI
+(`pakeles lint`) remains the validation authority.
 """
 
 from __future__ import annotations
@@ -11,7 +13,7 @@ from google.protobuf import json_format
 from pakeles._header import Header
 from pakeles._meta import Meta, MetaFieldSpec
 from pakeles._pb import ir_pb2
-from pakeles._states import Accept, SelectSpec, StateChain, Target
+from pakeles._states import Accept, Reject, SelectSpec, StateChain, Target
 
 IR_VERSION = "0.1.0"
 
@@ -87,9 +89,16 @@ class Parser:
             else:
                 targets.append(chain.transition)
             for t in targets:
-                if isinstance(t, str) and t not in self._states:
-                    raise ValueError(
-                        f"state {sname!r} references unknown state {t!r}"
+                if isinstance(t, str):
+                    if t not in self._states:
+                        raise ValueError(
+                            f"state {sname!r} references unknown state {t!r}"
+                        )
+                elif not isinstance(t, (Accept, Reject)):
+                    raise TypeError(
+                        f"state {sname!r} holds an unresolved state-method "
+                        f"reference {t!r}; assemble states via "
+                        f"ParserDef.build()"
                     )
 
     def _header_types(self) -> list[type[Header]]:
@@ -224,20 +233,11 @@ def _fill_target(pb_target: ir_pb2.Target, target: Target) -> None:
         pb_target.state = target
     elif isinstance(target, Accept):
         pb_target.accept.SetInParent()
-    else:
+    elif isinstance(target, Reject):
         pb_target.reject.reason = target.reason
         if target.info:
             pb_target.reject.annotations["severity"] = "info"
+    else:  # unresolved StateRef; _check rejects these first
+        raise TypeError(f"unresolved state reference {target!r}")
 
 
-def parser(
-    name: str,
-    *,
-    max_depth: int,
-    start: str,
-    states: dict[str, StateChain],
-    metadata: type[Meta] | None = None,
-) -> Parser:
-    return Parser(
-        name, max_depth=max_depth, start=start, states=states, metadata=metadata
-    )

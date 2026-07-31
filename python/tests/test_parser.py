@@ -2,7 +2,7 @@
 # pyright: reportPrivateUsage=false
 import pytest
 
-from pakeles import Header, bits, extract, parser, reject
+from pakeles import Header, Parser, ParserDef, StateChain, bits, extract, reject
 from pakeles.fmt import DEC, HEX
 
 
@@ -16,19 +16,23 @@ class IPv4(Header):
     protocol = bits(8, "Protocol", DEC)
 
 
-def _states():
-    return {
-        "ethernet": extract(Ethernet).select(
+class TParser(ParserDef):
+    name = "t"
+    max_depth = 2
+
+    def ethernet(self) -> StateChain:
+        return extract(Ethernet).select(
             Ethernet.ethertype,
-            {0x0800: "ipv4"},
+            {0x0800: self.ipv4},
             default=reject("unsupported ethertype", info=True),
-        ),
-        "ipv4": extract(IPv4).accept(),
-    }
+        )
+
+    def ipv4(self) -> StateChain:
+        return extract(IPv4).accept()
 
 
 def test_builds_expected_ir_shape() -> None:
-    ir = parser("t", max_depth=2, start="ethernet", states=_states()).to_pb()
+    ir = TParser.build().to_pb()
     p = ir.parser
     assert p.start_state == "ethernet"
     assert [h.name for h in p.header_types] == ["ethernet", "ipv4"]
@@ -44,26 +48,37 @@ def test_builds_expected_ir_shape() -> None:
 
 
 def test_unknown_state_rejected() -> None:
-    states = _states()
-    states["ethernet"] = extract(Ethernet).select(
-        Ethernet.ethertype, {0x0800: "nope"}, default=reject("x")
-    )
+    # String targets remain valid ParserDef targets — and stay checked.
+    class Bad(TParser):
+        def ethernet(self) -> StateChain:
+            return extract(Ethernet).select(
+                Ethernet.ethertype, {0x0800: "nope"}, default=reject("x")
+            )
+
     with pytest.raises(ValueError, match="nope"):
-        parser("t", max_depth=2, start="ethernet", states=states)
+        Bad.build()
 
 
 def test_oversized_arm_value_rejected() -> None:
-    states = _states()
-    states["ipv4"] = extract(IPv4).select(
-        IPv4.protocol, {0x1FF: "ethernet"}, default=reject("x")
-    )
+    class Bad(TParser):
+        def ipv4(self) -> StateChain:
+            return extract(IPv4).select(
+                IPv4.protocol, {0x1FF: self.ethernet}, default=reject("x")
+            )
+
     with pytest.raises(ValueError, match="does not fit"):
-        parser("t", max_depth=2, start="ethernet", states=states)
+        Bad.build()
 
 
 def test_unknown_start_rejected() -> None:
+    # White-box: the assembly layer still guards a start/states mismatch.
     with pytest.raises(ValueError, match="start state"):
-        parser("t", max_depth=2, start="missing", states=_states())
+        Parser(
+            "t",
+            max_depth=2,
+            start="missing",
+            states={"only": extract(Ethernet).accept()},
+        )
 
 
 def test_double_transition_rejected() -> None:
@@ -76,6 +91,6 @@ def test_json_roundtrip() -> None:
 
     from pakeles._pb import ir_pb2
 
-    p = parser("t", max_depth=2, start="ethernet", states=_states())
+    p = TParser.build()
     parsed = json_format.Parse(p.to_json(), ir_pb2.Ir())
     assert parsed == p.to_pb()

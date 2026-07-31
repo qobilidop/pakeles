@@ -1,14 +1,16 @@
 """Coarse state combinators (tf.data/nom-style): one line per state.
 
-`extract(IPv4).select(IPv4.protocol, {6: "tcp"}, default=reject(...))`
-builds a state; the states dict passed to `parser()` is the state graph,
-with string keys as P4-convention forward references.
+`extract(IPv4).select(IPv4.protocol, {6: self.tcp}, default=reject(...))`
+builds one state's chain inside a `ParserDef` state method; targets are
+state-method references (`self.tcp`), resolved to state names at
+`build()` time. Plain string names remain valid targets.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from dataclasses import field as dc_field
+from typing import Protocol
 
 from pakeles._expr import (
     BoundField,
@@ -43,7 +45,18 @@ def reject(reason: str, *, info: bool = False) -> Reject:
     return Reject(reason=reason, info=info)
 
 
-Target = str | Accept | Reject
+class StateRef(Protocol):
+    """A state-method reference (`self.parse_x` inside a `ParserDef`
+    body): a zero-argument bound method whose `__name__` is the state
+    name. `ParserDef.build()` resolves these to plain name strings; a
+    string target remains the P4-convention forward reference."""
+
+    __name__: str
+
+    def __call__(self) -> StateChain: ...
+
+
+Target = str | StateRef | Accept | Reject
 ArmKey = int | tuple[int, ...]
 SelectKey = FieldSpec | BoundField | MetaFieldSpec | RemainingSpec
 RegionOp = tuple[str, Expr | None]  # ("push", len_expr) | ("pop", None)

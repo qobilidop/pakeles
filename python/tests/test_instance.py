@@ -4,7 +4,7 @@ header type and yields instance-bound field references."""
 import pytest
 from google.protobuf import json_format
 
-from pakeles import Header, bits, extract, parser, reject
+from pakeles import Header, ParserDef, StateChain, bits, extract, reject
 from pakeles._pb import ir_pb2
 
 
@@ -18,25 +18,24 @@ class Eth(Header):
     ethertype = bits(16)
 
 
-def two_tag_parser():
-    return parser(
-        "two_tags",
-        max_depth=3,
-        start="s0",
-        states={
-            "s0": extract(Eth).select(
-                Eth.ethertype, {0x8100: "s1"}, default=reject("no")
-            ),
-            "s1": extract(Tag["outer"]).select(
-                Tag["outer"].proto, {0x8100: "s2"}, default=reject("no")
-            ),
-            "s2": extract(Tag["inner"]).accept(),
-        },
-    )
+class TwoTags(ParserDef):
+    name = "two_tags"
+    max_depth = 3
+
+    def s0(self) -> StateChain:
+        return extract(Eth).select(Eth.ethertype, {0x8100: self.s1}, default=reject("no"))
+
+    def s1(self) -> StateChain:
+        return extract(Tag["outer"]).select(
+            Tag["outer"].proto, {0x8100: self.s2}, default=reject("no")
+        )
+
+    def s2(self) -> StateChain:
+        return extract(Tag["inner"]).accept()
 
 
 def test_extract_records_instance_name() -> None:
-    ir = two_tag_parser().to_pb()
+    ir = TwoTags.build().to_pb()
     states = {s.name: s for s in ir.parser.states}
     assert states["s1"].extracts[0].header_type == "tag"
     assert states["s1"].extracts[0].instance == "outer"
@@ -46,7 +45,7 @@ def test_extract_records_instance_name() -> None:
 
 
 def test_bound_field_ref_serializes_instance_name() -> None:
-    ir = two_tag_parser().to_pb()
+    ir = TwoTags.build().to_pb()
     states = {s.name: s for s in ir.parser.states}
     key = states["s1"].transition.select.keys[0]
     assert key.field.header == "outer"
@@ -54,7 +53,7 @@ def test_bound_field_ref_serializes_instance_name() -> None:
 
 
 def test_header_type_emitted_once_for_two_instances() -> None:
-    ir = two_tag_parser().to_pb()
+    ir = TwoTags.build().to_pb()
     assert [h.name for h in ir.parser.header_types].count("tag") == 1
 
 
@@ -74,19 +73,19 @@ def test_non_string_instance_name_raises() -> None:
 
 
 def test_bound_field_arm_width_check_still_applies() -> None:
+    class Bad(ParserDef):
+        name = "bad"
+        max_depth = 2
+
+        def s0(self) -> StateChain:
+            return extract(Tag["t"]).select(
+                Tag["t"].vid, {1 << 12: self.s0}, default=reject("no")
+            )
+
     with pytest.raises(ValueError, match="does not fit"):
-        parser(
-            "bad",
-            max_depth=2,
-            start="s0",
-            states={
-                "s0": extract(Tag["t"]).select(
-                    Tag["t"].vid, {1 << 12: "s0"}, default=reject("no")
-                ),
-            },
-        )
+        Bad.build()
 
 
 def test_roundtrips_through_json() -> None:
-    p = two_tag_parser()
+    p = TwoTags.build()
     assert json_format.Parse(p.to_json(), ir_pb2.Ir()) == p.to_pb()

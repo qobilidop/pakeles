@@ -60,15 +60,16 @@ longest path (~18 states), not a semantic bound.
 """
 
 from pakeles import (
+    ArmKey,
     Header,
-    Parser,
+    ParserDef,
+    StateChain,
+    Target,
     accept,
     bits,
     extract,
-    parser,
     var_bytes,
 )
-from pakeles._states import ArmKey, Target
 from pakeles.fmt import DEC, ETHER, HEX
 
 _ETHERTYPE_LABELS = {
@@ -197,214 +198,252 @@ class TCP(Header):
     urgent = bits(16, "Urgent Pointer", DEC)
 
 
-def _l2_arms() -> dict[ArmKey, Target]:
-    """Post-L2 dispatch shared by vlan/qinq: leftover EtherTypes that
-    still classify are the two IP families and the inner-L2 trio."""
-    return {
-        0x0800: "parse_ipv4",
-        0x86DD: "parse_ipv6",
-        0x6558: "parse_inner_ethernet",
-        0x8100: "parse_inner_vlan",
-        0x88A8: "parse_inner_qinq",
-        # Byte-swap quirk arms (see parse_ethernet).
-        0x0400: "parse_inner_ipv4",
-        0x2900: "parse_inner_ipv6",
-        0x2F00: "parse_gre",
-    }
+class DpdkPtype(ParserDef):
+    max_depth = 20
 
+    def _l2_arms(self) -> dict[ArmKey, Target]:
+        """Post-L2 dispatch shared by vlan/qinq: leftover EtherTypes that
+        still classify are the two IP families and the inner-L2 trio."""
+        return {
+            0x0800: self.parse_ipv4,
+            0x86DD: self.parse_ipv6,
+            0x6558: self.parse_inner_ethernet,
+            0x8100: self.parse_inner_vlan,
+            0x88A8: self.parse_inner_qinq,
+            # Byte-swap quirk arms (see parse_ethernet).
+            0x0400: self.parse_inner_ipv4,
+            0x2900: self.parse_inner_ipv6,
+            0x2F00: self.parse_gre,
+        }
 
-def _ext_arms(opt_target: str) -> dict[ArmKey, Target]:
-    """IPv6 next-header dispatch shared by ipv6 and ext_opt1..4: option
-    links loop on, Fragment is terminal-bound, and the tunnel/L4 arms
-    mirror rte_net.c's post-walk switch."""
-    return {
-        0: opt_target,
-        43: opt_target,
-        60: opt_target,
-        44: "parse_ext_frag",
-        6: "parse_tcp",
-        4: "parse_inner_ipv4",
-        41: "parse_inner_ipv6",
-        47: "parse_gre",
-        # Byte-swap quirk arms (see parse_ipv4).
-        8: "parse_inner_ipv4",
-        129: "parse_inner_vlan",
-    }
+    def _ext_arms(self, opt_target: Target) -> dict[ArmKey, Target]:
+        """IPv6 next-header dispatch shared by ipv6 and ext_opt1..4: option
+        links loop on, Fragment is terminal-bound, and the tunnel/L4 arms
+        mirror rte_net.c's post-walk switch."""
+        return {
+            0: opt_target,
+            43: opt_target,
+            60: opt_target,
+            44: self.parse_ext_frag,
+            6: self.parse_tcp,
+            4: self.parse_inner_ipv4,
+            41: self.parse_inner_ipv6,
+            47: self.parse_gre,
+            # Byte-swap quirk arms (see parse_ipv4).
+            8: self.parse_inner_ipv4,
+            129: self.parse_inner_vlan,
+        }
 
+    def _inner_ext_arms(self, opt_target: Target) -> dict[ArmKey, Target]:
+        return {
+            0: opt_target,
+            43: opt_target,
+            60: opt_target,
+            44: self.parse_inner_ext_frag,
+            6: self.parse_inner_tcp,
+        }
 
-def _inner_ext_arms(opt_target: str) -> dict[ArmKey, Target]:
-    return {
-        0: opt_target,
-        43: opt_target,
-        60: opt_target,
-        44: "parse_inner_ext_frag",
-        6: "parse_inner_tcp",
-    }
-
-
-def dpdk_ptype() -> Parser:
-    states = {
-        # rte_net.c:236-290. IPv4 is the fast path; one VLAN tag OR one
-        # blind QinQ pair OR the MPLS dead-code stop; 0x6558 falls all
-        # the way through to the inner-Ethernet read.
-        "parse_ethernet": extract(Ethernet).select(
+    def parse_ethernet(self) -> StateChain:
+        """rte_net.c:236-290. IPv4 is the fast path; one VLAN tag OR one
+        blind QinQ pair OR the MPLS dead-code stop; 0x6558 falls all
+        the way through to the inner-Ethernet read."""
+        return extract(Ethernet).select(
             Ethernet.ethertype,
             {
-                0x0800: "parse_ipv4",
-                0x86DD: "parse_ipv6",
-                0x8100: "parse_vlan",
-                0x88A8: "parse_qinq",
+                0x0800: self.parse_ipv4,
+                0x86DD: self.parse_ipv6,
+                0x8100: self.parse_vlan,
+                0x88A8: self.parse_qinq,
                 0x8847: accept(),  # MPLS: dead code in 23.11.4 — L2_ETHER only
                 0x8848: accept(),
-                0x6558: "parse_inner_ethernet",
+                0x6558: self.parse_inner_ethernet,
                 # Byte-swap quirk (little-endian hosts): ptype_tunnel
                 # switches the BIG-ENDIAN leftover proto against HOST
                 # IPPROTO_* values, so these EtherTypes read as tunnels.
-                0x0400: "parse_inner_ipv4",  # LE u16 4 = IPPROTO_IPIP
-                0x2900: "parse_inner_ipv6",  # LE u16 41 = IPPROTO_IPV6
-                0x2F00: "parse_gre",  # LE u16 47 = IPPROTO_GRE
+                0x0400: self.parse_inner_ipv4,  # LE u16 4 = IPPROTO_IPIP
+                0x2900: self.parse_inner_ipv6,  # LE u16 41 = IPPROTO_IPV6
+                0x2F00: self.parse_gre,  # LE u16 47 = IPPROTO_GRE
             },
             default=accept(),
-        ),
-        "parse_vlan": extract(VLAN).select(
-            VLAN.proto, _l2_arms(), default=accept()
-        ),
-        "parse_qinq": extract(QinQ).select(
-            QinQ.proto, _l2_arms(), default=accept()
-        ),
-        # rte_net.c:296-318. One multi-key select: any nonzero MF|offset
-        # hits default (frag stop — the projection reads the field);
-        # otherwise dispatch on protocol. UDP(17)/SCTP(132) are blind
-        # accepts — never extracted.
-        "parse_ipv4": extract(IPv4).select(
+        )
+
+    def parse_vlan(self) -> StateChain:
+        return extract(VLAN).select(VLAN.proto, self._l2_arms(), default=accept())
+
+    def parse_qinq(self) -> StateChain:
+        return extract(QinQ).select(QinQ.proto, self._l2_arms(), default=accept())
+
+    def parse_ipv4(self) -> StateChain:
+        """rte_net.c:296-318. One multi-key select: any nonzero MF|offset
+        hits default (frag stop — the projection reads the field);
+        otherwise dispatch on protocol. UDP(17)/SCTP(132) are blind
+        accepts — never extracted."""
+        return extract(IPv4).select(
             (IPv4.mf_frag_off, IPv4.protocol),
             {
-                (0, 6): "parse_tcp",
-                (0, 4): "parse_inner_ipv4",
-                (0, 41): "parse_inner_ipv6",
-                (0, 47): "parse_gre",
+                (0, 6): self.parse_tcp,
+                (0, 4): self.parse_inner_ipv4,
+                (0, 41): self.parse_inner_ipv6,
+                (0, 47): self.parse_gre,
                 # Byte-swap quirk (LE): the inner section compares the
                 # HOST u8 proto against BIG-ENDIAN EtherType constants —
                 # 8 matches be16(0x0800), 129 matches be16(0x8100). No
                 # tunnel bit (ptype_tunnel missed).
-                (0, 8): "parse_inner_ipv4",
-                (0, 129): "parse_inner_vlan",
+                (0, 8): self.parse_inner_ipv4,
+                (0, 129): self.parse_inner_vlan,
             },
             default=accept(),
-        ),
-        "parse_ipv6": extract(IPv6).select(
-            IPv6.next_header, _ext_arms("parse_ext_opt1"), default=accept()
-        ),
-        # rte_net_skip_ip6_ext, unrolled to MAX_EXT_HDRS=5: the 5th
-        # consumed link exhausts the loop — extract + bail, whatever its
-        # next_header says (the projection snaps l3_len back to 40).
-        "parse_ext_opt1": extract(IPv6ExtOpt).select(
+        )
+
+    def parse_ipv6(self) -> StateChain:
+        return extract(IPv6).select(
+            IPv6.next_header, self._ext_arms(self.parse_ext_opt1), default=accept()
+        )
+
+    def parse_ext_opt1(self) -> StateChain:
+        """rte_net_skip_ip6_ext, unrolled to MAX_EXT_HDRS=5: the 5th
+        consumed link exhausts the loop — extract + bail, whatever its
+        next_header says (the projection snaps l3_len back to 40)."""
+        return extract(IPv6ExtOpt).select(
             IPv6ExtOpt.next_header,
-            _ext_arms("parse_ext_opt2"),
+            self._ext_arms(self.parse_ext_opt2),
             default=accept(),
-        ),
-        "parse_ext_opt2": extract(IPv6ExtOpt).select(
+        )
+
+    def parse_ext_opt2(self) -> StateChain:
+        return extract(IPv6ExtOpt).select(
             IPv6ExtOpt.next_header,
-            _ext_arms("parse_ext_opt3"),
+            self._ext_arms(self.parse_ext_opt3),
             default=accept(),
-        ),
-        "parse_ext_opt3": extract(IPv6ExtOpt).select(
+        )
+
+    def parse_ext_opt3(self) -> StateChain:
+        return extract(IPv6ExtOpt).select(
             IPv6ExtOpt.next_header,
-            _ext_arms("parse_ext_opt4"),
+            self._ext_arms(self.parse_ext_opt4),
             default=accept(),
-        ),
-        "parse_ext_opt4": extract(IPv6ExtOpt).select(
+        )
+
+    def parse_ext_opt4(self) -> StateChain:
+        return extract(IPv6ExtOpt).select(
             IPv6ExtOpt.next_header,
-            _ext_arms("parse_ext_opt5"),
+            self._ext_arms(self.parse_ext_opt5),
             default=accept(),
-        ),
-        "parse_ext_opt5": extract(IPv6ExtOpt).accept(),
-        "parse_ext_frag": extract(IPv6Frag).accept(),
-        # rte_net.c:133-163. Select on R only: any R=1 nibble has
-        # opt_len 0 ("not a tunnel") — accept with no optional skip, no
-        # tunnel bit. Version is never examined.
-        "parse_gre": extract(GRE).select(
+        )
+
+    def parse_ext_opt5(self) -> StateChain:
+        return extract(IPv6ExtOpt).accept()
+
+    def parse_ext_frag(self) -> StateChain:
+        return extract(IPv6Frag).accept()
+
+    def parse_gre(self) -> StateChain:
+        """rte_net.c:133-163. Select on R only: any R=1 nibble has
+        opt_len 0 ("not a tunnel") — accept with no optional skip, no
+        tunnel bit. Version is never examined."""
+        return extract(GRE).select(
             GRE.r,
-            {0: "parse_gre_opt"},
+            {0: self.parse_gre_opt},
             default=accept(),
-        ),
-        "parse_gre_opt": extract(GREOpt).select(
+        )
+
+    def parse_gre_opt(self) -> StateChain:
+        return extract(GREOpt).select(
             GRE.proto,
             {
-                0x0800: "parse_inner_ipv4",
-                0x86DD: "parse_inner_ipv6",
-                0x6558: "parse_inner_ethernet",
-                0x8100: "parse_inner_vlan",
-                0x88A8: "parse_inner_qinq",
+                0x0800: self.parse_inner_ipv4,
+                0x86DD: self.parse_inner_ipv6,
+                0x6558: self.parse_inner_ethernet,
+                0x8100: self.parse_inner_vlan,
+                0x88A8: self.parse_inner_qinq,
             },
             default=accept(),
-        ),
-        "parse_tcp": extract(TCP).accept(),
-        # rte_net.c:384-508 — the inner mirror. Reachable without any
-        # tunnel (double-VLAN, Q-then-AD, top-level TEB): the pipeline
-        # falls through unconditionally. Exactly one inner level: inner
-        # tunnel protocols hit default accepts.
-        "parse_inner_ethernet": extract(Ethernet).select(
+        )
+
+    def parse_tcp(self) -> StateChain:
+        return extract(TCP).accept()
+
+    def parse_inner_ethernet(self) -> StateChain:
+        """rte_net.c:384-508 — the inner mirror. Reachable without any
+        tunnel (double-VLAN, Q-then-AD, top-level TEB): the pipeline
+        falls through unconditionally. Exactly one inner level: inner
+        tunnel protocols hit default accepts."""
+        return extract(Ethernet).select(
             Ethernet.ethertype,
             {
-                0x0800: "parse_inner_ipv4",
-                0x86DD: "parse_inner_ipv6",
-                0x8100: "parse_inner_vlan",
-                0x88A8: "parse_inner_qinq",
+                0x0800: self.parse_inner_ipv4,
+                0x86DD: self.parse_inner_ipv6,
+                0x8100: self.parse_inner_vlan,
+                0x88A8: self.parse_inner_qinq,
             },
             default=accept(),
-        ),
-        "parse_inner_vlan": extract(VLAN).select(
+        )
+
+    def parse_inner_vlan(self) -> StateChain:
+        return extract(VLAN).select(
             VLAN.proto,
-            {0x0800: "parse_inner_ipv4", 0x86DD: "parse_inner_ipv6"},
+            {0x0800: self.parse_inner_ipv4, 0x86DD: self.parse_inner_ipv6},
             default=accept(),
-        ),
-        "parse_inner_qinq": extract(QinQ).select(
+        )
+
+    def parse_inner_qinq(self) -> StateChain:
+        return extract(QinQ).select(
             QinQ.proto,
-            {0x0800: "parse_inner_ipv4", 0x86DD: "parse_inner_ipv6"},
+            {0x0800: self.parse_inner_ipv4, 0x86DD: self.parse_inner_ipv6},
             default=accept(),
-        ),
-        "parse_inner_ipv4": extract(IPv4).select(
+        )
+
+    def parse_inner_ipv4(self) -> StateChain:
+        return extract(IPv4).select(
             (IPv4.mf_frag_off, IPv4.protocol),
-            {(0, 6): "parse_inner_tcp"},
+            {(0, 6): self.parse_inner_tcp},
             default=accept(),
-        ),
-        "parse_inner_ipv6": extract(IPv6).select(
+        )
+
+    def parse_inner_ipv6(self) -> StateChain:
+        return extract(IPv6).select(
             IPv6.next_header,
-            _inner_ext_arms("parse_inner_ext_opt1"),
+            self._inner_ext_arms(self.parse_inner_ext_opt1),
             default=accept(),
-        ),
-        "parse_inner_ext_opt1": extract(IPv6ExtOpt).select(
+        )
+
+    def parse_inner_ext_opt1(self) -> StateChain:
+        return extract(IPv6ExtOpt).select(
             IPv6ExtOpt.next_header,
-            _inner_ext_arms("parse_inner_ext_opt2"),
+            self._inner_ext_arms(self.parse_inner_ext_opt2),
             default=accept(),
-        ),
-        "parse_inner_ext_opt2": extract(IPv6ExtOpt).select(
+        )
+
+    def parse_inner_ext_opt2(self) -> StateChain:
+        return extract(IPv6ExtOpt).select(
             IPv6ExtOpt.next_header,
-            _inner_ext_arms("parse_inner_ext_opt3"),
+            self._inner_ext_arms(self.parse_inner_ext_opt3),
             default=accept(),
-        ),
-        "parse_inner_ext_opt3": extract(IPv6ExtOpt).select(
+        )
+
+    def parse_inner_ext_opt3(self) -> StateChain:
+        return extract(IPv6ExtOpt).select(
             IPv6ExtOpt.next_header,
-            _inner_ext_arms("parse_inner_ext_opt4"),
+            self._inner_ext_arms(self.parse_inner_ext_opt4),
             default=accept(),
-        ),
-        "parse_inner_ext_opt4": extract(IPv6ExtOpt).select(
+        )
+
+    def parse_inner_ext_opt4(self) -> StateChain:
+        return extract(IPv6ExtOpt).select(
             IPv6ExtOpt.next_header,
-            _inner_ext_arms("parse_inner_ext_opt5"),
+            self._inner_ext_arms(self.parse_inner_ext_opt5),
             default=accept(),
-        ),
-        "parse_inner_ext_opt5": extract(IPv6ExtOpt).accept(),
-        "parse_inner_ext_frag": extract(IPv6Frag).accept(),
-        "parse_inner_tcp": extract(TCP).accept(),
-    }
-    return parser(
-        "dpdk_ptype",
-        max_depth=20,
-        start="parse_ethernet",
-        states=states,
-    )
+        )
+
+    def parse_inner_ext_opt5(self) -> StateChain:
+        return extract(IPv6ExtOpt).accept()
+
+    def parse_inner_ext_frag(self) -> StateChain:
+        return extract(IPv6Frag).accept()
+
+    def parse_inner_tcp(self) -> StateChain:
+        return extract(TCP).accept()
 
 
 if __name__ == "__main__":
-    print(dpdk_ptype().to_json())
+    print(DpdkPtype.build().to_json())

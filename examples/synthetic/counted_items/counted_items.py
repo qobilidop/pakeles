@@ -11,7 +11,16 @@ max_depth (not the count field) bounds the parse: count > 6 rejects with
 "max depth exceeded" — metadata never extends the budget.
 """
 
-from pakeles import Header, Meta, Parser, assign, bits, extract, meta_bits, parser
+from pakeles import (
+    Header,
+    Meta,
+    ParserDef,
+    StateChain,
+    assign,
+    bits,
+    extract,
+    meta_bits,
+)
 from pakeles.fmt import DEC, HEX
 
 
@@ -28,25 +37,29 @@ class CountMeta(Meta):
     remaining = meta_bits(8, "Remaining", DEC, doc="items left to read")
 
 
-def counted_items() -> Parser:
-    return parser(
-        "counted_items",
-        max_depth=8,
-        metadata=CountMeta,
-        start="parse_count",
-        states={
-            "parse_count": extract(Count)
+class CountedItems(ParserDef):
+    max_depth = 8
+    metadata = CountMeta
+
+    def parse_count(self) -> StateChain:
+        return (
+            extract(Count)
             .assign(CountMeta.remaining, Count.n)
-            .select(CountMeta.remaining, {0: "mark_done"}, default="parse_item"),
-            # Accumulator loop: read one item, count down, exit at zero.
-            "parse_item": extract(Item)
+            .select(CountMeta.remaining, {0: self.mark_done}, default=self.parse_item)
+        )
+
+    def parse_item(self) -> StateChain:
+        """Accumulator loop: read one item, count down, exit at zero."""
+        return (
+            extract(Item)
             .assign(CountMeta.remaining, CountMeta.remaining - 1)
-            .select(CountMeta.remaining, {0: "mark_done"}, default="parse_item"),
-            # No-extract pass-through state: constant metadata write, then stop.
-            "mark_done": assign(CountMeta.done, 1).accept(),
-        },
-    )
+            .select(CountMeta.remaining, {0: self.mark_done}, default=self.parse_item)
+        )
+
+    def mark_done(self) -> StateChain:
+        """No-extract pass-through state: constant metadata write, then stop."""
+        return assign(CountMeta.done, 1).accept()
 
 
 if __name__ == "__main__":
-    print(counted_items().to_json())
+    print(CountedItems.build().to_json())
