@@ -32,8 +32,10 @@ pub fn bitmap_bits(n: usize) -> u32 {
         8
     } else if n <= 16 {
         16
-    } else {
+    } else if n <= 32 {
         32
+    } else {
+        64
     }
 }
 
@@ -370,9 +372,9 @@ pub fn generate_p4(ir: &pb::Ir) -> Result<String> {
     }
     let insts = instance_order(parser);
     let stacked = stacked_instances(parser);
-    if insts.len() > 32 {
+    if insts.len() > 64 {
         bail!(
-            "verdict bitmap supports at most 32 header instances, got {}",
+            "verdict bitmap supports at most 64 header instances, got {}",
             insts.len()
         );
     }
@@ -602,7 +604,7 @@ pub fn generate_p4(ir: &pb::Ir) -> Result<String> {
         writeln!(
             w,
             "        if ({valid}) {{ bm = bm | {bm_bits}w{}; }}",
-            1u32 << idx
+            1u64 << idx
         )?;
     }
     writeln!(w, "        hdr.verdict.bitmap = bm;")?;
@@ -901,9 +903,12 @@ mod tests {
         assert_eq!(bitmap_bits(16), 16);
         assert_eq!(bitmap_bits(17), 32);
         assert_eq!(bitmap_bits(32), 32);
+        assert_eq!(bitmap_bits(33), 64);
+        assert_eq!(bitmap_bits(64), 64);
         assert_eq!(bitmap_bytes(8), 1);
         assert_eq!(bitmap_bytes(9), 2);
         assert_eq!(bitmap_bytes(17), 4);
+        assert_eq!(bitmap_bytes(33), 8);
     }
 
     #[test]
@@ -942,9 +947,18 @@ mod tests {
     }
 
     #[test]
-    fn more_than_32_instances_still_bails() {
-        let err = generate_p4(&synth_ir(33)).unwrap_err();
-        assert!(err.to_string().contains("at most 32"), "{err}");
+    fn verdict_bitmap_widens_past_32_instances() {
+        // 33+ instances is the p4lang_switch_parser shape (56
+        // instances) that added the 64-bit tier.
+        let p4 = generate_p4(&synth_ir(33)).unwrap();
+        assert!(p4.contains("bit<64> bitmap;"), "{p4}");
+        assert!(p4.contains("bit<64> bm = 64w0;"), "{p4}");
+    }
+
+    #[test]
+    fn more_than_64_instances_still_bails() {
+        let err = generate_p4(&synth_ir(65)).unwrap_err();
+        assert!(err.to_string().contains("at most 64"), "{err}");
     }
 
     #[test]
