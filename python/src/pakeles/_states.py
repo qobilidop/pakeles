@@ -77,9 +77,28 @@ def oneof(*values: int) -> OneOf:
     return OneOf(values=values)
 
 
+@dataclass(frozen=True)
+class Masked:
+    """A ternary arm key: `masked(0, 0xfe00)` matches any value whose
+    bits under the mask equal the value's (the IR's Masked keyset
+    entry; first-match arm order is the priority, as ever)."""
+
+    value: int
+    mask: int
+
+
+def masked(value: int, mask: int) -> Masked:
+    if value & ~mask:
+        raise ValueError(
+            f"masked value {value:#x} has bits outside its mask {mask:#x}"
+        )
+    return Masked(value=value, mask=mask)
+
+
 Target = str | StateRef | Accept | Reject
-ArmValue = int | tuple[int, ...]  # one arm's exact value(s), post-expansion
-ArmKey = int | OneOf | range | tuple["int | OneOf | range", ...]
+# One arm's value(s), post-expansion: exact ints and/or ternary Masked.
+ArmValue = int | Masked | tuple["int | Masked", ...]
+ArmKey = int | OneOf | range | Masked | tuple["int | OneOf | range | Masked", ...]
 SelectKey = FieldSpec | BoundField | MetadataFieldSpec | RemainingSpec
 RegionOp = tuple[str, Expr | None]  # ("push", len_expr) | ("pop", None)
 
@@ -91,7 +110,7 @@ def _expand_arm(key: ArmKey) -> list[ArmValue]:
     if isinstance(key, range):
         return list(key)
     if isinstance(key, tuple):
-        pools = [
+        pools: list[list[int | Masked]] = [
             list(k.values) if isinstance(k, OneOf) else list(k) if isinstance(k, range) else [k]
             for k in key
         ]

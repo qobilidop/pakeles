@@ -13,7 +13,7 @@ from google.protobuf import json_format
 from pakeles._header import Header
 from pakeles._metadata import Metadata, MetadataFieldSpec
 from pakeles._pb import ir_pb2
-from pakeles._states import Accept, Reject, SelectSpec, State, Target
+from pakeles._states import Accept, Masked, Reject, SelectSpec, State, Target
 
 IR_VERSION = "0.1.0"
 
@@ -82,9 +82,10 @@ class Assembly:
                         )
                     for value, key_spec in zip(values, sel.keys):
                         assert key_spec.width_bits is not None
-                        if value >= 1 << key_spec.width_bits:
+                        bound = value.mask if isinstance(value, Masked) else value
+                        if bound >= 1 << key_spec.width_bits:
                             raise ValueError(
-                                f"state {sname!r}: arm value {value:#x} does not "
+                                f"state {sname!r}: arm value {bound:#x} does not "
                                 f"fit {key_spec.header}.{key_spec.name} "
                                 f"({key_spec.width_bits} bits)"
                             )
@@ -199,7 +200,12 @@ class Assembly:
                     arm = sel.arms.add()
                     values = arm_key if isinstance(arm_key, tuple) else (arm_key,)
                     for value in values:
-                        arm.entries.add().value = value
+                        entry = arm.entries.add()
+                        if isinstance(value, Masked):
+                            entry.masked.value = value.value
+                            entry.masked.mask = value.mask
+                        else:
+                            entry.value = value
                     _fill_target(arm.next, target)
                 _fill_target(sel.default_target, tr.default)
             else:

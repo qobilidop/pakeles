@@ -198,3 +198,42 @@ def test_docstrings_lift_into_doc_annotations() -> None:
     assert "annotations" not in sub
     sub_states = {s["name"]: s for s in sub["states"]}
     assert sub_states["parse_a"]["annotations"]["doc"].startswith("First line.")
+
+
+def test_masked_arm_emits_ternary_keyset_entry() -> None:
+    from pakeles import Header, accept, bits, masked
+
+    class Eth(Header):
+        et = bits(16)
+
+    class MaskedArms(Parser):
+        max_depth = 2
+
+        def parse(self) -> State:
+            return extract(Eth).select(
+                Eth.et,
+                {masked(0, 0xFE00): "parse", 0x0800: "parse"},
+                default=accept(),
+            )
+
+    sel = json.loads(MaskedArms.to_json())["parser"]["states"][0]["transition"][
+        "select"
+    ]
+    entries = [arm["entries"][0] for arm in sel["arms"]]
+    assert entries[0]["masked"] == {"mask": "65024"}  # value 0 = proto default
+    assert entries[1] == {"value": "2048"}
+    # A masked value outside its mask is an authoring error.
+    with pytest.raises(ValueError, match="outside its mask"):
+        masked(0x0100, 0xFE00)
+    # The mask must fit the key width like any exact value.
+    with pytest.raises(ValueError, match="does not fit"):
+
+        class BadWidth(Parser):
+            max_depth = 2
+
+            def parse(self) -> State:
+                return extract(Eth).select(
+                    Eth.et, {masked(0, 0x1FFFF): "parse"}, default=accept()
+                )
+
+        BadWidth.to_pb()
