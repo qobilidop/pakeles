@@ -8,10 +8,12 @@ repository = "https://github.com/qobilidop/pakeles"
 readme = "README.md"
 keywords = ["parser", "packet", "network", "ir", "wireshark"]
 categories = ["parsing", "network-programming"]
+# src/** carries everything the packaged crate builds from: the
+# vendored generated-protobuf code (src/gen/, so consumers never need
+# protoc) lives there; the embedded synthetic gallery IRs are listed
+# explicitly.
 include = [
     "src/**",
-    "proto/**",
-    "build.rs",
     "Cargo.toml",
     "README.md",
     "LICENSE",
@@ -30,6 +32,7 @@ resolver = "2"
 members = [
     "pakeles-testkit",
     "pakeles-cli",
+    "pakeles-pbgen",
     "examples/real_world/linux_flow_dissector",
     "examples/real_world/dpdk_ptype",
     "examples/real_world/katran_flow",
@@ -40,6 +43,7 @@ default-members = [
     ".",
     "pakeles-testkit",
     "pakeles-cli",
+    "pakeles-pbgen",
     "examples/real_world/linux_flow_dissector",
     "examples/real_world/dpdk_ptype",
     "examples/real_world/katran_flow",
@@ -67,7 +71,3 @@ symex = ["dep:z3"]
 
 [dev-dependencies]
 pakeles-testkit = { path = "pakeles-testkit" }
-
-[build-dependencies]
-prost-build = "0.13"
-pbjson-build = "0.7"

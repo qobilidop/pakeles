@@ -1,0 +1,11 @@
+[package]
+name = "pakeles-pbgen"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Regenerates the committed prost/pbjson code in the core crate from proto/ (run: cargo run --bin pakeles-pbgen)"
+
+[dependencies]
+prost-build = "0.13"
+pbjson-build = "0.7"
+anyhow = "1"

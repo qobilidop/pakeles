@@ -1,10 +1,14 @@
 //! The normative IR: generated protobuf types plus serialization helpers.
 //! This module depends on no other module in the crate.
 
+// Vendored prost/pbjson output (src/gen/, committed like python/'s
+// _pb modules): consumers never need protoc. Regenerate after a
+// proto/ change with `cargo run --bin pakeles-pbgen`; guarded by
+// pakeles-pbgen's committed_pb_current test.
 #[allow(clippy::all)]
 pub mod pb {
-    include!(concat!(env!("OUT_DIR"), "/pakeles.ir.v1alpha1.rs"));
-    include!(concat!(env!("OUT_DIR"), "/pakeles.ir.v1alpha1.serde.rs"));
+    include!("../gen/pakeles.ir.v1alpha1.rs");
+    include!("../gen/pakeles.ir.v1alpha1.serde.rs");
 }
 
 pub mod validate;

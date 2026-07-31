@@ -1,13 +1,11 @@
 //! Test-vector artifacts: generated pb types plus the Rust-native
 //! `Bits` input type and BitString canonicalization.
 
+// Vendored generated code — see the note in src/ir/mod.rs.
 #[allow(clippy::all)]
 pub mod pb {
-    include!(concat!(env!("OUT_DIR"), "/pakeles.testvec.v1alpha1.rs"));
-    include!(concat!(
-        env!("OUT_DIR"),
-        "/pakeles.testvec.v1alpha1.serde.rs"
-    ));
+    include!("gen/pakeles.testvec.v1alpha1.rs");
+    include!("gen/pakeles.testvec.v1alpha1.serde.rs");
 }
 
 use anyhow::Result;

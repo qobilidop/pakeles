@@ -443,11 +443,9 @@ dependencies = [
  "anyhow",
  "pakeles-testkit",
  "pbjson",
- "pbjson-build",
  "pbjson-types",
  "pcap-parser",
  "prost",
- "prost-build",
  "serde",
  "serde_json",
  "thiserror",
@@ -522,6 +520,15 @@ dependencies = [
  "pakeles-testkit",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "pakeles-pbgen"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "pbjson-build",
+ "prost-build",
 ]
 
 [[package]]
