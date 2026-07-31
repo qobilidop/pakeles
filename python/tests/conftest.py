@@ -24,11 +24,25 @@ REAL_WORLD = [
     "tls_clienthello",
     "quic_initial",
 ]
-ALL_EXAMPLES = SYNTHETIC + REAL_WORLD
+ACADEMIC = [
+    "gibb_simple",
+    "gibb_enterprise",
+    "gibb_datacenter",
+    "gibb_edge",
+    "gibb_service_provider",
+    "gibb_big_union",
+    "kangaroo_parse_tree",
+]
+ALL_EXAMPLES = SYNTHETIC + REAL_WORLD + ACADEMIC
 
 
 def gallery_dir(name: str) -> Path:
-    group = "synthetic" if name in SYNTHETIC else "real_world"
+    if name in SYNTHETIC:
+        group = "synthetic"
+    elif name in REAL_WORLD:
+        group = "real_world"
+    else:
+        group = "academic"
     return REPO_ROOT / "examples" / group / name
 
 

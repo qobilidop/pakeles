@@ -1,0 +1,30 @@
+digraph "gibb_simple" {
+  rankdir=TB;
+  node [fontname="Helvetica"];
+  "parse_ethernet" [shape=box, label="parse_ethernet\nextract ethernet"];
+  "parse_vlan1" [shape=box, label="parse_vlan1\nextract vlan", tooltip="First of the two bounded VLAN tags (`max = 2` in the\nsource, drawn as two nodes in the paper's graphs).", href="#"];
+  "parse_vlan2" [shape=box, label="parse_vlan2\nextract vlan", tooltip="Second VLAN tag; a third falls to the default - beyond the\ngraph's bound is simply not a recognized sequence.", href="#"];
+  "parse_ipv4" [shape=box, label="parse_ipv4\nextract ipv4", tooltip="L4 dispatch keys on (frag_offset, protocol) concatenated -\nthe source's `map(fragOffset, protocol)`, so only first\nfragments dispatch.", href="#"];
+  "parse_tcp" [shape=box, label="parse_tcp\nextract tcp"];
+  "parse_udp" [shape=box, label="parse_udp\nextract udp"];
+  "accept" [shape=doublecircle];
+  "parse_ethernet" -> "parse_vlan1" [label="ethernet.ether_type == 0x8100"];
+  "parse_ethernet" -> "parse_vlan1" [label="ethernet.ether_type == 0x9100"];
+  "parse_ethernet" -> "parse_vlan1" [label="ethernet.ether_type == 0x9200"];
+  "parse_ethernet" -> "parse_vlan1" [label="ethernet.ether_type == 0x9300"];
+  "parse_ethernet" -> "parse_ipv4" [label="ethernet.ether_type == 0x800"];
+  "parse_ethernet" -> "accept" [label="default", style=dashed];
+  "parse_vlan1" -> "parse_vlan2" [label="vlan.ether_type == 0x8100"];
+  "parse_vlan1" -> "parse_vlan2" [label="vlan.ether_type == 0x9100"];
+  "parse_vlan1" -> "parse_vlan2" [label="vlan.ether_type == 0x9200"];
+  "parse_vlan1" -> "parse_vlan2" [label="vlan.ether_type == 0x9300"];
+  "parse_vlan1" -> "parse_ipv4" [label="vlan.ether_type == 0x800"];
+  "parse_vlan1" -> "accept" [label="default", style=dashed];
+  "parse_vlan2" -> "parse_ipv4" [label="vlan.ether_type == 0x800"];
+  "parse_vlan2" -> "accept" [label="default", style=dashed];
+  "parse_ipv4" -> "parse_tcp" [label="ipv4.frag_offset == 0x0 && ipv4.protocol == 0x6"];
+  "parse_ipv4" -> "parse_udp" [label="ipv4.frag_offset == 0x0 && ipv4.protocol == 0x11"];
+  "parse_ipv4" -> "accept" [label="default", style=dashed];
+  "parse_tcp" -> "accept";
+  "parse_udp" -> "accept";
+}

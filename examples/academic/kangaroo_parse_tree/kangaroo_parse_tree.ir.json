@@ -1,0 +1,3131 @@
+{
+  "irVersion": "0.1.0",
+  "parser": {
+    "name": "kangaroo_parse_tree",
+    "headerTypes": [
+      {
+        "name": "ethernet",
+        "fields": [
+          {
+            "name": "dst_addr",
+            "width": {
+              "bits": 48
+            },
+            "display": {
+              "name": "Destination",
+              "format": "DISPLAY_FORMAT_ETHER"
+            }
+          },
+          {
+            "name": "src_addr",
+            "width": {
+              "bits": 48
+            },
+            "display": {
+              "name": "Source",
+              "format": "DISPLAY_FORMAT_ETHER"
+            }
+          },
+          {
+            "name": "ether_type",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "EtherType",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "2048",
+                  "label": "IPv4"
+                },
+                {
+                  "value": "2054",
+                  "label": "ARP"
+                },
+                {
+                  "value": "32821",
+                  "label": "RARP"
+                },
+                {
+                  "value": "33024",
+                  "label": "802.1Q"
+                },
+                {
+                  "value": "34525",
+                  "label": "IPv6"
+                },
+                {
+                  "value": "34887",
+                  "label": "MPLS (unicast)"
+                },
+                {
+                  "value": "34888",
+                  "label": "MPLS (multicast)"
+                },
+                {
+                  "value": "34984",
+                  "label": "802.1ad"
+                },
+                {
+                  "value": "35047",
+                  "label": "802.1ah"
+                },
+                {
+                  "value": "61440",
+                  "label": "recirc tag (PLACEHOLDER - Cisco-internal, unpublished)"
+                },
+                {
+                  "value": "61696",
+                  "label": "service tag (PLACEHOLDER - Cisco-internal, unpublished)"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "shim_tag",
+        "fields": [
+          {
+            "name": "pcp",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "PCP"
+            }
+          },
+          {
+            "name": "cfi",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "CFI"
+            }
+          },
+          {
+            "name": "vid",
+            "width": {
+              "bits": 12
+            },
+            "display": {
+              "name": "VLAN ID",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ether_type",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "EtherType",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "2048",
+                  "label": "IPv4"
+                },
+                {
+                  "value": "2054",
+                  "label": "ARP"
+                },
+                {
+                  "value": "32821",
+                  "label": "RARP"
+                },
+                {
+                  "value": "33024",
+                  "label": "802.1Q"
+                },
+                {
+                  "value": "34525",
+                  "label": "IPv6"
+                },
+                {
+                  "value": "34887",
+                  "label": "MPLS (unicast)"
+                },
+                {
+                  "value": "34888",
+                  "label": "MPLS (multicast)"
+                },
+                {
+                  "value": "34984",
+                  "label": "802.1ad"
+                },
+                {
+                  "value": "35047",
+                  "label": "802.1ah"
+                },
+                {
+                  "value": "61440",
+                  "label": "recirc tag (PLACEHOLDER - Cisco-internal, unpublished)"
+                },
+                {
+                  "value": "61696",
+                  "label": "service tag (PLACEHOLDER - Cisco-internal, unpublished)"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "ieee8021_ah",
+        "fields": [
+          {
+            "name": "pcp",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "PCP"
+            }
+          },
+          {
+            "name": "dei",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "DEI"
+            }
+          },
+          {
+            "name": "uca",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "UCA"
+            }
+          },
+          {
+            "name": "reserved",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "Reserved"
+            }
+          },
+          {
+            "name": "i_sid",
+            "width": {
+              "bits": 24
+            },
+            "display": {
+              "name": "I-SID",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ether_type",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "EtherType",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "2048",
+                  "label": "IPv4"
+                },
+                {
+                  "value": "2054",
+                  "label": "ARP"
+                },
+                {
+                  "value": "32821",
+                  "label": "RARP"
+                },
+                {
+                  "value": "33024",
+                  "label": "802.1Q"
+                },
+                {
+                  "value": "34525",
+                  "label": "IPv6"
+                },
+                {
+                  "value": "34887",
+                  "label": "MPLS (unicast)"
+                },
+                {
+                  "value": "34888",
+                  "label": "MPLS (multicast)"
+                },
+                {
+                  "value": "34984",
+                  "label": "802.1ad"
+                },
+                {
+                  "value": "35047",
+                  "label": "802.1ah"
+                },
+                {
+                  "value": "61440",
+                  "label": "recirc tag (PLACEHOLDER - Cisco-internal, unpublished)"
+                },
+                {
+                  "value": "61696",
+                  "label": "service tag (PLACEHOLDER - Cisco-internal, unpublished)"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "mpls",
+        "fields": [
+          {
+            "name": "label",
+            "width": {
+              "bits": 20
+            },
+            "display": {
+              "name": "Label",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "tc",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "Traffic Class"
+            }
+          },
+          {
+            "name": "bos",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Bottom of Stack",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ttl",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "TTL",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "mpls_payload_nibble",
+        "fields": [
+          {
+            "name": "v",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Version Nibble",
+              "format": "DISPLAY_FORMAT_DEC",
+              "valueLabels": [
+                {
+                  "label": "Ethernet (EoMPLS)"
+                },
+                {
+                  "value": "4",
+                  "label": "IPv4"
+                },
+                {
+                  "value": "6",
+                  "label": "IPv6"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "ipv4",
+        "fields": [
+          {
+            "name": "version",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Version"
+            }
+          },
+          {
+            "name": "ihl",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "IHL",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "diffserv",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "DiffServ",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "total_len",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Total Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "identification",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Identification",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "flags",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "Flags"
+            }
+          },
+          {
+            "name": "frag_offset",
+            "width": {
+              "bits": 13
+            },
+            "display": {
+              "name": "Fragment Offset",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ttl",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "TTL",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "protocol",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Protocol",
+              "format": "DISPLAY_FORMAT_DEC",
+              "valueLabels": [
+                {
+                  "label": "IPv6 Hop-by-Hop Options"
+                },
+                {
+                  "value": "1",
+                  "label": "ICMP"
+                },
+                {
+                  "value": "4",
+                  "label": "IPv4-in-IP"
+                },
+                {
+                  "value": "6",
+                  "label": "TCP"
+                },
+                {
+                  "value": "17",
+                  "label": "UDP"
+                },
+                {
+                  "value": "47",
+                  "label": "GRE"
+                },
+                {
+                  "value": "50",
+                  "label": "IPsec ESP"
+                },
+                {
+                  "value": "58",
+                  "label": "ICMPv6"
+                }
+              ]
+            }
+          },
+          {
+            "name": "hdr_checksum",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Header Checksum",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "src_addr",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Source",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "dst_addr",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Destination",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "options",
+            "width": {
+              "byteLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_SUB",
+                  "lhs": {
+                    "bin": {
+                      "op": "BIN_OP_KIND_MUL",
+                      "lhs": {
+                        "field": {
+                          "header": "ipv4",
+                          "field": "ihl"
+                        }
+                      },
+                      "rhs": {
+                        "constant": "4"
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "constant": "20"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "ipv4_rest",
+        "fields": [
+          {
+            "name": "ihl",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "IHL",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "diffserv",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "DiffServ",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "total_len",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Total Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "identification",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Identification",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "flags",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "Flags"
+            }
+          },
+          {
+            "name": "frag_offset",
+            "width": {
+              "bits": 13
+            },
+            "display": {
+              "name": "Fragment Offset",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ttl",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "TTL",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "protocol",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Protocol",
+              "format": "DISPLAY_FORMAT_DEC",
+              "valueLabels": [
+                {
+                  "label": "IPv6 Hop-by-Hop Options"
+                },
+                {
+                  "value": "1",
+                  "label": "ICMP"
+                },
+                {
+                  "value": "4",
+                  "label": "IPv4-in-IP"
+                },
+                {
+                  "value": "6",
+                  "label": "TCP"
+                },
+                {
+                  "value": "17",
+                  "label": "UDP"
+                },
+                {
+                  "value": "47",
+                  "label": "GRE"
+                },
+                {
+                  "value": "50",
+                  "label": "IPsec ESP"
+                },
+                {
+                  "value": "58",
+                  "label": "ICMPv6"
+                }
+              ]
+            }
+          },
+          {
+            "name": "hdr_checksum",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Header Checksum",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "src_addr",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Source",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "dst_addr",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Destination",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "options",
+            "width": {
+              "byteLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_SUB",
+                  "lhs": {
+                    "bin": {
+                      "op": "BIN_OP_KIND_MUL",
+                      "lhs": {
+                        "field": {
+                          "header": "ipv4_rest",
+                          "field": "ihl"
+                        }
+                      },
+                      "rhs": {
+                        "constant": "4"
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "constant": "20"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "ipv6",
+        "fields": [
+          {
+            "name": "version",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Version"
+            }
+          },
+          {
+            "name": "traffic_class",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Traffic Class",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "flow_label",
+            "width": {
+              "bits": 20
+            },
+            "display": {
+              "name": "Flow Label",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "payload_len",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Payload Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "next_hdr",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Next Header",
+              "format": "DISPLAY_FORMAT_DEC",
+              "valueLabels": [
+                {
+                  "label": "IPv6 Hop-by-Hop Options"
+                },
+                {
+                  "value": "1",
+                  "label": "ICMP"
+                },
+                {
+                  "value": "4",
+                  "label": "IPv4-in-IP"
+                },
+                {
+                  "value": "6",
+                  "label": "TCP"
+                },
+                {
+                  "value": "17",
+                  "label": "UDP"
+                },
+                {
+                  "value": "47",
+                  "label": "GRE"
+                },
+                {
+                  "value": "50",
+                  "label": "IPsec ESP"
+                },
+                {
+                  "value": "58",
+                  "label": "ICMPv6"
+                }
+              ]
+            }
+          },
+          {
+            "name": "hop_limit",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Hop Limit",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "src_addr",
+            "width": {
+              "byteLen": {
+                "constant": "16"
+              }
+            }
+          },
+          {
+            "name": "dst_addr",
+            "width": {
+              "byteLen": {
+                "constant": "16"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "ipv6_rest",
+        "fields": [
+          {
+            "name": "traffic_class",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Traffic Class",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "flow_label",
+            "width": {
+              "bits": 20
+            },
+            "display": {
+              "name": "Flow Label",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "payload_len",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Payload Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "next_hdr",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Next Header",
+              "format": "DISPLAY_FORMAT_DEC",
+              "valueLabels": [
+                {
+                  "label": "IPv6 Hop-by-Hop Options"
+                },
+                {
+                  "value": "1",
+                  "label": "ICMP"
+                },
+                {
+                  "value": "4",
+                  "label": "IPv4-in-IP"
+                },
+                {
+                  "value": "6",
+                  "label": "TCP"
+                },
+                {
+                  "value": "17",
+                  "label": "UDP"
+                },
+                {
+                  "value": "47",
+                  "label": "GRE"
+                },
+                {
+                  "value": "50",
+                  "label": "IPsec ESP"
+                },
+                {
+                  "value": "58",
+                  "label": "ICMPv6"
+                }
+              ]
+            }
+          },
+          {
+            "name": "hop_limit",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Hop Limit",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "src_addr",
+            "width": {
+              "byteLen": {
+                "constant": "16"
+              }
+            }
+          },
+          {
+            "name": "dst_addr",
+            "width": {
+              "byteLen": {
+                "constant": "16"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "ipv6_ext_hdr",
+        "fields": [
+          {
+            "name": "next_hdr",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Next Header",
+              "format": "DISPLAY_FORMAT_DEC",
+              "valueLabels": [
+                {
+                  "label": "IPv6 Hop-by-Hop Options"
+                },
+                {
+                  "value": "1",
+                  "label": "ICMP"
+                },
+                {
+                  "value": "4",
+                  "label": "IPv4-in-IP"
+                },
+                {
+                  "value": "6",
+                  "label": "TCP"
+                },
+                {
+                  "value": "17",
+                  "label": "UDP"
+                },
+                {
+                  "value": "47",
+                  "label": "GRE"
+                },
+                {
+                  "value": "50",
+                  "label": "IPsec ESP"
+                },
+                {
+                  "value": "58",
+                  "label": "ICMPv6"
+                }
+              ]
+            }
+          },
+          {
+            "name": "hdr_ext_len",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Hdr Ext Len",
+              "format": "DISPLAY_FORMAT_DEC",
+              "doc": "in 8-octet units, excl. first 8"
+            }
+          },
+          {
+            "name": "body",
+            "width": {
+              "byteLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_SUB",
+                  "lhs": {
+                    "bin": {
+                      "op": "BIN_OP_KIND_SHL",
+                      "lhs": {
+                        "bin": {
+                          "op": "BIN_OP_KIND_ADD",
+                          "lhs": {
+                            "constant": "1"
+                          },
+                          "rhs": {
+                            "field": {
+                              "header": "ipv6_ext_hdr",
+                              "field": "hdr_ext_len"
+                            }
+                          }
+                        }
+                      },
+                      "rhs": {
+                        "constant": "3"
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "constant": "2"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "gre",
+        "fields": [
+          {
+            "name": "c",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "C (Checksum Present)"
+            }
+          },
+          {
+            "name": "r",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "R (Routing Present)"
+            }
+          },
+          {
+            "name": "k",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "K (Key Present)"
+            }
+          },
+          {
+            "name": "s",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "S (Sequence Present)"
+            }
+          },
+          {
+            "name": "strict",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "s (Strict Source Route)"
+            }
+          },
+          {
+            "name": "recurse",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "Recursion Control"
+            }
+          },
+          {
+            "name": "flags",
+            "width": {
+              "bits": 5
+            },
+            "display": {
+              "name": "Flags"
+            }
+          },
+          {
+            "name": "ver",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "Version"
+            }
+          },
+          {
+            "name": "proto",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Protocol Type",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "2048",
+                  "label": "IPv4"
+                },
+                {
+                  "value": "34525",
+                  "label": "IPv6"
+                }
+              ]
+            }
+          },
+          {
+            "name": "opt",
+            "width": {
+              "byteLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_ADD",
+                  "lhs": {
+                    "bin": {
+                      "op": "BIN_OP_KIND_ADD",
+                      "lhs": {
+                        "bin": {
+                          "op": "BIN_OP_KIND_MUL",
+                          "lhs": {
+                            "field": {
+                              "header": "gre",
+                              "field": "c"
+                            }
+                          },
+                          "rhs": {
+                            "constant": "4"
+                          }
+                        }
+                      },
+                      "rhs": {
+                        "bin": {
+                          "op": "BIN_OP_KIND_MUL",
+                          "lhs": {
+                            "field": {
+                              "header": "gre",
+                              "field": "k"
+                            }
+                          },
+                          "rhs": {
+                            "constant": "4"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "bin": {
+                      "op": "BIN_OP_KIND_MUL",
+                      "lhs": {
+                        "field": {
+                          "header": "gre",
+                          "field": "s"
+                        }
+                      },
+                      "rhs": {
+                        "constant": "4"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "tcp",
+        "fields": [
+          {
+            "name": "src_port",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Source Port",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "dst_port",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Destination Port",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "seq_no",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Sequence Number",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ack_no",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Ack Number",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "data_offset",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Data Offset",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "res",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "Reserved"
+            }
+          },
+          {
+            "name": "ecn",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "ECN"
+            }
+          },
+          {
+            "name": "ctrl",
+            "width": {
+              "bits": 6
+            },
+            "display": {
+              "name": "Control Bits"
+            }
+          },
+          {
+            "name": "window",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Window",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "checksum",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Checksum",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "urgent_ptr",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Urgent Pointer",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "options",
+            "width": {
+              "byteLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_SUB",
+                  "lhs": {
+                    "bin": {
+                      "op": "BIN_OP_KIND_MUL",
+                      "lhs": {
+                        "field": {
+                          "header": "tcp",
+                          "field": "data_offset"
+                        }
+                      },
+                      "rhs": {
+                        "constant": "4"
+                      }
+                    }
+                  },
+                  "rhs": {
+                    "constant": "20"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "udp",
+        "fields": [
+          {
+            "name": "src_port",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Source Port",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "dst_port",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Destination Port",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "length",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "checksum",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Checksum",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
+      },
+      {
+        "name": "icmp",
+        "fields": [
+          {
+            "name": "type",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Type",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "code",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Code",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "hdr_checksum",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Checksum",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
+      },
+      {
+        "name": "icmpv6",
+        "fields": [
+          {
+            "name": "type",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Type",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "code",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Code",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "hdr_checksum",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Checksum",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
+      },
+      {
+        "name": "ipsec_esp",
+        "fields": [
+          {
+            "name": "spi",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "SPI",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "seq_no",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Sequence Number",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "arp_rarp",
+        "fields": [
+          {
+            "name": "hw_type",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Hardware Type",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "proto_type",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Protocol Type",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "hw_addr_len",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Hardware Address Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "proto_addr_len",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Protocol Address Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "opcode",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Opcode",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      }
+    ],
+    "states": [
+      {
+        "name": "parse_ethernet",
+        "extracts": [
+          {
+            "headerType": "ethernet"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ethernet",
+                  "field": "ether_type"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "33024"
+                  }
+                ],
+                "next": {
+                  "state": "parse_vlan_q1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "61440"
+                  }
+                ],
+                "next": {
+                  "state": "parse_recirc"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "61696"
+                  }
+                ],
+                "next": {
+                  "state": "parse_service"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "35047"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ieee8021ah"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34984"
+                  }
+                ],
+                "next": {
+                  "state": "parse_vlan_ad"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34887"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34888"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2054"
+                  }
+                ],
+                "next": {
+                  "state": "parse_arp_rarp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "32821"
+                  }
+                ],
+                "next": {
+                  "state": "parse_arp_rarp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_vlan_q1",
+        "extracts": [
+          {
+            "headerType": "shim_tag"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "shim_tag",
+                  "field": "ether_type"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "33024"
+                  }
+                ],
+                "next": {
+                  "state": "parse_vlan_q2"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34887"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34888"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2054"
+                  }
+                ],
+                "next": {
+                  "state": "parse_arp_rarp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "32821"
+                  }
+                ],
+                "next": {
+                  "state": "parse_arp_rarp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "First 802.1Q tag; \"nested 802.1q\" is its own shim in the\nprose, so exactly one more 802.1Q may follow."
+        }
+      },
+      {
+        "name": "parse_vlan_q2",
+        "extracts": [
+          {
+            "headerType": "shim_tag"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "shim_tag",
+                  "field": "ether_type"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "34887"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34888"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2054"
+                  }
+                ],
+                "next": {
+                  "state": "parse_arp_rarp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "32821"
+                  }
+                ],
+                "next": {
+                  "state": "parse_arp_rarp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "The nested 802.1Q tag; a third is not in the prose's shim\nlist and falls to the default."
+        }
+      },
+      {
+        "name": "parse_recirc",
+        "extracts": [
+          {
+            "headerType": "shim_tag"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "shim_tag",
+                  "field": "ether_type"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "34887"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34888"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2054"
+                  }
+                ],
+                "next": {
+                  "state": "parse_arp_rarp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "32821"
+                  }
+                ],
+                "next": {
+                  "state": "parse_arp_rarp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "Cisco-internal recirculation tag (\"resirc\" in the paper\n[sic]); reached via a placeholder EtherType."
+        }
+      },
+      {
+        "name": "parse_service",
+        "extracts": [
+          {
+            "headerType": "shim_tag"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "shim_tag",
+                  "field": "ether_type"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "34887"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34888"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2054"
+                  }
+                ],
+                "next": {
+                  "state": "parse_arp_rarp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "32821"
+                  }
+                ],
+                "next": {
+                  "state": "parse_arp_rarp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "Cisco-internal service tag; placeholder EtherType."
+        }
+      },
+      {
+        "name": "parse_vlan_ad",
+        "extracts": [
+          {
+            "headerType": "shim_tag"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "shim_tag",
+                  "field": "ether_type"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "34887"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34888"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2054"
+                  }
+                ],
+                "next": {
+                  "state": "parse_arp_rarp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "32821"
+                  }
+                ],
+                "next": {
+                  "state": "parse_arp_rarp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_ieee8021ah",
+        "extracts": [
+          {
+            "headerType": "ieee8021_ah"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ieee8021_ah",
+                  "field": "ether_type"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "34887"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34888"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2054"
+                  }
+                ],
+                "next": {
+                  "state": "parse_arp_rarp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "32821"
+                  }
+                ],
+                "next": {
+                  "state": "parse_arp_rarp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_mpls1",
+        "extracts": [
+          {
+            "headerType": "mpls"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "mpls",
+                  "field": "bos"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls2"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls_payload"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "First of the four bounded MPLS labels (\"up to 4 MPLS\nheaders\"); dispatch mechanism borrowed from the Gibb suite\n(bos select + payload-nibble header)."
+        }
+      },
+      {
+        "name": "parse_mpls2",
+        "extracts": [
+          {
+            "headerType": "mpls"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "mpls",
+                  "field": "bos"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls3"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls_payload"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_mpls3",
+        "extracts": [
+          {
+            "headerType": "mpls"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "mpls",
+                  "field": "bos"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls_payload"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_mpls4",
+        "extracts": [
+          {
+            "headerType": "mpls"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "mpls",
+                  "field": "bos"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls_payload"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "Fourth label: the bound is exhausted, so bos=0 (a fifth\nlabel) falls to the default - not a recognized sequence."
+        }
+      },
+      {
+        "name": "parse_mpls_payload",
+        "extracts": [
+          {
+            "headerType": "mpls_payload_nibble"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "mpls_payload_nibble",
+                  "field": "v"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ethernet2"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4_rest"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6_rest"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "Bottom of stack: \"MPLS is followed by Ethernet, IPv4, or\nIPv6\". Nibble 0 is the EoMPLS discriminator here (no control\nword in this tree, unlike Gibb - see README)."
+        }
+      },
+      {
+        "name": "parse_ethernet2",
+        "extracts": [
+          {
+            "headerType": "ethernet",
+            "instance": "ethernet2"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "annotations": {
+          "doc": "The inner Ethernet after MPLS - terminal (the prose gives\nit no successors of its own)."
+        }
+      },
+      {
+        "name": "parse_ipv4",
+        "extracts": [
+          {
+            "headerType": "ipv4"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv4",
+                  "field": "protocol"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_icmp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4_inner"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "17"
+                  }
+                ],
+                "next": {
+                  "state": "parse_udp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "47"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "50"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipsec_esp"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "Single-key dispatch on protocol - the prose never mentions\nfragments (unlike the Gibb graphs' (fragOffset, protocol))."
+        }
+      },
+      {
+        "name": "parse_ipv4_rest",
+        "extracts": [
+          {
+            "headerType": "ipv4_rest"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv4_rest",
+                  "field": "protocol"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_icmp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4_inner"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "17"
+                  }
+                ],
+                "next": {
+                  "state": "parse_udp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "47"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "50"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipsec_esp"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_ipv6",
+        "extracts": [
+          {
+            "headerType": "ipv6"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv6",
+                  "field": "next_hdr"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6_ext"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_icmp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4_inner"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "17"
+                  }
+                ],
+                "next": {
+                  "state": "parse_udp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "47"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "50"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipsec_esp"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_ipv6_rest",
+        "extracts": [
+          {
+            "headerType": "ipv6_rest"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv6_rest",
+                  "field": "next_hdr"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6_ext"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_icmp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4_inner"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "17"
+                  }
+                ],
+                "next": {
+                  "state": "parse_udp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "47"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "50"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipsec_esp"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_ipv6_ext",
+        "extracts": [
+          {
+            "headerType": "ipv6_ext_hdr"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv6_ext_hdr",
+                  "field": "next_hdr"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "17"
+                  }
+                ],
+                "next": {
+                  "state": "parse_udp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "50"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipsec_esp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "58"
+                  }
+                ],
+                "next": {
+                  "state": "parse_icmpv6"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "\"an IPv6 extension header which, in turn, is followed by\nTCP, UDP, ESP or ICMPv6\" - one level."
+        }
+      },
+      {
+        "name": "parse_gre",
+        "extracts": [
+          {
+            "headerType": "gre"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "proto"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4_inner"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6_inner"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "\"GRE can also be followed by IPv4/IPv6\" - a full inner IP\nheader, one tunnel level."
+        }
+      },
+      {
+        "name": "parse_ipv4_inner",
+        "extracts": [
+          {
+            "headerType": "ipv4"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv4",
+                  "field": "protocol"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_icmp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "17"
+                  }
+                ],
+                "next": {
+                  "state": "parse_udp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "50"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipsec_esp"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "The \"second IPv4 header\" (and GRE's inner IPv4): one\ntunnel level, so it dispatches L4 only - no further GRE or\nIP-in-IP."
+        }
+      },
+      {
+        "name": "parse_ipv6_inner",
+        "extracts": [
+          {
+            "headerType": "ipv6"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv6",
+                  "field": "next_hdr"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_icmp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "17"
+                  }
+                ],
+                "next": {
+                  "state": "parse_udp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "50"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipsec_esp"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "GRE's inner IPv6: L4 only, and no re-entry into the\nextension-header chain (one-level tunnel reading)."
+        }
+      },
+      {
+        "name": "parse_tcp",
+        "extracts": [
+          {
+            "headerType": "tcp"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        }
+      },
+      {
+        "name": "parse_udp",
+        "extracts": [
+          {
+            "headerType": "udp"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        }
+      },
+      {
+        "name": "parse_icmp",
+        "extracts": [
+          {
+            "headerType": "icmp"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        }
+      },
+      {
+        "name": "parse_icmpv6",
+        "extracts": [
+          {
+            "headerType": "icmpv6"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        }
+      },
+      {
+        "name": "parse_ipsec_esp",
+        "extracts": [
+          {
+            "headerType": "ipsec_esp"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        }
+      },
+      {
+        "name": "parse_arp_rarp",
+        "extracts": [
+          {
+            "headerType": "arp_rarp"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "annotations": {
+          "doc": "Terminal - the prose lists ARP/RARP among the possible\nfollowers but gives them no successors (and no ARP body node,\nunlike the Gibb graphs)."
+        }
+      }
+    ],
+    "startState": "parse_ethernet",
+    "maxDepth": 13
+  }
+}

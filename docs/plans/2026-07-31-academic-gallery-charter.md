@@ -6,7 +6,7 @@
 `examples/academic/` (group README with the naming/licensing rules
 below, machinery extended in dev tools + pytest + scripts), seven
 committed transcriptions — `gibb_simple`, `gibb_enterprise`,
-`gibb_data_center`, `gibb_edge`, `gibb_service_provider`,
+`gibb_datacenter`, `gibb_edge`, `gibb_service_provider`,
 `gibb_big_union`, `kangaroo_parse_tree` — each with regenerated
 artifacts and a Source-cited README, plus memory updated.
 
@@ -34,8 +34,11 @@ Naming extends the real_world scheme (`<namespace>_<component>`):
    (gibb — "parser-gen" is generic, and the literature attributes the
    graphs to Gibb et al.; Leapfrog's own citation practice).
 2. **Component = the item's name in the work's PRIMARY figure/table**,
-   snake-cased ("Data center" → `data_center`, "big-union" →
-   `big_union`); in-corpus aliases (Fig 3 "Edge" = Fig 15 "Enterprise
+   snake-cased ("big-union" → `big_union`); when the work itself
+   spells a multi-word name both ways, prefer its compact artifact
+   spelling (`datacenter` per headers-datacenter.txt + Leapfrog's
+   "Datacenter", over Fig 3's "Data center" — user call, this
+   session); in-corpus aliases (Fig 3 "Edge" = Fig 15 "Enterprise
    Edge" = RMT/thesis "Core router"; "big-union" = RMT "Composite")
    are recorded in the example README, not the name. **Where the work
    doesn't name its item, fall back to the work's own noun** —
@@ -68,7 +71,7 @@ factual reference — the agent-verified header sets and bounds):
   (NOT in Fig 3 — provenance nuance in README; kept for the
   RMT-Fig-6 / thesis-Fig-3.11 comparison set).
 - `gibb_enterprise` — + IPv6, ICMP/ICMPv6, ARP/RARP (+ARP-IPv4 body).
-- `gibb_data_center` — VLAN, IPv4-only, GRE(×3 nested via
+- `gibb_datacenter` — VLAN, IPv4-only, GRE(×3 nested via
   K+proto=0x6559), NVGRE (K+proto=0x6558), VXLAN (via UDP dstPort
   65535 — the paper predates the 4789 assignment; transcribe 65535
   faithfully, README-note it), inner Ethernet terminal.

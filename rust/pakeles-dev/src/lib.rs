@@ -25,6 +25,19 @@ pub const REAL_WORLD: [&str; 6] = [
     "quic_initial",
 ];
 
+/// The academic gallery examples: descriptions reproduced from
+/// published evaluations (see examples/academic/README.md for the
+/// naming and licensing rules). Same keep-in-step rule as REAL_WORLD.
+pub const ACADEMIC: [&str; 7] = [
+    "gibb_simple",
+    "gibb_enterprise",
+    "gibb_datacenter",
+    "gibb_edge",
+    "gibb_service_provider",
+    "gibb_big_union",
+    "kangaroo_parse_tree",
+];
+
 /// Every gallery example and its directory.
 pub fn gallery() -> Vec<(&'static str, PathBuf)> {
     let root = repo_root();
@@ -35,6 +48,11 @@ pub fn gallery() -> Vec<(&'static str, PathBuf)> {
             REAL_WORLD
                 .iter()
                 .map(|n| (*n, root.join("examples/real_world").join(n))),
+        )
+        .chain(
+            ACADEMIC
+                .iter()
+                .map(|n| (*n, root.join("examples/academic").join(n))),
         )
         .collect()
 }

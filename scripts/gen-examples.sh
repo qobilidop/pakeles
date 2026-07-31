@@ -8,7 +8,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 synthetic="eth_ipvx_l4 counted_items tlv_items"
 real_world="linux_flow_dissector dpdk_ptype katran_parser sai_parser tls_clienthello quic_initial"
-for group in synthetic real_world; do
+academic="gibb_simple gibb_enterprise gibb_datacenter gibb_edge gibb_service_provider gibb_big_union kangaroo_parse_tree"
+for group in synthetic real_world academic; do
   eval "names=\$$group"
   for name in $names; do
     dir="examples/$group/$name"
