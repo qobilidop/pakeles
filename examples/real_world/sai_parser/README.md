@@ -26,13 +26,13 @@ So this example is agreement between two P4 programs on one switch:
 - **Our** generated `sai_parser` P4 ([`gen/parser.p4`](gen/parser.p4)) is
   run against our interpreter in the everyday gate (`bmv2.rs`).
 - **Theirs** — the vendored sonic-pins parser
-  ([`oracle/sai_parser/vendor/`](../../../oracle/sai_parser/vendor/), Apache-2.0,
+  ([`third_party/sonic-pins/`](../../../third_party/sonic-pins/), Apache-2.0,
   `PROVENANCE.md`) — is instrumented
-  ([`oracle/sai_parser/factory/instrument.py`](../../../oracle/sai_parser/factory/instrument.py))
+  ([`factory/instrument.py`](factory/instrument.py))
   to emit the **same verdict format** Pakeles's P4 backend uses (a
   header-validity bitmap + error byte, forwarded, deparser emits only the
   verdict), compiled with `p4c-bm2-ss`, and run over the corpus. Our
-  projection ([`src/oracle/sai_parser.rs`](../../../src/oracle/sai_parser.rs)) is diffed
+  projection ([`src/lib.rs`](src/lib.rs)) is diffed
   against the resulting golden.
 
 The observation patch was necessary because the prebuilt `simple_switch`
@@ -43,7 +43,7 @@ unavailable here (a phase-1 finding).
 Re-minting (unprivileged, in the normal container):
 
 ```sh
-./dev.sh oracle/sai_parser/factory/capture.sh
+./dev.sh examples/real_world/sai_parser/factory/capture.sh
 ```
 
 ## Scope
@@ -99,5 +99,5 @@ replayed through the real parser on `simple_switch` — **0 divergences**.
 ## Try it
 
 ```sh
-./dev.sh cargo run -- diff sai   # our (bitmap, err) vs the committed golden
+./dev.sh cargo run --bin pakeles -- diff sai   # our (bitmap, err) vs the committed golden
 ```

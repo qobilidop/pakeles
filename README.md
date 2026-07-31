@@ -41,20 +41,22 @@ graphviz, clang/llvm, and prebuilt p4c + BMv2 grafted from
 [p4lang-builds](https://github.com/qobilidop/p4lang-builds)):
 
 ```sh
-./dev.sh cargo test                                        # full suite
-./dev.sh cargo run -- diff tshark --pcap testdata/basic.pcap
-./dev.sh cargo run -- run --pcap testdata/basic.pcap       # JSON per packet
-./dev.sh cargo run -- viz | dot -Tsvg -o graph.svg         # parse graph
-./dev.sh cargo run -- export-ir                            # the IR itself
-./dev.sh cargo run -- testgen --out vectors.json           # conformance suite
-./dev.sh cargo run -- lint                                 # unreachable/shadowed
-./dev.sh cargo run -- cov --pcap testdata/basic.pcap       # path coverage
-./dev.sh cargo run -- gen lua --out dissector.lua          # Wireshark dissector
-./dev.sh cargo run -- doc                                  # markdown docs
-./dev.sh cargo run -- gen c --out-dir .                    # portable C99 parser
-./dev.sh cargo run -- gen bpf --out parser.bpf.c           # eBPF variant
-./dev.sh cargo run -- gen p4 --out parser.p4               # P4-16 (v1model)
-./dev.sh cargo run -- diff bmv2                            # vectors vs BMv2
+./dev.sh cargo test                    # the whole gate: core + every example crate
+./dev.sh cargo run --bin pakeles -- diff tshark --pcap testdata/basic.pcap
+./dev.sh cargo run --bin pakeles -- run --pcap testdata/basic.pcap    # JSON per packet
+./dev.sh cargo run --bin pakeles -- viz | dot -Tsvg -o graph.svg      # parse graph
+./dev.sh cargo run --bin pakeles -- export-ir                         # the IR itself
+./dev.sh cargo run --bin pakeles -- testgen --out vectors.json        # conformance suite
+./dev.sh cargo run --bin pakeles -- lint                              # unreachable/shadowed
+./dev.sh cargo run --bin pakeles -- cov --pcap testdata/basic.pcap    # path coverage
+./dev.sh cargo run --bin pakeles -- gen lua --out dissector.lua       # Wireshark dissector
+./dev.sh cargo run --bin pakeles -- doc                               # markdown docs
+./dev.sh cargo run --bin pakeles -- gen c --out-dir .                 # portable C99 parser
+./dev.sh cargo run --bin pakeles -- gen bpf --out parser.bpf.c        # eBPF variant
+./dev.sh cargo run --bin pakeles -- gen p4 --out parser.p4            # P4-16 (v1model)
+./dev.sh cargo run --bin pakeles -- diff bmv2                         # vectors vs BMv2
+./dev.sh cargo run --bin pakeles -- diff flow-dissector               # vs the kernel golden
+./dev.sh cargo test -p pakeles-example-tls-clienthello                # one example's gate
 ```
 
 Try the generated dissector in your own Wireshark:
@@ -105,12 +107,20 @@ form — one authoring surface, one provably-canonical artifact. See
 
 ## Layout
 
+A cargo workspace: the core crate carries no incumbent-specific code,
+and everything about one real-world incumbent lives in one directory.
+
 - `proto/pakeles/{ir,testvec}/v1alpha1/` — the normative schemas (proto3)
-- `src/` — `ir` (types + validation), `builder`, `interp` (reference
-  interpreter), `symex` (symbolic engine: testgen/lint/cov, z3 behind a
-  solver trait), `codegen` (backends: Wireshark Lua, C99/eBPF, P4-16),
-  `docgen`, `viz`, `oracle` (diffs against tshark, BMv2, and each
-  real-world incumbent), `cli`
+- `src/` — the core `pakeles` crate: `ir` (types + validation),
+  `builder`, `interp` (reference interpreter), `symex` (symbolic
+  engine: testgen/lint/cov, z3 behind a solver trait), `codegen`
+  (backends: Wireshark Lua, C99/eBPF, P4-16), `docgen`, `viz`,
+  `oracle` (the toolchain-generic tshark + BMv2 diffs)
+- `pakeles-cli/` — the `pakeles` binary; depends on the core and on
+  every example crate (it owns the `diff <incumbent>` subcommands)
+- `pakeles-testkit/` — the shared conformance harnesses every gallery
+  example runs (compile-and-execute each backend, equality-guard each
+  committed artifact)
 - `py/` — the Python authoring eDSL (`pakeles` on PyPI, eventually)
 - `testdata/` — language-neutral fixtures (regenerate: `cargo run --bin gen_fixtures`)
 - `examples/` — the gallery: every artifact one description yields,
@@ -118,13 +128,15 @@ form — one authoring surface, one provably-canonical artifact. See
   - `synthetic/` — formats constructed to isolate one capability.
     `eth_ipvx_l4/` is the hello-world (branching demux), `counted_items/`
     exercises parse metadata, `tlv_items/` exercises sized regions.
-  - `real_world/` — models of parsers that already exist in the world,
-    each checked packet-for-packet against the real implementation at a
-    pinned version. `linux_flow_dissector/` is the kernel-agreement
-    north-star (see below); `tls_clienthello/` is the TLV flagship
-    (agrees with rustls 0.23.43).
-- `oracle/` — the golden factories and spikes behind `real_world/`;
-  the only tree where third-party code lives (see its README)
+  - `real_world/` — one workspace member per incumbent: the
+    description, committed IR, generated artifacts, goldens, golden
+    factory, and the projection + gate tests (`src/lib.rs`) all in one
+    directory; `cargo test -p pakeles-example-<x>` runs one gate.
+    `linux_flow_dissector/` is the kernel-agreement north-star (see
+    below); `tls_clienthello/` is the TLV flagship (agrees with rustls
+    0.23.43).
+- `third_party/` — the ONLY tree holding third-party code (vendored
+  sonic-pins sources; see its README for the licensing rule)
 - `docs/superpowers/specs/` — design docs; start with
   `2026-07-18-pakelesir-v0-design.md`
 
@@ -145,7 +157,7 @@ out-of-gate**, run through a separate `dev-priv.sh` (`docker run
 --privileged`) instead:
 
 ```sh
-./dev-priv.sh oracle/linux_flow_dissector/factory/capture.sh
+./dev-priv.sh examples/real_world/linux_flow_dissector/factory/capture.sh
 ```
 
 The everyday gate only diffs the committed, version-tagged golden file —

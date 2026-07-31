@@ -6,26 +6,32 @@ That external check is the point: without it, "our parser is correct"
 only means "it passes tests we wrote from a spec we read", which is
 exactly how real parsers drift apart.
 
-Each example shares its name with the factory that mints its golden and
-the module that projects our parse onto the incumbent's output, so one
-name follows an incumbent across all three:
+Each example is its own workspace member (crate
+`pakeles-example-<name>`), so **everything about one incumbent lives in
+one directory**: the description (`<name>.py`, `<name>.ir.json`), the
+generated artifacts (`gen/`), the goldens and vector suite
+(`conformance/`), the golden factory (`factory/`, plus `spike/` where
+exploratory harnesses exist), and the projection + gate tests
+(`src/lib.rs`). `cargo test -p pakeles-example-<name>` runs one
+example's gate; deleting an example is deleting one directory.
 
-| Example (here) | Incumbent | Pinned at | Factory | Projection |
-|---|---|---|---|---|
-| `linux_flow_dissector/` | Linux kernel flow dissector | 6.8.0 | `oracle/linux_flow_dissector/` | `src/oracle/linux_flow_dissector.rs` |
-| `dpdk_ptype/` | DPDK `rte_net_get_ptype()` | 23.11.4 | `oracle/dpdk_ptype/` | `src/oracle/dpdk_ptype.rs` |
-| `katran_flow/` | Katran (Meta's eBPF L4 load balancer) | dd915fd2 | `oracle/katran_flow/` | `src/oracle/katran_flow.rs` |
-| `sai_parser/` | SONiC PINS `sai_p4` on BMv2 | e77250b8 | `oracle/sai_parser/` | `src/oracle/sai_parser.rs` |
-| `tls_clienthello/` | TLS ClientHello via rustls | 0.23.43 | `oracle/tls_clienthello/` | `src/oracle/tls_clienthello.rs` |
+| Example (here) | Incumbent | Pinned at |
+|---|---|---|
+| `linux_flow_dissector/` | Linux kernel flow dissector | 6.8.0 |
+| `dpdk_ptype/` | DPDK `rte_net_get_ptype()` | 23.11.4 |
+| `katran_flow/` | Katran (Meta's eBPF L4 load balancer) | dd915fd2 |
+| `sai_parser/` | SONiC PINS `sai_p4` on BMv2 | e77250b8 |
+| `tls_clienthello/` | TLS ClientHello via rustls | 0.23.43 |
 
 ## How a claim is built
 
 **The golden is minted by the incumbent, never hand-written.** Each
 example's `conformance/*.golden.json` comes from running the real thing
 — the actual DPDK function, the actual Katran program under
-`BPF_PROG_TEST_RUN`, the actual rustls — via `oracle/<name>/factory/`
-(see [`oracle/README.md`](../../oracle/README.md) for why that tree is
-separate: it is where third-party code lives, and it is out-of-gate).
+`BPF_PROG_TEST_RUN`, the actual rustls — via its `factory/`. Factories
+are out-of-gate (nothing in them is built or run by `cargo test`; some
+need the privileged `./dev-priv.sh`), and any third-party code they
+consume lives in [`third_party/`](../../third_party/), never here.
 If a diff fails, investigate our side; never edit the golden. The
 oracle is the boss.
 
@@ -33,14 +39,26 @@ oracle is the boss.
 falsifiable and bounded: not "we agree with DPDK" but "we agree with
 DPDK 23.11.4 over these packets".
 
-**A projection and laxness rule** (in `src/oracle/<name>.rs`) says how
-our `ParseResult` maps onto whatever the incumbent actually exposes,
-and where the two surfaces legitimately differ.
+**A projection and laxness rule** (in the example's `src/lib.rs`) says
+how our `ParseResult` maps onto whatever the incumbent actually
+exposes, and where the two surfaces legitimately differ.
 
 **Every example documents its boundaries and quirks** — the places we
 deliberately diverge, and the surprises the incumbent turned out to
 contain. Read each example's `README.md` for those; they are the most
 interesting output of the exercise.
+
+## Rules
+
+- **Never `git add` a whole factory or spike directory.** They generate
+  build outputs, and the katran factory can hold fetched GPL sources. A
+  past `git add` of a factory directory swept both into two commits and
+  needed a `filter-branch` to purge. Add named files; check
+  `git status` after every commit.
+- **Never hand-edit a golden.** If a diff fails, the incumbent is right
+  until proven otherwise — investigate our side.
+- **Pin, and put the pin in the filename.** That is what makes an
+  agreement claim falsifiable rather than aspirational.
 
 ## What these claims are not
 

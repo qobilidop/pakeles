@@ -10,7 +10,7 @@ structural reject, a buffer that simply ends early is a truncation
 (rustls: `incomplete`).
 
 Modeled checks mirror rustls's PARSE layer (the oracle,
-oracle/tls_clienthello/factory/): session_id > 32, empty/odd
+examples/real_world/tls_clienthello/factory/): session_id > 32, empty/odd
 cipher_suites, empty compressions, duplicate SNI, non-host_name SNI
 entries, partial TLV headers, trailing bytes in any region. rustls's
 POST-DECODE policy layer (missing signature_algorithms, ...) is

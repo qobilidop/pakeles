@@ -3,9 +3,9 @@
 The second incumbent-agreement example (after `linux_flow_dissector`):
 the parse graph mirrors `lib/net/rte_net.c` (pinned v23.11.4), whose
 output — a `RTE_PTYPE_*` classification mask plus `rte_net_hdr_lens` —
-is computed by `src/oracle/dpdk_ptype.rs` as a projection of this
+is computed by the example crate (`examples/real_world/dpdk_ptype/src/lib.rs`) as a projection of this
 parser's trace and diffed against goldens minted by DPDK itself
-(`oracle/dpdk_ptype/factory/`).
+(`examples/real_world/dpdk_ptype/factory/`).
 
 rte_net_get_ptype classifies EVERY packet — there is no drop verdict —
 so unmatched dispatch values are `accept()` here, never `reject()`: an

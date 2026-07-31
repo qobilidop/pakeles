@@ -5,7 +5,7 @@ The fourth incumbent-agreement example (after `linux_flow_dissector`,
 sonic-pins `p4_symbolic/testdata/parser/sai_parser.p4` (pinned commit
 e77250b8), whose per-packet (extracted-header bitmap, parser-error)
 is read back from the instrumented incumbent run on `simple_switch`
-and compared by `src/oracle/sai.rs`.
+and compared by the example crate (`examples/real_world/sai_parser/src/lib.rs`).
 
 Design doc: docs/superpowers/specs/2026-07-29-sai-p4-design.md (binding).
 

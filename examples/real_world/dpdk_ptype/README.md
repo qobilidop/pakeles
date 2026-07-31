@@ -17,14 +17,14 @@ truncation lines via the laxness rule below. Design doc:
 ## The two-oracle gate
 
 1. **Committed golden** (reproducible, environment-free):
-   [`oracle/dpdk_ptype/factory/capture.c`](../../../oracle/dpdk_ptype/factory/capture.c)
+   [`factory/capture.c`](factory/capture.c)
    feeds each corpus packet to the real `rte_net_get_ptype()` through a
    hand-built single-segment stack mbuf — the function is pure over
    mbuf data, so **no EAL, no hugepages, no privilege** — and the
    version-tagged JSON it emits is committed here. The everyday gate
    test `committed_goldens_agree` diffs our projection
-   ([`src/oracle/dpdk_ptype.rs`](../../../src/oracle/dpdk_ptype.rs),
-   `cargo run -- diff dpdk-ptype`) against it.
+   ([`src/lib.rs`](src/lib.rs),
+   `cargo run --bin pakeles -- diff dpdk-ptype`) against it.
 2. **Live differential** (no staleness): where the dev container's
    DPDK + gcc are present, `live_dpdk_capture_matches_committed_golden`
    rebuilds the harness, re-runs the corpus, and requires the fresh
@@ -33,7 +33,7 @@ truncation lines via the laxness rule below. Design doc:
 Re-minting (unprivileged, in the normal container):
 
 ```sh
-./dev.sh oracle/dpdk_ptype/factory/capture.sh
+./dev.sh examples/real_world/dpdk_ptype/factory/capture.sh
 ```
 
 ## No drop verdict: the laxness rule
@@ -138,6 +138,6 @@ Faithfully modeled, never "corrected":
 ## Try it
 
 ```sh
-./dev.sh cargo run -- diff dpdk-ptype   # our (ptype, hdr_lens) vs the committed goldens
+./dev.sh cargo run --bin pakeles -- diff dpdk-ptype   # our (ptype, hdr_lens) vs the committed goldens
 tshark -X lua_script:gen/dissector.lua -r conformance/vectors.pcap -V
 ```
