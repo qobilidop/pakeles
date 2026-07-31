@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pakeles"
 version = "0.1.0"
-description = "Python authoring eDSL for the Pakeles IR"
+description = "The Pakeles Python eDSL: parser descriptions authored in Python, emitted as the normative Pakeles IR"
 requires-python = ">=3.10"
 dependencies = ["protobuf>=5"]
 

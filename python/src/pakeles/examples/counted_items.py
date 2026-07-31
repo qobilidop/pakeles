@@ -13,13 +13,13 @@ max_depth (not the count field) bounds the parse: count > 6 rejects with
 
 from pakeles import (
     Header,
-    Meta,
-    ParserDef,
-    StateChain,
+    Metadata,
+    Parser,
+    State,
     assign,
     bits,
     extract,
-    meta_bits,
+    metadata_bits,
 )
 from pakeles.fmt import DEC, HEX
 
@@ -32,23 +32,23 @@ class Item(Header):
     v = bits(8, "Value", HEX)
 
 
-class CountMeta(Meta):
-    done = meta_bits(1, "Done", DEC, doc="set on the pass-through completion state")
-    remaining = meta_bits(8, "Remaining", DEC, doc="items left to read")
+class CountMeta(Metadata):
+    done = metadata_bits(1, "Done", DEC, doc="set on the pass-through completion state")
+    remaining = metadata_bits(8, "Remaining", DEC, doc="items left to read")
 
 
-class CountedItems(ParserDef):
+class CountedItems(Parser):
     max_depth = 8
     metadata = CountMeta
 
-    def parse_count(self) -> StateChain:
+    def parse_count(self) -> State:
         return (
             extract(Count)
             .assign(CountMeta.remaining, Count.n)
             .select(CountMeta.remaining, {0: self.mark_done}, default=self.parse_item)
         )
 
-    def parse_item(self) -> StateChain:
+    def parse_item(self) -> State:
         """Accumulator loop: read one item, count down, exit at zero."""
         return (
             extract(Item)
@@ -56,10 +56,10 @@ class CountedItems(ParserDef):
             .select(CountMeta.remaining, {0: self.mark_done}, default=self.parse_item)
         )
 
-    def mark_done(self) -> StateChain:
+    def mark_done(self) -> State:
         """No-extract pass-through state: constant metadata write, then stop."""
         return assign(CountMeta.done, 1).accept()
 
 
 if __name__ == "__main__":
-    print(CountedItems.build().to_json())
+    print(CountedItems.to_json())

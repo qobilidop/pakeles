@@ -62,12 +62,13 @@ longest path (~18 states), not a semantic bound.
 from pakeles import (
     ArmKey,
     Header,
-    ParserDef,
-    StateChain,
+    Parser,
+    State,
     Target,
     accept,
     bits,
     extract,
+    oneof,
     var_bytes,
 )
 from pakeles.fmt import DEC, ETHER, HEX
@@ -198,7 +199,7 @@ class TCP(Header):
     urgent = bits(16, "Urgent Pointer", DEC)
 
 
-class DpdkPtype(ParserDef):
+class DpdkPtype(Parser):
     max_depth = 20
 
     def _l2_arms(self) -> dict[ArmKey, Target]:
@@ -221,9 +222,7 @@ class DpdkPtype(ParserDef):
         links loop on, Fragment is terminal-bound, and the tunnel/L4 arms
         mirror rte_net.c's post-walk switch."""
         return {
-            0: opt_target,
-            43: opt_target,
-            60: opt_target,
+            oneof(0, 43, 60): opt_target,
             44: self.parse_ext_frag,
             6: self.parse_tcp,
             4: self.parse_inner_ipv4,
@@ -236,14 +235,12 @@ class DpdkPtype(ParserDef):
 
     def _inner_ext_arms(self, opt_target: Target) -> dict[ArmKey, Target]:
         return {
-            0: opt_target,
-            43: opt_target,
-            60: opt_target,
+            oneof(0, 43, 60): opt_target,
             44: self.parse_inner_ext_frag,
             6: self.parse_inner_tcp,
         }
 
-    def parse_ethernet(self) -> StateChain:
+    def parse_ethernet(self) -> State:
         """rte_net.c:236-290. IPv4 is the fast path; one VLAN tag OR one
         blind QinQ pair OR the MPLS dead-code stop; 0x6558 falls all
         the way through to the inner-Ethernet read."""
@@ -254,8 +251,8 @@ class DpdkPtype(ParserDef):
                 0x86DD: self.parse_ipv6,
                 0x8100: self.parse_vlan,
                 0x88A8: self.parse_qinq,
-                0x8847: accept(),  # MPLS: dead code in 23.11.4 — L2_ETHER only
-                0x8848: accept(),
+                # MPLS: dead code in 23.11.4 — L2_ETHER only
+                oneof(0x8847, 0x8848): accept(),
                 0x6558: self.parse_inner_ethernet,
                 # Byte-swap quirk (little-endian hosts): ptype_tunnel
                 # switches the BIG-ENDIAN leftover proto against HOST
@@ -267,13 +264,13 @@ class DpdkPtype(ParserDef):
             default=accept(),
         )
 
-    def parse_vlan(self) -> StateChain:
+    def parse_vlan(self) -> State:
         return extract(VLAN).select(VLAN.proto, self._l2_arms(), default=accept())
 
-    def parse_qinq(self) -> StateChain:
+    def parse_qinq(self) -> State:
         return extract(QinQ).select(QinQ.proto, self._l2_arms(), default=accept())
 
-    def parse_ipv4(self) -> StateChain:
+    def parse_ipv4(self) -> State:
         """rte_net.c:296-318. One multi-key select: any nonzero MF|offset
         hits default (frag stop — the projection reads the field);
         otherwise dispatch on protocol. UDP(17)/SCTP(132) are blind
@@ -295,12 +292,12 @@ class DpdkPtype(ParserDef):
             default=accept(),
         )
 
-    def parse_ipv6(self) -> StateChain:
+    def parse_ipv6(self) -> State:
         return extract(IPv6).select(
             IPv6.next_header, self._ext_arms(self.parse_ext_opt1), default=accept()
         )
 
-    def parse_ext_opt1(self) -> StateChain:
+    def parse_ext_opt1(self) -> State:
         """rte_net_skip_ip6_ext, unrolled to MAX_EXT_HDRS=5: the 5th
         consumed link exhausts the loop — extract + bail, whatever its
         next_header says (the projection snaps l3_len back to 40)."""
@@ -310,34 +307,34 @@ class DpdkPtype(ParserDef):
             default=accept(),
         )
 
-    def parse_ext_opt2(self) -> StateChain:
+    def parse_ext_opt2(self) -> State:
         return extract(IPv6ExtOpt).select(
             IPv6ExtOpt.next_header,
             self._ext_arms(self.parse_ext_opt3),
             default=accept(),
         )
 
-    def parse_ext_opt3(self) -> StateChain:
+    def parse_ext_opt3(self) -> State:
         return extract(IPv6ExtOpt).select(
             IPv6ExtOpt.next_header,
             self._ext_arms(self.parse_ext_opt4),
             default=accept(),
         )
 
-    def parse_ext_opt4(self) -> StateChain:
+    def parse_ext_opt4(self) -> State:
         return extract(IPv6ExtOpt).select(
             IPv6ExtOpt.next_header,
             self._ext_arms(self.parse_ext_opt5),
             default=accept(),
         )
 
-    def parse_ext_opt5(self) -> StateChain:
+    def parse_ext_opt5(self) -> State:
         return extract(IPv6ExtOpt).accept()
 
-    def parse_ext_frag(self) -> StateChain:
+    def parse_ext_frag(self) -> State:
         return extract(IPv6Frag).accept()
 
-    def parse_gre(self) -> StateChain:
+    def parse_gre(self) -> State:
         """rte_net.c:133-163. Select on R only: any R=1 nibble has
         opt_len 0 ("not a tunnel") — accept with no optional skip, no
         tunnel bit. Version is never examined."""
@@ -347,7 +344,7 @@ class DpdkPtype(ParserDef):
             default=accept(),
         )
 
-    def parse_gre_opt(self) -> StateChain:
+    def parse_gre_opt(self) -> State:
         return extract(GREOpt).select(
             GRE.proto,
             {
@@ -360,10 +357,10 @@ class DpdkPtype(ParserDef):
             default=accept(),
         )
 
-    def parse_tcp(self) -> StateChain:
+    def parse_tcp(self) -> State:
         return extract(TCP).accept()
 
-    def parse_inner_ethernet(self) -> StateChain:
+    def parse_inner_ethernet(self) -> State:
         """rte_net.c:384-508 — the inner mirror. Reachable without any
         tunnel (double-VLAN, Q-then-AD, top-level TEB): the pipeline
         falls through unconditionally. Exactly one inner level: inner
@@ -379,71 +376,71 @@ class DpdkPtype(ParserDef):
             default=accept(),
         )
 
-    def parse_inner_vlan(self) -> StateChain:
+    def parse_inner_vlan(self) -> State:
         return extract(VLAN).select(
             VLAN.proto,
             {0x0800: self.parse_inner_ipv4, 0x86DD: self.parse_inner_ipv6},
             default=accept(),
         )
 
-    def parse_inner_qinq(self) -> StateChain:
+    def parse_inner_qinq(self) -> State:
         return extract(QinQ).select(
             QinQ.proto,
             {0x0800: self.parse_inner_ipv4, 0x86DD: self.parse_inner_ipv6},
             default=accept(),
         )
 
-    def parse_inner_ipv4(self) -> StateChain:
+    def parse_inner_ipv4(self) -> State:
         return extract(IPv4).select(
             (IPv4.mf_frag_off, IPv4.protocol),
             {(0, 6): self.parse_inner_tcp},
             default=accept(),
         )
 
-    def parse_inner_ipv6(self) -> StateChain:
+    def parse_inner_ipv6(self) -> State:
         return extract(IPv6).select(
             IPv6.next_header,
             self._inner_ext_arms(self.parse_inner_ext_opt1),
             default=accept(),
         )
 
-    def parse_inner_ext_opt1(self) -> StateChain:
+    def parse_inner_ext_opt1(self) -> State:
         return extract(IPv6ExtOpt).select(
             IPv6ExtOpt.next_header,
             self._inner_ext_arms(self.parse_inner_ext_opt2),
             default=accept(),
         )
 
-    def parse_inner_ext_opt2(self) -> StateChain:
+    def parse_inner_ext_opt2(self) -> State:
         return extract(IPv6ExtOpt).select(
             IPv6ExtOpt.next_header,
             self._inner_ext_arms(self.parse_inner_ext_opt3),
             default=accept(),
         )
 
-    def parse_inner_ext_opt3(self) -> StateChain:
+    def parse_inner_ext_opt3(self) -> State:
         return extract(IPv6ExtOpt).select(
             IPv6ExtOpt.next_header,
             self._inner_ext_arms(self.parse_inner_ext_opt4),
             default=accept(),
         )
 
-    def parse_inner_ext_opt4(self) -> StateChain:
+    def parse_inner_ext_opt4(self) -> State:
         return extract(IPv6ExtOpt).select(
             IPv6ExtOpt.next_header,
             self._inner_ext_arms(self.parse_inner_ext_opt5),
             default=accept(),
         )
 
-    def parse_inner_ext_opt5(self) -> StateChain:
+    def parse_inner_ext_opt5(self) -> State:
         return extract(IPv6ExtOpt).accept()
 
-    def parse_inner_ext_frag(self) -> StateChain:
+    def parse_inner_ext_frag(self) -> State:
         return extract(IPv6Frag).accept()
 
-    def parse_inner_tcp(self) -> StateChain:
+    def parse_inner_tcp(self) -> State:
         return extract(TCP).accept()
 
 
 if __name__ == "__main__":
-    print(DpdkPtype.build().to_json())
+    print(DpdkPtype.to_json())

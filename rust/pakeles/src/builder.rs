@@ -1,4 +1,4 @@
-//! Ergonomic authoring API — thin sugar over the pb types (the
+//! Ergonomic builder API — thin sugar over the pb types (the
 //! `onnx.helper` analog). No semantics live here; `build()` validates.
 
 use crate::ir::pb;

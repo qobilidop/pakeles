@@ -3,13 +3,13 @@ from google.protobuf import json_format
 
 from pakeles import (
     Header,
-    Meta,
-    ParserDef,
-    StateChain,
+    Metadata,
+    Parser,
+    State,
     assign,
     bits,
     extract,
-    meta_bits,
+    metadata_bits,
 )
 from pakeles._pb import ir_pb2
 
@@ -18,17 +18,17 @@ class H(Header):
     n = bits(8)
 
 
-class M(Meta):
-    flag = meta_bits(1)
-    acc = meta_bits(8, init=5)
+class M(Metadata):
+    flag = metadata_bits(1)
+    acc = metadata_bits(8, init=5)
 
 
-class TMeta(ParserDef):
+class TMeta(Parser):
     name = "t"
     max_depth = 4
     metadata = M
 
-    def s0(self) -> StateChain:
+    def s0(self) -> State:
         return (
             extract(H)
             .assign(M.acc, H.n)
@@ -36,18 +36,18 @@ class TMeta(ParserDef):
             .select(M.acc, {0: self.done}, default=self.s0)
         )
 
-    def done(self) -> StateChain:
+    def done(self) -> State:
         return assign(M.flag, M.flag + 1).accept()
 
 
 def test_metadata_declarations_serialize():
-    ir = json_format.Parse(TMeta.build().to_json(), ir_pb2.Ir())
+    ir = json_format.Parse(TMeta.to_json(), ir_pb2.Ir())
     md = ir.parser.metadata
     assert [(m.name, m.bits, m.init) for m in md] == [("flag", 1, 0), ("acc", 8, 5)]
 
 
 def test_assigns_serialize_in_order():
-    ir = json_format.Parse(TMeta.build().to_json(), ir_pb2.Ir())
+    ir = json_format.Parse(TMeta.to_json(), ir_pb2.Ir())
     s0 = next(s for s in ir.parser.states if s.name == "s0")
     assert [a.metadata for a in s0.assigns] == ["acc", "flag"]
     assert s0.assigns[0].value.field.header == "h"
@@ -57,18 +57,18 @@ def test_assigns_serialize_in_order():
 
 
 def test_select_on_metadata_key():
-    ir = json_format.Parse(TMeta.build().to_json(), ir_pb2.Ir())
+    ir = json_format.Parse(TMeta.to_json(), ir_pb2.Ir())
     s0 = next(s for s in ir.parser.states if s.name == "s0")
     assert s0.transition.select.keys[0].metadata.name == "acc"
 
 
 def test_meta_validation_errors():
     with pytest.raises(ValueError):
-        meta_bits(0)
+        metadata_bits(0)
     with pytest.raises(ValueError):
-        meta_bits(65)
+        metadata_bits(65)
     with pytest.raises(ValueError):
-        meta_bits(4, init=16)
+        metadata_bits(4, init=16)
 
 
 def test_meta_validation_error_width_64_init_overflow():
@@ -76,25 +76,25 @@ def test_meta_validation_error_width_64_init_overflow():
     # skip the upper-bound check entirely (Python ints are unbounded, so
     # 2**64 doesn't wrap or raise on its own — the check must be explicit).
     with pytest.raises(ValueError):
-        meta_bits(64, init=2**64 + 5)
+        metadata_bits(64, init=2**64 + 5)
 
 
 def test_assign_rejects_field_from_a_different_metadata_class():
-    # Two Meta classes with structurally identical fields (same name,
+    # Two Metadata classes with structurally identical fields (same name,
     # width, init) must still be distinguished by identity, not value
     # equality — a dataclass `==` would incorrectly consider them
     # interchangeable.
-    class OtherM(Meta):
-        flag = meta_bits(1)
-        acc = meta_bits(8, init=5)
+    class OtherM(Metadata):
+        flag = metadata_bits(1)
+        acc = metadata_bits(8, init=5)
 
-    class T2(ParserDef):
+    class T2(Parser):
         name = "t2"
         max_depth = 4
         metadata = M
 
-        def s0(self) -> StateChain:
+        def s0(self) -> State:
             return assign(OtherM.flag, 1).accept()
 
     with pytest.raises(ValueError):
-        T2.build()
+        T2.check()

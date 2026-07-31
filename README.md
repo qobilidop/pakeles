@@ -77,14 +77,20 @@ region-bearing descriptions and commits the refusal as
 See [`examples/real_world/tls_clienthello/`](examples/real_world/tls_clienthello/) and
 `docs/superpowers/specs/2026-07-29-sized-region-tlv-ir-design.md`.
 
-## Authoring in Python
+## The Python eDSL
 
-The recommended authoring surface is the Python eDSL — declarative
-header classes, real infix expressions, one line per state:
+Parsers are authored in the Python eDSL — declarative header classes,
+real infix expressions, and a parser class whose methods are the
+states. Transition targets are plain attribute references, so a typo
+is an editor error (unknown attribute), forward references and cycles
+cost nothing, and rename/jump-to-definition just work:
 
 ```python
-from pakeles import Header, bits, var_bytes, parser, extract, reject
-from pakeles.fmt import DEC
+from pakeles import Header, Parser, State, bits, extract, reject, var_bytes
+from pakeles.fmt import DEC, HEX
+
+class Ethernet(Header):
+    ethertype = bits(16, "Type", HEX)
 
 class IPv4(Header):
     version = bits(4, "Version", DEC)
@@ -92,10 +98,20 @@ class IPv4(Header):
     # ...
     options = var_bytes(ihl * 4 - 20)   # operator trees, eagerly built
 
-eth = parser("my_parser", max_depth=4, start="ipv4", states={
-    "ipv4": extract(IPv4).accept(),
-})
-eth.save("ir.json")                     # then: pakeles lint ir.json
+class MyParser(Parser):
+    max_depth = 4
+
+    def ethernet(self) -> State:        # first-defined state = start
+        return extract(Ethernet).select(
+            Ethernet.ethertype,
+            {0x0800: self.ipv4},        # states reference states
+            default=reject("unsupported ethertype"),
+        )
+
+    def ipv4(self) -> State:
+        return extract(IPv4).accept()
+
+MyParser.save("ir.json")                # then: pakeles lint ir.json
 ```
 
 The serialized IR stays the only contract: the eDSL is the single
@@ -134,8 +150,8 @@ everything about one real-world incumbent lives in one directory.
   - `pakeles-dev/` — repo maintenance bins: `pakeles-pbgen`
     (regenerate the vendored protobuf code after a `proto/` change),
     `gen_fixtures`, `gen_examples`, `symex_bench`
-- `python/` — the Python authoring eDSL (`pakeles` on PyPI,
-  eventually); vendors its generated `_pb` modules the same way
+- `python/` — the Python eDSL (`pakeles` on PyPI, eventually);
+  vendors its generated `_pb` modules the same way
 - `testdata/` — language-neutral fixtures (regenerate: `cargo run --bin gen_fixtures`)
 - `examples/` — the gallery: every artifact one description yields,
   equality-guarded by tests, in two groups:

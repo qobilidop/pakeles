@@ -3,15 +3,15 @@
 The canonical hello-world example. It *branches*: EtherType demuxes to
 IPv4 or IPv6, and each IP header demuxes to a shared TCP or UDP successor
 (a join in the parse DAG) — so it teaches demultiplexing, not just
-field-mapping. A field-for-field port of the Rust builder description
-(src/examples.rs); the conformance test asserts proto equality with the
-committed gallery `ir.json`.
+field-mapping. The conformance test asserts proto equality with the
+committed gallery `ir.json`, which the core crate also embeds
+(rust/pakeles/src/examples.rs) as the CLI's default IR.
 
 IPv6 addresses are 128-bit, above the fixed-`bits` ceiling, so they are
 `var_bytes` opaque runs (rendered as hex; not tshark-diffed).
 """
 
-from pakeles import Header, ParserDef, StateChain, bits, extract, reject, var_bytes
+from pakeles import Header, Parser, State, bits, extract, reject, var_bytes
 from pakeles.fmt import DEC, ETHER, HEX, IPV4
 
 
@@ -93,36 +93,36 @@ class UDP(Header):
     checksum = bits(16, "Checksum", HEX)
 
 
-class EthIpvxL4(ParserDef):
+class EthIpvxL4(Parser):
     max_depth = 4
 
-    def parse_ethernet(self) -> StateChain:
+    def parse_ethernet(self) -> State:
         return extract(Ethernet).select(
             Ethernet.ethertype,
             {0x0800: self.parse_ipv4, 0x86DD: self.parse_ipv6},
             default=reject("unsupported ethertype", info=True),
         )
 
-    def parse_ipv4(self) -> StateChain:
+    def parse_ipv4(self) -> State:
         return extract(IPv4).select(
             IPv4.protocol,
             {6: self.parse_tcp, 17: self.parse_udp},
             default=reject("unsupported ip protocol", info=True),
         )
 
-    def parse_ipv6(self) -> StateChain:
+    def parse_ipv6(self) -> State:
         return extract(IPv6).select(
             IPv6.next_header,
             {6: self.parse_tcp, 17: self.parse_udp},
             default=reject("unsupported ip protocol", info=True),
         )
 
-    def parse_tcp(self) -> StateChain:
+    def parse_tcp(self) -> State:
         return extract(TCP).accept()
 
-    def parse_udp(self) -> StateChain:
+    def parse_udp(self) -> State:
         return extract(UDP).accept()
 
 
 if __name__ == "__main__":
-    print(EthIpvxL4.build().to_json())
+    print(EthIpvxL4.to_json())

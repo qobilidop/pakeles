@@ -41,14 +41,16 @@ TEST_RUN cannot deliver them).
 
 from pakeles import (
     Header,
-    Meta,
-    ParserDef,
-    StateChain,
+    Metadata,
+    Parser,
+    State,
     accept,
     bits,
     extract,
-    meta_bits,
+    metadata_bits,
+    oneof,
     reject,
+    select,
     var_bytes,
 )
 from pakeles.fmt import DEC, ETHER, HEX, IPV4
@@ -78,6 +80,9 @@ class IPv4(Header):
     dst = bits(32, "Destination Address", IPV4)
 
 
+inner_ipv4 = IPv4["inner_ipv4"]  # the ICMP-error embedded copy
+
+
 class IPv6(Header):
     version = bits(4, "Version", DEC)
     traffic_class = bits(8, "Traffic Class", HEX, doc="katran tos = this byte")
@@ -94,6 +99,9 @@ class ICMP(Header):  # shared by ICMPv4 and ICMPv6 (8-byte base)
     code = bits(8, "Code", DEC)
     checksum = bits(16, "Checksum", HEX)
     rest = bits(32, "Rest of Header", HEX)
+
+
+icmp = ICMP["icmp"]  # one shared instance for both families
 
 
 class TCP(Header):
@@ -116,8 +124,8 @@ class UDP(Header):
     checksum = bits(16, "Checksum", HEX)
 
 
-class KatranMeta(Meta):
-    is_icmp = meta_bits(
+class KatranMeta(Metadata):
+    is_icmp = metadata_bits(
         1,
         "ICMP inner",
         DEC,
@@ -125,11 +133,11 @@ class KatranMeta(Meta):
     )
 
 
-class KatranFlow(ParserDef):
+class KatranFlow(Parser):
     max_depth = 8
     metadata = KatranMeta
 
-    def parse_ethernet(self) -> StateChain:
+    def parse_ethernet(self) -> State:
         """XDP entry: EtherType demux, no VLAN/MPLS. Non-IP (incl. ARP)
         accepts as XDP_PASS without entering the parser."""
         return extract(Ethernet).select(
@@ -138,7 +146,7 @@ class KatranFlow(ParserDef):
             default=accept(),
         )
 
-    def parse_ipv4(self) -> StateChain:
+    def parse_ipv4(self) -> State:
         """parse_l3_headers v4: ihl != 5 or any fragment -> XDP_DROP."""
         return extract(IPv4).select(
             (IPv4.ihl, IPv4.mf_frag_off),
@@ -146,15 +154,15 @@ class KatranFlow(ParserDef):
             default=reject("ipv4 ihl!=5 or fragmented", info=False),
         )
 
-    def parse_ipv4_proto(self) -> StateChain:
+    def parse_ipv4_proto(self) -> State:
         """Proto dispatch (no extract): ICMP inner, TCP, UDP, else PASS."""
-        return StateChain().select(
+        return select(
             IPv4.protocol,
             {1: self.parse_icmp, 6: self.parse_tcp, 17: self.parse_udp},
             default=accept(),
         )
 
-    def parse_ipv6(self) -> StateChain:
+    def parse_ipv6(self) -> State:
         """parse_l3_headers v6: Fragment nexthdr -> DROP; ICMPv6 ->
         inner; no extension-header walk (any other nexthdr is the
         L4 proto). TCP/UDP dispatch, else PASS."""
@@ -169,46 +177,46 @@ class KatranFlow(ParserDef):
             default=accept(),
         )
 
-    def parse_icmp(self) -> StateChain:
+    def parse_icmp(self) -> State:
         """parse_icmp (v4): echo (8) accepts [-> XDP_TX]; DEST_UNREACH
         (3) parses the inner packet; any other type accepts [PASS]."""
-        return extract(ICMP["icmp"]).select(
-            ICMP["icmp"].type,
+        return extract(icmp).select(
+            icmp.type,
             {3: self.parse_inner_ipv4},
             default=accept(),
         )
 
-    def parse_icmp6(self) -> StateChain:
+    def parse_icmp6(self) -> State:
         """parse_icmpv6: echo (128) accepts [TX]; DEST_UNREACH (1) /
         PKT_TOOBIG (2) parse inner; else PASS."""
-        return extract(ICMP["icmp"]).select(
-            ICMP["icmp"].type,
-            {1: self.parse_inner_ipv6, 2: self.parse_inner_ipv6},
+        return extract(icmp).select(
+            icmp.type,
+            {oneof(1, 2): self.parse_inner_ipv6},
             default=accept(),
         )
 
-    def parse_inner_ipv4(self) -> StateChain:
+    def parse_inner_ipv4(self) -> State:
         """Inner v4 (ICMP error payload): ihl != 5 -> DROP; no frag
         check (katran's parse_icmp doesn't). is_icmp marks the
         inversion for the projection."""
         return (
-            extract(IPv4["inner_ipv4"])
+            extract(inner_ipv4)
             .assign(KatranMeta.is_icmp, 1)
             .select(
-                IPv4["inner_ipv4"].ihl,
+                inner_ipv4.ihl,
                 {5: self.parse_inner_ipv4_proto},
                 default=reject("inner ipv4 ihl!=5", info=False),
             )
         )
 
-    def parse_inner_ipv4_proto(self) -> StateChain:
-        return StateChain().select(
-            IPv4["inner_ipv4"].protocol,
+    def parse_inner_ipv4_proto(self) -> State:
+        return select(
+            inner_ipv4.protocol,
             {6: self.parse_tcp, 17: self.parse_udp},
             default=accept(),
         )
 
-    def parse_inner_ipv6(self) -> StateChain:
+    def parse_inner_ipv6(self) -> State:
         """Inner v6: nexthdr taken directly (no frag/ext check in
         parse_icmpv6). TCP/UDP else PASS. Reuses the `ipv6` instance
         (its 128-bit addresses are var_bytes, which the IR cannot carry
@@ -225,14 +233,14 @@ class KatranFlow(ParserDef):
             )
         )
 
-    def parse_tcp(self) -> StateChain:
+    def parse_tcp(self) -> State:
         """Shared L4 terminal (outer or inner): the projection lifts
         ports (swapped under is_icmp) and TCP SYN/RST flags."""
         return extract(TCP).accept()
 
-    def parse_udp(self) -> StateChain:
+    def parse_udp(self) -> State:
         return extract(UDP).accept()
 
 
 if __name__ == "__main__":
-    print(KatranFlow.build().to_json())
+    print(KatranFlow.to_json())

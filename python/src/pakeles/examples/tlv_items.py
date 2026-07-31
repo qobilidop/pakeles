@@ -19,11 +19,13 @@ plain cyclic state bounded by the global depth budget.
 
 from pakeles import (
     Header,
-    ParserDef,
-    StateChain,
+    Parser,
+    State,
     bits,
     extract,
+    pop_region,
     remaining,
+    select,
     var_bytes,
 )
 from pakeles.fmt import DEC, HEX
@@ -39,23 +41,23 @@ class Item(Header):
     val = var_bytes(ln)
 
 
-class TlvItems(ParserDef):
+class TlvItems(Parser):
     max_depth = 8
 
-    def parse_total(self) -> StateChain:
+    def parse_total(self) -> State:
         return extract(TotalLen).push_region(TotalLen.total).then(self.tlv_loop)
 
-    def tlv_loop(self) -> StateChain:
+    def tlv_loop(self) -> State:
         """Loop head: region exhausted -> close; else another item."""
-        return StateChain().select(remaining(), {0: self.close}, default=self.parse_item)
+        return select(remaining(), {0: self.close}, default=self.parse_item)
 
-    def parse_item(self) -> StateChain:
+    def parse_item(self) -> State:
         return extract(Item).then(self.tlv_loop)
 
-    def close(self) -> StateChain:
+    def close(self) -> State:
         """Exact-mode pop: trailing bytes inside the region reject."""
-        return StateChain().pop_region().accept()
+        return pop_region().accept()
 
 
 if __name__ == "__main__":
-    print(TlvItems.build().to_json())
+    print(TlvItems.to_json())

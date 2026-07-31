@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from pakeles._pb import ir_pb2
 
 if TYPE_CHECKING:
-    from pakeles._meta import MetaFieldSpec
+    from pakeles._metadata import MetadataFieldSpec
 
 _OPS: dict[str, ir_pb2.BinOpKind] = {
     "add": ir_pb2.BIN_OP_KIND_ADD,
@@ -80,7 +80,7 @@ class Expr(Operand):
     rhs: Expr | None = None
     constant: int | None = None
     ref: FieldSpec | BoundField | None = None
-    meta_ref: MetaFieldSpec | None = None
+    meta_ref: MetadataFieldSpec | None = None
     is_remaining: bool = False
 
     def as_expr(self) -> Expr:
@@ -95,7 +95,7 @@ class Expr(Operand):
         elif self.meta_ref is not None:
             if not self.meta_ref.name:
                 raise RuntimeError(
-                    "metadata reference used outside a finalized Meta class"
+                    "metadata reference used outside a finalized Metadata class"
                 )
             e.metadata.name = self.meta_ref.name
         elif self.ref is not None:

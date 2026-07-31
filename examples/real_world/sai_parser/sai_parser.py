@@ -28,8 +28,8 @@ the CPU arm is not modeled and the corpus never injects on port 510).
 from pakeles import (
     ArmKey,
     Header,
-    ParserDef,
-    StateChain,
+    Parser,
+    State,
     Target,
     accept,
     bits,
@@ -121,13 +121,13 @@ class UDP(Header):
     checksum = bits(16, "Checksum", HEX)
 
 
-class SaiParser(ParserDef):
+class SaiParser(Parser):
     max_depth = 6
 
     def _l3_arms(self) -> dict[ArmKey, Target]:
         return {0x0800: self.parse_ipv4, 0x86DD: self.parse_ipv6, 0x0806: self.parse_arp}
 
-    def parse_ethernet(self) -> StateChain:
+    def parse_ethernet(self) -> State:
         """EtherType demux; 802.1Q -> vlan; else accept."""
         return extract(Ethernet).select(
             Ethernet.ether_type,
@@ -135,19 +135,19 @@ class SaiParser(ParserDef):
             default=accept(),
         )
 
-    def parse_vlan(self) -> StateChain:
+    def parse_vlan(self) -> State:
         """parse_8021q_vlan: same L3 demux; no further VLAN (double-tag
         0x88a8 unmodeled upstream -> accept)."""
         return extract(VLAN).select(VLAN.ether_type, self._l3_arms(), default=accept())
 
-    def parse_ipv4(self) -> StateChain:
+    def parse_ipv4(self) -> State:
         return extract(IPv4).select(
             IPv4.protocol,
             {1: self.parse_icmp, 6: self.parse_tcp, 17: self.parse_udp},
             default=accept(),
         )
 
-    def parse_ipv6(self) -> StateChain:
+    def parse_ipv6(self) -> State:
         """No extension-header handling: next_header taken as L4 directly."""
         return extract(IPv6).select(
             IPv6.next_header,
@@ -155,18 +155,18 @@ class SaiParser(ParserDef):
             default=accept(),
         )
 
-    def parse_arp(self) -> StateChain:
+    def parse_arp(self) -> State:
         return extract(ARP).accept()
 
-    def parse_icmp(self) -> StateChain:
+    def parse_icmp(self) -> State:
         return extract(ICMP).accept()
 
-    def parse_tcp(self) -> StateChain:
+    def parse_tcp(self) -> State:
         return extract(TCP).accept()
 
-    def parse_udp(self) -> StateChain:
+    def parse_udp(self) -> State:
         return extract(UDP).accept()
 
 
 if __name__ == "__main__":
-    print(SaiParser.build().to_json())
+    print(SaiParser.to_json())

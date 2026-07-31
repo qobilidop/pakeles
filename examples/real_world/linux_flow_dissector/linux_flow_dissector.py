@@ -50,15 +50,16 @@ packets are plain version-0 GRE on both sides — faithful by construction.
 from pakeles import (
     ArmKey,
     Header,
-    Meta,
-    ParserDef,
-    StateChain,
+    Metadata,
+    Parser,
+    State,
     Target,
     accept,
     assign,
     bits,
     extract,
-    meta_bits,
+    metadata_bits,
+    oneof,
     reject,
     var_bytes,
 )
@@ -101,6 +102,10 @@ class VLAN(Header):
             0x8848: "MPLS multicast",
         },
     )
+
+
+vlan_ad = VLAN["vlan_ad"]  # the outer 802.1AD S-tag
+vlan_q = VLAN["vlan_q"]  # the final (or only) 802.1Q tag
 
 
 class MPLS(Header):
@@ -158,6 +163,9 @@ class IPv6ExtOpt(Header):  # HopByHop (0) / DestOpts (60) option header
     body = var_bytes(((1 + hdr_ext_len) << 3) - 2)
 
 
+ext_opt = IPv6ExtOpt["ext_opt"]
+
+
 class IPv6Frag(Header):  # fragment header (nexthdr 44)
     next_header = bits(8, "Next Header", DEC, tshark="ipv6.frag.nxt")
     reserved = bits(8, "Reserved", HEX)
@@ -165,6 +173,9 @@ class IPv6Frag(Header):  # fragment header (nexthdr 44)
     res2 = bits(2, "Res", HEX)
     m_flag = bits(1, "More Fragments", DEC)
     identification = bits(32, "Identification", HEX)
+
+
+ext_frag = IPv6Frag["ext_frag"]
 
 
 class GRE(Header):  # 4-byte base; the kernel masks only C/K/S/version
@@ -187,6 +198,9 @@ class GREOpt(Header):  # C/K/S optional region, skipped opaquely
     # byte_len is legal — the definite-extraction analysis admits refs to
     # any instance must-extracted on every path here.
     body = var_bytes(GRE.c * 4 + GRE.key_flag * 4 + GRE.seq_flag * 4)
+
+
+gre_opt = GREOpt["gre_opt"]
 
 
 class TCP(Header):
@@ -213,8 +227,8 @@ class UDP(Header):
     checksum = bits(16, "Checksum", HEX)
 
 
-class FlowMeta(Meta):
-    is_encap = meta_bits(
+class FlowMeta(Metadata):
+    is_encap = metadata_bits(
         1,
         "Encapsulated",
         DEC,
@@ -222,11 +236,11 @@ class FlowMeta(Meta):
     )
 
 
-class LinuxFlowDissector(ParserDef):
+class LinuxFlowDissector(Parser):
     max_depth = 10
     metadata = FlowMeta
 
-    def parse_ethernet(self) -> StateChain:
+    def parse_ethernet(self) -> State:
         return extract(Ethernet).select(
             Ethernet.ethertype,
             {
@@ -234,34 +248,31 @@ class LinuxFlowDissector(ParserDef):
                 0x86DD: self.parse_ipv6,
                 0x8100: self.parse_vlan_q,
                 0x88A8: self.parse_vlan_ad,
-                0x8847: self.parse_mpls,
-                0x8848: self.parse_mpls,
+                oneof(0x8847, 0x8848): self.parse_mpls,
             },
             default=reject("unsupported ethertype", info=True),
         )
 
-    def parse_vlan_ad(self) -> StateChain:
+    def parse_vlan_ad(self) -> State:
         """Upstream PROG(VLAN), 802.1AD arm: the outer S-tag must be
         followed by exactly one 802.1Q C-tag."""
-        return extract(VLAN["vlan_ad"]).select(
-            VLAN["vlan_ad"].encapsulated_proto,
+        return extract(vlan_ad).select(
+            vlan_ad.encapsulated_proto,
             {0x8100: self.parse_vlan_q},
             default=reject("802.1AD must be followed by 802.1Q"),
         )
 
-    def parse_vlan_q(self) -> StateChain:
+    def parse_vlan_q(self) -> State:
         """Upstream PROG(VLAN), common tail: the final (or only) tag;
         a further Q/AD tag is a kernel drop (no triple tagging, no
         double-Q)."""
-        return extract(VLAN["vlan_q"]).select(
-            VLAN["vlan_q"].encapsulated_proto,
+        return extract(vlan_q).select(
+            vlan_q.encapsulated_proto,
             {
                 0x0800: self.parse_ipv4,
                 0x86DD: self.parse_ipv6,
-                0x8847: self.parse_mpls,
-                0x8848: self.parse_mpls,
-                0x8100: reject("vlan stacking beyond kernel depth"),
-                0x88A8: reject("vlan stacking beyond kernel depth"),
+                oneof(0x8847, 0x8848): self.parse_mpls,
+                oneof(0x8100, 0x88A8): reject("vlan stacking beyond kernel depth"),
             },
             default=reject("unsupported ethertype", info=True),
         )
@@ -286,40 +297,40 @@ class LinuxFlowDissector(ParserDef):
             **self._ip_proto_arms(),
         }
 
-    def parse_ipv4(self) -> StateChain:
+    def parse_ipv4(self) -> State:
         return extract(IPv4).select(
             IPv4.protocol,
             self._ip_proto_arms(),
             default=reject("unsupported ip protocol", info=True),
         )
 
-    def parse_ipv6(self) -> StateChain:
+    def parse_ipv6(self) -> State:
         return extract(IPv6).select(
             IPv6.next_header,
             self._ipv6_arms(),
             default=reject("unsupported ip protocol", info=True),
         )
 
-    def parse_ipv6_opt(self) -> StateChain:
+    def parse_ipv6_opt(self) -> State:
         """Kernel PROG(IPV6OP): walk the option, dispatch on its own
         next_header — HopByHop/DestOpts loop back (self-edge)."""
-        return extract(IPv6ExtOpt["ext_opt"]).select(
-            IPv6ExtOpt["ext_opt"].next_header,
+        return extract(ext_opt).select(
+            ext_opt.next_header,
             self._ipv6_arms(),
             default=reject("unsupported ip protocol", info=True),
         )
 
-    def parse_ipip(self) -> StateChain:
+    def parse_ipip(self) -> State:
         """Kernel parse_ip_proto encap arms (IPPROTO_IPIP / IPPROTO_IPV6,
         default flags: STOP_AT_ENCAP off): mark is_encap and re-enter
         the state machine as the inner family — pure back edges, no
         header read; the max_depth budget bounds the nesting."""
         return assign(FlowMeta.is_encap, 1).then(self.parse_ipv4)
 
-    def parse_ip6ip(self) -> StateChain:
+    def parse_ip6ip(self) -> State:
         return assign(FlowMeta.is_encap, 1).then(self.parse_ipv6)
 
-    def parse_gre(self) -> StateChain:
+    def parse_gre(self) -> State:
         """Kernel IPPROTO_GRE arm, step order is the crux: version != 0
         is an immediate BPF_OK — no thoff advance, no is_encap, the
         optional region never read. Only version 0 walks the C/K/S
@@ -330,12 +341,12 @@ class LinuxFlowDissector(ParserDef):
             default=accept(),
         )
 
-    def parse_gre_opt(self) -> StateChain:
+    def parse_gre_opt(self) -> State:
         """TEB (0x6558) re-enters parse_ethernet itself: the kernel reads
         the inner Ethernet and runs its full parse_eth_proto dispatcher,
         so inner VLAN/MPLS/IPvX all live."""
         return (
-            extract(GREOpt["gre_opt"])
+            extract(gre_opt)
             .assign(FlowMeta.is_encap, 1)
             .select(
                 GRE.proto,
@@ -348,21 +359,21 @@ class LinuxFlowDissector(ParserDef):
             )
         )
 
-    def parse_ipv6_frag(self) -> StateChain:
+    def parse_ipv6_frag(self) -> State:
         """Kernel PROG(IPV6FR) under default flags: read the fragment
         header and stop (BPF_OK), always."""
-        return extract(IPv6Frag["ext_frag"]).accept()
+        return extract(ext_frag).accept()
 
-    def parse_mpls(self) -> StateChain:
+    def parse_mpls(self) -> State:
         """Upstream PROG(MPLS): read one label entry, stop, BPF_OK."""
         return extract(MPLS).accept()
 
-    def parse_tcp(self) -> StateChain:
+    def parse_tcp(self) -> State:
         return extract(TCP).accept()
 
-    def parse_udp(self) -> StateChain:
+    def parse_udp(self) -> State:
         return extract(UDP).accept()
 
 
 if __name__ == "__main__":
-    print(LinuxFlowDissector.build().to_json())
+    print(LinuxFlowDissector.to_json())

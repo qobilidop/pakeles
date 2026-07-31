@@ -2,7 +2,17 @@
 
 import json
 
-from pakeles import Header, ParserDef, StateChain, bits, extract, remaining, var_bytes
+from pakeles import (
+    Header,
+    Parser,
+    State,
+    bits,
+    extract,
+    pop_region,
+    remaining,
+    select,
+    var_bytes,
+)
 
 
 class TotalHdr(Header):
@@ -15,25 +25,25 @@ class Item(Header):
     val = var_bytes(ln)
 
 
-class TlvMini(ParserDef):
+class TlvMini(Parser):
     name = "tlv_mini_py"
     max_depth = 8
 
-    def s0(self) -> StateChain:
+    def s0(self) -> State:
         return extract(TotalHdr).push_region(TotalHdr.total).then(self.tlv)
 
-    def tlv(self) -> StateChain:
-        return StateChain().select(remaining(), {0: self.done}, default=self.item_s)
+    def tlv(self) -> State:
+        return select(remaining(), {0: self.done}, default=self.item_s)
 
-    def item_s(self) -> StateChain:
+    def item_s(self) -> State:
         return extract(Item).then(self.tlv)
 
-    def done(self) -> StateChain:
-        return StateChain().pop_region().accept()
+    def done(self) -> State:
+        return pop_region().accept()
 
 
 def _tlv() -> str:
-    return TlvMini.build().to_json()
+    return TlvMini.to_json()
 
 
 def test_region_ops_serialize() -> None:

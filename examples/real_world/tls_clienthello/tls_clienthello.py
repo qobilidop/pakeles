@@ -22,16 +22,18 @@ Design: docs/superpowers/specs/2026-07-29-tls-clienthello-design.md.
 
 from pakeles import (
     Header,
-    Meta,
-    ParserDef,
-    StateChain,
+    Metadata,
+    Parser,
+    State,
     assign,
     bits,
-    const,
     extract,
-    meta_bits,
+    metadata_bits,
+    oneof,
+    pop_region,
     reject,
     remaining,
+    select,
     var_bytes,
 )
 from pakeles.fmt import DEC, HEX
@@ -54,7 +56,7 @@ class HandshakeHdr(Header):
 
 class BodyFixed(Header):
     ver = bits(16, "Legacy Version", HEX)
-    random = var_bytes(const(32))
+    random = var_bytes(32)
 
 
 class SidLen(Header):
@@ -107,16 +109,16 @@ class Host(Header):
     name = var_bytes(SniEntry.hlen)
 
 
-class ChMeta(Meta):
-    seen_sni = meta_bits(1, "SNI Seen", DEC, doc="duplicate-SNI detection")
-    cs_odd = meta_bits(1, "Odd Cipher Length", DEC, doc="cipher_suites parity")
+class ChMeta(Metadata):
+    seen_sni = metadata_bits(1, "SNI Seen", DEC, doc="duplicate-SNI detection")
+    cs_odd = metadata_bits(1, "Odd Cipher Length", DEC, doc="cipher_suites parity")
 
 
-class TlsClienthello(ParserDef):
+class TlsClienthello(Parser):
     max_depth = 96
     metadata = ChMeta
 
-    def s_record(self) -> StateChain:
+    def s_record(self) -> State:
         """Record layer: 0x16 = handshake; the record length bounds
         everything (pushed before the select fires, harmlessly so on
         the reject arm)."""
@@ -130,17 +132,17 @@ class TlsClienthello(ParserDef):
             )
         )
 
-    def s_recver(self) -> StateChain:
+    def s_recver(self) -> State:
         """rustls validates the record-layer version at parse time
         (InvalidMessage(UnknownProtocolVersion)); found by symex
         witness replay, not by the hand-written corpus."""
-        return StateChain().select(
+        return select(
             RecordHdr.ver_major,
             {0x03: self.s_hs},
             default=reject("unsupported record version"),
         )
 
-    def s_hs(self) -> StateChain:
+    def s_hs(self) -> State:
         """Handshake header: 0x01 = client_hello; hlen must fit the
         record (structural push check)."""
         return (
@@ -149,21 +151,21 @@ class TlsClienthello(ParserDef):
             .select(HandshakeHdr.typ, {0x01: self.s_fixed}, default=reject("not a client hello"))
         )
 
-    def s_fixed(self) -> StateChain:
+    def s_fixed(self) -> State:
         return extract(BodyFixed).then(self.s_sid_len)
 
-    def s_sid_len(self) -> StateChain:
+    def s_sid_len(self) -> State:
         """legacy_session_id: opaque <0..32>."""
         return extract(SidLen).select(
             SidLen.slen,
-            {i: self.s_sid for i in range(33)},
+            {range(33): self.s_sid},
             default=reject("session id too long"),
         )
 
-    def s_sid(self) -> StateChain:
+    def s_sid(self) -> State:
         return extract(Sid).then(self.s_cs_len)
 
-    def s_cs_len(self) -> StateChain:
+    def s_cs_len(self) -> State:
         """cipher_suites: <2..2^16-2>, u16 list: nonzero and even."""
         return (
             extract(CsLen)
@@ -171,88 +173,86 @@ class TlsClienthello(ParserDef):
             .select(CsLen.clen, {0: reject("empty cipher suites")}, default=self.s_cs_parity)
         )
 
-    def s_cs_parity(self) -> StateChain:
-        return StateChain().select(
+    def s_cs_parity(self) -> State:
+        return select(
             ChMeta.cs_odd,
             {1: reject("odd cipher suites length")},
             default=self.s_cs,
         )
 
-    def s_cs(self) -> StateChain:
+    def s_cs(self) -> State:
         return extract(Cs).then(self.s_comp_len)
 
-    def s_comp_len(self) -> StateChain:
+    def s_comp_len(self) -> State:
         """legacy_compression_methods: <1..2^8-1>."""
         return extract(CompLen).select(
             CompLen.plen, {0: reject("empty compressions")}, default=self.s_comp
         )
 
-    def s_comp(self) -> StateChain:
+    def s_comp(self) -> State:
         return extract(Comp).then(self.s_ext_check)
 
-    def s_ext_check(self) -> StateChain:
+    def s_ext_check(self) -> State:
         """Extensions are OPTIONAL: a handshake body ending here is a
         legal pre-TLS-1.2 ClientHello. One stray byte cannot hold the
         u16 extensions length."""
-        return StateChain().select(
+        return select(
             remaining(),
             {0: self.s_done_noext, 1: reject("partial extensions length")},
             default=self.s_ext_len,
         )
 
-    def s_ext_len(self) -> StateChain:
+    def s_ext_len(self) -> State:
         return extract(ExtLen).push_region(ExtLen.total).then(self.s_tlv)
 
-    def s_tlv(self) -> StateChain:
+    def s_tlv(self) -> State:
         """The TLV loop head: bounded by max_depth (sole termination
         authority); 1..3 bytes cannot hold a type+length header."""
-        return StateChain().select(
+        return select(
             remaining(),
             {
                 0: self.s_done,
-                1: reject("partial extension header"),
-                2: reject("partial extension header"),
-                3: reject("partial extension header"),
+                oneof(1, 2, 3): reject("partial extension header"),
             },
             default=self.s_ext,
         )
 
-    def s_ext(self) -> StateChain:
+    def s_ext(self) -> State:
         return extract(Ext).select(
             (Ext.typ, ChMeta.seen_sni),
             {(0, 0): self.s_sni, (0, 1): reject("duplicate sni")},
             default=self.s_skip,
         )
 
-    def s_skip(self) -> StateChain:
+    def s_skip(self) -> State:
         return extract(Skip).then(self.s_tlv)
 
-    def s_sni(self) -> StateChain:
+    def s_sni(self) -> State:
         """SNI descends two more regions deep: extension data, then the
         server_name list — every length is checked exactly."""
         return assign(ChMeta.seen_sni, 1).push_region(Ext.elen).then(self.s_sni_list)
 
-    def s_sni_list(self) -> StateChain:
+    def s_sni_list(self) -> State:
         return extract(SniList).push_region(SniList.list_len).then(self.s_sni_entry)
 
-    def s_sni_entry(self) -> StateChain:
+    def s_sni_entry(self) -> State:
         return extract(SniEntry).select(
             SniEntry.ntype,
             {0: self.s_host},
             default=reject("unsupported sni name type"),
         )
 
-    def s_host(self) -> StateChain:
+    def s_host(self) -> State:
         """Exact pops: hostname must fill the list AND the extension."""
         return extract(Host).pop_region().pop_region().then(self.s_tlv)
 
-    def s_done(self) -> StateChain:
+    def s_done(self) -> State:
         """Exact pops: extensions block, handshake body, record."""
-        return StateChain().pop_region().pop_region().pop_region().accept()
+        return pop_region().pop_region().pop_region().accept()
 
-    def s_done_noext(self) -> StateChain:
-        return StateChain().pop_region().pop_region().accept()
+    def s_done_noext(self) -> State:
+        return pop_region().pop_region().accept()
 
 
 if __name__ == "__main__":
-    print(TlsClienthello.build().to_json())
+    print(TlsClienthello.to_json())

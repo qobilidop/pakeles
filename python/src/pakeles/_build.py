@@ -1,7 +1,7 @@
 """Assemble a validated-enough `ir_pb2.Ir` from headers + states.
 
-`Parser` is the built artifact: `ParserDef.build()` (the authoring
-surface) assembles one from its state methods. Fast-fail checks only
+`Assembly` is the internal built artifact behind the `Parser` base
+class's `to_pb()`/`to_json()`/`save()`. Fast-fail checks only
 (unknown state names, oversized select keys); the Rust CLI
 (`pakeles lint`) remains the validation authority.
 """
@@ -11,22 +11,22 @@ from __future__ import annotations
 from google.protobuf import json_format
 
 from pakeles._header import Header
-from pakeles._meta import Meta, MetaFieldSpec
+from pakeles._metadata import Metadata, MetadataFieldSpec
 from pakeles._pb import ir_pb2
-from pakeles._states import Accept, Reject, SelectSpec, StateChain, Target
+from pakeles._states import Accept, Reject, SelectSpec, State, Target
 
 IR_VERSION = "0.1.0"
 
 
-class Parser:
+class Assembly:
     def __init__(
         self,
         name: str,
         *,
         max_depth: int,
         start: str,
-        states: dict[str, StateChain],
-        metadata: type[Meta] | None = None,
+        states: dict[str, State],
+        metadata: type[Metadata] | None = None,
     ) -> None:
         self._name = name
         self._max_depth = max_depth
@@ -36,14 +36,14 @@ class Parser:
         self._check()
 
     def _check_metadata_field(
-        self, sname: str, what: str, field: MetaFieldSpec
+        self, sname: str, what: str, field: MetadataFieldSpec
     ) -> None:
         if self._metadata is None:
             raise ValueError(
                 f"state {sname!r}: {what} {field.name!r} used but parser() has "
                 f"no metadata= declared"
             )
-        fields: list[MetaFieldSpec] = self._metadata._fields  # type: ignore[attr-defined]
+        fields: list[MetadataFieldSpec] = self._metadata._fields  # type: ignore[attr-defined]
         if not any(field is f for f in fields):
             raise ValueError(
                 f"state {sname!r}: {what} {field.name!r} does not belong to "
@@ -69,7 +69,7 @@ class Parser:
                             f"state {sname!r}: select key "
                             f"{key_spec.header}.{key_spec.name} is not a fixed field"
                         )
-                    if isinstance(key_spec, MetaFieldSpec):
+                    if isinstance(key_spec, MetadataFieldSpec):
                         self._check_metadata_field(sname, "select key", key_spec)
                 for arm_key in sel.arms:
                     values = arm_key if isinstance(arm_key, tuple) else (arm_key,)
@@ -97,8 +97,8 @@ class Parser:
                 elif not isinstance(t, (Accept, Reject)):
                     raise TypeError(
                         f"state {sname!r} holds an unresolved state-method "
-                        f"reference {t!r}; assemble states via "
-                        f"ParserDef.build()"
+                        f"reference {t!r}; states assemble via the "
+                        f"Parser base class"
                     )
 
     def _header_types(self) -> list[type[Header]]:

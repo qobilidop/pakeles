@@ -1,23 +1,28 @@
-"""Pakeles Python authoring eDSL.
+"""The Pakeles Python eDSL.
 
-Declarative header classes, operator-overloaded expressions, and coarse
-state combinators that emit the normative Pakeles IR. The Rust CLI
-(`pakeles lint`) remains the validation authority.
+Declarative header classes, operator-overloaded expressions, and
+class-based parser definitions (`Parser`: states as methods, targets
+as `self.<state>` references) that emit the normative Pakeles IR. The
+Rust CLI (`pakeles lint`) remains the validation authority.
 """
 
-from pakeles._build import Parser
-from pakeles._def import ParserDef
 from pakeles._expr import Expr, FieldSpec, const, remaining
 from pakeles._header import Header, bits, var_bytes
-from pakeles._meta import Meta, MetaFieldSpec, meta_bits
+from pakeles._metadata import Metadata, MetadataFieldSpec, metadata_bits
+from pakeles._parser import Parser
 from pakeles._states import (
     ArmKey,
-    StateChain,
+    State,
     Target,
     accept,
     assign,
     extract,
+    goto,
+    oneof,
+    pop_region,
+    push_region,
     reject,
+    select,
 )
 
 __all__ = [
@@ -25,19 +30,23 @@ __all__ = [
     "Expr",
     "FieldSpec",
     "Header",
-    "Meta",
-    "MetaFieldSpec",
+    "Metadata",
+    "MetadataFieldSpec",
     "Parser",
-    "ParserDef",
-    "StateChain",
+    "State",
     "Target",
     "accept",
     "assign",
     "bits",
     "const",
     "extract",
-    "meta_bits",
+    "goto",
+    "metadata_bits",
+    "oneof",
+    "pop_region",
+    "push_region",
     "reject",
     "remaining",
+    "select",
     "var_bytes",
 ]

@@ -1,9 +1,10 @@
 # pakeles (Python)
 
-The Python authoring eDSL for the Pakeles IR — see
+The Pakeles Python eDSL (embedded domain-specific language): parsers
+are authored here and emitted as the normative Pakeles IR. Validation
+authority stays with the Rust CLI (`pakeles lint`). See
 `docs/superpowers/specs/2026-07-19-python-edsl-design.md` and the root
-README. Authoring happens here; validation authority stays with the Rust
-CLI (`pakeles lint`).
+README.
 
 Dev loop (from the repo root, inside the dev container):
 
