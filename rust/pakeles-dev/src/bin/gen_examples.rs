@@ -9,10 +9,21 @@ fn regenerate(name: &str, dir: &std::path::Path) -> anyhow::Result<()> {
     let ir = pakeles::ir::from_json(&std::fs::read_to_string(
         dir.join(format!("{name}.ir.json")),
     )?)?;
-    std::fs::write(
-        gen.join("dissector.lua"),
-        pakeles::codegen::lua::generate_lua(&ir)?,
-    )?;
+    // gen lua refuses fields wider than 32 bits by design (Lua 5.2's
+    // number model: bit32 semantics and a 53-bit double mantissa can't
+    // carry 62-bit varint values faithfully) — commit the refusal as a
+    // marker artifact, the gen p4 precedent. Keep the marker format in
+    // step with the guard in pakeles-testkit.
+    match pakeles::codegen::lua::generate_lua(&ir) {
+        Ok(lua) => std::fs::write(gen.join("dissector.lua"), lua)?,
+        Err(e) if e.to_string().contains("not supported by the Lua backend") => {
+            std::fs::write(
+                gen.join("LUA-UNSUPPORTED.txt"),
+                format!("gen lua: {e}\n(see docs/designs/2026-07-31-quic-initial-design.md)\n"),
+            )?;
+        }
+        Err(e) => return Err(e),
+    }
     std::fs::write(gen.join("doc.md"), pakeles::docgen::generate_markdown(&ir)?)?;
     std::fs::write(gen.join("graph.dot"), pakeles::viz::to_dot(&ir))?;
     let c = pakeles::codegen::c::generate_c(&ir)?;

@@ -413,8 +413,15 @@ pub fn generate_p4(ir: &pb::Ir) -> Result<String> {
                     };
                     let max_bits = expr_max(expr, parser)? * 8;
                     if max_bits > 65535 {
+                        // Same designed-refusal family as sized regions
+                        // (the marker machinery keys on the phrase): a
+                        // var field whose length range exceeds any
+                        // static varbit bound — e.g. a QUIC
+                        // varint-sized field — cannot be extracted by
+                        // a P4-16 parser.
                         bail!(
-                            "varbit bound for `{}.{}` too large: {max_bits} bits",
+                            "varbit bound for `{}.{}` too large ({max_bits} bits); \
+                             self-sizing lengths this wide exceed P4-16 parser expressiveness",
                             inst,
                             f.name
                         );

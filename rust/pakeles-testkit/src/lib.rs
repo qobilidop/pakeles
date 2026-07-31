@@ -554,9 +554,10 @@ pub fn bmv2_backend_conformance(ir: &pb::Ir, suite: &tvpb::TestSuite, min_compar
 
 /// Equality-guard every committed `gen/` artifact of an example
 /// against fresh generation: dissector.lua, parser.h, parser.c,
-/// parser.bpf.c, doc.md, graph.dot, and parser.p4 — or, for
-/// region-bearing descriptions `gen p4` refuses by design, the
-/// committed P4-UNSUPPORTED.txt marker. Drift means someone edited a
+/// parser.bpf.c, doc.md, graph.dot, and parser.p4 — or, where a
+/// backend refuses by design (`gen p4` on region-bearing
+/// descriptions, `gen lua` on >32-bit fields), the committed
+/// *-UNSUPPORTED.txt marker. Drift means someone edited a
 /// generated file or changed a generator without regenerating:
 /// `./dev.sh scripts/gen-examples.sh`.
 pub fn committed_artifacts_current(ir: &pb::Ir, example_dir: &Path) {
@@ -571,10 +572,16 @@ pub fn committed_artifacts_current(ir: &pb::Ir, example_dir: &Path) {
             gen.join(file).display()
         );
     };
-    check(
-        "dissector.lua",
-        &pakeles::codegen::lua::generate_lua(ir).unwrap(),
-    );
+    match pakeles::codegen::lua::generate_lua(ir) {
+        Ok(lua) => check("dissector.lua", &lua),
+        // Keep this marker format in step with gen_examples
+        // (pakeles-dev), which writes the file.
+        Err(e) if e.to_string().contains("not supported by the Lua backend") => check(
+            "LUA-UNSUPPORTED.txt",
+            &format!("gen lua: {e}\n(see docs/designs/2026-07-31-quic-initial-design.md)\n"),
+        ),
+        Err(e) => panic!("generate_lua: {e}"),
+    }
     let arts = pakeles::codegen::c::generate_c(ir).unwrap();
     check("parser.h", &arts.header);
     check("parser.c", &arts.source);
