@@ -1010,7 +1010,7 @@ impl<'de> serde::Deserialize<'de> for Field {
                                 return Err(serde::de::Error::duplicate_field("annotations"));
                             }
                             annotations__ = Some(
-                                map_.next_value::<std::collections::HashMap<_, _>>()?
+                                map_.next_value::<std::collections::BTreeMap<_, _>>()?
                             );
                         }
                     }
@@ -1355,7 +1355,7 @@ impl<'de> serde::Deserialize<'de> for HeaderType {
                                 return Err(serde::de::Error::duplicate_field("annotations"));
                             }
                             annotations__ = Some(
-                                map_.next_value::<std::collections::HashMap<_, _>>()?
+                                map_.next_value::<std::collections::BTreeMap<_, _>>()?
                             );
                         }
                     }
@@ -1868,7 +1868,7 @@ impl<'de> serde::Deserialize<'de> for MetadataField {
                                 return Err(serde::de::Error::duplicate_field("annotations"));
                             }
                             annotations__ = Some(
-                                map_.next_value::<std::collections::HashMap<_, _>>()?
+                                map_.next_value::<std::collections::BTreeMap<_, _>>()?
                             );
                         }
                     }
@@ -2157,7 +2157,7 @@ impl<'de> serde::Deserialize<'de> for Parser {
                                 return Err(serde::de::Error::duplicate_field("annotations"));
                             }
                             annotations__ = Some(
-                                map_.next_value::<std::collections::HashMap<_, _>>()?
+                                map_.next_value::<std::collections::BTreeMap<_, _>>()?
                             );
                         }
                     }
@@ -2568,7 +2568,7 @@ impl<'de> serde::Deserialize<'de> for Reject {
                                 return Err(serde::de::Error::duplicate_field("annotations"));
                             }
                             annotations__ = Some(
-                                map_.next_value::<std::collections::HashMap<_, _>>()?
+                                map_.next_value::<std::collections::BTreeMap<_, _>>()?
                             );
                         }
                     }
@@ -3048,7 +3048,7 @@ impl<'de> serde::Deserialize<'de> for State {
                                 return Err(serde::de::Error::duplicate_field("annotations"));
                             }
                             annotations__ = Some(
-                                map_.next_value::<std::collections::HashMap<_, _>>()?
+                                map_.next_value::<std::collections::BTreeMap<_, _>>()?
                             );
                         }
                     }

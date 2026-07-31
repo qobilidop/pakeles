@@ -51,10 +51,15 @@ pub fn generate(out_dir: &Path) -> anyhow::Result<()> {
         .file_descriptor_set_path(&descriptor)
         .boxed(".pakeles.ir.v1alpha1.BinOp.lhs")
         .boxed(".pakeles.ir.v1alpha1.BinOp.rhs")
+        // BTreeMap for every proto map: HashMap serializes in iteration
+        // order, which would make `fmt-ir` output nondeterministic the
+        // moment an annotations map holds a second entry.
+        .btree_map(["."])
         .compile_protos(&protos, &[root.join("proto")])?;
     pbjson_build::Builder::new()
         .out_dir(out_dir)
         .register_descriptors(&std::fs::read(&descriptor)?)?
+        .btree_map(["."])
         .build(&[".pakeles.ir.v1alpha1", ".pakeles.testvec.v1alpha1"])?;
     std::fs::remove_file(descriptor)?;
     Ok(())

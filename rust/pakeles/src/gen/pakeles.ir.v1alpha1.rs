@@ -25,8 +25,8 @@ pub struct Parser {
     /// extend the max_depth budget.
     #[prost(message, repeated, tag = "6")]
     pub metadata: ::prost::alloc::vec::Vec<MetadataField>,
-    #[prost(map = "string, string", tag = "15")]
-    pub annotations: ::std::collections::HashMap<
+    #[prost(btree_map = "string, string", tag = "15")]
+    pub annotations: ::prost::alloc::collections::BTreeMap<
         ::prost::alloc::string::String,
         ::prost::alloc::string::String,
     >,
@@ -44,8 +44,8 @@ pub struct MetadataField {
     pub init: u64,
     #[prost(message, optional, tag = "4")]
     pub display: ::core::option::Option<Display>,
-    #[prost(map = "string, string", tag = "15")]
-    pub annotations: ::std::collections::HashMap<
+    #[prost(btree_map = "string, string", tag = "15")]
+    pub annotations: ::prost::alloc::collections::BTreeMap<
         ::prost::alloc::string::String,
         ::prost::alloc::string::String,
     >,
@@ -56,8 +56,8 @@ pub struct HeaderType {
     pub name: ::prost::alloc::string::String,
     #[prost(message, repeated, tag = "2")]
     pub fields: ::prost::alloc::vec::Vec<Field>,
-    #[prost(map = "string, string", tag = "15")]
-    pub annotations: ::std::collections::HashMap<
+    #[prost(btree_map = "string, string", tag = "15")]
+    pub annotations: ::prost::alloc::collections::BTreeMap<
         ::prost::alloc::string::String,
         ::prost::alloc::string::String,
     >,
@@ -71,8 +71,8 @@ pub struct Field {
     /// Presentation only — no execution path may branch on it.
     #[prost(message, optional, tag = "3")]
     pub display: ::core::option::Option<Display>,
-    #[prost(map = "string, string", tag = "15")]
-    pub annotations: ::std::collections::HashMap<
+    #[prost(btree_map = "string, string", tag = "15")]
+    pub annotations: ::prost::alloc::collections::BTreeMap<
         ::prost::alloc::string::String,
         ::prost::alloc::string::String,
     >,
@@ -180,8 +180,8 @@ pub struct State {
     /// design doc); they never affect the max_depth budget.
     #[prost(message, repeated, tag = "5")]
     pub region_ops: ::prost::alloc::vec::Vec<RegionOp>,
-    #[prost(map = "string, string", tag = "15")]
-    pub annotations: ::std::collections::HashMap<
+    #[prost(btree_map = "string, string", tag = "15")]
+    pub annotations: ::prost::alloc::collections::BTreeMap<
         ::prost::alloc::string::String,
         ::prost::alloc::string::String,
     >,
@@ -264,8 +264,8 @@ pub struct Reject {
     /// Recognized: "severity" = "error" (default) | "info". `info` marks
     /// a payload boundary (e.g. unknown next protocol) — diagnose-mode
     /// consumers render payload, not malformedness. Never semantic.
-    #[prost(map = "string, string", tag = "15")]
-    pub annotations: ::std::collections::HashMap<
+    #[prost(btree_map = "string, string", tag = "15")]
+    pub annotations: ::prost::alloc::collections::BTreeMap<
         ::prost::alloc::string::String,
         ::prost::alloc::string::String,
     >,
