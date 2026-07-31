@@ -217,7 +217,7 @@ mod tests {
         }
         let report = diff_pcap(
             &crate::examples::eth_ipvx_l4(),
-            std::path::Path::new("testdata/basic.pcap"),
+            &crate::test_repo_path("testdata/basic.pcap"),
         )
         .unwrap();
         assert_eq!(report.packets, 4);

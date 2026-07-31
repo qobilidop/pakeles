@@ -7,9 +7,9 @@ use std::path::PathBuf;
 /// from any CWD.
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .to_path_buf()
+        .join("../..")
+        .canonicalize()
+        .expect("repo root")
 }
 
 /// Every gallery example and its directory: synthetic from the core
@@ -91,6 +91,14 @@ fn regenerate(name: &str, dir: &std::path::Path) -> anyhow::Result<()> {
     )?;
     let (packets, _) = pakeles::testvec::suite_to_packets(&suite);
     pakeles::pcapio::write_pcap(&conformance.join("vectors.pcap"), &packets)?;
+    // Synthetic examples are embedded by the core crate from in-crate
+    // mirrors (self-contained packaging); keep the mirror current.
+    if pakeles::examples::SYNTHETIC.contains(&name) {
+        std::fs::copy(
+            dir.join(format!("{name}.ir.json")),
+            repo_root().join(format!("rust/pakeles/src/examples/{name}.ir.json")),
+        )?;
+    }
     let _ = std::process::Command::new("dot")
         .arg("-Tsvg")
         .arg("-o")

@@ -72,7 +72,7 @@ mod tests {
 
     #[test]
     fn reads_committed_fixture() {
-        let packets = read_packets(Path::new("testdata/basic.pcap")).unwrap();
+        let packets = read_packets(&crate::test_repo_path("testdata/basic.pcap")).unwrap();
         assert_eq!(packets, fixtures::basic_pcap_packets());
         assert_eq!(packets[0].len(), 54);
     }

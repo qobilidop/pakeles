@@ -1,0 +1,175 @@
+{
+  "irVersion": "0.1.0",
+  "parser": {
+    "name": "counted_items",
+    "headerTypes": [
+      {
+        "name": "count",
+        "fields": [
+          {
+            "name": "n",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Item Count",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "item",
+        "fields": [
+          {
+            "name": "v",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Value",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
+      }
+    ],
+    "states": [
+      {
+        "name": "parse_count",
+        "extracts": [
+          {
+            "headerType": "count"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "metadata": {
+                  "name": "remaining"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "mark_done"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "state": "parse_item"
+            }
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "remaining",
+            "value": {
+              "field": {
+                "header": "count",
+                "field": "n"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "parse_item",
+        "extracts": [
+          {
+            "headerType": "item"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "metadata": {
+                  "name": "remaining"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "mark_done"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "state": "parse_item"
+            }
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "remaining",
+            "value": {
+              "bin": {
+                "op": "BIN_OP_KIND_SUB",
+                "lhs": {
+                  "metadata": {
+                    "name": "remaining"
+                  }
+                },
+                "rhs": {
+                  "constant": "1"
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "mark_done",
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "done",
+            "value": {
+              "constant": "1"
+            }
+          }
+        ]
+      }
+    ],
+    "startState": "parse_count",
+    "maxDepth": 8,
+    "metadata": [
+      {
+        "name": "done",
+        "bits": 1,
+        "display": {
+          "name": "Done",
+          "format": "DISPLAY_FORMAT_DEC",
+          "doc": "set on the pass-through completion state"
+        }
+      },
+      {
+        "name": "remaining",
+        "bits": 8,
+        "display": {
+          "name": "Remaining",
+          "format": "DISPLAY_FORMAT_DEC",
+          "doc": "items left to read"
+        }
+      }
+    ]
+  }
+}

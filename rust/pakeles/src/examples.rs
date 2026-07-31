@@ -20,29 +20,25 @@ use crate::ir::pb;
 /// to agree with) — `examples/synthetic/`.
 pub const SYNTHETIC: [&str; 3] = ["eth_ipvx_l4", "counted_items", "tlv_items"];
 
-/// The gallery example, parsed from the embedded committed IR.
+/// The gallery example, parsed from the embedded committed IR (the
+/// in-crate mirror of `examples/synthetic/`, guarded below — mirrors
+/// exist so the packaged crate is self-contained).
 pub fn eth_ipvx_l4() -> pb::Ir {
-    crate::ir::from_json(include_str!(
-        "../examples/synthetic/eth_ipvx_l4/eth_ipvx_l4.ir.json"
-    ))
-    .expect("committed example IR must parse")
+    crate::ir::from_json(include_str!("examples/eth_ipvx_l4.ir.json"))
+        .expect("committed example IR must parse")
 }
 
 /// The metadata-v1 toy example, parsed from the embedded committed IR.
 pub fn counted_items() -> pb::Ir {
-    crate::ir::from_json(include_str!(
-        "../examples/synthetic/counted_items/counted_items.ir.json"
-    ))
-    .expect("committed example IR must parse")
+    crate::ir::from_json(include_str!("examples/counted_items.ir.json"))
+        .expect("committed example IR must parse")
 }
 
 /// The sized-region toy example (length-bounded TLV items), parsed
 /// from the embedded committed IR.
 pub fn tlv_items() -> pb::Ir {
-    crate::ir::from_json(include_str!(
-        "../examples/synthetic/tlv_items/tlv_items.ir.json"
-    ))
-    .expect("committed example IR must parse")
+    crate::ir::from_json(include_str!("examples/tlv_items.ir.json"))
+        .expect("committed example IR must parse")
 }
 
 #[cfg(test)]
@@ -62,9 +58,10 @@ mod tests {
         // canonical serializer emits — the anti-drift "canonical form"
         // guard.
         for name in SYNTHETIC {
-            let committed =
-                std::fs::read_to_string(format!("examples/synthetic/{name}/{name}.ir.json"))
-                    .unwrap();
+            let committed = std::fs::read_to_string(crate::test_repo_path(&format!(
+                "examples/synthetic/{name}/{name}.ir.json"
+            )))
+            .unwrap();
             let round = crate::ir::to_json(&crate::ir::from_json(&committed).unwrap()).unwrap();
             assert_eq!(
                 round, committed,
@@ -73,13 +70,40 @@ mod tests {
         }
     }
 
+    /// The in-crate IR mirrors (src/examples/, what the packaged crate
+    /// embeds) must byte-match the gallery originals.
+    #[test]
+    fn embedded_ir_mirror_current() {
+        for (name, embedded) in [
+            ("eth_ipvx_l4", include_str!("examples/eth_ipvx_l4.ir.json")),
+            (
+                "counted_items",
+                include_str!("examples/counted_items.ir.json"),
+            ),
+            ("tlv_items", include_str!("examples/tlv_items.ir.json")),
+        ] {
+            let gallery = std::fs::read_to_string(crate::test_repo_path(&format!(
+                "examples/synthetic/{name}/{name}.ir.json"
+            )))
+            .unwrap();
+            assert_eq!(
+                embedded, gallery,
+                "src/examples/{name}.ir.json drifted from the gallery; regenerate: ./dev.sh scripts/gen-examples.sh"
+            );
+        }
+    }
+
     #[test]
     fn committed_py_example_current() {
         for name in SYNTHETIC {
-            let canonical =
-                std::fs::read_to_string(format!("python/src/pakeles/examples/{name}.py")).unwrap();
-            let mirrored =
-                std::fs::read_to_string(format!("examples/synthetic/{name}/{name}.py")).unwrap();
+            let canonical = std::fs::read_to_string(crate::test_repo_path(&format!(
+                "python/src/pakeles/examples/{name}.py"
+            )))
+            .unwrap();
+            let mirrored = std::fs::read_to_string(crate::test_repo_path(&format!(
+                "examples/synthetic/{name}/{name}.py"
+            )))
+            .unwrap();
             assert_eq!(
                 canonical, mirrored,
                 "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"

@@ -152,7 +152,7 @@ enum Oracle {
             long,
             default_value = concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/../examples/synthetic/eth_ipvx_l4/conformance/vectors.json"
+                "/../../examples/synthetic/eth_ipvx_l4/conformance/vectors.json"
             )
         )]
         vectors: PathBuf,
@@ -605,7 +605,7 @@ mod tests {
 
     /// Repo-root-relative path (tests run with CWD = pakeles-cli/).
     fn from_root(p: &str) -> String {
-        format!("{}/../{p}", env!("CARGO_MANIFEST_DIR"))
+        format!("{}/../../{p}", env!("CARGO_MANIFEST_DIR"))
     }
 
     #[test]

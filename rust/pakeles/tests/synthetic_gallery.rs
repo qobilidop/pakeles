@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 fn dir(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("examples/synthetic")
+        .join("../../examples/synthetic")
         .join(name)
 }
 

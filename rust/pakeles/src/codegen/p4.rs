@@ -768,7 +768,7 @@ mod tests {
         let err = generate_p4(&crate::examples::tlv_items()).unwrap_err();
         assert!(err.to_string().contains("P4-16 parser expressiveness"));
         assert!(
-            std::path::Path::new("examples/synthetic/tlv_items/gen/P4-UNSUPPORTED.txt").exists(),
+            crate::test_repo_path("examples/synthetic/tlv_items/gen/P4-UNSUPPORTED.txt").exists(),
             "marker artifact missing; regenerate: ./dev.sh scripts/gen-examples.sh"
         );
     }

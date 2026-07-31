@@ -1,0 +1,33 @@
+[package]
+name = "pakeles"
+version = "0.1.0"
+edition = "2021"
+description = "A serializable IR for wire-format parsers — one description, many provably-agreeing artifacts"
+license = "Apache-2.0"
+repository = "https://github.com/qobilidop/pakeles"
+readme = "../../README.md"
+keywords = ["parser", "packet", "network", "ir", "wireshark"]
+categories = ["parsing", "network-programming"]
+# src/** is self-contained for packaging: the generated-protobuf code
+# is vendored (src/gen/, so consumers never need protoc) and the
+# synthetic gallery IRs are embedded from committed mirrors
+# (src/examples/, equality-guarded against examples/synthetic/).
+include = ["src/**", "Cargo.toml"]
+
+[dependencies]
+prost = "0.13"
+pbjson = "0.7"
+pbjson-types = "0.7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+thiserror = "2"
+pcap-parser = "0.16"
+z3 = { version = "0.12", optional = true }
+
+[features]
+default = ["symex"]
+symex = ["dep:z3"]
+
+[dev-dependencies]
+pakeles-testkit = { path = "../pakeles-testkit" }

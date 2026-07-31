@@ -1,49 +1,16 @@
-[package]
-name = "pakeles"
-version = "0.1.0"
-edition = "2021"
-description = "A serializable IR for wire-format parsers — one description, many provably-agreeing artifacts"
-license = "Apache-2.0"
-repository = "https://github.com/qobilidop/pakeles"
-readme = "README.md"
-keywords = ["parser", "packet", "network", "ir", "wireshark"]
-categories = ["parsing", "network-programming"]
-# src/** carries everything the packaged crate builds from: the
-# vendored generated-protobuf code (src/gen/, so consumers never need
-# protoc) lives there; the embedded synthetic gallery IRs are listed
-# explicitly.
-include = [
-    "src/**",
-    "Cargo.toml",
-    "README.md",
-    "LICENSE",
-    "examples/synthetic/eth_ipvx_l4/eth_ipvx_l4.ir.json",
-    "examples/synthetic/counted_items/counted_items.ir.json",
-    "examples/synthetic/tlv_items/tlv_items.ir.json",
-]
-
-# The core crate carries no incumbent-specific code: each real-world
-# example is its own workspace member (projection + gate tests beside
-# its description and goldens), and the CLI — which depends on them
-# all — lives in pakeles-cli. `default-members` lists every member so
-# a bare `cargo test` at the root still runs the whole gate.
+# Virtual workspace root: the repo root holds only language-neutral
+# trees (proto/, examples/, testdata/, docs/, third_party/) plus the
+# per-language surfaces rust/ and python/. The Rust toolchain crates
+# live under rust/; each real-world gallery example is additionally its
+# own crate so everything about one incumbent stays in one directory.
+# A bare `cargo test` at the root runs every member — the whole gate.
 [workspace]
 resolver = "2"
 members = [
-    "pakeles-testkit",
-    "pakeles-cli",
-    "pakeles-pbgen",
-    "examples/real_world/linux_flow_dissector",
-    "examples/real_world/dpdk_ptype",
-    "examples/real_world/katran_flow",
-    "examples/real_world/sai_parser",
-    "examples/real_world/tls_clienthello",
-]
-default-members = [
-    ".",
-    "pakeles-testkit",
-    "pakeles-cli",
-    "pakeles-pbgen",
+    "rust/pakeles",
+    "rust/pakeles-cli",
+    "rust/pakeles-testkit",
+    "rust/pakeles-pbgen",
     "examples/real_world/linux_flow_dissector",
     "examples/real_world/dpdk_ptype",
     "examples/real_world/katran_flow",
@@ -53,21 +20,3 @@ default-members = [
 # The TLS golden factory is its own pinned-lockfile crate (the rustls
 # pin IS the agreement claim) — never part of this workspace.
 exclude = ["examples/real_world/tls_clienthello/factory"]
-
-[dependencies]
-prost = "0.13"
-pbjson = "0.7"
-pbjson-types = "0.7"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-anyhow = "1"
-thiserror = "2"
-pcap-parser = "0.16"
-z3 = { version = "0.12", optional = true }
-
-[features]
-default = ["symex"]
-symex = ["dep:z3"]
-
-[dev-dependencies]
-pakeles-testkit = { path = "pakeles-testkit" }

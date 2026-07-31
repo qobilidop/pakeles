@@ -640,7 +640,7 @@ mod tests {
     fn interp_over_fixture_pcap() {
         let ir = eth_ipvx_l4();
         let packets =
-            crate::pcapio::read_packets(std::path::Path::new("testdata/basic.pcap")).unwrap();
+            crate::pcapio::read_packets(&crate::test_repo_path("testdata/basic.pcap")).unwrap();
         let accepts: Vec<bool> = packets
             .iter()
             .map(|p| run(&ir, p).unwrap().outcome == Outcome::Accept)

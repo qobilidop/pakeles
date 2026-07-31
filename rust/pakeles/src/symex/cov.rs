@@ -51,7 +51,11 @@ mod tests {
 
     #[test]
     fn fixture_pcap_coverage() {
-        let cov = coverage(&eth_ipvx_l4(), Path::new("testdata/basic.pcap")).unwrap();
+        let cov = coverage(
+            &eth_ipvx_l4(),
+            &crate::test_repo_path("testdata/basic.pcap"),
+        )
+        .unwrap();
         assert_eq!(cov.packets, 4);
         // Symbolic layout: ihl=5 (options=0B) and ihl=6 (options=4B) TCP
         // packets no longer fork on length -> they share one control-flow

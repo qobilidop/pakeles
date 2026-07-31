@@ -132,9 +132,14 @@ pub fn suite_from_json(s: &str) -> Result<pb::TestSuite> {
 pub(crate) fn committed_suite_or_skip(name: &str) -> Option<pb::TestSuite> {
     // Synthetic gallery only: the real-world examples' suites are
     // loaded by their own crates via pakeles-testkit.
-    let path = format!("examples/synthetic/{name}/conformance/vectors.json");
-    if !std::path::Path::new(&path).exists() {
-        eprintln!("skipping: {path} not generated (run ./dev.sh scripts/gen-examples.sh)");
+    let path = crate::test_repo_path(&format!(
+        "examples/synthetic/{name}/conformance/vectors.json"
+    ));
+    if !path.exists() {
+        eprintln!(
+            "skipping: {} not generated (run ./dev.sh scripts/gen-examples.sh)",
+            path.display()
+        );
         return None;
     }
     Some(suite_from_json(&std::fs::read_to_string(&path).unwrap()).unwrap())
@@ -212,19 +217,20 @@ mod tests {
 
     #[test]
     fn committed_vectors_pcap_current() {
-        let pcap_path = "examples/synthetic/eth_ipvx_l4/conformance/vectors.pcap";
+        let pcap_path =
+            crate::test_repo_path("examples/synthetic/eth_ipvx_l4/conformance/vectors.pcap");
         let Some(suite) = committed_suite_or_skip("eth_ipvx_l4") else {
             return;
         };
-        if !std::path::Path::new(pcap_path).exists() {
-            eprintln!("skipping: {pcap_path} not generated");
+        if !pcap_path.exists() {
+            eprintln!("skipping: {} not generated", pcap_path.display());
             return;
         }
         let (packets, _) = suite_to_packets(&suite);
         let tmp = std::env::temp_dir().join("pakeles_gallery_check.pcap");
         crate::pcapio::write_pcap(&tmp, &packets).unwrap();
         let fresh = std::fs::read(&tmp).unwrap();
-        let committed = std::fs::read(pcap_path).unwrap();
+        let committed = std::fs::read(&pcap_path).unwrap();
         assert_eq!(
             fresh, committed,
             "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"

@@ -1,0 +1,140 @@
+{
+  "irVersion": "0.1.0",
+  "parser": {
+    "name": "tlv_items",
+    "headerTypes": [
+      {
+        "name": "total_len",
+        "fields": [
+          {
+            "name": "total",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Total Length",
+              "format": "DISPLAY_FORMAT_DEC",
+              "doc": "bytes of TLV items that follow"
+            }
+          }
+        ]
+      },
+      {
+        "name": "item",
+        "fields": [
+          {
+            "name": "kind",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Kind",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "ln",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "val",
+            "width": {
+              "byteLen": {
+                "field": {
+                  "header": "item",
+                  "field": "ln"
+                }
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "states": [
+      {
+        "name": "parse_total",
+        "extracts": [
+          {
+            "headerType": "total_len"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "tlv_loop"
+          }
+        },
+        "regionOps": [
+          {
+            "push": {
+              "field": {
+                "header": "total_len",
+                "field": "total"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "tlv_loop",
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "remaining": {}
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "close"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "state": "parse_item"
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_item",
+        "extracts": [
+          {
+            "headerType": "item"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "tlv_loop"
+          }
+        }
+      },
+      {
+        "name": "close",
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "regionOps": [
+          {
+            "pop": {}
+          }
+        ]
+      }
+    ],
+    "startState": "parse_total",
+    "maxDepth": 8
+  }
+}

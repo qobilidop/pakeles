@@ -26,14 +26,14 @@ pub const GENERATED: [&str; 4] = [
 
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .to_path_buf()
+        .join("../..")
+        .canonicalize()
+        .expect("repo root")
 }
 
 /// Where the committed generated code lives, inside the core crate.
 pub fn committed_dir() -> PathBuf {
-    repo_root().join("src/gen")
+    repo_root().join("rust/pakeles/src/gen")
 }
 
 /// Run prost + pbjson over `proto/` into `out_dir`. Mirrors what the
