@@ -11,7 +11,7 @@
 //! `error.PacketTooShort` (err 1), which our truncation reject maps onto;
 //! the bitmap then carries the headers extracted BEFORE the failing read.
 
-use crate::ir::pb;
+use pakeles::ir::pb;
 use serde::{Deserialize, Serialize};
 
 /// Bit position (in the incumbent's verdict bitmap) for each modeled
@@ -55,10 +55,10 @@ pub struct GoldenFile {
 /// the bits of instances completed BEFORE the failing read, err 1
 /// (BMv2 records `PacketTooShort` and the partial header stays invalid).
 pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Projection> {
-    let res = crate::interp::run(ir, packet)?;
+    let res = pakeles::interp::run(ir, packet)?;
     let (completed, err) = match &res.outcome {
-        crate::interp::Outcome::Accept => (res.headers.len(), 0u8),
-        crate::interp::Outcome::Reject { reason } => {
+        pakeles::interp::Outcome::Accept => (res.headers.len(), 0u8),
+        pakeles::interp::Outcome::Reject { reason } => {
             anyhow::ensure!(
                 reason == "out of bounds",
                 "unexpected reject `{reason}` from sai_parser (only truncation exists)"
@@ -81,7 +81,26 @@ pub struct SaiDiffReport {
     pub mismatches: Vec<String>,
 }
 
-pub const CONFORMANCE_DIR: &str = "examples/real_world/sai_parser/conformance";
+/// This example's directory (the crate manifest dir): the description,
+/// committed IR, `gen/`, `conformance/`, and `factory/` all live here.
+pub fn dir() -> &'static std::path::Path {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+}
+
+/// The committed conformance directory (goldens + vector suite).
+pub fn conformance_dir() -> std::path::PathBuf {
+    dir().join("conformance")
+}
+
+/// The example description, parsed from the committed IR (embedded at
+/// compile time).
+pub fn ir() -> pb::Ir {
+    pakeles::ir::from_json(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/sai_parser.ir.json"
+    )))
+    .expect("committed sai_parser IR must parse")
+}
 
 /// Find the committed sonic-pins-minted golden (`sai.<pin>.golden.json`).
 pub fn discover_committed_golden(dir: &std::path::Path) -> Option<std::path::PathBuf> {
@@ -103,7 +122,7 @@ pub fn diff_goldens(ir: &pb::Ir, golden: &GoldenFile) -> anyhow::Result<SaiDiffR
         mismatches: Vec::new(),
     };
     for (i, e) in golden.entries.iter().enumerate() {
-        let pkt = crate::testvec::hex_decode(&e.packet_hex)?;
+        let pkt = pakeles::testvec::hex_decode(&e.packet_hex)?;
         report.compared += 1;
         let ours = project(ir, &pkt)?;
         if ours.bitmap != e.bitmap {
@@ -132,8 +151,8 @@ mod gate_tests {
     /// against the vendored parser; never edit the golden.
     #[test]
     fn committed_goldens_agree() {
-        let dir = std::path::Path::new(CONFORMANCE_DIR);
-        let golden_path = discover_committed_golden(dir).expect("a committed golden file exists");
+        let dir = conformance_dir();
+        let golden_path = discover_committed_golden(&dir).expect("a committed golden file exists");
         let g: GoldenFile =
             serde_json::from_str(&std::fs::read_to_string(golden_path).unwrap()).unwrap();
         assert!(
@@ -146,7 +165,7 @@ mod gate_tests {
             "corpus shrank: {} entries",
             g.entries.len()
         );
-        let report = diff_goldens(&crate::examples::sai_parser(), &g).unwrap();
+        let report = diff_goldens(&ir(), &g).unwrap();
         assert_eq!(report.compared, g.entries.len());
         assert!(
             report.mismatches.is_empty(),
@@ -161,8 +180,8 @@ mod project_tests {
     use super::*;
 
     fn p(hex: &str) -> Projection {
-        let ir = crate::examples::sai_parser();
-        let pkt = crate::testvec::hex_decode(&hex.replace([' ', '\n'], "")).unwrap();
+        let ir = ir();
+        let pkt = pakeles::testvec::hex_decode(&hex.replace([' ', '\n'], "")).unwrap();
         project(&ir, &pkt).unwrap()
     }
 
@@ -266,5 +285,77 @@ mod project_tests {
         let r = p(&format!("{ETH}810000"));
         assert_eq!(r.bitmap, B_ETH);
         assert_eq!(r.err, 1);
+    }
+}
+
+#[cfg(test)]
+mod gallery_tests {
+    use super::*;
+
+    #[test]
+    fn embedded_ir_parses_and_validates() {
+        pakeles::ir::validate::validate(&ir()).unwrap();
+    }
+
+    /// The committed ir.json must be exactly what the Rust canonical
+    /// serializer emits — the anti-drift "canonical form" guard.
+    #[test]
+    fn committed_ir_json_is_canonical() {
+        let committed = std::fs::read_to_string(dir().join("sai_parser.ir.json")).unwrap();
+        let round = pakeles::ir::to_json(&pakeles::ir::from_json(&committed).unwrap()).unwrap();
+        assert_eq!(
+            round, committed,
+            "committed ir.json is not in canonical form; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
+    /// The mirrored .py must match the authoritative eDSL module.
+    #[test]
+    fn committed_py_example_current() {
+        let canonical =
+            std::fs::read_to_string(dir().join("../../../py/src/pakeles/examples/sai_parser.py"))
+                .unwrap();
+        let mirrored = std::fs::read_to_string(dir().join("sai_parser.py")).unwrap();
+        assert_eq!(
+            canonical, mirrored,
+            "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
+    #[test]
+    fn committed_gen_artifacts_current() {
+        pakeles_testkit::committed_artifacts_current(&ir(), dir());
+    }
+
+    #[test]
+    fn c_backend_conformance_full_suite() {
+        pakeles_testkit::c_backend_conformance(
+            &ir(),
+            pakeles_testkit::committed_suite(dir()).as_ref(),
+        );
+    }
+
+    #[test]
+    fn bpf_backend_conformance_full_suite() {
+        pakeles_testkit::bpf_backend_conformance(
+            &ir(),
+            pakeles_testkit::committed_suite(dir()).as_ref(),
+        );
+    }
+
+    #[test]
+    fn lua_backend_conformance_full_suite() {
+        let Some(suite) = pakeles_testkit::committed_suite(dir()) else {
+            return;
+        };
+        pakeles_testkit::lua_backend_conformance(&ir(), &suite, 20);
+    }
+
+    #[test]
+    fn bmv2_backend_conformance_byte_aligned() {
+        let Some(suite) = pakeles_testkit::committed_suite(dir()) else {
+            return;
+        };
+        pakeles_testkit::bmv2_backend_conformance(&ir(), &suite, 12);
     }
 }

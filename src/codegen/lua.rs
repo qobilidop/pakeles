@@ -194,7 +194,9 @@ pub fn generate_lua(ir: &pb::Ir) -> Result<String> {
     Ok(out)
 }
 
-fn instance_name(ex: &pb::Extract) -> &str {
+/// The display/instance name of an extract (defaults to its header
+/// type). Public for the conformance harness (pakeles-testkit).
+pub fn instance_name(ex: &pb::Extract) -> &str {
     if ex.instance.is_empty() {
         &ex.header_type
     } else {
@@ -742,28 +744,10 @@ fn key_bit_width(parser: &pb::Parser, key: &pb::Expr) -> Option<u32> {
     None
 }
 
-/// Run tshark with args, dropping root (root disables Lua scripts).
-#[cfg(test)]
-fn tshark_unprivileged(args: &[&str]) -> Result<std::process::Output> {
-    let script = r#"if [ "$(id -u)" = "0" ]; then
-  exec env HOME=/tmp setpriv --reuid=nobody --regid=nogroup --clear-groups tshark "$@"
-else
-  exec tshark "$@"
-fi"#;
-    Ok(std::process::Command::new("sh")
-        .arg("-c")
-        .arg(script)
-        .arg("tshark")
-        .args(args)
-        .output()?)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::examples::{
-        counted_items, dpdk_ptype, eth_ipvx_l4, katran_flow, linux_flow_dissector, sai_parser,
-    };
+    use crate::examples::eth_ipvx_l4;
 
     #[test]
     fn metadata_lua_emission() {
@@ -780,311 +764,15 @@ mod tests {
         assert!(!plain.contains("meta"));
     }
 
+    // The committed-dissector equality guards live with each example
+    // (tests/synthetic_gallery.rs and the example crates); this checks
+    // the generated shape.
     #[test]
-    fn committed_dissector_current() {
+    fn dissector_has_states_and_protofields() {
         let lua = generate_lua(&eth_ipvx_l4()).unwrap();
         assert!(lua.contains("function states.parse_ipv4"));
         assert!(lua.contains("ProtoField.ether"));
         assert!(lua.contains("[6] = \"TCP\""));
-        for (name, ir) in [
-            ("eth_ipvx_l4", eth_ipvx_l4()),
-            ("linux_flow_dissector", linux_flow_dissector()),
-            ("counted_items", counted_items()),
-            ("tlv_items", crate::examples::tlv_items()),
-            ("tls_clienthello", crate::examples::tls_clienthello()),
-            ("dpdk_ptype", dpdk_ptype()),
-            ("katran_flow", katran_flow()),
-            ("sai_parser", sai_parser()),
-        ] {
-            let lua = generate_lua(&ir).unwrap();
-            let committed = std::fs::read_to_string(format!(
-                "{}/gen/dissector.lua",
-                crate::examples::gallery_dir(name).unwrap()
-            ))
-            .unwrap();
-            assert_eq!(
-                lua, committed,
-                "examples/{name} dissector.lua drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
-            );
-        }
-    }
-
-    /// The full loop: symbolic vectors -> pcap -> tshark running our
-    /// generated dissector -> JSON diffed against expected fields.
-    fn generated_dissector_conformance_suite(ir: &pb::Ir, min_compared: usize) {
-        if std::process::Command::new("tshark")
-            .arg("--version")
-            .output()
-            .is_err()
-        {
-            eprintln!("skipping: tshark not available");
-            return;
-        }
-        let parser = ir.parser.as_ref().unwrap();
-        let name = parser.name.clone();
-        let proto = format!("pakeles_{}", parser.name);
-        let Some(suite) = crate::testvec::committed_suite_or_skip(&name) else {
-            return;
-        };
-        let (packets, indices) = crate::testvec::suite_to_packets(&suite);
-
-        let dir = std::env::temp_dir();
-        let lua_path = dir.join(format!("pakeles_conf_{name}_{}.lua", std::process::id()));
-        let pcap_path = dir.join(format!("pakeles_conf_{name}_{}.pcap", std::process::id()));
-        std::fs::write(&lua_path, generate_lua(ir).unwrap()).unwrap();
-        crate::pcapio::write_pcap(&pcap_path, &packets).unwrap();
-
-        let out = tshark_unprivileged(&[
-            "-X",
-            &format!("lua_script:{}", lua_path.display()),
-            "-r",
-            pcap_path.to_str().unwrap(),
-            "-T",
-            "json",
-        ])
-        .unwrap();
-        assert!(
-            out.status.success(),
-            "tshark failed: {}",
-            String::from_utf8_lossy(&out.stderr)
-        );
-        let dissected: Vec<serde_json::Value> = serde_json::from_slice(&out.stdout).unwrap();
-        assert_eq!(dissected.len(), packets.len());
-
-        let field_meta = |inst: &str, name: &str| -> Option<&pb::Field> {
-            parser.states.iter().find_map(|s| {
-                s.extracts.iter().find_map(|ex| {
-                    (instance_name(ex) == inst)
-                        .then(|| {
-                            parser
-                                .header_types
-                                .iter()
-                                .find(|h| h.name == ex.header_type)?
-                                .fields
-                                .iter()
-                                .find(|f| f.name == name)
-                        })
-                        .flatten()
-                })
-            })
-        };
-
-        let mut mismatches: Vec<String> = Vec::new();
-        let mut compared = 0usize;
-        for (dis, &vi) in dissected.iter().zip(&indices) {
-            let vector = &suite.vectors[vi];
-            let layers = &dis["_source"]["layers"];
-            assert!(
-                layers.get(&proto).is_some(),
-                "{}: our proto layer missing",
-                vector.id
-            );
-            // Accept vectors carry expected headers in the schema;
-            // reject vectors don't, so re-derive them from the
-            // reference interpreter (which the suite replay already
-            // validates).
-            let expected_headers = match vector.expected.as_ref().and_then(|e| e.outcome.as_ref()) {
-                Some(crate::testvec::pb::expected::Outcome::Accept(a)) => a
-                    .headers
-                    .iter()
-                    .map(|h| {
-                        (
-                            h.instance.clone(),
-                            h.fields
-                                .iter()
-                                .map(|f| (f.name.clone(), f.value.clone()))
-                                .collect::<Vec<_>>(),
-                        )
-                    })
-                    .collect::<Vec<_>>(),
-                _ => {
-                    let (bits, _) = crate::testvec::Bits::from_pb(vector.packet.as_ref().unwrap());
-                    let res = crate::interp::run_bits(ir, &bits).unwrap();
-                    headers_to_expected(&crate::codegen::c::last_headers_by_instance(&res.headers))
-                }
-            };
-            // A looped instance (e.g. `ext_opt`) appears more than once in
-            // an accept vector's schema-baked headers, but tshark's
-            // `-T json` collapses the repeated subtrees under duplicate
-            // keys to the last occurrence. Compare against the last
-            // occurrence per instance, keeping first-seen order. (The
-            // reject branch is already last-per-instance via
-            // `last_headers_by_instance`, so this is a no-op there.)
-            let expected_headers = {
-                let mut order: Vec<String> = Vec::new();
-                let mut latest: std::collections::HashMap<
-                    String,
-                    Vec<(String, Option<crate::testvec::pb::expected_field::Value>)>,
-                > = std::collections::HashMap::new();
-                for (inst, fields) in expected_headers {
-                    if !latest.contains_key(&inst) {
-                        order.push(inst.clone());
-                    }
-                    latest.insert(inst, fields);
-                }
-                order
-                    .into_iter()
-                    .map(|inst| {
-                        let fields = latest.remove(&inst).unwrap();
-                        (inst, fields)
-                    })
-                    .collect::<Vec<_>>()
-            };
-            for (inst, fields) in &expected_headers {
-                for (fname, fval) in fields {
-                    let key = format!("{proto}.{inst}.{fname}");
-                    let raw = crate::oracle::lookup(layers, &key);
-                    match fval {
-                        Some(crate::testvec::pb::expected_field::Value::Uint(want)) => {
-                            compared += 1;
-                            let format = field_meta(inst, fname)
-                                .and_then(|f| f.display.as_ref())
-                                .and_then(|d| pb::DisplayFormat::try_from(d.format).ok())
-                                .unwrap_or_default();
-                            let got = raw.and_then(|r| crate::oracle::normalize_typed(r, format));
-                            if got != Some(*want) {
-                                mismatches.push(format!(
-                                    "{}: {key} ours={want} tshark={raw:?}",
-                                    vector.id
-                                ));
-                            }
-                        }
-                        Some(crate::testvec::pb::expected_field::Value::BytesHex(want)) => {
-                            if want.is_empty() {
-                                continue; // zero-length fields aren't added
-                            }
-                            compared += 1;
-                            let got: String = raw
-                                .unwrap_or_default()
-                                .chars()
-                                .filter(|c| *c != ':')
-                                .collect::<String>()
-                                .to_lowercase();
-                            if got != *want {
-                                mismatches
-                                    .push(format!("{}: {key} ours={want} tshark={got}", vector.id));
-                            }
-                        }
-                        None => {}
-                    }
-                }
-            }
-            // Metadata is per-parse (not per header instance), so it
-            // sits outside the per-instance fold above.
-            if let Some(crate::testvec::pb::expected::Outcome::Accept(a)) =
-                vector.expected.as_ref().and_then(|e| e.outcome.as_ref())
-            {
-                for m in &a.metadata {
-                    let key = format!("{proto}.meta.{}", m.name);
-                    compared += 1;
-                    let raw = crate::oracle::lookup(layers, &key);
-                    let got = raw.and_then(crate::oracle::normalize);
-                    if got != Some(m.value) {
-                        mismatches.push(format!(
-                            "{}: {key} ours={} tshark={raw:?}",
-                            vector.id, m.value
-                        ));
-                    }
-                }
-            }
-        }
-        let _ = std::fs::remove_file(&lua_path);
-        let _ = std::fs::remove_file(&pcap_path);
-        assert!(
-            compared >= min_compared,
-            "suspiciously few comparisons: {compared}"
-        );
-        assert!(
-            mismatches.is_empty(),
-            "{} mismatches:\n{}",
-            mismatches.len(),
-            mismatches.join("\n")
-        );
-    }
-
-    #[test]
-    fn generated_dissector_conformance() {
-        // One-witness-per-path shrank the accept-vector set; ~128 field
-        // comparisons across eth_ipvx_l4's accept paths (floor guards
-        // against a silently-empty suite, not an exact count).
-        generated_dissector_conformance_suite(&eth_ipvx_l4(), 100);
-    }
-
-    #[test]
-    fn generated_dissector_conformance_flow_dissector() {
-        generated_dissector_conformance_suite(&linux_flow_dissector(), 400);
-    }
-
-    #[test]
-    fn generated_dissector_conformance_dpdk_ptype() {
-        generated_dissector_conformance_suite(&dpdk_ptype(), 200);
-    }
-
-    #[test]
-    fn generated_dissector_conformance_katran_flow() {
-        generated_dissector_conformance_suite(&katran_flow(), 20);
-    }
-
-    #[test]
-    fn generated_dissector_conformance_sai_parser() {
-        generated_dissector_conformance_suite(&sai_parser(), 20);
-    }
-
-    #[test]
-    fn generated_dissector_conformance_counted_items() {
-        // Small toy suite: a handful of accept vectors, each comparing
-        // count/item fields plus meta.done/meta.remaining — floor guards
-        // against a silently-empty suite, not an exact count.
-        generated_dissector_conformance_suite(&counted_items(), 3);
-    }
-
-    #[test]
-    fn generated_dissector_conformance_tlv_mini() {
-        // Sized-region loop in real tshark: exact-fill accepts (0/1/2
-        // items) compare item fields through the region machinery.
-        generated_dissector_conformance_suite(&crate::builder::tlv_mini(), 3);
-    }
-
-    #[test]
-    fn generated_dissector_conformance_tlv_items() {
-        generated_dissector_conformance_suite(&crate::examples::tlv_items(), 3);
-    }
-
-    #[test]
-    fn generated_dissector_conformance_tls_clienthello() {
-        generated_dissector_conformance_suite(&crate::examples::tls_clienthello(), 10);
-    }
-
-    type ExpectedFields = Vec<(String, Option<crate::testvec::pb::expected_field::Value>)>;
-
-    /// interp headers -> the (inst, fields) shape used above.
-    fn headers_to_expected(
-        headers: &[&crate::interp::ParsedHeader],
-    ) -> Vec<(String, ExpectedFields)> {
-        headers
-            .iter()
-            .map(|h| {
-                (
-                    h.instance.clone(),
-                    h.fields
-                        .iter()
-                        .map(|f| {
-                            let v = match &f.value {
-                                crate::interp::FieldValue::Uint(u) => {
-                                    crate::testvec::pb::expected_field::Value::Uint(*u)
-                                }
-                                crate::interp::FieldValue::Bytes(b) => {
-                                    crate::testvec::pb::expected_field::Value::BytesHex(
-                                        crate::testvec::hex_encode(b),
-                                    )
-                                }
-                            };
-                            (f.name.clone(), Some(v))
-                        })
-                        .collect(),
-                )
-            })
-            .collect()
     }
 
     #[test]

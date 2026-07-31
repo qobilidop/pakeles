@@ -1,9 +1,9 @@
 //! The `pakeles` CLI: thin dispatch onto library functions.
 
-use crate::interp::{FieldValue, Outcome};
-use crate::ir::pb;
 use anyhow::{Context, Result};
 use clap::{Parser as ClapParser, Subcommand};
+use pakeles::interp::{FieldValue, Outcome};
+use pakeles::ir::pb;
 use std::path::PathBuf;
 
 #[derive(ClapParser)]
@@ -150,7 +150,10 @@ enum Oracle {
         /// Vector suite (testvec JSON). Defaults to the gallery suite.
         #[arg(
             long,
-            default_value = "examples/synthetic/eth_ipvx_l4/conformance/vectors.json"
+            default_value = concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../examples/synthetic/eth_ipvx_l4/conformance/vectors.json"
+            )
         )]
         vectors: PathBuf,
     },
@@ -199,19 +202,19 @@ enum Oracle {
 
 fn load_ir(path: &Option<PathBuf>) -> Result<pb::Ir> {
     match path {
-        None => Ok(crate::examples::eth_ipvx_l4()),
+        None => Ok(pakeles::examples::eth_ipvx_l4()),
         Some(p) => {
             let text = std::fs::read_to_string(p)
                 .with_context(|| format!("reading IR from {}", p.display()))?;
-            let ir = crate::ir::from_json(&text)?;
-            crate::ir::validate::validate(&ir)
+            let ir = pakeles::ir::from_json(&text)?;
+            pakeles::ir::validate::validate(&ir)
                 .map_err(|e| anyhow::anyhow!("invalid IR:\n  {}", e.join("\n  ")))?;
             Ok(ir)
         }
     }
 }
 
-fn result_json(idx: usize, res: &crate::interp::ParseResult) -> serde_json::Value {
+fn result_json(idx: usize, res: &pakeles::interp::ParseResult) -> serde_json::Value {
     let headers: Vec<serde_json::Value> = res
         .headers
         .iter()
@@ -245,8 +248,8 @@ fn result_json(idx: usize, res: &crate::interp::ParseResult) -> serde_json::Valu
             "bit_offset": e.bit_offset,
             "reason": e.reason,
             "severity": match e.severity {
-                crate::interp::Severity::Error => "error",
-                crate::interp::Severity::Info => "info",
+                pakeles::interp::Severity::Error => "error",
+                pakeles::interp::Severity::Info => "info",
             },
         })
     });
@@ -265,22 +268,22 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
     match cli.command {
         Command::Run { pcap, ir } => {
             let ir = load_ir(&ir)?;
-            for (idx, packet) in crate::pcapio::read_packets(&pcap)?.iter().enumerate() {
-                let res = crate::interp::run(&ir, packet)?;
+            for (idx, packet) in pakeles::pcapio::read_packets(&pcap)?.iter().enumerate() {
+                let res = pakeles::interp::run(&ir, packet)?;
                 println!("{}", result_json(idx, &res));
             }
             Ok(0)
         }
         Command::Viz { ir } => {
-            print!("{}", crate::viz::to_dot(&load_ir(&ir)?));
+            print!("{}", pakeles::viz::to_dot(&load_ir(&ir)?));
             Ok(0)
         }
         Command::Diff {
             oracle: Oracle::Bmv2 { ir, vectors },
         } => {
             let ir = load_ir(&ir)?;
-            let suite = crate::testvec::suite_from_json(&std::fs::read_to_string(&vectors)?)?;
-            let report = crate::oracle::bmv2::diff_suite(&ir, &suite)?;
+            let suite = pakeles::testvec::suite_from_json(&std::fs::read_to_string(&vectors)?)?;
+            let report = pakeles::oracle::bmv2::diff_suite(&ir, &suite)?;
             println!(
                 "{} vectors compared ({} bit-granular skipped, {} depth-bound skipped), {} mismatches",
                 report.compared,
@@ -297,24 +300,24 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             oracle: Oracle::Sai { ir, goldens },
         } => {
             let ir = match &ir {
-                None => crate::examples::sai_parser(),
+                None => pakeles_example_sai_parser::ir(),
                 Some(_) => load_ir(&ir)?,
             };
             let goldens = match goldens {
                 Some(p) => p,
-                None => crate::oracle::sai_parser::discover_committed_golden(std::path::Path::new(
-                    crate::oracle::sai_parser::CONFORMANCE_DIR,
-                ))
+                None => pakeles_example_sai_parser::discover_committed_golden(
+                    &pakeles_example_sai_parser::conformance_dir(),
+                )
                 .context(
                     "no --goldens given and no committed sai.*.golden.json \
                      found under examples/real_world/sai_parser/conformance/",
                 )?,
             };
-            let golden: crate::oracle::sai_parser::GoldenFile = serde_json::from_str(
+            let golden: pakeles_example_sai_parser::GoldenFile = serde_json::from_str(
                 &std::fs::read_to_string(&goldens)
                     .with_context(|| format!("reading sai goldens from {}", goldens.display()))?,
             )?;
-            let report = crate::oracle::sai_parser::diff_goldens(&ir, &golden)?;
+            let report = pakeles_example_sai_parser::diff_goldens(&ir, &golden)?;
             println!(
                 "{} vectors compared, {} mismatches",
                 report.compared,
@@ -329,24 +332,24 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             oracle: Oracle::Katran { ir, goldens },
         } => {
             let ir = match &ir {
-                None => crate::examples::katran_flow(),
+                None => pakeles_example_katran_flow::ir(),
                 Some(_) => load_ir(&ir)?,
             };
             let goldens = match goldens {
                 Some(p) => p,
-                None => crate::oracle::katran_flow::discover_committed_golden(
-                    std::path::Path::new(crate::oracle::katran_flow::CONFORMANCE_DIR),
+                None => pakeles_example_katran_flow::discover_committed_golden(
+                    &pakeles_example_katran_flow::conformance_dir(),
                 )
                 .context(
                     "no --goldens given and no committed katran.*.golden.json \
                      found under examples/real_world/katran_flow/conformance/",
                 )?,
             };
-            let golden: crate::oracle::katran_flow::GoldenFile =
+            let golden: pakeles_example_katran_flow::GoldenFile =
                 serde_json::from_str(&std::fs::read_to_string(&goldens).with_context(|| {
                     format!("reading katran goldens from {}", goldens.display())
                 })?)?;
-            let report = crate::oracle::katran_flow::diff_goldens(&ir, &golden)?;
+            let report = pakeles_example_katran_flow::diff_goldens(&ir, &golden)?;
             println!(
                 "{} vectors compared, {} mismatches",
                 report.compared,
@@ -361,24 +364,24 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             oracle: Oracle::TlsClienthello { ir, goldens },
         } => {
             let ir = match &ir {
-                None => crate::examples::tls_clienthello(),
+                None => pakeles_example_tls_clienthello::ir(),
                 Some(_) => load_ir(&ir)?,
             };
             let goldens = match goldens {
                 Some(p) => p,
-                None => crate::oracle::tls_clienthello::discover_committed_golden(
-                    std::path::Path::new(crate::oracle::tls_clienthello::CONFORMANCE_DIR),
+                None => pakeles_example_tls_clienthello::discover_committed_golden(
+                    &pakeles_example_tls_clienthello::conformance_dir(),
                 )
                 .context(
                     "no --goldens given and no committed clienthello.rustls-*.golden.json \
                      found under examples/real_world/tls_clienthello/conformance/",
                 )?,
             };
-            let golden: crate::oracle::tls_clienthello::GoldenFile =
+            let golden: pakeles_example_tls_clienthello::GoldenFile =
                 serde_json::from_str(&std::fs::read_to_string(&goldens).with_context(|| {
                     format!("reading tls-clienthello goldens from {}", goldens.display())
                 })?)?;
-            let report = crate::oracle::tls_clienthello::diff_goldens(&ir, &golden)?;
+            let report = pakeles_example_tls_clienthello::diff_goldens(&ir, &golden)?;
             println!(
                 "{} vectors compared, {} mismatches",
                 report.compared,
@@ -393,24 +396,24 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             oracle: Oracle::DpdkPtype { ir, goldens },
         } => {
             let ir = match &ir {
-                None => crate::examples::dpdk_ptype(),
+                None => pakeles_example_dpdk_ptype::ir(),
                 Some(_) => load_ir(&ir)?,
             };
             let goldens = match goldens {
                 Some(p) => p,
-                None => crate::oracle::dpdk_ptype::discover_committed_golden(std::path::Path::new(
-                    crate::oracle::dpdk_ptype::CONFORMANCE_DIR,
-                ))
+                None => pakeles_example_dpdk_ptype::discover_committed_golden(
+                    &pakeles_example_dpdk_ptype::conformance_dir(),
+                )
                 .context(
                     "no --goldens given and no committed ptype.dpdk-*.golden.json \
                      found under examples/real_world/dpdk_ptype/conformance/",
                 )?,
             };
-            let golden: crate::oracle::dpdk_ptype::GoldenFile =
+            let golden: pakeles_example_dpdk_ptype::GoldenFile =
                 serde_json::from_str(&std::fs::read_to_string(&goldens).with_context(|| {
                     format!("reading dpdk-ptype goldens from {}", goldens.display())
                 })?)?;
-            let report = crate::oracle::dpdk_ptype::diff_goldens(&ir, &golden)?;
+            let report = pakeles_example_dpdk_ptype::diff_goldens(&ir, &golden)?;
             println!(
                 "{} vectors compared, {} mismatches",
                 report.compared,
@@ -425,24 +428,24 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             oracle: Oracle::FlowDissector { ir, goldens },
         } => {
             let ir = match &ir {
-                None => crate::examples::linux_flow_dissector(),
+                None => pakeles_example_linux_flow_dissector::ir(),
                 Some(_) => load_ir(&ir)?,
             };
             let goldens = match goldens {
                 Some(p) => p,
-                None => crate::oracle::linux_flow_dissector::discover_committed_golden(
-                    std::path::Path::new(crate::oracle::linux_flow_dissector::CONFORMANCE_DIR),
+                None => pakeles_example_linux_flow_dissector::discover_committed_golden(
+                    &pakeles_example_linux_flow_dissector::conformance_dir(),
                 )
                 .context(
                     "no --goldens given and no committed flow_keys.linux-*.golden.json \
                      found under examples/real_world/linux_flow_dissector/conformance/",
                 )?,
             };
-            let golden: crate::oracle::linux_flow_dissector::GoldenFile =
+            let golden: pakeles_example_linux_flow_dissector::GoldenFile =
                 serde_json::from_str(&std::fs::read_to_string(&goldens).with_context(|| {
                     format!("reading flow-dissector goldens from {}", goldens.display())
                 })?)?;
-            let report = crate::oracle::linux_flow_dissector::diff_goldens(&ir, &golden)?;
+            let report = pakeles_example_linux_flow_dissector::diff_goldens(&ir, &golden)?;
             println!(
                 "{} vectors compared, {} mismatches",
                 report.compared,
@@ -456,7 +459,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
         Command::Diff {
             oracle: Oracle::Tshark { pcap, ir },
         } => {
-            let report = crate::oracle::diff_pcap(&load_ir(&ir)?, &pcap)?;
+            let report = pakeles::oracle::diff_pcap(&load_ir(&ir)?, &pcap)?;
             println!(
                 "{} packets, {} fields compared, {} mismatches",
                 report.packets,
@@ -473,7 +476,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
         }
         #[cfg(feature = "symex")]
         Command::Lint { ir } => {
-            let findings = crate::symex::lint::lint(&load_ir(&ir)?)?;
+            let findings = pakeles::symex::lint::lint(&load_ir(&ir)?)?;
             for f in &findings {
                 println!("{}: {}", f.location, f.message);
             }
@@ -484,7 +487,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
         }
         #[cfg(feature = "symex")]
         Command::Cov { pcap, ir } => {
-            let cov = crate::symex::cov::coverage(&load_ir(&ir)?, &pcap)?;
+            let cov = pakeles::symex::cov::coverage(&load_ir(&ir)?, &pcap)?;
             println!(
                 "{} packets exercised {}/{} paths",
                 cov.packets,
@@ -499,8 +502,8 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
         }
         #[cfg(feature = "symex")]
         Command::Testgen { ir, out, pcap_out } => {
-            let suite = crate::symex::testgen::generate(&load_ir(&ir)?)?;
-            let json = crate::testvec::suite_to_json(&suite)?;
+            let suite = pakeles::symex::testgen::generate(&load_ir(&ir)?)?;
+            let json = pakeles::testvec::suite_to_json(&suite)?;
             if out.as_os_str() == "-" {
                 println!("{json}");
             } else {
@@ -508,8 +511,8 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
                 eprintln!("wrote {} vectors to {}", suite.vectors.len(), out.display());
             }
             if let Some(pcap) = pcap_out {
-                let (packets, indices) = crate::testvec::suite_to_packets(&suite);
-                crate::pcapio::write_pcap(&pcap, &packets)?;
+                let (packets, indices) = pakeles::testvec::suite_to_packets(&suite);
+                pakeles::pcapio::write_pcap(&pcap, &packets)?;
                 eprintln!(
                     "wrote {} byte-aligned vectors to {} ({} bit-granular vectors skipped)",
                     packets.len(),
@@ -520,7 +523,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             Ok(0)
         }
         Command::Doc { ir, out } => {
-            let md = crate::docgen::generate_markdown(&load_ir(&ir)?)?;
+            let md = pakeles::docgen::generate_markdown(&load_ir(&ir)?)?;
             if out.as_os_str() == "-" {
                 print!("{md}");
             } else {
@@ -531,7 +534,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
         Command::Gen {
             target: GenTarget::Lua { ir, out },
         } => {
-            let lua = crate::codegen::lua::generate_lua(&load_ir(&ir)?)?;
+            let lua = pakeles::codegen::lua::generate_lua(&load_ir(&ir)?)?;
             if out.as_os_str() == "-" {
                 print!("{lua}");
             } else {
@@ -542,7 +545,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
         Command::Gen {
             target: GenTarget::C { ir, out_dir },
         } => {
-            let arts = crate::codegen::c::generate_c(&load_ir(&ir)?)?;
+            let arts = pakeles::codegen::c::generate_c(&load_ir(&ir)?)?;
             std::fs::create_dir_all(&out_dir)?;
             std::fs::write(out_dir.join("parser.h"), arts.header)?;
             std::fs::write(out_dir.join("parser.c"), arts.source)?;
@@ -552,7 +555,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
         Command::Gen {
             target: GenTarget::Bpf { ir, out },
         } => {
-            let c = crate::codegen::c::generate_bpf(&load_ir(&ir)?)?;
+            let c = pakeles::codegen::c::generate_bpf(&load_ir(&ir)?)?;
             if out.as_os_str() == "-" {
                 print!("{c}");
             } else {
@@ -563,7 +566,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
         Command::Gen {
             target: GenTarget::P4 { ir, out },
         } => {
-            let p4 = crate::codegen::p4::generate_p4(&load_ir(&ir)?)?;
+            let p4 = pakeles::codegen::p4::generate_p4(&load_ir(&ir)?)?;
             if out.as_os_str() == "-" {
                 print!("{p4}");
             } else {
@@ -574,7 +577,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
         Command::FmtIr { ir, out } => {
             let text = std::fs::read_to_string(&ir)
                 .with_context(|| format!("reading IR from {}", ir.display()))?;
-            let canonical = crate::ir::to_json(&crate::ir::from_json(&text)?)?;
+            let canonical = pakeles::ir::to_json(&pakeles::ir::from_json(&text)?)?;
             if out.as_os_str() == "-" {
                 println!("{canonical}");
             } else {
@@ -583,13 +586,13 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             Ok(0)
         }
         Command::ExportIr { out, binary } => {
-            let ir = crate::examples::eth_ipvx_l4();
+            let ir = pakeles::examples::eth_ipvx_l4();
             if out.as_os_str() == "-" {
-                print!("{}", crate::ir::to_json(&ir)?);
+                print!("{}", pakeles::ir::to_json(&ir)?);
             } else if binary {
-                std::fs::write(&out, crate::ir::to_bytes(&ir))?;
+                std::fs::write(&out, pakeles::ir::to_bytes(&ir))?;
             } else {
-                std::fs::write(&out, crate::ir::to_json(&ir)?)?;
+                std::fs::write(&out, pakeles::ir::to_json(&ir)?)?;
             }
             Ok(0)
         }
@@ -600,9 +603,20 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
 mod tests {
     use super::main_with;
 
+    /// Repo-root-relative path (tests run with CWD = pakeles-cli/).
+    fn from_root(p: &str) -> String {
+        format!("{}/../{p}", env!("CARGO_MANIFEST_DIR"))
+    }
+
     #[test]
     fn run_on_fixture_ok() {
-        let code = main_with(&["pakeles", "run", "--pcap", "testdata/basic.pcap"]).unwrap();
+        let code = main_with(&[
+            "pakeles",
+            "run",
+            "--pcap",
+            &from_root("testdata/basic.pcap"),
+        ])
+        .unwrap();
         assert_eq!(code, 0);
     }
 
@@ -616,19 +630,25 @@ mod tests {
             eprintln!("skipping: tshark not available");
             return;
         }
-        let code =
-            main_with(&["pakeles", "diff", "tshark", "--pcap", "testdata/basic.pcap"]).unwrap();
+        let code = main_with(&[
+            "pakeles",
+            "diff",
+            "tshark",
+            "--pcap",
+            &from_root("testdata/basic.pcap"),
+        ])
+        .unwrap();
         assert_eq!(code, 0);
     }
 
     #[test]
     fn diff_flow_dissector_on_generated_golden_green() {
-        let ir = crate::examples::linux_flow_dissector();
-        let pkt = crate::fixtures::tcp_packet();
-        let keys = crate::oracle::linux_flow_dissector::project(&ir, &pkt)
+        let ir = pakeles_example_linux_flow_dissector::ir();
+        let pkt = pakeles::fixtures::tcp_packet();
+        let keys = pakeles_example_linux_flow_dissector::project(&ir, &pkt)
             .unwrap()
             .unwrap();
-        let golden = crate::oracle::linux_flow_dissector::GoldenFile {
+        let golden = pakeles_example_linux_flow_dissector::GoldenFile {
             kernel_version: "test".into(),
             keys_subset: vec![
                 "nhoff".into(),
@@ -636,9 +656,9 @@ mod tests {
                 "sport".into(),
                 "dport".into(),
             ],
-            entries: vec![crate::oracle::linux_flow_dissector::GoldenEntry {
+            entries: vec![pakeles_example_linux_flow_dissector::GoldenEntry {
                 packet_hex: pkt.iter().map(|b| format!("{b:02x}")).collect(),
-                disposition: crate::oracle::linux_flow_dissector::Disposition::Ok,
+                disposition: pakeles_example_linux_flow_dissector::Disposition::Ok,
                 keys: Some(keys),
             }],
         };
@@ -672,8 +692,8 @@ mod tests {
 
     #[test]
     fn fmt_ir_canonicalizes_mangled_json() {
-        let ir = crate::examples::eth_ipvx_l4();
-        let canonical = crate::ir::to_json(&ir).unwrap();
+        let ir = pakeles::examples::eth_ipvx_l4();
+        let canonical = pakeles::ir::to_json(&ir).unwrap();
         // Same document, hostile formatting: compact everything.
         let mangled =
             serde_json::to_string(&serde_json::from_str::<serde_json::Value>(&canonical).unwrap())
@@ -701,7 +721,7 @@ mod tests {
         let path = std::env::temp_dir().join("pakeles_export.json");
         let code = main_with(&["pakeles", "export-ir", "--out", path.to_str().unwrap()]).unwrap();
         assert_eq!(code, 0);
-        let ir = crate::ir::from_json(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(ir, crate::examples::eth_ipvx_l4());
+        let ir = pakeles::ir::from_json(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(ir, pakeles::examples::eth_ipvx_l4());
     }
 }

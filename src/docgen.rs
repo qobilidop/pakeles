@@ -170,16 +170,12 @@ mod tests {
         assert!(md.contains("sets meta.acc"), "{md}");
     }
 
+    // The committed-doc equality guard lives in tests/synthetic_gallery.rs
+    // (pakeles-testkit's committed_artifacts_current); this checks shape.
     #[test]
-    fn committed_doc_current() {
+    fn doc_has_field_tables_and_payload_note() {
         let md = super::generate_markdown(&crate::examples::eth_ipvx_l4()).unwrap();
         assert!(md.contains("| `ttl` | 8 | dec | Time to Live |"));
         assert!(md.contains("payload boundary"));
-        let committed =
-            std::fs::read_to_string("examples/synthetic/eth_ipvx_l4/gen/doc.md").unwrap();
-        assert_eq!(
-            md, committed,
-            "examples/ drifted; regenerate: ./dev.sh cargo run --bin gen_examples"
-        );
     }
 }

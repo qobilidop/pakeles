@@ -18,7 +18,7 @@
 //!                       unobservable on that rustls path, so it is not
 //!                       compared there.
 
-use crate::ir::pb;
+use pakeles::ir::pb;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -56,9 +56,9 @@ pub struct GoldenFile {
 
 /// Project our `tls_clienthello` parse to the diffable class.
 pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<OurClass> {
-    let res = crate::interp::run(ir, packet)?;
+    let res = pakeles::interp::run(ir, packet)?;
     match res.outcome {
-        crate::interp::Outcome::Accept => {
+        pakeles::interp::Outcome::Accept => {
             let sni = res
                 .headers
                 .iter()
@@ -68,18 +68,18 @@ pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<OurClass> {
                         .iter()
                         .find(|f| f.name == "name")
                         .map(|f| match &f.value {
-                            crate::interp::FieldValue::Bytes(b) => {
+                            pakeles::interp::FieldValue::Bytes(b) => {
                                 String::from_utf8_lossy(b).into_owned()
                             }
-                            crate::interp::FieldValue::Uint(u) => u.to_string(),
+                            pakeles::interp::FieldValue::Uint(u) => u.to_string(),
                         })
                 });
             Ok(OurClass::Accept { sni })
         }
-        crate::interp::Outcome::Reject { reason } if reason == "out of bounds" => {
+        pakeles::interp::Outcome::Reject { reason } if reason == "out of bounds" => {
             Ok(OurClass::Truncation)
         }
-        crate::interp::Outcome::Reject { reason } => Ok(OurClass::Structural { reason }),
+        pakeles::interp::Outcome::Reject { reason } => Ok(OurClass::Structural { reason }),
     }
 }
 
@@ -131,7 +131,26 @@ pub struct TlsDiffReport {
 }
 
 /// The conformance directory holding the committed goldens.
-pub const CONFORMANCE_DIR: &str = "examples/real_world/tls_clienthello/conformance";
+/// This example's directory (the crate manifest dir): the description,
+/// committed IR, `gen/`, `conformance/`, and `factory/` all live here.
+pub fn dir() -> &'static std::path::Path {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+}
+
+/// The committed conformance directory (goldens + vector suite).
+pub fn conformance_dir() -> std::path::PathBuf {
+    dir().join("conformance")
+}
+
+/// The example description, parsed from the committed IR (embedded at
+/// compile time).
+pub fn ir() -> pb::Ir {
+    pakeles::ir::from_json(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tls_clienthello.ir.json"
+    )))
+    .expect("committed tls_clienthello IR must parse")
+}
 
 /// Find the committed rustls-minted golden (`clienthello.rustls-*.golden.json`).
 pub fn discover_committed_golden(dir: &std::path::Path) -> Option<std::path::PathBuf> {
@@ -152,7 +171,7 @@ pub fn diff_goldens(ir: &pb::Ir, golden: &GoldenFile) -> anyhow::Result<TlsDiffR
         mismatches: Vec::new(),
     };
     for (i, e) in golden.entries.iter().enumerate() {
-        let pkt = crate::testvec::hex_decode(&e.hex)?;
+        let pkt = pakeles::testvec::hex_decode(&e.hex)?;
         report.compared += 1;
         let ours = project(ir, &pkt)?;
         if let Some(m) = check(&ours, e) {
@@ -172,8 +191,8 @@ mod gate_tests {
     /// the golden.
     #[test]
     fn committed_goldens_agree() {
-        let dir = std::path::Path::new(CONFORMANCE_DIR);
-        let golden_path = discover_committed_golden(dir).expect("a committed golden file exists");
+        let dir = conformance_dir();
+        let golden_path = discover_committed_golden(&dir).expect("a committed golden file exists");
         let g: GoldenFile =
             serde_json::from_str(&std::fs::read_to_string(golden_path).unwrap()).unwrap();
         assert!(
@@ -186,7 +205,7 @@ mod gate_tests {
             "corpus shrank: {} entries",
             g.entries.len()
         );
-        let report = diff_goldens(&crate::examples::tls_clienthello(), &g).unwrap();
+        let report = diff_goldens(&ir(), &g).unwrap();
         assert_eq!(report.compared, g.entries.len());
         assert!(
             report.mismatches.is_empty(),
@@ -201,8 +220,8 @@ mod project_tests {
     use super::*;
 
     fn p(hex: &str) -> OurClass {
-        let ir = crate::examples::tls_clienthello();
-        let pkt = crate::testvec::hex_decode(&hex.replace([' ', '\n'], "")).unwrap();
+        let ir = ir();
+        let pkt = pakeles::testvec::hex_decode(&hex.replace([' ', '\n'], "")).unwrap();
         project(&ir, &pkt).unwrap()
     }
 
@@ -295,5 +314,70 @@ mod project_tests {
                 reason: "not a handshake record".into()
             }
         );
+    }
+}
+
+#[cfg(test)]
+mod gallery_tests {
+    use super::*;
+
+    #[test]
+    fn embedded_ir_parses_and_validates() {
+        pakeles::ir::validate::validate(&ir()).unwrap();
+    }
+
+    /// The committed ir.json must be exactly what the Rust canonical
+    /// serializer emits — the anti-drift "canonical form" guard.
+    #[test]
+    fn committed_ir_json_is_canonical() {
+        let committed = std::fs::read_to_string(dir().join("tls_clienthello.ir.json")).unwrap();
+        let round = pakeles::ir::to_json(&pakeles::ir::from_json(&committed).unwrap()).unwrap();
+        assert_eq!(
+            round, committed,
+            "committed ir.json is not in canonical form; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
+    /// The mirrored .py must match the authoritative eDSL module.
+    #[test]
+    fn committed_py_example_current() {
+        let canonical = std::fs::read_to_string(
+            dir().join("../../../py/src/pakeles/examples/tls_clienthello.py"),
+        )
+        .unwrap();
+        let mirrored = std::fs::read_to_string(dir().join("tls_clienthello.py")).unwrap();
+        assert_eq!(
+            canonical, mirrored,
+            "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
+    #[test]
+    fn committed_gen_artifacts_current() {
+        pakeles_testkit::committed_artifacts_current(&ir(), dir());
+    }
+
+    #[test]
+    fn c_backend_conformance_full_suite() {
+        pakeles_testkit::c_backend_conformance(
+            &ir(),
+            pakeles_testkit::committed_suite(dir()).as_ref(),
+        );
+    }
+
+    #[test]
+    fn bpf_backend_conformance_full_suite() {
+        pakeles_testkit::bpf_backend_conformance(
+            &ir(),
+            pakeles_testkit::committed_suite(dir()).as_ref(),
+        );
+    }
+
+    #[test]
+    fn lua_backend_conformance_full_suite() {
+        let Some(suite) = pakeles_testkit::committed_suite(dir()) else {
+            return;
+        };
+        pakeles_testkit::lua_backend_conformance(&ir(), &suite, 10);
     }
 }

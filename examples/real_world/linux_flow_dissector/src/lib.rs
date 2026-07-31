@@ -1,7 +1,7 @@
 //! Flow-dissector differential oracle: our parse (projected to bpf_flow_keys)
 //! vs golden flow_keys captured from a flow dissector run in the kernel via
 //! BPF_PROG_TEST_RUN. Rung 0: eth/IPv4/IPv6/TCP/UDP subset.
-use crate::ir::pb;
+use pakeles::ir::pb;
 use serde::{Deserialize, Serialize};
 
 /// The rung-0 subset of `struct bpf_flow_keys`. Addresses are lowercase
@@ -69,33 +69,33 @@ pub struct GoldenFile {
 /// PROG(VLAN) rewrites keys->n_proto). `None` if the parse rejects (no flow key).
 #[allow(clippy::field_reassign_with_default)]
 pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Option<FlowKeys>> {
-    let res = crate::interp::run(ir, packet)?;
-    if !matches!(res.outcome, crate::interp::Outcome::Accept) {
+    let res = pakeles::interp::run(ir, packet)?;
+    if !matches!(res.outcome, pakeles::interp::Outcome::Accept) {
         return Ok(None);
     }
-    let field_u = |h: &crate::interp::ParsedHeader, f: &str| -> Option<u64> {
+    let field_u = |h: &pakeles::interp::ParsedHeader, f: &str| -> Option<u64> {
         h.fields
             .iter()
             .find(|x| x.name == f)
             .and_then(|x| match &x.value {
-                crate::interp::FieldValue::Uint(v) => Some(*v),
+                pakeles::interp::FieldValue::Uint(v) => Some(*v),
                 _ => None,
             })
     };
-    let field_bytes = |h: &crate::interp::ParsedHeader, f: &str| -> Option<Vec<u8>> {
+    let field_bytes = |h: &pakeles::interp::ParsedHeader, f: &str| -> Option<Vec<u8>> {
         h.fields
             .iter()
             .find(|x| x.name == f)
             .and_then(|x| match &x.value {
-                crate::interp::FieldValue::Bytes(b) => Some(b.clone()),
+                pakeles::interp::FieldValue::Bytes(b) => Some(b.clone()),
                 _ => None,
             })
     };
 
     // One pass in extraction order, tracking the positional writers.
-    let mut first_ip: Option<&crate::interp::ParsedHeader> = None; // nhoff
-    let mut last_ip: Option<&crate::interp::ParsedHeader> = None; // addr_proto + addresses
-    let mut last_v6: Option<&crate::interp::ParsedHeader> = None; // flow_label (only PROG(IPV6) writes it)
+    let mut first_ip: Option<&pakeles::interp::ParsedHeader> = None; // nhoff
+    let mut last_ip: Option<&pakeles::interp::ParsedHeader> = None; // addr_proto + addresses
+    let mut last_v6: Option<&pakeles::interp::ParsedHeader> = None; // flow_label (only PROG(IPV6) writes it)
     let mut last_next_proto: Option<u64> = None; // ip_proto
     let mut vlans_after_first_ip: u16 = 0; // nhoff (PROG(VLAN) advances it)
     for h in &res.headers {
@@ -275,7 +275,26 @@ fn field_pair(name: &str, ours: &FlowKeys, golden: &FlowKeys) -> (String, String
 /// The conformance directory holding the committed goldens, shared by the
 /// CLI's default `--goldens` resolution and the `committed_goldens_agree`
 /// gate test.
-pub const CONFORMANCE_DIR: &str = "examples/real_world/linux_flow_dissector/conformance";
+/// This example's directory (the crate manifest dir): the description,
+/// committed IR, `gen/`, `conformance/`, and `factory/` all live here.
+pub fn dir() -> &'static std::path::Path {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+}
+
+/// The committed conformance directory (goldens + vector suite).
+pub fn conformance_dir() -> std::path::PathBuf {
+    dir().join("conformance")
+}
+
+/// The example description, parsed from the committed IR (embedded at
+/// compile time).
+pub fn ir() -> pb::Ir {
+    pakeles::ir::from_json(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/linux_flow_dissector.ir.json"
+    )))
+    .expect("committed linux_flow_dissector IR must parse")
+}
 
 /// Find the committed kernel-captured golden file under `dir` (filename
 /// starts with `flow_keys.linux-`). Shared by the CLI's default `--goldens`
@@ -302,7 +321,7 @@ pub fn diff_goldens(ir: &pb::Ir, golden: &GoldenFile) -> anyhow::Result<FlowDiff
         mismatches: Vec::new(),
     };
     for (i, e) in golden.entries.iter().enumerate() {
-        let pkt = crate::testvec::hex_decode(&e.packet_hex)?;
+        let pkt = pakeles::testvec::hex_decode(&e.packet_hex)?;
         let ours = project(ir, &pkt)?;
         report.compared += 1;
         match (e.disposition, ours) {
@@ -360,12 +379,12 @@ mod project_tests {
     use super::*;
 
     fn hexpkt(s: &str) -> Vec<u8> {
-        crate::testvec::hex_decode(s).unwrap()
+        pakeles::testvec::hex_decode(s).unwrap()
     }
 
     #[test]
     fn projects_single_vlan_v4_tcp() {
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff112233445566810000640800\
              45000028123440004006dead0a0000010a000002303901bb\
@@ -383,7 +402,7 @@ mod project_tests {
 
     #[test]
     fn projects_qinq_v4_tcp() {
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff11223344556688a80064810000650800\
              45000028123440004006dead0a0000010a000002303901bb\
@@ -398,7 +417,7 @@ mod project_tests {
 
     #[test]
     fn projects_mpls_stop() {
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff112233445566884700064140\
              45000028123440004006dead0a0000010a000002303901bb\
@@ -418,7 +437,7 @@ mod project_tests {
 
     #[test]
     fn projects_vlan_then_mpls() {
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff11223344556681000064884700064140\
              45000028123440004006dead0a0000010a000002303901bb\
@@ -433,7 +452,7 @@ mod project_tests {
 
     #[test]
     fn triple_tag_rejects() {
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff11223344556688a800648100006581000066\
              080045000028123440004006dead0a0000010a000002303901bb\
@@ -444,8 +463,8 @@ mod project_tests {
 
     #[test]
     fn projects_v4_tcp_fixture() {
-        let ir = crate::examples::linux_flow_dissector();
-        let pkt = crate::fixtures::tcp_packet(); // eth/ipv4/tcp, sport 12345 dport 443
+        let ir = ir();
+        let pkt = pakeles::fixtures::tcp_packet(); // eth/ipv4/tcp, sport 12345 dport 443
         let k = project(&ir, &pkt).unwrap().unwrap();
         assert_eq!(k.nhoff, 14);
         assert_eq!(k.thoff, 34);
@@ -459,8 +478,8 @@ mod project_tests {
 
     #[test]
     fn projects_v6_tcp_fixture() {
-        let ir = crate::examples::linux_flow_dissector();
-        let pkt = crate::fixtures::ipv6_tcp_packet(); // eth/ipv6/tcp
+        let ir = ir();
+        let pkt = pakeles::fixtures::ipv6_tcp_packet(); // eth/ipv6/tcp
         let k = project(&ir, &pkt).unwrap().unwrap();
         assert_eq!(k.nhoff, 14);
         assert_eq!(k.thoff, 54);
@@ -476,8 +495,8 @@ mod project_tests {
 
     #[test]
     fn projects_v4_udp_fixture() {
-        let ir = crate::examples::linux_flow_dissector();
-        let pkt = crate::fixtures::udp_packet(); // eth/ipv4/udp, sport 12345 dport 443
+        let ir = ir();
+        let pkt = pakeles::fixtures::udp_packet(); // eth/ipv4/udp, sport 12345 dport 443
         let k = project(&ir, &pkt).unwrap().unwrap();
         assert_eq!(k.nhoff, 14);
         assert_eq!(k.thoff, 34);
@@ -502,7 +521,7 @@ mod project_tests {
         // eth/IPv6(nexthdr=0 HopByHop)/HopByHop(hdr_ext_len=0, nexthdr=6)/TCP
         // ipv6: 60000000 | plen=001c(28=8+20) | nh=00 | hlim=40 | src | dst
         // hopopt: nh=06 hel=00 body=000000000000  (8 bytes)
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff11223344556686dd\
              60000000001c0040\
@@ -529,7 +548,7 @@ mod project_tests {
         // eth/IPv6(nexthdr=44 Fragment)/Fragment(frag_off=0, nexthdr=6) — stops
         // ipv6: 60000000 | plen=0008 | nh=2c | hlim=40 | src | dst
         // frag: nh=06 res=00 [frag_off=0/res2=0/m=0 => 0000] id=00000001
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff11223344556686dd\
              6000000000082c40\
@@ -553,7 +572,7 @@ mod project_tests {
     fn projects_ipv6_frag_later() {
         // eth/IPv6(nexthdr=44)/Fragment(frag_off=1, m_flag=1) — non-first frag.
         // frag 2-byte offset field = (frag_off<<3)|(res2<<1)|m = (1<<3)|1 = 0x0009
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff11223344556686dd\
              6000000000082c40\
@@ -578,7 +597,7 @@ mod project_tests {
         // destopts: nh=00 hel=00 body=6*00      (8 bytes)
         // hopopt:   nh=11 hel=00 body=6*00      (8 bytes)  (0x11 = 17)
         // udp:      sport=3039 dport=01bb len=0008 csum=0000
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff11223344556686dd\
              6000000000183c40\
@@ -604,7 +623,7 @@ mod project_tests {
         // eth/IPv6(flow_label=0x12345, nexthdr=6)/TCP — flow_label recorded,
         // no early stop under default flags.
         // ver/tc/fl word: version=6, tc=0, flow_label=0x12345 => 0x60012345
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff11223344556686dd\
              6001234500140640\
@@ -630,7 +649,7 @@ mod project_tests {
     #[test]
     fn projects_ipip_v4_in_v4() {
         // eth/IPv4(proto=4)/IPv4(proto=6)/TCP — inner addresses win.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff1122334455660800\
              4500003c123440004004dead0a0000010a000002\
@@ -654,7 +673,7 @@ mod project_tests {
     fn projects_ip6ip_v6_in_v4() {
         // eth/IPv4(proto=41)/IPv6(nh=6)/TCP — mixed family: n_proto stays
         // the OUTER family, addr_proto flips to the inner one.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff1122334455660800\
              45000050123440004029dead0a0000010a000002\
@@ -682,7 +701,7 @@ mod project_tests {
         // eth/IPv6(fl=0x12345, nh=4)/IPv4(proto=17)/UDP — the inner v4
         // overwrites the address union but NOT flow_label (only PROG(IPV6)
         // writes it, bpf_flow.c:338).
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff11223344556686dd\
              60012345001c0440\
@@ -709,7 +728,7 @@ mod project_tests {
     fn projects_ip6ip_v6_in_v6_inner_wins() {
         // eth/IPv6(fl=0x11111, nh=41, ..0001/..0002)/IPv6(fl=0x22222,
         // nh=17, ..0003/..0004)/UDP — inner label AND inner addresses win.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff11223344556686dd\
              6001111100302940\
@@ -734,7 +753,7 @@ mod project_tests {
     fn projects_double_encap_innermost_wins() {
         // eth/IPv4(p=4, 0a..)/IPv4(p=4, ac10..)/IPv4(p=6, c0a8..)/TCP —
         // three stacked ipv4 instances; the innermost writes last.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff1122334455660800\
              45000050123440004004dead0a0000010a000002\
@@ -755,7 +774,7 @@ mod project_tests {
     fn projects_tunnel_behind_ext_chain() {
         // eth/IPv6(nh=0)/HopByHop(nh=4)/IPv4/TCP — the chain's LAST link
         // carries the tunnel proto; re-entry from parse_ipv6_opt.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff11223344556686dd\
              6000000000300040\
@@ -779,7 +798,7 @@ mod project_tests {
     fn projects_tunnel_behind_qinq() {
         // eth/AD/Q/IPv4(p=4)/IPv4/TCP — nhoff stays at the OUTER L3 start
         // past both tags; n_proto from the final tag.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff11223344556688a80064810000650800\
              4500003c123440004004dead0a0000010a000002\
@@ -799,7 +818,7 @@ mod project_tests {
         // eth/IPv6(nh=44)/Frag(nh=41, off=0) — the fragment is terminal
         // under default flags: the tunnel arm is never reached, so
         // is_encap stays FALSE while ip_proto records 41.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff11223344556686dd\
              6000000000082c40\
@@ -822,7 +841,7 @@ mod project_tests {
     fn projects_fragmented_inner() {
         // eth/IPv4(p=41)/IPv6(nh=44)/Frag(nh=6) — encap happened, THEN the
         // inner fragment stopped: is_encap AND is_frag.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff1122334455660800\
              45000044123440004029dead0a0000010a000002\
@@ -846,7 +865,7 @@ mod project_tests {
     fn projects_inner_ext_chain() {
         // eth/IPv4(p=41)/IPv6(nh=0)/HopByHop(nh=6)/TCP — ext-chain walk
         // inside the tunnel.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff1122334455660800\
              45000058123440004029dead0a0000010a000002\
@@ -870,8 +889,8 @@ mod project_tests {
     #[test]
     fn non_tunnel_parses_report_no_encap() {
         // Regression guard: the plain fixture path never sets is_encap.
-        let ir = crate::examples::linux_flow_dissector();
-        let k = project(&ir, &crate::fixtures::tcp_packet())
+        let ir = ir();
+        let k = project(&ir, &pakeles::fixtures::tcp_packet())
             .unwrap()
             .unwrap();
         assert!(!k.is_encap);
@@ -885,7 +904,7 @@ mod project_tests {
     #[test]
     fn projects_gre_v4_tcp() {
         // eth/IPv4(p=47)/GRE(v0, no flags, proto=0x0800)/IPv4/TCP
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff1122334455660800\
              4500004012344000402fdead0a0000010a000002\
@@ -910,7 +929,7 @@ mod project_tests {
     fn projects_gre_v6_udp() {
         // eth/IPv6(nh=47)/GRE(v0, proto=0x86DD)/IPv6/UDP — inner v6 wins
         // addresses AND flow_label (0x12345).
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff11223344556686dd\
              6000000000342f40\
@@ -939,7 +958,7 @@ mod project_tests {
     #[test]
     fn projects_gre_csum() {
         // GRE with C set: 4 bytes of checksum+pad before the inner IPv4.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff1122334455660800\
              4500004412344000402fdead0a0000010a000002\
@@ -958,7 +977,7 @@ mod project_tests {
     #[test]
     fn projects_gre_key_seq() {
         // GRE with K+S set: 8 optional bytes.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff1122334455660800\
              4500004812344000402fdead0a0000010a000002\
@@ -976,7 +995,7 @@ mod project_tests {
     #[test]
     fn projects_gre_all_flags() {
         // GRE with C+K+S set: 12 optional bytes.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff1122334455660800\
              4500004c12344000402fdead0a0000010a000002\
@@ -997,7 +1016,7 @@ mod project_tests {
         // ordering — version!=0 exports BPF_OK before the optional region
         // is ever read, so the missing optionals are invisible. thoff
         // stays at the GRE base start; no is_encap; ports 0.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff1122334455660800\
              4500001812344000402fdead0a0000010a000002\
@@ -1019,7 +1038,7 @@ mod project_tests {
     #[test]
     fn projects_gre_teb() {
         // TEB (0x6558): inner Ethernet re-enters the top dispatcher.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff1122334455660800\
              4500004e12344000402fdead0a0000010a000002\
@@ -1045,7 +1064,7 @@ mod project_tests {
         // INNER tag too, so n_proto = the inner tag's encapsulated proto
         // (0x86DD) even though the outer family is IPv4 — the rule that
         // makes n_proto "LAST vlan_q", not "first".
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff1122334455660800\
              4500006612344000402fdead0a0000010a000002\
@@ -1073,7 +1092,7 @@ mod project_tests {
     #[test]
     fn projects_gre_behind_ipip() {
         // Mixed-arm double encap: eth/IPv4(p=4)/IPv4(p=47)/GRE/IPv4/TCP.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff1122334455660800\
              45000054123440004004dead0a0000010a000002\
@@ -1097,7 +1116,7 @@ mod project_tests {
         // TEB + inner Ethernet carrying MPLS: PROG(MPLS) read-and-stop —
         // thoff at the MPLS start, outer IP keys persist, ip_proto stays
         // 47 (the outer protocol that dispatched to GRE), ports 0.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff1122334455660800\
              4500002a12344000402fdead0a0000010a000002\
@@ -1120,7 +1139,7 @@ mod project_tests {
     #[test]
     fn gre_truncated_base_rejects() {
         // Only 2 of the 4 GRE base bytes present: header read fails, DROP.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff1122334455660800\
              4500001812344000402fdead0a0000010a000002\
@@ -1134,7 +1153,7 @@ mod project_tests {
         // version 0, C set, optionals present, inner IPv4 truncated: the
         // kernel's optionals are thoff arithmetic (not reads) — the drop
         // comes from the INNER header read failing.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff1122334455660800\
              4500002612344000402fdead0a0000010a000002\
@@ -1148,7 +1167,7 @@ mod project_tests {
     #[test]
     fn gre_teb_truncated_inner_eth_rejects() {
         // TEB with only 8 of the 14 inner Ethernet bytes: DROP both sides.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff1122334455660800\
              4500002012344000402fdead0a0000010a000002\
@@ -1161,7 +1180,7 @@ mod project_tests {
     #[test]
     fn gre_arp_rejects() {
         // ARP-over-GRE: proto 0x0806 hits the dispatcher default, DROP.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let pkt = hexpkt(
             "aabbccddeeff1122334455660800\
              4500003412344000402fdead0a0000010a000002\
@@ -1177,8 +1196,8 @@ mod project_tests {
 mod diff_tests {
     use super::*;
     fn golden_from_fixture() -> GoldenFile {
-        let ir = crate::examples::linux_flow_dissector();
-        let pkt = crate::fixtures::tcp_packet();
+        let ir = ir();
+        let pkt = pakeles::fixtures::tcp_packet();
         let keys = super::project(&ir, &pkt).unwrap().unwrap();
         GoldenFile {
             kernel_version: "test".into(),
@@ -1197,14 +1216,14 @@ mod diff_tests {
     }
     #[test]
     fn diff_green_on_self() {
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let report = diff_goldens(&ir, &golden_from_fixture()).unwrap();
         assert_eq!(report.compared, 1);
         assert!(report.mismatches.is_empty(), "{:#?}", report.mismatches);
     }
     #[test]
     fn diff_catches_mismatch() {
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let mut g = golden_from_fixture();
         g.entries[0].keys.as_mut().unwrap().dport = 1; // corrupt
         let report = diff_goldens(&ir, &g).unwrap();
@@ -1213,7 +1232,7 @@ mod diff_tests {
     #[test]
     fn drop_entry_agrees_when_we_reject() {
         // ARP ethertype: kernel drops, our parse rejects — agreement.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let mut g = golden_from_fixture();
         g.entries[0].packet_hex = "aabbccddeeff1122334455660806000108000604000111223344\
              55660a000001aabbccddeeff0a000002"
@@ -1227,7 +1246,7 @@ mod diff_tests {
     #[test]
     fn drop_entry_mismatches_when_we_accept() {
         // Kernel claims drop on a packet we accept -> disagreement.
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let mut g = golden_from_fixture();
         g.entries[0].disposition = Disposition::Drop;
         g.entries[0].keys = None;
@@ -1237,7 +1256,7 @@ mod diff_tests {
     }
     #[test]
     fn ok_entry_mismatches_when_we_reject() {
-        let ir = crate::examples::linux_flow_dissector();
+        let ir = ir();
         let mut g = golden_from_fixture();
         g.entries[0].packet_hex = "aabbcc".into(); // truncated -> we reject
         let report = diff_goldens(&ir, &g).unwrap();
@@ -1284,11 +1303,11 @@ mod gate_tests {
     /// green.
     #[test]
     fn committed_goldens_agree() {
-        let dir = std::path::Path::new(CONFORMANCE_DIR);
-        let golden_path = discover_committed_golden(dir).expect("a committed golden file exists");
+        let dir = conformance_dir();
+        let golden_path = discover_committed_golden(&dir).expect("a committed golden file exists");
         let g: GoldenFile =
             serde_json::from_str(&std::fs::read_to_string(golden_path).unwrap()).unwrap();
-        let report = diff_goldens(&crate::examples::linux_flow_dissector(), &g).unwrap();
+        let report = diff_goldens(&ir(), &g).unwrap();
         let ok = g
             .entries
             .iter()
@@ -1328,5 +1347,79 @@ mod gate_tests {
             "Pakeles disagrees with the kernel flow dissector:\n{}",
             report.mismatches.join("\n")
         );
+    }
+}
+
+#[cfg(test)]
+mod gallery_tests {
+    use super::*;
+
+    #[test]
+    fn embedded_ir_parses_and_validates() {
+        pakeles::ir::validate::validate(&ir()).unwrap();
+    }
+
+    /// The committed ir.json must be exactly what the Rust canonical
+    /// serializer emits — the anti-drift "canonical form" guard.
+    #[test]
+    fn committed_ir_json_is_canonical() {
+        let committed =
+            std::fs::read_to_string(dir().join("linux_flow_dissector.ir.json")).unwrap();
+        let round = pakeles::ir::to_json(&pakeles::ir::from_json(&committed).unwrap()).unwrap();
+        assert_eq!(
+            round, committed,
+            "committed ir.json is not in canonical form; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
+    /// The mirrored .py must match the authoritative eDSL module.
+    #[test]
+    fn committed_py_example_current() {
+        let canonical = std::fs::read_to_string(
+            dir().join("../../../py/src/pakeles/examples/linux_flow_dissector.py"),
+        )
+        .unwrap();
+        let mirrored = std::fs::read_to_string(dir().join("linux_flow_dissector.py")).unwrap();
+        assert_eq!(
+            canonical, mirrored,
+            "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
+    #[test]
+    fn committed_gen_artifacts_current() {
+        pakeles_testkit::committed_artifacts_current(&ir(), dir());
+    }
+
+    #[test]
+    fn c_backend_conformance_full_suite() {
+        pakeles_testkit::c_backend_conformance(
+            &ir(),
+            pakeles_testkit::committed_suite(dir()).as_ref(),
+        );
+    }
+
+    #[test]
+    fn bpf_backend_conformance_full_suite() {
+        pakeles_testkit::bpf_backend_conformance(
+            &ir(),
+            pakeles_testkit::committed_suite(dir()).as_ref(),
+        );
+    }
+
+    #[test]
+    fn lua_backend_conformance_full_suite() {
+        let Some(suite) = pakeles_testkit::committed_suite(dir()) else {
+            return;
+        };
+        pakeles_testkit::lua_backend_conformance(&ir(), &suite, 400);
+    }
+
+    #[test]
+    fn bmv2_backend_conformance_byte_aligned() {
+        let Some(suite) = pakeles_testkit::committed_suite(dir()) else {
+            return;
+        };
+        pakeles_testkit::bmv2_backend_conformance(&ir(), &suite, 90);
     }
 }

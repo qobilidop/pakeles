@@ -417,9 +417,9 @@ pub fn encap_proxy() -> pb::Ir {
 
 /// Shared metadata test IR (see the Interfaces block of the metadata-v1
 /// plan, Task 2): a count-prefixed accumulator loop with a constant write
-/// and select-on-metadata exits. Used by interp/symex/codegen tests.
-#[cfg(test)]
-pub(crate) fn meta_loop() -> pb::Ir {
+/// and select-on-metadata exits. Used by interp/symex/codegen tests and
+/// the testkit conformance battery (so not test-gated).
+pub fn meta_loop() -> pb::Ir {
     ParserBuilder::new("meta_loop", 6)
         .meta("flag", 1, 0)
         .meta("acc", 8, 0)
@@ -446,9 +446,9 @@ pub(crate) fn meta_loop() -> pb::Ir {
 /// Shared sized-region test IR (see the sized-region design doc's
 /// micro-example): `h.total` bounds a region of TLV items
 /// (t:u8, l:u8, val:bytes[l]); loop exits on remaining()==0 -> exact
-/// pop -> accept. Used by interp/symex/codegen tests.
-#[cfg(test)]
-pub(crate) fn tlv_mini() -> pb::Ir {
+/// pop -> accept. Used by interp/symex/codegen tests and the testkit
+/// conformance battery (so not test-gated).
+pub fn tlv_mini() -> pb::Ir {
     ParserBuilder::new("tlv_mini", 8)
         .header(HeaderTypeBuilder::new("h").bits("total", 8))
         .header(

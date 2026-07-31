@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 # Build + run the generated-C-in-DPDK spike (unprivileged, in dev.sh):
 #
-#   ./dev.sh oracle/dpdk_ptype/spike/run.sh [bench_iters]
+#   ./dev.sh examples/real_world/dpdk_ptype/spike/run.sh [bench_iters]
 #
 # Correctness + coverage over the golden corpus AND the full symex
 # witness set, then the benchmark over the corpus.
 set -euo pipefail
 cd "$(dirname "$0")"
-gen=../../../examples/real_world/dpdk_ptype/gen
+gen=../gen
 mkdir -p build
 gcc -O2 -I"$gen" -o build/spike spike.c "$gen/parser.c" $(pkg-config --cflags --libs libdpdk)
 python3 - <<'PY'
 import json
-s = json.load(open("../../../examples/real_world/dpdk_ptype/conformance/vectors.json"))
+s = json.load(open("../conformance/vectors.json"))
 seen, out = set(), []
 for v in s["vectors"]:
     bl = int(v["packet"]["bitLen"])

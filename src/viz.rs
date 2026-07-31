@@ -159,15 +159,11 @@ mod tests {
     use super::to_dot;
     use crate::examples::eth_ipvx_l4;
 
+    // The committed-dot equality guard lives in tests/synthetic_gallery.rs
+    // (pakeles-testkit's committed_artifacts_current); this checks shape.
     #[test]
-    fn committed_dot_current() {
+    fn dot_has_edges() {
         let dot = to_dot(&eth_ipvx_l4());
         assert!(dot.contains("\"parse_ipv4\" -> \"parse_tcp\""));
-        let committed =
-            std::fs::read_to_string("examples/synthetic/eth_ipvx_l4/gen/graph.dot").unwrap();
-        assert_eq!(
-            dot, committed,
-            "examples/ drifted; regenerate: ./dev.sh cargo run --bin gen_examples"
-        );
     }
 }

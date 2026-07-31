@@ -761,32 +761,6 @@ mod tests {
     }
 
     #[test]
-    fn committed_p4_artifact_current() {
-        for (name, ir) in [
-            ("eth_ipvx_l4", crate::examples::eth_ipvx_l4()),
-            (
-                "linux_flow_dissector",
-                crate::examples::linux_flow_dissector(),
-            ),
-            ("counted_items", crate::examples::counted_items()),
-            ("dpdk_ptype", crate::examples::dpdk_ptype()),
-            ("katran_flow", crate::examples::katran_flow()),
-            ("sai_parser", crate::examples::sai_parser()),
-        ] {
-            let p4 = generate_p4(&ir).unwrap();
-            let committed = std::fs::read_to_string(format!(
-                "{}/gen/parser.p4",
-                crate::examples::gallery_dir(name).unwrap()
-            ))
-            .unwrap();
-            assert_eq!(
-                p4, committed,
-                "examples/{name} parser.p4 drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
-            );
-        }
-    }
-
-    #[test]
     fn sized_region_ir_is_refused_by_design() {
         // The parity-plus boundary: a P4-16 parser cannot parse inside
         // a length-bounded window, so gen p4 refuses region IR loudly

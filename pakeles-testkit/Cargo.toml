@@ -1,0 +1,12 @@
+[package]
+name = "pakeles-testkit"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Shared conformance harnesses for the pakeles gallery: every backend a description compiles to, checked against the reference interpreter and the committed artifacts"
+
+[dependencies]
+pakeles = { path = "..", default-features = false }
+anyhow = "1"
+serde_json = "1"
+rbpf = "0.2"

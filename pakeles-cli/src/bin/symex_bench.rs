@@ -13,11 +13,11 @@ use std::time::Instant;
 fn ir_for(name: &str) -> anyhow::Result<pakeles::ir::pb::Ir> {
     Ok(match name {
         "eth_ipvx_l4" => pakeles::examples::eth_ipvx_l4(),
-        "linux_flow_dissector" => pakeles::examples::linux_flow_dissector(),
+        "linux_flow_dissector" => pakeles_example_linux_flow_dissector::ir(),
         "counted_items" => pakeles::examples::counted_items(),
-        "dpdk_ptype" => pakeles::examples::dpdk_ptype(),
-        "katran_flow" => pakeles::examples::katran_flow(),
-        "sai_parser" => pakeles::examples::sai_parser(),
+        "dpdk_ptype" => pakeles_example_dpdk_ptype::ir(),
+        "katran_flow" => pakeles_example_katran_flow::ir(),
+        "sai_parser" => pakeles_example_sai_parser::ir(),
         "encap_proxy" => pakeles::builder::encap_proxy(),
         _ => anyhow::bail!("unknown example `{name}` (gallery names or `encap_proxy`)"),
     })

@@ -11,7 +11,7 @@
 //! error path inverts src/dst and ports (katran's flow affinity for
 //! errors), driven by the `is_icmp` metadata bit.
 
-use crate::ir::pb;
+use pakeles::ir::pb;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -72,22 +72,22 @@ const F_ICMP: u8 = 1 << 0;
 const F_SYN_SET: u8 = 1 << 1;
 const F_RST_SET: u8 = 1 << 2;
 
-fn field_u(h: &crate::interp::ParsedHeader, f: &str) -> Option<u64> {
+fn field_u(h: &pakeles::interp::ParsedHeader, f: &str) -> Option<u64> {
     h.fields
         .iter()
         .find(|x| x.name == f)
         .and_then(|x| match &x.value {
-            crate::interp::FieldValue::Uint(v) => Some(*v),
+            pakeles::interp::FieldValue::Uint(v) => Some(*v),
             _ => None,
         })
 }
 
-fn field_bytes(h: &crate::interp::ParsedHeader, f: &str) -> Option<Vec<u8>> {
+fn field_bytes(h: &pakeles::interp::ParsedHeader, f: &str) -> Option<Vec<u8>> {
     h.fields
         .iter()
         .find(|x| x.name == f)
         .and_then(|x| match &x.value {
-            crate::interp::FieldValue::Bytes(b) => Some(b.clone()),
+            pakeles::interp::FieldValue::Bytes(b) => Some(b.clone()),
             _ => None,
         })
 }
@@ -106,12 +106,12 @@ fn v4_addr_hex(v: u64) -> String {
 
 /// Project our `katran_flow` parse to (verdict, stage, flow).
 pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Projection> {
-    let res = crate::interp::run(ir, packet)?;
+    let res = pakeles::interp::run(ir, packet)?;
 
     // A reject is always one of the modeled XDP_DROP causes (ihl!=5,
     // fragment, inner ihl!=5, truncation at/after L3) — the graph emits
     // no other reject.
-    if !matches!(res.outcome, crate::interp::Outcome::Accept) {
+    if !matches!(res.outcome, pakeles::interp::Outcome::Accept) {
         return Ok(Projection {
             verdict: Verdict::Drop,
             stage: 0,
@@ -259,7 +259,26 @@ pub struct KatranDiffReport {
 }
 
 /// The conformance directory holding the committed goldens.
-pub const CONFORMANCE_DIR: &str = "examples/real_world/katran_flow/conformance";
+/// This example's directory (the crate manifest dir): the description,
+/// committed IR, `gen/`, `conformance/`, and `factory/` all live here.
+pub fn dir() -> &'static std::path::Path {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+}
+
+/// The committed conformance directory (goldens + vector suite).
+pub fn conformance_dir() -> std::path::PathBuf {
+    dir().join("conformance")
+}
+
+/// The example description, parsed from the committed IR (embedded at
+/// compile time).
+pub fn ir() -> pb::Ir {
+    pakeles::ir::from_json(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/katran_flow.ir.json"
+    )))
+    .expect("committed katran_flow IR must parse")
+}
 
 /// Find the committed katran-minted golden file (`katran.<pin>.golden.json`).
 pub fn discover_committed_golden(dir: &std::path::Path) -> Option<std::path::PathBuf> {
@@ -283,7 +302,7 @@ pub fn diff_goldens(ir: &pb::Ir, golden: &GoldenFile) -> anyhow::Result<KatranDi
         mismatches: Vec::new(),
     };
     for (i, e) in golden.entries.iter().enumerate() {
-        let pkt = crate::testvec::hex_decode(&e.packet_hex)?;
+        let pkt = pakeles::testvec::hex_decode(&e.packet_hex)?;
         report.compared += 1;
         let ours = project(ir, &pkt)?;
         if ours.verdict != e.verdict {
@@ -326,8 +345,8 @@ mod gate_tests {
     /// edit the golden.
     #[test]
     fn committed_goldens_agree() {
-        let dir = std::path::Path::new(CONFORMANCE_DIR);
-        let golden_path = discover_committed_golden(dir).expect("a committed golden file exists");
+        let dir = conformance_dir();
+        let golden_path = discover_committed_golden(&dir).expect("a committed golden file exists");
         let g: GoldenFile =
             serde_json::from_str(&std::fs::read_to_string(golden_path).unwrap()).unwrap();
         assert!(
@@ -340,7 +359,7 @@ mod gate_tests {
             "corpus shrank: {} entries",
             g.entries.len()
         );
-        let report = diff_goldens(&crate::examples::katran_flow(), &g).unwrap();
+        let report = diff_goldens(&ir(), &g).unwrap();
         assert_eq!(report.compared, g.entries.len());
         assert!(
             report.mismatches.is_empty(),
@@ -355,8 +374,8 @@ mod project_tests {
     use super::*;
 
     fn p(hex: &str) -> Projection {
-        let ir = crate::examples::katran_flow();
-        let pkt = crate::testvec::hex_decode(&hex.replace([' ', '\n'], "")).unwrap();
+        let ir = ir();
+        let pkt = pakeles::testvec::hex_decode(&hex.replace([' ', '\n'], "")).unwrap();
         project(&ir, &pkt).unwrap()
     }
 
@@ -492,5 +511,77 @@ mod project_tests {
              3b00000000000001"
         ));
         assert_eq!(r.verdict, Verdict::Drop);
+    }
+}
+
+#[cfg(test)]
+mod gallery_tests {
+    use super::*;
+
+    #[test]
+    fn embedded_ir_parses_and_validates() {
+        pakeles::ir::validate::validate(&ir()).unwrap();
+    }
+
+    /// The committed ir.json must be exactly what the Rust canonical
+    /// serializer emits — the anti-drift "canonical form" guard.
+    #[test]
+    fn committed_ir_json_is_canonical() {
+        let committed = std::fs::read_to_string(dir().join("katran_flow.ir.json")).unwrap();
+        let round = pakeles::ir::to_json(&pakeles::ir::from_json(&committed).unwrap()).unwrap();
+        assert_eq!(
+            round, committed,
+            "committed ir.json is not in canonical form; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
+    /// The mirrored .py must match the authoritative eDSL module.
+    #[test]
+    fn committed_py_example_current() {
+        let canonical =
+            std::fs::read_to_string(dir().join("../../../py/src/pakeles/examples/katran_flow.py"))
+                .unwrap();
+        let mirrored = std::fs::read_to_string(dir().join("katran_flow.py")).unwrap();
+        assert_eq!(
+            canonical, mirrored,
+            "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
+    #[test]
+    fn committed_gen_artifacts_current() {
+        pakeles_testkit::committed_artifacts_current(&ir(), dir());
+    }
+
+    #[test]
+    fn c_backend_conformance_full_suite() {
+        pakeles_testkit::c_backend_conformance(
+            &ir(),
+            pakeles_testkit::committed_suite(dir()).as_ref(),
+        );
+    }
+
+    #[test]
+    fn bpf_backend_conformance_full_suite() {
+        pakeles_testkit::bpf_backend_conformance(
+            &ir(),
+            pakeles_testkit::committed_suite(dir()).as_ref(),
+        );
+    }
+
+    #[test]
+    fn lua_backend_conformance_full_suite() {
+        let Some(suite) = pakeles_testkit::committed_suite(dir()) else {
+            return;
+        };
+        pakeles_testkit::lua_backend_conformance(&ir(), &suite, 20);
+    }
+
+    #[test]
+    fn bmv2_backend_conformance_byte_aligned() {
+        let Some(suite) = pakeles_testkit::committed_suite(dir()) else {
+            return;
+        };
+        pakeles_testkit::bmv2_backend_conformance(&ir(), &suite, 12);
     }
 }

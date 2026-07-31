@@ -3,15 +3,10 @@
 //! boss — a mismatch means our description (or our semantics) is wrong
 //! until proven otherwise.
 
-// One module per incumbent, named exactly like its gallery example and
-// its golden factory: `examples/real_world/<X>/`, `oracle/<X>/`,
-// `src/oracle/<X>.rs`.
+// The incumbent-specific oracles live with their examples (one crate
+// per `examples/real_world/<X>/`); only the toolchain-generic oracles
+// (tshark below, BMv2 here) are part of the core.
 pub mod bmv2;
-pub mod dpdk_ptype;
-pub mod katran_flow;
-pub mod linux_flow_dissector;
-pub mod sai_parser;
-pub mod tls_clienthello;
 
 use crate::interp::{run, FieldValue, Outcome};
 use crate::ir::pb;
@@ -36,7 +31,7 @@ pub struct DiffReport {
 
 /// Parse tshark's string field rendering: `"0x0800"` (hex) or `"443"`
 /// (decimal). Anything else (addresses, times) is not comparable.
-pub(crate) fn normalize(raw: &str) -> Option<u64> {
+pub fn normalize(raw: &str) -> Option<u64> {
     if let Some(hex) = raw.strip_prefix("0x") {
         u64::from_str_radix(hex, 16).ok()
     } else {
@@ -46,7 +41,7 @@ pub(crate) fn normalize(raw: &str) -> Option<u64> {
 
 /// Format-aware normalization: addresses become their big-endian
 /// numeric value, everything else falls back to `normalize`.
-pub(crate) fn normalize_typed(raw: &str, format: pb::DisplayFormat) -> Option<u64> {
+pub fn normalize_typed(raw: &str, format: pb::DisplayFormat) -> Option<u64> {
     match format {
         pb::DisplayFormat::Ipv4 => {
             let octets: Vec<u64> = raw
@@ -74,7 +69,7 @@ pub(crate) fn normalize_typed(raw: &str, format: pb::DisplayFormat) -> Option<u6
 
 /// Find `key` in the layer object named by `key`'s prefix (before the
 /// first '.'), searching nested objects; arrays take the first element.
-pub(crate) fn lookup<'a>(layers: &'a serde_json::Value, key: &str) -> Option<&'a str> {
+pub fn lookup<'a>(layers: &'a serde_json::Value, key: &str) -> Option<&'a str> {
     let layer_name = key.split('.').next()?;
     let layer = layers.get(layer_name)?;
     fn search<'a>(v: &'a serde_json::Value, key: &str) -> Option<&'a str> {

@@ -1,9 +1,51 @@
 //! Regenerates the examples/ gallery: every artifact one description
 //! yields, committed for browsing and equality-guarded by tests.
 
-fn regenerate(name: &str) -> anyhow::Result<()> {
-    let dir =
-        std::path::PathBuf::from(pakeles::examples::gallery_dir(name).expect("gallery example"));
+use std::path::PathBuf;
+
+/// Repo root, derived from this crate's manifest dir — the bin works
+/// from any CWD.
+fn repo_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .to_path_buf()
+}
+
+/// Every gallery example and its directory: synthetic from the core
+/// crate's list, real-world from each example crate (the directory a
+/// crate reports for itself is the single source of truth).
+fn gallery() -> Vec<(&'static str, PathBuf)> {
+    let root = repo_root();
+    pakeles::examples::SYNTHETIC
+        .iter()
+        .map(|n| (*n, root.join("examples/synthetic").join(n)))
+        .chain([
+            (
+                "linux_flow_dissector",
+                pakeles_example_linux_flow_dissector::dir().to_path_buf(),
+            ),
+            (
+                "dpdk_ptype",
+                pakeles_example_dpdk_ptype::dir().to_path_buf(),
+            ),
+            (
+                "katran_flow",
+                pakeles_example_katran_flow::dir().to_path_buf(),
+            ),
+            (
+                "sai_parser",
+                pakeles_example_sai_parser::dir().to_path_buf(),
+            ),
+            (
+                "tls_clienthello",
+                pakeles_example_tls_clienthello::dir().to_path_buf(),
+            ),
+        ])
+        .collect()
+}
+
+fn regenerate(name: &str, dir: &std::path::Path) -> anyhow::Result<()> {
     let gen = dir.join("gen");
     let conformance = dir.join("conformance");
     std::fs::create_dir_all(&gen)?;
@@ -12,7 +54,7 @@ fn regenerate(name: &str) -> anyhow::Result<()> {
         dir.join(format!("{name}.ir.json")),
     )?)?;
     std::fs::copy(
-        format!("py/src/pakeles/examples/{name}.py"),
+        repo_root().join(format!("py/src/pakeles/examples/{name}.py")),
         dir.join(format!("{name}.py")),
     )?;
     std::fs::write(
@@ -30,7 +72,8 @@ fn regenerate(name: &str) -> anyhow::Result<()> {
     )?;
     // gen p4 refuses sized-region IR by design (a P4-16 parser cannot
     // parse inside a length-bounded window) — commit the refusal as a
-    // marker artifact instead of a parser.p4.
+    // marker artifact instead of a parser.p4. Keep the marker format in
+    // step with the guard in pakeles-testkit.
     match pakeles::codegen::p4::generate_p4(&ir) {
         Ok(p4) => std::fs::write(gen.join("parser.p4"), p4)?,
         Err(e) if e.to_string().contains("P4-16 parser expressiveness") => {
@@ -59,23 +102,19 @@ fn regenerate(name: &str) -> anyhow::Result<()> {
 }
 
 fn main() -> anyhow::Result<()> {
-    // Both gallery groups, from the one place the split is encoded.
-    let all: Vec<&str> = pakeles::examples::SYNTHETIC
-        .iter()
-        .chain(pakeles::examples::REAL_WORLD.iter())
-        .copied()
-        .collect();
+    let all = gallery();
     let args: Vec<String> = std::env::args().skip(1).collect();
     let names: Vec<&str> = if args.is_empty() {
-        all.clone()
+        all.iter().map(|(n, _)| *n).collect()
     } else {
         for a in &args {
-            anyhow::ensure!(all.contains(&a.as_str()), "unknown example `{a}`");
+            anyhow::ensure!(all.iter().any(|(n, _)| n == a), "unknown example `{a}`");
         }
         args.iter().map(|s| s.as_str()).collect()
     };
     for name in names {
-        regenerate(name)?;
+        let (_, dir) = all.iter().find(|(n, _)| *n == name).unwrap();
+        regenerate(name, dir)?;
     }
     Ok(())
 }

@@ -1,7 +1,7 @@
 //! DPDK ptype differential oracle: our parse of the `dpdk_ptype` example,
 //! projected to `(RTE_PTYPE_* mask, rte_net_hdr_lens)`, vs goldens minted
 //! by DPDK's own `rte_net_get_ptype()` (v23.11.4) via
-//! `oracle/dpdk_ptype/factory/capture.c`.
+//! `factory/capture.c` (in this example's directory).
 //!
 //! There is no drop verdict: DPDK classifies every packet, stopping early
 //! with a partial mask when a header read fails. Our parser trunc-rejects
@@ -13,7 +13,7 @@
 //! `project` returns an error, so a corpus line in an excluded class is a
 //! red gate, never a silent skip.
 
-use crate::ir::pb;
+use pakeles::ir::pb;
 use serde::{Deserialize, Serialize};
 
 // RTE_PTYPE_* constants, values from the pinned v23.11.4
@@ -91,12 +91,12 @@ pub struct GoldenFile {
 /// them without skipping — EXT bit, no walk.)
 const IP6_EXT_PROTOS: [u64; 6] = [0, 43, 44, 50, 51, 60];
 
-fn field_u(h: &crate::interp::ParsedHeader, f: &str) -> Option<u64> {
+fn field_u(h: &pakeles::interp::ParsedHeader, f: &str) -> Option<u64> {
     h.fields
         .iter()
         .find(|x| x.name == f)
         .and_then(|x| match &x.value {
-            crate::interp::FieldValue::Uint(v) => Some(*v),
+            pakeles::interp::FieldValue::Uint(v) => Some(*v),
             _ => None,
         })
 }
@@ -107,7 +107,7 @@ fn is_inner_state(s: &str) -> bool {
 
 /// The dispatch value a state hands to rte_net.c's next comparison: the
 /// leftover proto after this header. None for states that don't dispatch.
-fn dispatch_value(state: &str, h: &crate::interp::ParsedHeader) -> Option<u64> {
+fn dispatch_value(state: &str, h: &pakeles::interp::ParsedHeader) -> Option<u64> {
     match state {
         "parse_ethernet" | "parse_inner_ethernet" => field_u(h, "ethertype"),
         "parse_vlan" | "parse_qinq" | "parse_inner_vlan" | "parse_inner_qinq" => {
@@ -127,14 +127,14 @@ fn dispatch_value(state: &str, h: &crate::interp::ParsedHeader) -> Option<u64> {
 /// `Err` = the IR is malformed OR the packet falls in an unmappable
 /// reject class (design §3) — the latter must never appear in the corpus.
 pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Projection> {
-    let res = crate::interp::run(ir, packet)?;
+    let res = pakeles::interp::run(ir, packet)?;
 
     // Every state in this example extracts exactly one header, so trace
     // step i pairs with headers[i]; on an out-of-bounds reject the
     // failing state's PARTIAL header is also pushed (fields read so far).
-    let failing: Option<&crate::interp::ParseError> = match &res.outcome {
-        crate::interp::Outcome::Accept => None,
-        crate::interp::Outcome::Reject { reason } => {
+    let failing: Option<&pakeles::interp::ParseError> = match &res.outcome {
+        pakeles::interp::Outcome::Accept => None,
+        pakeles::interp::Outcome::Reject { reason } => {
             anyhow::ensure!(
                 reason == "out of bounds",
                 "unexpected reject `{reason}` from dpdk_ptype (only truncation rejects exist)"
@@ -455,7 +455,26 @@ pub struct PtypeDiffReport {
 }
 
 /// The conformance directory holding the committed goldens.
-pub const CONFORMANCE_DIR: &str = "examples/real_world/dpdk_ptype/conformance";
+/// This example's directory (the crate manifest dir): the description,
+/// committed IR, `gen/`, `conformance/`, and `factory/` all live here.
+pub fn dir() -> &'static std::path::Path {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+}
+
+/// The committed conformance directory (goldens + vector suite).
+pub fn conformance_dir() -> std::path::PathBuf {
+    dir().join("conformance")
+}
+
+/// The example description, parsed from the committed IR (embedded at
+/// compile time).
+pub fn ir() -> pb::Ir {
+    pakeles::ir::from_json(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/dpdk_ptype.ir.json"
+    )))
+    .expect("committed dpdk_ptype IR must parse")
+}
 
 /// Find the committed DPDK-minted golden file under `dir` (filename
 /// starts with `ptype.dpdk-`).
@@ -480,7 +499,7 @@ pub fn diff_goldens(ir: &pb::Ir, golden: &GoldenFile) -> anyhow::Result<PtypeDif
         mismatches: Vec::new(),
     };
     for (i, e) in golden.entries.iter().enumerate() {
-        let pkt = crate::testvec::hex_decode(&e.packet_hex)?;
+        let pkt = pakeles::testvec::hex_decode(&e.packet_hex)?;
         report.compared += 1;
         let ours = match project(ir, &pkt) {
             Ok(p) => p,
@@ -518,8 +537,8 @@ mod gate_tests {
     /// golden file to force green.
     #[test]
     fn committed_goldens_agree() {
-        let dir = std::path::Path::new(CONFORMANCE_DIR);
-        let golden_path = discover_committed_golden(dir).expect("a committed golden file exists");
+        let dir = conformance_dir();
+        let golden_path = discover_committed_golden(&dir).expect("a committed golden file exists");
         let g: GoldenFile =
             serde_json::from_str(&std::fs::read_to_string(golden_path).unwrap()).unwrap();
         // Floors: only ratchet up. The version pin guards against a
@@ -534,7 +553,7 @@ mod gate_tests {
             "corpus shrank: {} entries",
             g.entries.len()
         );
-        let report = diff_goldens(&crate::examples::dpdk_ptype(), &g).unwrap();
+        let report = diff_goldens(&ir(), &g).unwrap();
         assert_eq!(report.compared, g.entries.len());
         assert!(
             report.mismatches.is_empty(),
@@ -572,7 +591,11 @@ mod gate_tests {
             "-O2".into(),
             "-o".into(),
             bin.to_str().unwrap().into(),
-            "oracle/dpdk_ptype/factory/capture.c".into(),
+            super::dir()
+                .join("factory/capture.c")
+                .to_str()
+                .unwrap()
+                .into(),
         ];
         args.extend(
             String::from_utf8_lossy(&cflags.stdout)
@@ -589,18 +612,17 @@ mod gate_tests {
             String::from_utf8_lossy(&cc.stderr)
         );
         let out = std::process::Command::new(&bin)
-            .arg("oracle/dpdk_ptype/factory/corpus.txt")
+            .arg(super::dir().join("factory/corpus.txt"))
             .output()
             .unwrap();
         assert!(out.status.success(), "capture run failed");
         let fresh = String::from_utf8(out.stdout).unwrap();
-        let committed_path =
-            discover_committed_golden(std::path::Path::new(CONFORMANCE_DIR)).unwrap();
+        let committed_path = discover_committed_golden(&conformance_dir()).unwrap();
         let committed = std::fs::read_to_string(&committed_path).unwrap();
         assert_eq!(
             fresh, committed,
             "live rte_net_get_ptype output drifted from the committed golden — \
-             re-mint via oracle/dpdk_ptype/factory/capture.sh and investigate"
+             re-mint via factory/capture.sh and investigate"
         );
     }
 }
@@ -643,8 +665,8 @@ mod project_tests {
     const TCP20: &str = "303901bb00000001000000005018ffff00000000"; // doff=5
 
     fn p(hex: &str) -> Projection {
-        let ir = crate::examples::dpdk_ptype();
-        let pkt = crate::testvec::hex_decode(&hex.replace([' ', '\n'], "")).unwrap();
+        let ir = ir();
+        let pkt = pakeles::testvec::hex_decode(&hex.replace([' ', '\n'], "")).unwrap();
         project(&ir, &pkt).unwrap()
     }
 
@@ -1152,8 +1174,8 @@ mod project_tests {
 
     #[test]
     fn unmappable_gre_optionals_truncated() {
-        let ir = crate::examples::dpdk_ptype();
-        let pkt = crate::testvec::hex_decode(
+        let ir = ir();
+        let pkt = pakeles::testvec::hex_decode(
             "aabbccddeeff1122334455660800\
              4500002812344000402fdead0a0000010a000002\
              b0010800",
@@ -1165,8 +1187,8 @@ mod project_tests {
 
     #[test]
     fn unmappable_ihl_wrap() {
-        let ir = crate::examples::dpdk_ptype();
-        let pkt = crate::testvec::hex_decode(
+        let ir = ir();
+        let pkt = pakeles::testvec::hex_decode(
             "aabbccddeeff1122334455660800\
              44000028123440004006dead0a0000010a000002\
              303901bb00000001000000005018ffff00000000",
@@ -1178,13 +1200,85 @@ mod project_tests {
 
     #[test]
     fn unmappable_ext_body_absent() {
-        let ir = crate::examples::dpdk_ptype();
-        let pkt = crate::testvec::hex_decode(
+        let ir = ir();
+        let pkt = pakeles::testvec::hex_decode(
             &format!("aabbccddeeff11223344556686dd6000000000080040{SRC6}{DST6}1101000000000000")
                 .replace(' ', ""),
         )
         .unwrap();
         let err = project(&ir, &pkt).unwrap_err().to_string();
         assert!(err.contains("unmappable"), "{err}");
+    }
+}
+
+#[cfg(test)]
+mod gallery_tests {
+    use super::*;
+
+    #[test]
+    fn embedded_ir_parses_and_validates() {
+        pakeles::ir::validate::validate(&ir()).unwrap();
+    }
+
+    /// The committed ir.json must be exactly what the Rust canonical
+    /// serializer emits — the anti-drift "canonical form" guard.
+    #[test]
+    fn committed_ir_json_is_canonical() {
+        let committed = std::fs::read_to_string(dir().join("dpdk_ptype.ir.json")).unwrap();
+        let round = pakeles::ir::to_json(&pakeles::ir::from_json(&committed).unwrap()).unwrap();
+        assert_eq!(
+            round, committed,
+            "committed ir.json is not in canonical form; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
+    /// The mirrored .py must match the authoritative eDSL module.
+    #[test]
+    fn committed_py_example_current() {
+        let canonical =
+            std::fs::read_to_string(dir().join("../../../py/src/pakeles/examples/dpdk_ptype.py"))
+                .unwrap();
+        let mirrored = std::fs::read_to_string(dir().join("dpdk_ptype.py")).unwrap();
+        assert_eq!(
+            canonical, mirrored,
+            "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
+        );
+    }
+
+    #[test]
+    fn committed_gen_artifacts_current() {
+        pakeles_testkit::committed_artifacts_current(&ir(), dir());
+    }
+
+    #[test]
+    fn c_backend_conformance_full_suite() {
+        pakeles_testkit::c_backend_conformance(
+            &ir(),
+            pakeles_testkit::committed_suite(dir()).as_ref(),
+        );
+    }
+
+    #[test]
+    fn bpf_backend_conformance_full_suite() {
+        pakeles_testkit::bpf_backend_conformance(
+            &ir(),
+            pakeles_testkit::committed_suite(dir()).as_ref(),
+        );
+    }
+
+    #[test]
+    fn lua_backend_conformance_full_suite() {
+        let Some(suite) = pakeles_testkit::committed_suite(dir()) else {
+            return;
+        };
+        pakeles_testkit::lua_backend_conformance(&ir(), &suite, 200);
+    }
+
+    #[test]
+    fn bmv2_backend_conformance_byte_aligned() {
+        let Some(suite) = pakeles_testkit::committed_suite(dir()) else {
+            return;
+        };
+        pakeles_testkit::bmv2_backend_conformance(&ir(), &suite, 50);
     }
 }

@@ -1,5 +1,4 @@
 pub mod builder;
-pub mod cli;
 pub mod codegen;
 pub mod docgen;
 pub mod examples;

@@ -132,10 +132,9 @@ pub fn suite_from_json(s: &str) -> Result<pb::TestSuite> {
 /// codebase stabilizes.
 #[cfg(test)]
 pub(crate) fn committed_suite_or_skip(name: &str) -> Option<pb::TestSuite> {
-    let path = format!(
-        "{}/conformance/vectors.json",
-        crate::examples::gallery_dir(name)?
-    );
+    // Synthetic gallery only: the real-world examples' suites are
+    // loaded by their own crates via pakeles-testkit.
+    let path = format!("examples/synthetic/{name}/conformance/vectors.json");
     if !std::path::Path::new(&path).exists() {
         eprintln!("skipping: {path} not generated (run ./dev.sh scripts/gen-examples.sh)");
         return None;
@@ -230,7 +229,7 @@ mod tests {
         let committed = std::fs::read(pcap_path).unwrap();
         assert_eq!(
             fresh, committed,
-            "examples/ drifted; regenerate: ./dev.sh cargo run --bin gen_examples"
+            "examples/ drifted; regenerate: ./dev.sh scripts/gen-examples.sh"
         );
     }
 
