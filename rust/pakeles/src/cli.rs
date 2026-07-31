@@ -370,7 +370,9 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
         Command::FmtIr { ir, out } => {
             let text = std::fs::read_to_string(&ir)
                 .with_context(|| format!("reading IR from {}", ir.display()))?;
-            let canonical = pakeles::ir::to_json(&pakeles::ir::from_json(&text)?)?;
+            let mut parsed = pakeles::ir::from_json(&text)?;
+            pakeles::ir::canonicalize(&mut parsed);
+            let canonical = pakeles::ir::to_json(&parsed)?;
             if out.as_os_str() == "-" {
                 println!("{canonical}");
             } else {

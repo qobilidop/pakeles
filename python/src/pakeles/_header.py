@@ -108,7 +108,9 @@ class Header:
                 pf.display.name = f.display_name
                 pf.display.format = f.format
                 pf.display.doc = f.doc
-                for value, label in f.labels.items():
+                # Canonical order (matches `pakeles fmt-ir`): sorted by
+                # value — authored label order carries no meaning.
+                for value, label in sorted(f.labels.items()):
                     vl = pf.display.value_labels.add()
                     vl.value = value
                     vl.label = label

@@ -58,16 +58,16 @@
                   "label": "IPv6"
                 },
                 {
-                  "value": "34984",
-                  "label": "802.1AD (QinQ)"
-                },
-                {
                   "value": "34887",
                   "label": "MPLS unicast"
                 },
                 {
                   "value": "34888",
                   "label": "MPLS multicast"
+                },
+                {
+                  "value": "34984",
+                  "label": "802.1AD (QinQ)"
                 }
               ]
             },
@@ -624,12 +624,12 @@
                   "label": "IPv4"
                 },
                 {
-                  "value": "34525",
-                  "label": "IPv6"
-                },
-                {
                   "value": "25944",
                   "label": "TEB"
+                },
+                {
+                  "value": "34525",
+                  "label": "IPv6"
                 }
               ]
             }

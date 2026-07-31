@@ -45,6 +45,32 @@ pub fn from_json(s: &str) -> Result<pb::Ir> {
     Ok(serde_json::from_str(s)?)
 }
 
+/// Semantic canonicalization (`fmt-ir`): orderings the IR's meaning
+/// does not depend on are normalized, so equal parsers serialize to
+/// equal bytes. Today that is one rule: `value_labels` sort by value
+/// (presentation metadata; no execution path may branch on it).
+/// Select arms are deliberately NOT reordered — authored arm order is
+/// reserved as priority order for future masked/range arms.
+pub fn canonicalize(ir: &mut pb::Ir) {
+    let Some(parser) = ir.parser.as_mut() else {
+        return;
+    };
+    let displays = parser
+        .header_types
+        .iter_mut()
+        .flat_map(|ht| &mut ht.fields)
+        .filter_map(|f| f.display.as_mut())
+        .chain(
+            parser
+                .metadata
+                .iter_mut()
+                .filter_map(|m| m.display.as_mut()),
+        );
+    for d in displays {
+        d.value_labels.sort_by_key(|vl| vl.value);
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod test_support {
     use super::pb;
@@ -80,5 +106,52 @@ mod tests {
         let ir = test_support::tiny();
         assert_eq!(from_bytes(&to_bytes(&ir)).unwrap(), ir);
         assert_eq!(from_json(&to_json(&ir).unwrap()).unwrap(), ir);
+    }
+
+    #[test]
+    fn canonicalize_sorts_value_labels_everywhere() {
+        let labels = |vals: &[u64]| {
+            Some(pb::Display {
+                value_labels: vals
+                    .iter()
+                    .map(|&value| pb::ValueLabel {
+                        value,
+                        label: format!("l{value}"),
+                    })
+                    .collect(),
+                ..Default::default()
+            })
+        };
+        let mut ir = test_support::tiny();
+        let parser = ir.parser.as_mut().unwrap();
+        parser.header_types.push(pb::HeaderType {
+            name: "h".into(),
+            fields: vec![pb::Field {
+                name: "f".into(),
+                display: labels(&[0x86DD, 0x0800, 0x6558]),
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        parser.metadata.push(pb::MetadataField {
+            name: "m".into(),
+            display: labels(&[17, 6]),
+            ..Default::default()
+        });
+        canonicalize(&mut ir);
+        let parser = ir.parser.as_ref().unwrap();
+        let values = |d: &Option<pb::Display>| -> Vec<u64> {
+            d.as_ref()
+                .unwrap()
+                .value_labels
+                .iter()
+                .map(|vl| vl.value)
+                .collect()
+        };
+        assert_eq!(
+            values(&parser.header_types[0].fields[0].display),
+            vec![0x0800, 0x6558, 0x86DD]
+        );
+        assert_eq!(values(&parser.metadata[0].display), vec![6, 17]);
     }
 }
