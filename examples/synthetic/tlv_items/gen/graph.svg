@@ -19,8 +19,11 @@
 <!-- tlv_loop -->
 <g id="node2" class="node">
 <title>tlv_loop</title>
+<g id="a_node2"><a xlink:href="#" xlink:title="Loop head: region exhausted &#45;&gt; close; else another item.">
 <polygon fill="none" stroke="black" points="149.5,-250.59 79.5,-250.59 79.5,-214.59 149.5,-214.59 149.5,-250.59"/>
 <text text-anchor="middle" x="114.5" y="-228.89" font-family="Helvetica,sans-Serif" font-size="14.00">tlv_loop</text>
+</a>
+</g>
 </g>
 <!-- parse_total&#45;&gt;tlv_loop -->
 <g id="edge1" class="edge">
@@ -45,8 +48,11 @@
 <!-- close -->
 <g id="node4" class="node">
 <title>close</title>
+<g id="a_node4"><a xlink:href="#" xlink:title="Exact&#45;mode pop: trailing bytes inside the region reject.">
 <polygon fill="none" stroke="black" points="174.5,-162.59 120.5,-162.59 120.5,-126.59 174.5,-126.59 174.5,-162.59"/>
 <text text-anchor="middle" x="147.5" y="-140.89" font-family="Helvetica,sans-Serif" font-size="14.00">close</text>
+</a>
+</g>
 </g>
 <!-- tlv_loop&#45;&gt;close -->
 <g id="edge2" class="edge">

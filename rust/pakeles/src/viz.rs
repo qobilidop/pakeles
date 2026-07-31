@@ -53,6 +53,12 @@ fn fmt_entry(key: &pb::Expr, entry: &pb::KeysetEntry) -> String {
 /// Render the parse graph as Graphviz dot. States are boxes listing
 /// their extracts; `accept` is a doublecircle; each distinct reject
 /// reason gets its own diamond.
+fn dot_escape(s: &str) -> String {
+    s.replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+}
+
 pub fn to_dot(ir: &pb::Ir) -> String {
     let mut out = String::new();
     let mut rejects: Vec<String> = Vec::new();
@@ -117,6 +123,9 @@ pub fn to_dot(ir: &pb::Ir) -> String {
 
     writeln!(out, "digraph \"{}\" {{", parser.name).unwrap();
     writeln!(out, "  rankdir=TB;").unwrap();
+    if let Some(doc) = parser.annotations.get("doc") {
+        writeln!(out, "  tooltip=\"{}\";", dot_escape(doc)).unwrap();
+    }
     writeln!(out, "  node [fontname=\"Helvetica\"];").unwrap();
     for s in &parser.states {
         let extracts = s
@@ -137,7 +146,20 @@ pub fn to_dot(ir: &pb::Ir) -> String {
         } else {
             format!("{}\\n{extracts}", s.name)
         };
-        writeln!(out, "  \"{}\" [shape=box, label=\"{label}\"];", s.name).unwrap();
+        // Surface the state's doc prose on hover in SVG output.
+        // Graphviz only emits tooltips for elements that also carry an
+        // href, so pair the tooltip with a self-referencing one.
+        let tooltip = s
+            .annotations
+            .get("doc")
+            .map(|d| format!(", tooltip=\"{}\", href=\"#\"", dot_escape(d)))
+            .unwrap_or_default();
+        writeln!(
+            out,
+            "  \"{}\" [shape=box, label=\"{label}\"{tooltip}];",
+            s.name
+        )
+        .unwrap();
     }
     writeln!(out, "  \"accept\" [shape=doublecircle];").unwrap();
     for (i, reason) in rejects.iter().enumerate() {
@@ -165,5 +187,23 @@ mod tests {
     fn dot_has_edges() {
         let dot = to_dot(&eth_ipvx_l4());
         assert!(dot.contains("\"parse_ipv4\" -> \"parse_tcp\""));
+    }
+
+    #[test]
+    fn doc_annotations_become_tooltips() {
+        let mut ir = crate::builder::meta_loop();
+        let parser = ir.parser.as_mut().unwrap();
+        parser
+            .annotations
+            .insert("doc".into(), "Graph \"prose\".".into());
+        parser.states[0]
+            .annotations
+            .insert("doc".into(), "Line one.\nLine two.".into());
+        let dot = to_dot(&ir);
+        assert!(dot.contains("  tooltip=\"Graph \\\"prose\\\".\";"), "{dot}");
+        assert!(
+            dot.contains(", tooltip=\"Line one.\\nLine two.\", href=\"#\"];"),
+            "{dot}"
+        );
     }
 }

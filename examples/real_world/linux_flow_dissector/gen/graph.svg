@@ -19,9 +19,12 @@
 <!-- parse_vlan_ad -->
 <g id="node2" class="node">
 <title>parse_vlan_ad</title>
+<g id="a_node2"><a xlink:href="#" xlink:title="Upstream PROG(VLAN), 802.1AD arm: the outer S&#45;tag must be&#10;followed by exactly one 802.1Q C&#45;tag.">
 <polygon fill="none" stroke="black" points="1344.83,-950.59 1221.83,-950.59 1221.83,-912.59 1344.83,-912.59 1344.83,-950.59"/>
 <text text-anchor="middle" x="1283.33" y="-935.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_vlan_ad</text>
 <text text-anchor="middle" x="1283.33" y="-920.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract vlan_ad</text>
+</a>
+</g>
 </g>
 <!-- parse_ethernet&#45;&gt;parse_vlan_ad -->
 <g id="edge4" class="edge">
@@ -33,9 +36,12 @@
 <!-- parse_vlan_q -->
 <g id="node3" class="node">
 <title>parse_vlan_q</title>
+<g id="a_node3"><a xlink:href="#" xlink:title="Upstream PROG(VLAN), common tail: the final (or only) tag;&#10;a further Q/AD tag is a kernel drop (no triple tagging, no&#10;double&#45;Q).">
 <polygon fill="none" stroke="black" points="1440.83,-842.59 1325.83,-842.59 1325.83,-804.59 1440.83,-804.59 1440.83,-842.59"/>
 <text text-anchor="middle" x="1383.33" y="-827.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_vlan_q</text>
 <text text-anchor="middle" x="1383.33" y="-812.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract vlan_q</text>
+</a>
+</g>
 </g>
 <!-- parse_ethernet&#45;&gt;parse_vlan_q -->
 <g id="edge3" class="edge">
@@ -75,9 +81,12 @@
 <!-- parse_mpls -->
 <g id="node12" class="node">
 <title>parse_mpls</title>
+<g id="a_node12"><a xlink:href="#" xlink:title="Upstream PROG(MPLS): read one label entry, stop, BPF_OK.">
 <polygon fill="none" stroke="black" points="343.33,-715.59 239.33,-715.59 239.33,-677.59 343.33,-677.59 343.33,-715.59"/>
 <text text-anchor="middle" x="291.33" y="-700.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_mpls</text>
 <text text-anchor="middle" x="291.33" y="-685.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract mpls</text>
+</a>
+</g>
 </g>
 <!-- parse_ethernet&#45;&gt;parse_mpls -->
 <g id="edge5" class="edge">
@@ -187,8 +196,11 @@
 <!-- parse_ipip -->
 <g id="node7" class="node">
 <title>parse_ipip</title>
+<g id="a_node7"><a xlink:href="#" xlink:title="Kernel parse_ip_proto encap arms (IPPROTO_IPIP / IPPROTO_IPV6,&#10;default flags: STOP_AT_ENCAP off): mark is_encap and re&#45;enter&#10;the state machine as the inner family — pure back edges, no&#10;header read; the max_depth budget bounds the nesting.">
 <polygon fill="none" stroke="black" points="1714.33,-322.59 1626.33,-322.59 1626.33,-286.59 1714.33,-286.59 1714.33,-322.59"/>
 <text text-anchor="middle" x="1670.33" y="-300.89" font-family="Helvetica,sans-Serif" font-size="14.00">parse_ipip</text>
+</a>
+</g>
 </g>
 <!-- parse_ipv4&#45;&gt;parse_ipip -->
 <g id="edge17" class="edge">
@@ -213,9 +225,12 @@
 <!-- parse_gre -->
 <g id="node9" class="node">
 <title>parse_gre</title>
+<g id="a_node9"><a xlink:href="#" xlink:title="Kernel IPPROTO_GRE arm, step order is the crux: version != 0&#10;is an immediate BPF_OK — no thoff advance, no is_encap, the&#10;optional region never read. Only version 0 walks the C/K/S&#10;optionals (parse_gre_opt), sets is_encap, and dispatches.">
 <polygon fill="none" stroke="black" points="2421.33,-323.59 2329.33,-323.59 2329.33,-285.59 2421.33,-285.59 2421.33,-323.59"/>
 <text text-anchor="middle" x="2375.33" y="-308.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_gre</text>
 <text text-anchor="middle" x="2375.33" y="-293.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract gre</text>
+</a>
+</g>
 </g>
 <!-- parse_ipv4&#45;&gt;parse_gre -->
 <g id="edge21" class="edge">
@@ -269,9 +284,12 @@
 <!-- parse_ipv6_opt -->
 <g id="node6" class="node">
 <title>parse_ipv6_opt</title>
+<g id="a_node6"><a xlink:href="#" xlink:title="Kernel PROG(IPV6OP): walk the option, dispatch on its own&#10;next_header — HopByHop/DestOpts loop back (self&#45;edge).">
 <polygon fill="none" stroke="black" points="2447.33,-431.59 2325.33,-431.59 2325.33,-393.59 2447.33,-393.59 2447.33,-431.59"/>
 <text text-anchor="middle" x="2386.33" y="-416.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_ipv6_opt</text>
 <text text-anchor="middle" x="2386.33" y="-401.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract ext_opt</text>
+</a>
+</g>
 </g>
 <!-- parse_ipv6&#45;&gt;parse_ipv6_opt -->
 <g id="edge23" class="edge">
@@ -311,9 +329,12 @@
 <!-- parse_ipv6_frag -->
 <g id="node11" class="node">
 <title>parse_ipv6_frag</title>
+<g id="a_node11"><a xlink:href="#" xlink:title="Kernel PROG(IPV6FR) under default flags: read the fragment&#10;header and stop (BPF_OK), always.">
 <polygon fill="none" stroke="black" points="2015.33,-323.59 1887.33,-323.59 1887.33,-285.59 2015.33,-285.59 2015.33,-323.59"/>
 <text text-anchor="middle" x="1951.33" y="-308.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_ipv6_frag</text>
 <text text-anchor="middle" x="1951.33" y="-293.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract ext_frag</text>
+</a>
+</g>
 </g>
 <!-- parse_ipv6&#45;&gt;parse_ipv6_frag -->
 <g id="edge25" class="edge">
@@ -421,9 +442,12 @@
 <!-- parse_gre_opt -->
 <g id="node10" class="node">
 <title>parse_gre_opt</title>
+<g id="a_node10"><a xlink:href="#" xlink:title="TEB (0x6558) re&#45;enters parse_ethernet itself: the kernel reads&#10;the inner Ethernet and runs its full parse_eth_proto dispatcher,&#10;so inner VLAN/MPLS/IPvX all live.">
 <polygon fill="none" stroke="black" points="3426.33,-190.3 3304.33,-190.3 3304.33,-152.3 3426.33,-152.3 3426.33,-190.3"/>
 <text text-anchor="middle" x="3365.33" y="-175.1" font-family="Helvetica,sans-Serif" font-size="14.00">parse_gre_opt</text>
 <text text-anchor="middle" x="3365.33" y="-160.1" font-family="Helvetica,sans-Serif" font-size="14.00">extract gre_opt</text>
+</a>
+</g>
 </g>
 <!-- parse_gre&#45;&gt;parse_gre_opt -->
 <g id="edge43" class="edge">

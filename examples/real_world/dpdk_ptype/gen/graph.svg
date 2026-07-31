@@ -12,9 +12,12 @@
 <!-- parse_ethernet -->
 <g id="node1" class="node">
 <title>parse_ethernet</title>
+<g id="a_node1"><a xlink:href="#" xlink:title="rte_net.c:236&#45;290. IPv4 is the fast path; one VLAN tag OR one&#10;blind QinQ pair OR the MPLS dead&#45;code stop; 0x6558 falls all&#10;the way through to the inner&#45;Ethernet read.">
 <polygon fill="none" stroke="black" points="5103,-1587.59 4975,-1587.59 4975,-1549.59 5103,-1549.59 5103,-1587.59"/>
 <text text-anchor="middle" x="5039" y="-1572.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_ethernet</text>
 <text text-anchor="middle" x="5039" y="-1557.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract ethernet</text>
+</a>
+</g>
 </g>
 <!-- parse_vlan -->
 <g id="node2" class="node">
@@ -47,9 +50,12 @@
 <!-- parse_ipv4 -->
 <g id="node4" class="node">
 <title>parse_ipv4</title>
+<g id="a_node4"><a xlink:href="#" xlink:title="rte_net.c:296&#45;318. One multi&#45;key select: any nonzero MF|offset&#10;hits default (frag stop — the projection reads the field);&#10;otherwise dispatch on protocol. UDP(17)/SCTP(132) are blind&#10;accepts — never extracted.">
 <polygon fill="none" stroke="black" points="4460,-1053.59 4360,-1053.59 4360,-1015.59 4460,-1015.59 4460,-1053.59"/>
 <text text-anchor="middle" x="4410" y="-1038.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_ipv4</text>
 <text text-anchor="middle" x="4410" y="-1023.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract ipv4</text>
+</a>
+</g>
 </g>
 <!-- parse_ethernet&#45;&gt;parse_ipv4 -->
 <g id="edge1" class="edge">
@@ -75,9 +81,12 @@
 <!-- parse_gre -->
 <g id="node12" class="node">
 <title>parse_gre</title>
+<g id="a_node12"><a xlink:href="#" xlink:title="rte_net.c:133&#45;163. Select on R only: any R=1 nibble has&#10;opt_len 0 (&quot;not a tunnel&quot;) — accept with no optional skip, no&#10;tunnel bit. Version is never examined.">
 <polygon fill="none" stroke="black" points="3039,-964.59 2947,-964.59 2947,-926.59 3039,-926.59 3039,-964.59"/>
 <text text-anchor="middle" x="2993" y="-949.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_gre</text>
 <text text-anchor="middle" x="2993" y="-934.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract gre</text>
+</a>
+</g>
 </g>
 <!-- parse_ethernet&#45;&gt;parse_gre -->
 <g id="edge10" class="edge">
@@ -89,9 +98,12 @@
 <!-- parse_inner_ethernet -->
 <g id="node15" class="node">
 <title>parse_inner_ethernet</title>
+<g id="a_node15"><a xlink:href="#" xlink:title="rte_net.c:384&#45;508 — the inner mirror. Reachable without any&#10;tunnel (double&#45;VLAN, Q&#45;then&#45;AD, top&#45;level TEB): the pipeline&#10;falls through unconditionally. Exactly one inner level: inner&#10;tunnel protocols hit default accepts.">
 <polygon fill="none" stroke="black" points="5326,-786.59 5162,-786.59 5162,-748.59 5326,-748.59 5326,-786.59"/>
 <text text-anchor="middle" x="5244" y="-771.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_inner_ethernet</text>
 <text text-anchor="middle" x="5244" y="-756.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract ethernet</text>
+</a>
+</g>
 </g>
 <!-- parse_ethernet&#45;&gt;parse_inner_ethernet -->
 <g id="edge7" class="edge">
@@ -355,9 +367,12 @@
 <!-- parse_ext_opt1 -->
 <g id="node6" class="node">
 <title>parse_ext_opt1</title>
+<g id="a_node6"><a xlink:href="#" xlink:title="rte_net_skip_ip6_ext, unrolled to MAX_EXT_HDRS=5: the 5th&#10;consumed link exhausts the loop — extract + bail, whatever its&#10;next_header says (the projection snaps l3_len back to 40).">
 <polygon fill="none" stroke="black" points="2699,-1320.59 2541,-1320.59 2541,-1282.59 2699,-1282.59 2699,-1320.59"/>
 <text text-anchor="middle" x="2620" y="-1305.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_ext_opt1</text>
 <text text-anchor="middle" x="2620" y="-1290.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract ipv6_ext_opt</text>
+</a>
+</g>
 </g>
 <!-- parse_ipv6&#45;&gt;parse_ext_opt1 -->
 <g id="edge37" class="edge">

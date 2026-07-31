@@ -1,10 +1,10 @@
 digraph "sai_parser" {
   rankdir=TB;
   node [fontname="Helvetica"];
-  "parse_ethernet" [shape=box, label="parse_ethernet\nextract ethernet"];
-  "parse_vlan" [shape=box, label="parse_vlan\nextract vlan"];
+  "parse_ethernet" [shape=box, label="parse_ethernet\nextract ethernet", tooltip="EtherType demux; 802.1Q -> vlan; else accept.", href="#"];
+  "parse_vlan" [shape=box, label="parse_vlan\nextract vlan", tooltip="parse_8021q_vlan: same L3 demux; no further VLAN (double-tag\n0x88a8 unmodeled upstream -> accept).", href="#"];
   "parse_ipv4" [shape=box, label="parse_ipv4\nextract ipv4"];
-  "parse_ipv6" [shape=box, label="parse_ipv6\nextract ipv6"];
+  "parse_ipv6" [shape=box, label="parse_ipv6\nextract ipv6", tooltip="No extension-header handling: next_header taken as L4 directly.", href="#"];
   "parse_arp" [shape=box, label="parse_arp\nextract arp"];
   "parse_icmp" [shape=box, label="parse_icmp\nextract icmp"];
   "parse_tcp" [shape=box, label="parse_tcp\nextract tcp"];

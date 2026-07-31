@@ -1,21 +1,21 @@
 digraph "dpdk_ptype" {
   rankdir=TB;
   node [fontname="Helvetica"];
-  "parse_ethernet" [shape=box, label="parse_ethernet\nextract ethernet"];
+  "parse_ethernet" [shape=box, label="parse_ethernet\nextract ethernet", tooltip="rte_net.c:236-290. IPv4 is the fast path; one VLAN tag OR one\nblind QinQ pair OR the MPLS dead-code stop; 0x6558 falls all\nthe way through to the inner-Ethernet read.", href="#"];
   "parse_vlan" [shape=box, label="parse_vlan\nextract vlan"];
   "parse_qinq" [shape=box, label="parse_qinq\nextract qinq"];
-  "parse_ipv4" [shape=box, label="parse_ipv4\nextract ipv4"];
+  "parse_ipv4" [shape=box, label="parse_ipv4\nextract ipv4", tooltip="rte_net.c:296-318. One multi-key select: any nonzero MF|offset\nhits default (frag stop — the projection reads the field);\notherwise dispatch on protocol. UDP(17)/SCTP(132) are blind\naccepts — never extracted.", href="#"];
   "parse_ipv6" [shape=box, label="parse_ipv6\nextract ipv6"];
-  "parse_ext_opt1" [shape=box, label="parse_ext_opt1\nextract ipv6_ext_opt"];
+  "parse_ext_opt1" [shape=box, label="parse_ext_opt1\nextract ipv6_ext_opt", tooltip="rte_net_skip_ip6_ext, unrolled to MAX_EXT_HDRS=5: the 5th\nconsumed link exhausts the loop — extract + bail, whatever its\nnext_header says (the projection snaps l3_len back to 40).", href="#"];
   "parse_ext_opt2" [shape=box, label="parse_ext_opt2\nextract ipv6_ext_opt"];
   "parse_ext_opt3" [shape=box, label="parse_ext_opt3\nextract ipv6_ext_opt"];
   "parse_ext_opt4" [shape=box, label="parse_ext_opt4\nextract ipv6_ext_opt"];
   "parse_ext_opt5" [shape=box, label="parse_ext_opt5\nextract ipv6_ext_opt"];
   "parse_ext_frag" [shape=box, label="parse_ext_frag\nextract ipv6_frag"];
-  "parse_gre" [shape=box, label="parse_gre\nextract gre"];
+  "parse_gre" [shape=box, label="parse_gre\nextract gre", tooltip="rte_net.c:133-163. Select on R only: any R=1 nibble has\nopt_len 0 (\"not a tunnel\") — accept with no optional skip, no\ntunnel bit. Version is never examined.", href="#"];
   "parse_gre_opt" [shape=box, label="parse_gre_opt\nextract gre_opt"];
   "parse_tcp" [shape=box, label="parse_tcp\nextract tcp"];
-  "parse_inner_ethernet" [shape=box, label="parse_inner_ethernet\nextract ethernet"];
+  "parse_inner_ethernet" [shape=box, label="parse_inner_ethernet\nextract ethernet", tooltip="rte_net.c:384-508 — the inner mirror. Reachable without any\ntunnel (double-VLAN, Q-then-AD, top-level TEB): the pipeline\nfalls through unconditionally. Exactly one inner level: inner\ntunnel protocols hit default accepts.", href="#"];
   "parse_inner_vlan" [shape=box, label="parse_inner_vlan\nextract vlan"];
   "parse_inner_qinq" [shape=box, label="parse_inner_qinq\nextract qinq"];
   "parse_inner_ipv4" [shape=box, label="parse_inner_ipv4\nextract ipv4"];

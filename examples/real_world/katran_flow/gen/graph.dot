@@ -1,16 +1,16 @@
 digraph "katran_flow" {
   rankdir=TB;
   node [fontname="Helvetica"];
-  "parse_ethernet" [shape=box, label="parse_ethernet\nextract ethernet"];
-  "parse_ipv4" [shape=box, label="parse_ipv4\nextract ipv4"];
-  "parse_ipv4_proto" [shape=box, label="parse_ipv4_proto"];
-  "parse_ipv6" [shape=box, label="parse_ipv6\nextract ipv6"];
-  "parse_icmp" [shape=box, label="parse_icmp\nextract icmp"];
-  "parse_icmp6" [shape=box, label="parse_icmp6\nextract icmp"];
-  "parse_inner_ipv4" [shape=box, label="parse_inner_ipv4\nextract inner_ipv4"];
+  "parse_ethernet" [shape=box, label="parse_ethernet\nextract ethernet", tooltip="XDP entry: EtherType demux, no VLAN/MPLS. Non-IP (incl. ARP)\naccepts as XDP_PASS without entering the parser.", href="#"];
+  "parse_ipv4" [shape=box, label="parse_ipv4\nextract ipv4", tooltip="parse_l3_headers v4: ihl != 5 or any fragment -> XDP_DROP.", href="#"];
+  "parse_ipv4_proto" [shape=box, label="parse_ipv4_proto", tooltip="Proto dispatch (no extract): ICMP inner, TCP, UDP, else PASS.", href="#"];
+  "parse_ipv6" [shape=box, label="parse_ipv6\nextract ipv6", tooltip="parse_l3_headers v6: Fragment nexthdr -> DROP; ICMPv6 ->\ninner; no extension-header walk (any other nexthdr is the\nL4 proto). TCP/UDP dispatch, else PASS.", href="#"];
+  "parse_icmp" [shape=box, label="parse_icmp\nextract icmp", tooltip="parse_icmp (v4): echo (8) accepts [-> XDP_TX]; DEST_UNREACH\n(3) parses the inner packet; any other type accepts [PASS].", href="#"];
+  "parse_icmp6" [shape=box, label="parse_icmp6\nextract icmp", tooltip="parse_icmpv6: echo (128) accepts [TX]; DEST_UNREACH (1) /\nPKT_TOOBIG (2) parse inner; else PASS.", href="#"];
+  "parse_inner_ipv4" [shape=box, label="parse_inner_ipv4\nextract inner_ipv4", tooltip="Inner v4 (ICMP error payload): ihl != 5 -> DROP; no frag\ncheck (katran's parse_icmp doesn't). is_icmp marks the\ninversion for the projection.", href="#"];
   "parse_inner_ipv4_proto" [shape=box, label="parse_inner_ipv4_proto"];
-  "parse_inner_ipv6" [shape=box, label="parse_inner_ipv6\nextract ipv6"];
-  "parse_tcp" [shape=box, label="parse_tcp\nextract tcp"];
+  "parse_inner_ipv6" [shape=box, label="parse_inner_ipv6\nextract ipv6", tooltip="Inner v6: nexthdr taken directly (no frag/ext check in\nparse_icmpv6). TCP/UDP else PASS. Reuses the `ipv6` instance\n(its 128-bit addresses are var_bytes, which the IR cannot carry\nunder two instance names); the projection reads the LAST ipv6\nunder `is_icmp`, so the inner addresses win on the ICMP path\nexactly as katran records them.", href="#"];
+  "parse_tcp" [shape=box, label="parse_tcp\nextract tcp", tooltip="Shared L4 terminal (outer or inner): the projection lifts\nports (swapped under is_icmp) and TCP SYN/RST flags.", href="#"];
   "parse_udp" [shape=box, label="parse_udp\nextract udp"];
   "accept" [shape=doublecircle];
   "reject_0" [shape=diamond, label="reject:\nipv4 ihl!=5 or fragmented"];

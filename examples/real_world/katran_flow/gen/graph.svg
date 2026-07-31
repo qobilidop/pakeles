@@ -12,16 +12,22 @@
 <!-- parse_ethernet -->
 <g id="node1" class="node">
 <title>parse_ethernet</title>
+<g id="a_node1"><a xlink:href="#" xlink:title="XDP entry: EtherType demux, no VLAN/MPLS. Non&#45;IP (incl. ARP)&#10;accepts as XDP_PASS without entering the parser.">
 <polygon fill="none" stroke="black" points="1319,-811.59 1191,-811.59 1191,-773.59 1319,-773.59 1319,-811.59"/>
 <text text-anchor="middle" x="1255" y="-796.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_ethernet</text>
 <text text-anchor="middle" x="1255" y="-781.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract ethernet</text>
+</a>
+</g>
 </g>
 <!-- parse_ipv4 -->
 <g id="node2" class="node">
 <title>parse_ipv4</title>
+<g id="a_node2"><a xlink:href="#" xlink:title="parse_l3_headers v4: ihl != 5 or any fragment &#45;&gt; XDP_DROP.">
 <polygon fill="none" stroke="black" points="1036,-722.59 936,-722.59 936,-684.59 1036,-684.59 1036,-722.59"/>
 <text text-anchor="middle" x="986" y="-707.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_ipv4</text>
 <text text-anchor="middle" x="986" y="-692.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract ipv4</text>
+</a>
+</g>
 </g>
 <!-- parse_ethernet&#45;&gt;parse_ipv4 -->
 <g id="edge1" class="edge">
@@ -33,9 +39,12 @@
 <!-- parse_ipv6 -->
 <g id="node4" class="node">
 <title>parse_ipv6</title>
+<g id="a_node4"><a xlink:href="#" xlink:title="parse_l3_headers v6: Fragment nexthdr &#45;&gt; DROP; ICMPv6 &#45;&gt;&#10;inner; no extension&#45;header walk (any other nexthdr is the&#10;L4 proto). TCP/UDP dispatch, else PASS.">
 <polygon fill="none" stroke="black" points="1305,-506.59 1205,-506.59 1205,-468.59 1305,-468.59 1305,-506.59"/>
 <text text-anchor="middle" x="1255" y="-491.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_ipv6</text>
 <text text-anchor="middle" x="1255" y="-476.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract ipv6</text>
+</a>
+</g>
 </g>
 <!-- parse_ethernet&#45;&gt;parse_ipv6 -->
 <g id="edge2" class="edge">
@@ -61,8 +70,11 @@
 <!-- parse_ipv4_proto -->
 <g id="node3" class="node">
 <title>parse_ipv4_proto</title>
+<g id="a_node3"><a xlink:href="#" xlink:title="Proto dispatch (no extract): ICMP inner, TCP, UDP, else PASS.">
 <polygon fill="none" stroke="black" points="694.5,-613.59 559.5,-613.59 559.5,-577.59 694.5,-577.59 694.5,-613.59"/>
 <text text-anchor="middle" x="627" y="-591.89" font-family="Helvetica,sans-Serif" font-size="14.00">parse_ipv4_proto</text>
+</a>
+</g>
 </g>
 <!-- parse_ipv4&#45;&gt;parse_ipv4_proto -->
 <g id="edge4" class="edge">
@@ -88,9 +100,12 @@
 <!-- parse_icmp -->
 <g id="node5" class="node">
 <title>parse_icmp</title>
+<g id="a_node5"><a xlink:href="#" xlink:title="parse_icmp (v4): echo (8) accepts [&#45;&gt; XDP_TX]; DEST_UNREACH&#10;(3) parses the inner packet; any other type accepts [PASS].">
 <polygon fill="none" stroke="black" points="422,-506.59 318,-506.59 318,-468.59 422,-468.59 422,-506.59"/>
 <text text-anchor="middle" x="370" y="-491.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_icmp</text>
 <text text-anchor="middle" x="370" y="-476.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract icmp</text>
+</a>
+</g>
 </g>
 <!-- parse_ipv4_proto&#45;&gt;parse_icmp -->
 <g id="edge6" class="edge">
@@ -102,9 +117,12 @@
 <!-- parse_tcp -->
 <g id="node10" class="node">
 <title>parse_tcp</title>
+<g id="a_node10"><a xlink:href="#" xlink:title="Shared L4 terminal (outer or inner): the projection lifts&#10;ports (swapped under is_icmp) and TCP SYN/RST flags.">
 <polygon fill="none" stroke="black" points="671,-163.59 579,-163.59 579,-125.59 671,-125.59 671,-163.59"/>
 <text text-anchor="middle" x="625" y="-148.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_tcp</text>
 <text text-anchor="middle" x="625" y="-133.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract tcp</text>
+</a>
+</g>
 </g>
 <!-- parse_ipv4_proto&#45;&gt;parse_tcp -->
 <g id="edge7" class="edge">
@@ -137,9 +155,12 @@
 <!-- parse_icmp6 -->
 <g id="node6" class="node">
 <title>parse_icmp6</title>
+<g id="a_node6"><a xlink:href="#" xlink:title="parse_icmpv6: echo (128) accepts [TX]; DEST_UNREACH (1) /&#10;PKT_TOOBIG (2) parse inner; else PASS.">
 <polygon fill="none" stroke="black" points="1141.5,-398.59 1036.5,-398.59 1036.5,-360.59 1141.5,-360.59 1141.5,-398.59"/>
 <text text-anchor="middle" x="1089" y="-383.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_icmp6</text>
 <text text-anchor="middle" x="1089" y="-368.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract icmp</text>
+</a>
+</g>
 </g>
 <!-- parse_ipv6&#45;&gt;parse_icmp6 -->
 <g id="edge11" class="edge">
@@ -186,9 +207,12 @@
 <!-- parse_inner_ipv4 -->
 <g id="node7" class="node">
 <title>parse_inner_ipv4</title>
+<g id="a_node7"><a xlink:href="#" xlink:title="Inner v4 (ICMP error payload): ihl != 5 &#45;&gt; DROP; no frag&#10;check (katran&#39;s parse_icmp doesn&#39;t). is_icmp marks the&#10;inversion for the projection.">
 <polygon fill="none" stroke="black" points="441.5,-398.59 298.5,-398.59 298.5,-360.59 441.5,-360.59 441.5,-398.59"/>
 <text text-anchor="middle" x="370" y="-383.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_inner_ipv4</text>
 <text text-anchor="middle" x="370" y="-368.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract inner_ipv4</text>
+</a>
+</g>
 </g>
 <!-- parse_icmp&#45;&gt;parse_inner_ipv4 -->
 <g id="edge15" class="edge">
@@ -207,9 +231,12 @@
 <!-- parse_inner_ipv6 -->
 <g id="node9" class="node">
 <title>parse_inner_ipv6</title>
+<g id="a_node9"><a xlink:href="#" xlink:title="Inner v6: nexthdr taken directly (no frag/ext check in&#10;parse_icmpv6). TCP/UDP else PASS. Reuses the `ipv6` instance&#10;(its 128&#45;bit addresses are var_bytes, which the IR cannot carry&#10;under two instance names); the projection reads the LAST ipv6&#10;under `is_icmp`, so the inner addresses win on the ICMP path&#10;exactly as katran records them.">
 <polygon fill="none" stroke="black" points="1186.5,-271.59 1051.5,-271.59 1051.5,-233.59 1186.5,-233.59 1186.5,-271.59"/>
 <text text-anchor="middle" x="1119" y="-256.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_inner_ipv6</text>
 <text text-anchor="middle" x="1119" y="-241.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract ipv6</text>
+</a>
+</g>
 </g>
 <!-- parse_icmp6&#45;&gt;parse_inner_ipv6 -->
 <g id="edge17" class="edge">

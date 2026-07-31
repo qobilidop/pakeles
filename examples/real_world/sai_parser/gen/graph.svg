@@ -12,16 +12,22 @@
 <!-- parse_ethernet -->
 <g id="node1" class="node">
 <title>parse_ethernet</title>
+<g id="a_node1"><a xlink:href="#" xlink:title="EtherType demux; 802.1Q &#45;&gt; vlan; else accept.">
 <polygon fill="none" stroke="black" points="1186.92,-430.59 1058.92,-430.59 1058.92,-392.59 1186.92,-392.59 1186.92,-430.59"/>
 <text text-anchor="middle" x="1122.92" y="-415.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_ethernet</text>
 <text text-anchor="middle" x="1122.92" y="-400.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract ethernet</text>
+</a>
+</g>
 </g>
 <!-- parse_vlan -->
 <g id="node2" class="node">
 <title>parse_vlan</title>
+<g id="a_node2"><a xlink:href="#" xlink:title="parse_8021q_vlan: same L3 demux; no further VLAN (double&#45;tag&#10;0x88a8 unmodeled upstream &#45;&gt; accept).">
 <polygon fill="none" stroke="black" points="1172.42,-341.59 1073.42,-341.59 1073.42,-303.59 1172.42,-303.59 1172.42,-341.59"/>
 <text text-anchor="middle" x="1122.92" y="-326.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_vlan</text>
 <text text-anchor="middle" x="1122.92" y="-311.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract vlan</text>
+</a>
+</g>
 </g>
 <!-- parse_ethernet&#45;&gt;parse_vlan -->
 <g id="edge4" class="edge">
@@ -47,9 +53,12 @@
 <!-- parse_ipv6 -->
 <g id="node4" class="node">
 <title>parse_ipv6</title>
+<g id="a_node4"><a xlink:href="#" xlink:title="No extension&#45;header handling: next_header taken as L4 directly.">
 <polygon fill="none" stroke="black" points="920.92,-252.59 820.92,-252.59 820.92,-214.59 920.92,-214.59 920.92,-252.59"/>
 <text text-anchor="middle" x="870.92" y="-237.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_ipv6</text>
 <text text-anchor="middle" x="870.92" y="-222.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract ipv6</text>
+</a>
+</g>
 </g>
 <!-- parse_ethernet&#45;&gt;parse_ipv6 -->
 <g id="edge2" class="edge">

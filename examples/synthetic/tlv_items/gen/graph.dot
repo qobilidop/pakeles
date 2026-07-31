@@ -2,9 +2,9 @@ digraph "tlv_items" {
   rankdir=TB;
   node [fontname="Helvetica"];
   "parse_total" [shape=box, label="parse_total\nextract total_len"];
-  "tlv_loop" [shape=box, label="tlv_loop"];
+  "tlv_loop" [shape=box, label="tlv_loop", tooltip="Loop head: region exhausted -> close; else another item.", href="#"];
   "parse_item" [shape=box, label="parse_item\nextract item"];
-  "close" [shape=box, label="close"];
+  "close" [shape=box, label="close", tooltip="Exact-mode pop: trailing bytes inside the region reject.", href="#"];
   "accept" [shape=doublecircle];
   "parse_total" -> "tlv_loop";
   "tlv_loop" -> "close" [label="remaining() == 0x0"];
