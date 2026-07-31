@@ -127,6 +127,9 @@ Start state: `parse_ethernet`.
   - ethernet.ethertype == 0x2900 → `parse_inner_ipv6`
   - ethernet.ethertype == 0x2f00 → `parse_gre`
   - otherwise → **accept**
+  > rte_net.c:236-290. IPv4 is the fast path; one VLAN tag OR one
+  > blind QinQ pair OR the MPLS dead-code stop; 0x6558 falls all
+  > the way through to the inner-Ethernet read.
 - **`parse_vlan`** — extracts vlan; selects on `vlan.proto`:
   - vlan.proto == 0x800 → `parse_ipv4`
   - vlan.proto == 0x86dd → `parse_ipv6`
@@ -155,6 +158,10 @@ Start state: `parse_ethernet`.
   - ipv4.mf_frag_off == 0x0 && ipv4.protocol == 0x8 → `parse_inner_ipv4`
   - ipv4.mf_frag_off == 0x0 && ipv4.protocol == 0x81 → `parse_inner_vlan`
   - otherwise → **accept**
+  > rte_net.c:296-318. One multi-key select: any nonzero MF|offset
+  > hits default (frag stop — the projection reads the field);
+  > otherwise dispatch on protocol. UDP(17)/SCTP(132) are blind
+  > accepts — never extracted.
 - **`parse_ipv6`** — extracts ipv6; selects on `ipv6.next_header`:
   - ipv6.next_header == 0x0 → `parse_ext_opt1`
   - ipv6.next_header == 0x2b → `parse_ext_opt1`
@@ -179,6 +186,9 @@ Start state: `parse_ethernet`.
   - ipv6_ext_opt.next_header == 0x8 → `parse_inner_ipv4`
   - ipv6_ext_opt.next_header == 0x81 → `parse_inner_vlan`
   - otherwise → **accept**
+  > rte_net_skip_ip6_ext, unrolled to MAX_EXT_HDRS=5: the 5th
+  > consumed link exhausts the loop — extract + bail, whatever its
+  > next_header says (the projection snaps l3_len back to 40).
 - **`parse_ext_opt2`** — extracts ipv6_ext_opt; selects on `ipv6_ext_opt.next_header`:
   - ipv6_ext_opt.next_header == 0x0 → `parse_ext_opt3`
   - ipv6_ext_opt.next_header == 0x2b → `parse_ext_opt3`
@@ -220,6 +230,9 @@ Start state: `parse_ethernet`.
 - **`parse_gre`** — extracts gre; selects on `gre.r`:
   - gre.r == 0x0 → `parse_gre_opt`
   - otherwise → **accept**
+  > rte_net.c:133-163. Select on R only: any R=1 nibble has
+  > opt_len 0 ("not a tunnel") — accept with no optional skip, no
+  > tunnel bit. Version is never examined.
 - **`parse_gre_opt`** — extracts gre_opt; selects on `gre.proto`:
   - gre.proto == 0x800 → `parse_inner_ipv4`
   - gre.proto == 0x86dd → `parse_inner_ipv6`
@@ -234,6 +247,10 @@ Start state: `parse_ethernet`.
   - ethernet.ethertype == 0x8100 → `parse_inner_vlan`
   - ethernet.ethertype == 0x88a8 → `parse_inner_qinq`
   - otherwise → **accept**
+  > rte_net.c:384-508 — the inner mirror. Reachable without any
+  > tunnel (double-VLAN, Q-then-AD, top-level TEB): the pipeline
+  > falls through unconditionally. Exactly one inner level: inner
+  > tunnel protocols hit default accepts.
 - **`parse_inner_vlan`** — extracts vlan; selects on `vlan.proto`:
   - vlan.proto == 0x800 → `parse_inner_ipv4`
   - vlan.proto == 0x86dd → `parse_inner_ipv6`

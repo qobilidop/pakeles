@@ -24,5 +24,7 @@ Start state: `parse_total`.
 - **`tlv_loop`**; selects on `remaining()`:
   - remaining() == 0x0 → `close`
   - otherwise → `parse_item`
+  > Loop head: region exhausted -> close; else another item.
 - **`parse_item`** — extracts item; then `tlv_loop`
 - **`close`**; then **accept**
+  > Exact-mode pop: trailing bytes inside the region reject.

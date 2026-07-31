@@ -109,7 +109,7 @@ class Parser:
             raise ValueError(f"{cls.__name__} defines no state methods")
         inst = cls()
         states: dict[str, State] = {}
-        for sname in funcs:
+        for sname, func in funcs.items():
             state = getattr(inst, sname)()
             if not isinstance(state, State):
                 raise TypeError(
@@ -117,15 +117,21 @@ class Parser:
                     f"{type(state).__name__}, expected a State "
                     f"(underscore-prefix helper methods)"
                 )
+            state.doc = inspect.getdoc(func)
             states[sname] = _resolve_refs(state)
         start = cls.start
         start_name = start.__name__ if start is not None else next(iter(funcs))
+        # cls.__doc__ (not inspect.getdoc): every class body defines its
+        # own __doc__, so an undocumented subclass stays undocumented
+        # instead of inheriting this base class's docstring.
+        doc = inspect.cleandoc(cls.__doc__) if cls.__doc__ else None
         return Assembly(
             cls.name or snake(cls.__name__),
             max_depth=cls.max_depth,
             start=start_name,
             states=states,
             metadata=cls.metadata,
+            doc=doc,
         )
 
     @classmethod

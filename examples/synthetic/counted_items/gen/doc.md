@@ -31,4 +31,6 @@ Start state: `parse_count`.
 - **`parse_item`** — extracts item; sets meta.remaining = (meta.remaining - 1); selects on `meta.remaining`:
   - meta.remaining == 0x0 → `mark_done`
   - otherwise → `parse_item`
+  > Accumulator loop: read one item, count down, exit at zero.
 - **`mark_done`**; sets meta.done = 1; then **accept**
+  > No-extract pass-through state: constant metadata write, then stop.

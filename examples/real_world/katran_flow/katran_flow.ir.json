@@ -566,6 +566,9 @@
               "accept": {}
             }
           }
+        },
+        "annotations": {
+          "doc": "XDP entry: EtherType demux, no VLAN/MPLS. Non-IP (incl. ARP)\naccepts as XDP_PASS without entering the parser."
         }
       },
       {
@@ -612,6 +615,9 @@
               }
             }
           }
+        },
+        "annotations": {
+          "doc": "parse_l3_headers v4: ihl != 5 or any fragment -> XDP_DROP."
         }
       },
       {
@@ -662,6 +668,9 @@
               "accept": {}
             }
           }
+        },
+        "annotations": {
+          "doc": "Proto dispatch (no extract): ICMP inner, TCP, UDP, else PASS."
         }
       },
       {
@@ -729,6 +738,9 @@
               "accept": {}
             }
           }
+        },
+        "annotations": {
+          "doc": "parse_l3_headers v6: Fragment nexthdr -> DROP; ICMPv6 ->\ninner; no extension-header walk (any other nexthdr is the\nL4 proto). TCP/UDP dispatch, else PASS."
         }
       },
       {
@@ -765,6 +777,9 @@
               "accept": {}
             }
           }
+        },
+        "annotations": {
+          "doc": "parse_icmp (v4): echo (8) accepts [-> XDP_TX]; DEST_UNREACH\n(3) parses the inner packet; any other type accepts [PASS]."
         }
       },
       {
@@ -811,6 +826,9 @@
               "accept": {}
             }
           }
+        },
+        "annotations": {
+          "doc": "parse_icmpv6: echo (128) accepts [TX]; DEST_UNREACH (1) /\nPKT_TOOBIG (2) parse inner; else PASS."
         }
       },
       {
@@ -857,7 +875,10 @@
               "constant": "1"
             }
           }
-        ]
+        ],
+        "annotations": {
+          "doc": "Inner v4 (ICMP error payload): ihl != 5 -> DROP; no frag\ncheck (katran's parse_icmp doesn't). is_icmp marks the\ninversion for the projection."
+        }
       },
       {
         "name": "parse_inner_ipv4_proto",
@@ -950,7 +971,10 @@
               "constant": "1"
             }
           }
-        ]
+        ],
+        "annotations": {
+          "doc": "Inner v6: nexthdr taken directly (no frag/ext check in\nparse_icmpv6). TCP/UDP else PASS. Reuses the `ipv6` instance\n(its 128-bit addresses are var_bytes, which the IR cannot carry\nunder two instance names); the projection reads the LAST ipv6\nunder `is_icmp`, so the inner addresses win on the ICMP path\nexactly as katran records them."
+        }
       },
       {
         "name": "parse_tcp",
@@ -963,6 +987,9 @@
           "direct": {
             "accept": {}
           }
+        },
+        "annotations": {
+          "doc": "Shared L4 terminal (outer or inner): the projection lifts\nports (swapped under is_icmp) and TCP SYN/RST flags."
         }
       },
       {

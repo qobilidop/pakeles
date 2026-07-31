@@ -126,6 +126,9 @@ class State:
     )
     region_ops: list[RegionOp] = dc_field(default_factory=list[RegionOp])
     transition: SelectSpec | Target | None = None
+    doc: str | None = None
+    """State prose for `annotations["doc"]`; set from the state
+    method's docstring at assembly, not by the chain API."""
 
     def _need_open(self) -> None:
         if self.transition is not None:

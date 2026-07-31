@@ -107,11 +107,14 @@ Start state: `parse_ethernet`.
   - ethernet.ether_type == 0x806 → `parse_arp`
   - ethernet.ether_type == 0x8100 → `parse_vlan`
   - otherwise → **accept**
+  > EtherType demux; 802.1Q -> vlan; else accept.
 - **`parse_vlan`** — extracts vlan; selects on `vlan.ether_type`:
   - vlan.ether_type == 0x800 → `parse_ipv4`
   - vlan.ether_type == 0x86dd → `parse_ipv6`
   - vlan.ether_type == 0x806 → `parse_arp`
   - otherwise → **accept**
+  > parse_8021q_vlan: same L3 demux; no further VLAN (double-tag
+  > 0x88a8 unmodeled upstream -> accept).
 - **`parse_ipv4`** — extracts ipv4; selects on `ipv4.protocol`:
   - ipv4.protocol == 0x1 → `parse_icmp`
   - ipv4.protocol == 0x6 → `parse_tcp`
@@ -122,6 +125,7 @@ Start state: `parse_ethernet`.
   - ipv6.next_header == 0x6 → `parse_tcp`
   - ipv6.next_header == 0x11 → `parse_udp`
   - otherwise → **accept**
+  > No extension-header handling: next_header taken as L4 directly.
 - **`parse_arp`** — extracts arp; then **accept**
 - **`parse_icmp`** — extracts icmp; then **accept**
 - **`parse_tcp`** — extracts tcp; then **accept**

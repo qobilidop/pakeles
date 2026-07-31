@@ -726,6 +726,9 @@
               "accept": {}
             }
           }
+        },
+        "annotations": {
+          "doc": "EtherType demux; 802.1Q -> vlan; else accept."
         }
       },
       {
@@ -781,6 +784,9 @@
               "accept": {}
             }
           }
+        },
+        "annotations": {
+          "doc": "parse_8021q_vlan: same L3 demux; no further VLAN (double-tag\n0x88a8 unmodeled upstream -> accept)."
         }
       },
       {
@@ -891,6 +897,9 @@
               "accept": {}
             }
           }
+        },
+        "annotations": {
+          "doc": "No extension-header handling: next_header taken as L4 directly."
         }
       },
       {

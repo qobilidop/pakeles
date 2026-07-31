@@ -143,6 +143,8 @@ Start state: `parse_ethernet`.
 - **`parse_vlan_ad`** — extracts vlan_ad; selects on `vlan_ad.encapsulated_proto`:
   - vlan_ad.encapsulated_proto == 0x8100 → `parse_vlan_q`
   - otherwise → **reject** (*802.1AD must be followed by 802.1Q*)
+  > Upstream PROG(VLAN), 802.1AD arm: the outer S-tag must be
+  > followed by exactly one 802.1Q C-tag.
 - **`parse_vlan_q`** — extracts vlan_q; selects on `vlan_q.encapsulated_proto`:
   - vlan_q.encapsulated_proto == 0x800 → `parse_ipv4`
   - vlan_q.encapsulated_proto == 0x86dd → `parse_ipv6`
@@ -151,6 +153,9 @@ Start state: `parse_ethernet`.
   - vlan_q.encapsulated_proto == 0x8100 → **reject** (*vlan stacking beyond kernel depth*)
   - vlan_q.encapsulated_proto == 0x88a8 → **reject** (*vlan stacking beyond kernel depth*)
   - otherwise → payload boundary (*unsupported ethertype*)
+  > Upstream PROG(VLAN), common tail: the final (or only) tag;
+  > a further Q/AD tag is a kernel drop (no triple tagging, no
+  > double-Q).
 - **`parse_ipv4`** — extracts ipv4; selects on `ipv4.protocol`:
   - ipv4.protocol == 0x4 → `parse_ipip`
   - ipv4.protocol == 0x6 → `parse_tcp`
@@ -178,17 +183,33 @@ Start state: `parse_ethernet`.
   - ext_opt.next_header == 0x29 → `parse_ip6ip`
   - ext_opt.next_header == 0x2f → `parse_gre`
   - otherwise → payload boundary (*unsupported ip protocol*)
+  > Kernel PROG(IPV6OP): walk the option, dispatch on its own
+  > next_header — HopByHop/DestOpts loop back (self-edge).
 - **`parse_ipip`**; sets meta.is_encap = 1; then `parse_ipv4`
+  > Kernel parse_ip_proto encap arms (IPPROTO_IPIP / IPPROTO_IPV6,
+  > default flags: STOP_AT_ENCAP off): mark is_encap and re-enter
+  > the state machine as the inner family — pure back edges, no
+  > header read; the max_depth budget bounds the nesting.
 - **`parse_ip6ip`**; sets meta.is_encap = 1; then `parse_ipv6`
 - **`parse_gre`** — extracts gre; selects on `gre.version`:
   - gre.version == 0x0 → `parse_gre_opt`
   - otherwise → **accept**
+  > Kernel IPPROTO_GRE arm, step order is the crux: version != 0
+  > is an immediate BPF_OK — no thoff advance, no is_encap, the
+  > optional region never read. Only version 0 walks the C/K/S
+  > optionals (parse_gre_opt), sets is_encap, and dispatches.
 - **`parse_gre_opt`** — extracts gre_opt; sets meta.is_encap = 1; selects on `gre.proto`:
   - gre.proto == 0x800 → `parse_ipv4`
   - gre.proto == 0x86dd → `parse_ipv6`
   - gre.proto == 0x6558 → `parse_ethernet`
   - otherwise → payload boundary (*unsupported gre proto*)
+  > TEB (0x6558) re-enters parse_ethernet itself: the kernel reads
+  > the inner Ethernet and runs its full parse_eth_proto dispatcher,
+  > so inner VLAN/MPLS/IPvX all live.
 - **`parse_ipv6_frag`** — extracts ext_frag; then **accept**
+  > Kernel PROG(IPV6FR) under default flags: read the fragment
+  > header and stop (BPF_OK), always.
 - **`parse_mpls`** — extracts mpls; then **accept**
+  > Upstream PROG(MPLS): read one label entry, stop, BPF_OK.
 - **`parse_tcp`** — extracts tcp; then **accept**
 - **`parse_udp`** — extracts udp; then **accept**

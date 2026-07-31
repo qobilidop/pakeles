@@ -27,12 +27,14 @@ class Assembly:
         start: str,
         states: dict[str, State],
         metadata: type[Metadata] | None = None,
+        doc: str | None = None,
     ) -> None:
         self._name = name
         self._max_depth = max_depth
         self._start = start
         self._states = dict(states)
         self._metadata = metadata
+        self._doc = doc
         self._check()
 
     def _check_metadata_field(
@@ -144,6 +146,8 @@ class Assembly:
         p.name = self._name
         p.max_depth = self._max_depth
         p.start_state = self._start
+        if self._doc:
+            p.annotations["doc"] = self._doc
         if self._metadata is not None:
             for mf in self._metadata._fields:  # type: ignore[attr-defined]
                 pm = p.metadata.add()
@@ -167,6 +171,8 @@ class Assembly:
         for sname, chain in self._states.items():
             st = p.states.add()
             st.name = sname
+            if chain.doc:
+                st.annotations["doc"] = chain.doc
             for header, instance in chain.extracts:
                 ex = st.extracts.add()
                 ex.header_type = header.ir_name()

@@ -88,30 +88,44 @@ Start state: `parse_ethernet`.
   - ethernet.ethertype == 0x800 → `parse_ipv4`
   - ethernet.ethertype == 0x86dd → `parse_ipv6`
   - otherwise → **accept**
+  > XDP entry: EtherType demux, no VLAN/MPLS. Non-IP (incl. ARP)
+  > accepts as XDP_PASS without entering the parser.
 - **`parse_ipv4`** — extracts ipv4; selects on `ipv4.ihl`, `ipv4.mf_frag_off`:
   - ipv4.ihl == 0x5 && ipv4.mf_frag_off == 0x0 → `parse_ipv4_proto`
   - otherwise → **reject** (*ipv4 ihl!=5 or fragmented*)
+  > parse_l3_headers v4: ihl != 5 or any fragment -> XDP_DROP.
 - **`parse_ipv4_proto`**; selects on `ipv4.protocol`:
   - ipv4.protocol == 0x1 → `parse_icmp`
   - ipv4.protocol == 0x6 → `parse_tcp`
   - ipv4.protocol == 0x11 → `parse_udp`
   - otherwise → **accept**
+  > Proto dispatch (no extract): ICMP inner, TCP, UDP, else PASS.
 - **`parse_ipv6`** — extracts ipv6; selects on `ipv6.next_header`:
   - ipv6.next_header == 0x2c → **reject** (*ipv6 fragment*)
   - ipv6.next_header == 0x3a → `parse_icmp6`
   - ipv6.next_header == 0x6 → `parse_tcp`
   - ipv6.next_header == 0x11 → `parse_udp`
   - otherwise → **accept**
+  > parse_l3_headers v6: Fragment nexthdr -> DROP; ICMPv6 ->
+  > inner; no extension-header walk (any other nexthdr is the
+  > L4 proto). TCP/UDP dispatch, else PASS.
 - **`parse_icmp`** — extracts icmp; selects on `icmp.type`:
   - icmp.type == 0x3 → `parse_inner_ipv4`
   - otherwise → **accept**
+  > parse_icmp (v4): echo (8) accepts [-> XDP_TX]; DEST_UNREACH
+  > (3) parses the inner packet; any other type accepts [PASS].
 - **`parse_icmp6`** — extracts icmp; selects on `icmp.type`:
   - icmp.type == 0x1 → `parse_inner_ipv6`
   - icmp.type == 0x2 → `parse_inner_ipv6`
   - otherwise → **accept**
+  > parse_icmpv6: echo (128) accepts [TX]; DEST_UNREACH (1) /
+  > PKT_TOOBIG (2) parse inner; else PASS.
 - **`parse_inner_ipv4`** — extracts inner_ipv4; sets meta.is_icmp = 1; selects on `inner_ipv4.ihl`:
   - inner_ipv4.ihl == 0x5 → `parse_inner_ipv4_proto`
   - otherwise → **reject** (*inner ipv4 ihl!=5*)
+  > Inner v4 (ICMP error payload): ihl != 5 -> DROP; no frag
+  > check (katran's parse_icmp doesn't). is_icmp marks the
+  > inversion for the projection.
 - **`parse_inner_ipv4_proto`**; selects on `inner_ipv4.protocol`:
   - inner_ipv4.protocol == 0x6 → `parse_tcp`
   - inner_ipv4.protocol == 0x11 → `parse_udp`
@@ -120,5 +134,13 @@ Start state: `parse_ethernet`.
   - ipv6.next_header == 0x6 → `parse_tcp`
   - ipv6.next_header == 0x11 → `parse_udp`
   - otherwise → **accept**
+  > Inner v6: nexthdr taken directly (no frag/ext check in
+  > parse_icmpv6). TCP/UDP else PASS. Reuses the `ipv6` instance
+  > (its 128-bit addresses are var_bytes, which the IR cannot carry
+  > under two instance names); the projection reads the LAST ipv6
+  > under `is_icmp`, so the inner addresses win on the ICMP path
+  > exactly as katran records them.
 - **`parse_tcp`** — extracts tcp; then **accept**
+  > Shared L4 terminal (outer or inner): the projection lifts
+  > ports (swapped under is_icmp) and TCP SYN/RST flags.
 - **`parse_udp`** — extracts udp; then **accept**

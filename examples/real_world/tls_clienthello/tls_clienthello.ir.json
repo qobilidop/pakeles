@@ -370,7 +370,10 @@
               }
             }
           }
-        ]
+        ],
+        "annotations": {
+          "doc": "Record layer: 0x16 = handshake; the record length bounds\neverything (pushed before the select fires, harmlessly so on\nthe reject arm)."
+        }
       },
       {
         "name": "s_recver",
@@ -402,6 +405,9 @@
               }
             }
           }
+        },
+        "annotations": {
+          "doc": "rustls validates the record-layer version at parse time\n(InvalidMessage(UnknownProtocolVersion)); found by symex\nwitness replay, not by the hand-written corpus."
         }
       },
       {
@@ -449,7 +455,10 @@
               }
             }
           }
-        ]
+        ],
+        "annotations": {
+          "doc": "Handshake header: 0x01 = client_hello; hlen must fit the\nrecord (structural push check)."
+        }
       },
       {
         "name": "s_fixed",
@@ -819,6 +828,9 @@
               }
             }
           }
+        },
+        "annotations": {
+          "doc": "legacy_session_id: opaque <0..32>."
         }
       },
       {
@@ -888,7 +900,10 @@
               }
             }
           }
-        ]
+        ],
+        "annotations": {
+          "doc": "cipher_suites: <2..2^16-2>, u16 list: nonzero and even."
+        }
       },
       {
         "name": "s_cs_parity",
@@ -969,6 +984,9 @@
               "state": "s_comp"
             }
           }
+        },
+        "annotations": {
+          "doc": "legacy_compression_methods: <1..2^8-1>."
         }
       },
       {
@@ -1021,6 +1039,9 @@
               "state": "s_ext_len"
             }
           }
+        },
+        "annotations": {
+          "doc": "Extensions are OPTIONAL: a handshake body ending here is a\nlegal pre-TLS-1.2 ClientHello. One stray byte cannot hold the\nu16 extensions length."
         }
       },
       {
@@ -1107,6 +1128,9 @@
               "state": "s_ext"
             }
           }
+        },
+        "annotations": {
+          "doc": "The TLV loop head: bounded by max_depth (sole termination\nauthority); 1..3 bytes cannot hold a type+length header."
         }
       },
       {
@@ -1204,7 +1228,10 @@
               }
             }
           }
-        ]
+        ],
+        "annotations": {
+          "doc": "SNI descends two more regions deep: extension data, then the\nserver_name list — every length is checked exactly."
+        }
       },
       {
         "name": "s_sni_list",
@@ -1285,7 +1312,10 @@
           {
             "pop": {}
           }
-        ]
+        ],
+        "annotations": {
+          "doc": "Exact pops: hostname must fill the list AND the extension."
+        }
       },
       {
         "name": "s_done",
@@ -1304,7 +1334,10 @@
           {
             "pop": {}
           }
-        ]
+        ],
+        "annotations": {
+          "doc": "Exact pops: extensions block, handshake body, record."
+        }
       },
       {
         "name": "s_done_noext",

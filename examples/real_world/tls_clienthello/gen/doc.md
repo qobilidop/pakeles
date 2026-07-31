@@ -113,12 +113,20 @@ Start state: `s_record`.
 - **`s_record`** — extracts record_hdr; selects on `record_hdr.ctype`:
   - record_hdr.ctype == 0x16 → `s_recver`
   - otherwise → **reject** (*not a handshake record*)
+  > Record layer: 0x16 = handshake; the record length bounds
+  > everything (pushed before the select fires, harmlessly so on
+  > the reject arm).
 - **`s_recver`**; selects on `record_hdr.ver_major`:
   - record_hdr.ver_major == 0x3 → `s_hs`
   - otherwise → **reject** (*unsupported record version*)
+  > rustls validates the record-layer version at parse time
+  > (InvalidMessage(UnknownProtocolVersion)); found by symex
+  > witness replay, not by the hand-written corpus.
 - **`s_hs`** — extracts handshake_hdr; selects on `handshake_hdr.typ`:
   - handshake_hdr.typ == 0x1 → `s_fixed`
   - otherwise → **reject** (*not a client hello*)
+  > Handshake header: 0x01 = client_hello; hlen must fit the
+  > record (structural push check).
 - **`s_fixed`** — extracts body_fixed; then `s_sid_len`
 - **`s_sid_len`** — extracts sid_len; selects on `sid_len.slen`:
   - sid_len.slen == 0x0 → `s_sid`
@@ -155,10 +163,12 @@ Start state: `s_record`.
   - sid_len.slen == 0x1f → `s_sid`
   - sid_len.slen == 0x20 → `s_sid`
   - otherwise → **reject** (*session id too long*)
+  > legacy_session_id: opaque <0..32>.
 - **`s_sid`** — extracts sid; then `s_cs_len`
 - **`s_cs_len`** — extracts cs_len; sets meta.cs_odd = (cs_len.clen & 1); selects on `cs_len.clen`:
   - cs_len.clen == 0x0 → **reject** (*empty cipher suites*)
   - otherwise → `s_cs_parity`
+  > cipher_suites: <2..2^16-2>, u16 list: nonzero and even.
 - **`s_cs_parity`**; selects on `meta.cs_odd`:
   - meta.cs_odd == 0x1 → **reject** (*odd cipher suites length*)
   - otherwise → `s_cs`
@@ -166,11 +176,15 @@ Start state: `s_record`.
 - **`s_comp_len`** — extracts comp_len; selects on `comp_len.plen`:
   - comp_len.plen == 0x0 → **reject** (*empty compressions*)
   - otherwise → `s_comp`
+  > legacy_compression_methods: <1..2^8-1>.
 - **`s_comp`** — extracts comp; then `s_ext_check`
 - **`s_ext_check`**; selects on `remaining()`:
   - remaining() == 0x0 → `s_done_noext`
   - remaining() == 0x1 → **reject** (*partial extensions length*)
   - otherwise → `s_ext_len`
+  > Extensions are OPTIONAL: a handshake body ending here is a
+  > legal pre-TLS-1.2 ClientHello. One stray byte cannot hold the
+  > u16 extensions length.
 - **`s_ext_len`** — extracts ext_len; then `s_tlv`
 - **`s_tlv`**; selects on `remaining()`:
   - remaining() == 0x0 → `s_done`
@@ -178,16 +192,22 @@ Start state: `s_record`.
   - remaining() == 0x2 → **reject** (*partial extension header*)
   - remaining() == 0x3 → **reject** (*partial extension header*)
   - otherwise → `s_ext`
+  > The TLV loop head: bounded by max_depth (sole termination
+  > authority); 1..3 bytes cannot hold a type+length header.
 - **`s_ext`** — extracts ext; selects on `ext.typ`, `meta.seen_sni`:
   - ext.typ == 0x0 && meta.seen_sni == 0x0 → `s_sni`
   - ext.typ == 0x0 && meta.seen_sni == 0x1 → **reject** (*duplicate sni*)
   - otherwise → `s_skip`
 - **`s_skip`** — extracts skip; then `s_tlv`
 - **`s_sni`**; sets meta.seen_sni = 1; then `s_sni_list`
+  > SNI descends two more regions deep: extension data, then the
+  > server_name list — every length is checked exactly.
 - **`s_sni_list`** — extracts sni_list; then `s_sni_entry`
 - **`s_sni_entry`** — extracts sni_entry; selects on `sni_entry.ntype`:
   - sni_entry.ntype == 0x0 → `s_host`
   - otherwise → **reject** (*unsupported sni name type*)
 - **`s_host`** — extracts host; then `s_tlv`
+  > Exact pops: hostname must fill the list AND the extension.
 - **`s_done`**; then **accept**
+  > Exact pops: extensions block, handshake body, record.
 - **`s_done_noext`**; then **accept**

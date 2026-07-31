@@ -105,6 +105,9 @@
               "state": "parse_item"
             }
           }
+        },
+        "annotations": {
+          "doc": "Loop head: region exhausted -> close; else another item."
         }
       },
       {
@@ -131,7 +134,10 @@
           {
             "pop": {}
           }
-        ]
+        ],
+        "annotations": {
+          "doc": "Exact-mode pop: trailing bytes inside the region reject."
+        }
       }
     ],
     "startState": "parse_total",

@@ -130,7 +130,10 @@
               }
             }
           }
-        ]
+        ],
+        "annotations": {
+          "doc": "Accumulator loop: read one item, count down, exit at zero."
+        }
       },
       {
         "name": "mark_done",
@@ -146,7 +149,10 @@
               "constant": "1"
             }
           }
-        ]
+        ],
+        "annotations": {
+          "doc": "No-extract pass-through state: constant metadata write, then stop."
+        }
       }
     ],
     "startState": "parse_count",

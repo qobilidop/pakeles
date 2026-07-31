@@ -160,3 +160,40 @@ def test_reference_typo_is_an_attribute_error() -> None:
 
     with pytest.raises(AttributeError, match="parse_b"):
         Typo.check()
+
+
+# --- docstring lifting ------------------------------------------------
+
+
+def test_docstrings_lift_into_doc_annotations() -> None:
+    class Documented(Parser):
+        """The parser-level doc."""
+
+        max_depth = 1
+
+        def parse_a(self) -> State:
+            """First line.
+
+            Second line."""
+            return extract(TCP).accept()
+
+        def parse_b(self) -> State:
+            return extract(UDP).accept()
+
+    ir = json.loads(Documented.to_json())["parser"]
+    assert ir["annotations"]["doc"] == "The parser-level doc."
+    by_name = {s["name"]: s for s in ir["states"]}
+    assert by_name["parse_a"]["annotations"]["doc"] == "First line.\n\nSecond line."
+    # No docstring -> no key.
+    assert "annotations" not in by_name["parse_b"]
+
+    class Undocumented(Documented):
+        max_depth = 1
+
+    # A subclass never inherits the base class's parser-level doc
+    # (its own __doc__ is None); the inherited state methods keep
+    # their own docstrings.
+    sub = json.loads(Undocumented.to_json())["parser"]
+    assert "annotations" not in sub
+    sub_states = {s["name"]: s for s in sub["states"]}
+    assert sub_states["parse_a"]["annotations"]["doc"].startswith("First line.")
