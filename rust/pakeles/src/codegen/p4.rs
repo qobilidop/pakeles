@@ -30,8 +30,10 @@ pub const ERR_PACKET_TOO_SHORT: u8 = 1;
 pub fn bitmap_bits(n: usize) -> u32 {
     if n <= 8 {
         8
-    } else {
+    } else if n <= 16 {
         16
+    } else {
+        32
     }
 }
 
@@ -368,9 +370,9 @@ pub fn generate_p4(ir: &pb::Ir) -> Result<String> {
     }
     let insts = instance_order(parser);
     let stacked = stacked_instances(parser);
-    if insts.len() > 16 {
+    if insts.len() > 32 {
         bail!(
-            "verdict bitmap supports at most 16 header instances, got {}",
+            "verdict bitmap supports at most 32 header instances, got {}",
             insts.len()
         );
     }
@@ -897,8 +899,11 @@ mod tests {
         assert_eq!(bitmap_bits(8), 8);
         assert_eq!(bitmap_bits(9), 16);
         assert_eq!(bitmap_bits(16), 16);
+        assert_eq!(bitmap_bits(17), 32);
+        assert_eq!(bitmap_bits(32), 32);
         assert_eq!(bitmap_bytes(8), 1);
         assert_eq!(bitmap_bytes(9), 2);
+        assert_eq!(bitmap_bytes(17), 4);
     }
 
     #[test]
@@ -928,9 +933,18 @@ mod tests {
     }
 
     #[test]
-    fn more_than_16_instances_still_bails() {
-        let err = generate_p4(&synth_ir(17)).unwrap_err();
-        assert!(err.to_string().contains("at most 16"), "{err}");
+    fn verdict_bitmap_widens_past_16_instances() {
+        // 17+ instances is the gibb_big_union shape (28 unrolled
+        // nodes) that added the 32-bit tier.
+        let p4 = generate_p4(&synth_ir(17)).unwrap();
+        assert!(p4.contains("bit<32> bitmap;"), "{p4}");
+        assert!(p4.contains("bit<32> bm = 32w0;"), "{p4}");
+    }
+
+    #[test]
+    fn more_than_32_instances_still_bails() {
+        let err = generate_p4(&synth_ir(33)).unwrap_err();
+        assert!(err.to_string().contains("at most 32"), "{err}");
     }
 
     #[test]
