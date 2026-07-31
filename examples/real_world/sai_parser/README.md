@@ -20,7 +20,7 @@ match. Design doc:
 
 Uniquely among the four targets, the incumbent is itself a **P4 program**
 run on **BMv2 `simple_switch`** — the exact toolchain Pakeles's own BMv2
-oracle ([`src/oracle/bmv2.rs`](../../../src/oracle/bmv2.rs)) already drives.
+oracle ([`rust/pakeles/src/oracle/bmv2.rs`](../../../rust/pakeles/src/oracle/bmv2.rs)) already drives.
 So this example is agreement between two P4 programs on one switch:
 
 - **Our** generated `sai_parser` P4 ([`gen/parser.p4`](gen/parser.p4)) is

@@ -107,21 +107,33 @@ form — one authoring surface, one provably-canonical artifact. See
 
 ## Layout
 
-A cargo workspace: the core crate carries no incumbent-specific code,
-and everything about one real-world incumbent lives in one directory.
+Organized by **artifact, not by language**: the repo root holds only
+language-neutral trees beside the two language surfaces, and
+everything about one real-world incumbent lives in one directory.
+(Rationale + rejected alternatives:
+`docs/designs/2026-07-30-polyglot-repo-layout.md`.)
 
-- `proto/pakeles/{ir,testvec}/v1alpha1/` — the normative schemas (proto3)
-- `src/` — the core `pakeles` crate: `ir` (types + validation),
-  `builder`, `interp` (reference interpreter), `symex` (symbolic
-  engine: testgen/lint/cov, z3 behind a solver trait), `codegen`
-  (backends: Wireshark Lua, C99/eBPF, P4-16), `docgen`, `viz`,
-  `oracle` (the toolchain-generic tshark + BMv2 diffs)
-- `pakeles-cli/` — the `pakeles` binary; depends on the core and on
-  every example crate (it owns the `diff <incumbent>` subcommands)
-- `pakeles-testkit/` — the shared conformance harnesses every gallery
-  example runs (compile-and-execute each backend, equality-guard each
-  committed artifact)
-- `python/` — the Python authoring eDSL (`pakeles` on PyPI, eventually)
+- `proto/pakeles/{ir,testvec}/v1alpha1/` — the normative schemas
+  (proto3), the contract both language surfaces vendor their
+  generated code from
+- `rust/` — the toolchain crates (a cargo workspace rooted here at `/`):
+  - `pakeles/` — the core: `ir` (types + validation), `builder`,
+    `interp` (reference interpreter), `symex` (symbolic engine:
+    testgen/lint/cov, z3 behind a solver trait), `codegen` (backends:
+    Wireshark Lua, C99/eBPF, P4-16), `docgen`, `viz`, `oracle` (the
+    toolchain-generic tshark + BMv2 diffs). Vendors its generated
+    protobuf code (`src/gen/`) and the embedded synthetic IRs
+    (`src/examples/`), both equality-guarded — packaged crates are
+    self-contained; consumers never need protoc.
+  - `pakeles-cli/` — the `pakeles` binary; depends on the core and on
+    every example crate (it owns the `diff <incumbent>` subcommands)
+  - `pakeles-testkit/` — the shared conformance harnesses every
+    gallery example runs (compile-and-execute each backend,
+    equality-guard each committed artifact)
+  - `pakeles-pbgen/` — regenerates the vendored protobuf code after a
+    `proto/` change (`cargo run --bin pakeles-pbgen`)
+- `python/` — the Python authoring eDSL (`pakeles` on PyPI,
+  eventually); vendors its generated `_pb` modules the same way
 - `testdata/` — language-neutral fixtures (regenerate: `cargo run --bin gen_fixtures`)
 - `examples/` — the gallery: every artifact one description yields,
   equality-guarded by tests, in two groups:
