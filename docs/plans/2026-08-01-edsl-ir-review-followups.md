@@ -241,16 +241,64 @@ for >64-bit fields:
 - **Imperative/AST-rewritten eDSL surface: rejected permanently**
   (re-affirmed; see the 2026-08-01 review session).
 
+## Sequencing decision (2026-08-01)
+
+**Lookahead-first; publication pass after** the repo refinements.
+Rationale: the paper case strengthened today (spec section exists,
+design-principles trio, switch.p4 three-way comparison), and
+lookahead's payoff includes paper exhibits (E-Peek + the
+re-transcription diff) that should exist before the draft freezes.
+Suggested early tasks inside that arc: the W9 alignment analysis
+(below) — it touches the same validator/spec files and E-Peek's
+fixed-width restriction composes with it.
+
+## Idea 5 — W9: close the alignment gap (decided approach, one empirical question)
+
+The spec's §2 "specification fault" class means well-formed programs
+can reach NO outcome (engine error, neither accept nor reject) at a
+misaligned `var_bytes`/push/`remaining()` — an asterisk on the
+totality theorem ("decidable by construction" with a runtime hole).
+Fixable statically because **alignment is data-independent**: fixed
+widths are constants, `var_bytes` moves whole bytes
+(alignment-preserving), region ops don't move the cursor — so cursor
+mod 8 is determined by the state path alone, same structural luck as
+W8's region depth.
+
+Fork: (A) strict, W8-style — every reachable state entered at exactly
+ONE alignment; ≡0 required at byte-denominated sites; simpler
+invariant, Lean-friendlier, and a codegen hook (static per-state
+alignment → byte loads, what the eBPF verifier wants); may reject
+legal never-realigned-but-harmless programs. (B) demand-driven — set
+of possible alignments per state (⊆ {0..7}), error only when an
+alignment-sensitive op is reachable at ≠0; never rejects legal
+programs. **Plan: build the set-based analysis (B's machinery, ~95%
+shared), run over the gallery; if every state is singleton-alignment
+(expected), adopt A as normative W9 and bank the stronger invariant;
+else examine the tripping program and choose. Either way the totality
+proviso disappears.**
+
 ## Parked / optional
 
+- **Testvec design revisit** (user-flagged 2026-08-01, "not now"): a
+  dedicated pass over the vector schema — at minimum compare
+  `consumed_bits` (computed by the interpreter, present in C/eBPF
+  output structs, currently uncompared — backends could agree on
+  outcome while consuming differently, undetected); also weigh
+  reject-time forensics (stop state/instance/field/offset) and
+  whatever the lookahead work surfaces. Check the XDP verdict path's
+  consumed reporting before committing.
+- **Symex aliasing design for lookahead**: deliberately deferred to
+  the lookahead execution session (argue it with the pathid code
+  open, not speculatively).
+- **Capability report formalization** (from Idea 4): derived
+  per-program demands vs declared backend envelopes, tightening spec
+  §6 and systematizing the refusal-marker culture. Low priority;
+  nothing blocked on it.
 - **R5**: carry `intrinsic_metadata.priority` as declared metadata in
   the switch.p4 transcription (~20 arms become meaningful assigns).
   Deviates from the clean "all set_metadata is match-action interface
   state" rule; churns 93k vectors. Only if the paper wants the richer
   oracle claim.
-- **Alignment-gap validator strengthening** (from the semantics spec,
-  §2): a region-depth-style fixpoint over cursor mod 8 could turn the
-  "specification fault" class into a static error.
 - **Compat policy**: deferred until the stable-release push (still).
 - **Lean 4 mechanization**: after the arXiv draft (still). Keep spec
   rules translation-friendly.
