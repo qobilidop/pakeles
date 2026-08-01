@@ -28,13 +28,13 @@ use std::process::{Command, Stdio};
 #[derive(Clone, Copy)]
 pub struct Verdict {
     pub delivered: bool,
-    pub bitmap: u16,
+    pub bitmap: u64,
     pub err: u8,
 }
 
 /// Expected observation for one vector: exact bitmap + acceptable errs.
 pub struct Expectation {
-    pub bitmap: u16,
+    pub bitmap: u64,
     pub errs: Vec<u8>,
 }
 
@@ -76,9 +76,9 @@ fn decode_verdict(frame: &[u8], bm_bytes: usize) -> Result<Verdict> {
     if frame.len() < bm_bytes + 1 {
         bail!("verdict frame too short: {} bytes", frame.len());
     }
-    let mut bitmap: u16 = 0;
+    let mut bitmap: u64 = 0;
     for &b in &frame[..bm_bytes] {
-        bitmap = (bitmap << 8) | b as u16;
+        bitmap = (bitmap << 8) | b as u64;
     }
     Ok(Verdict {
         delivered: true,
@@ -233,14 +233,14 @@ pub fn expected(ir: &pb::Ir, bits: &crate::testvec::Bits) -> Result<Expectation>
     let parser = ir.parser.as_ref().context("IR has no parser")?;
     let res = crate::interp::run_bits(ir, bits)?;
     let order = crate::codegen::p4::instance_order(parser);
-    let bit_of = |inst: &str| -> u16 {
+    let bit_of = |inst: &str| -> u64 {
         order
             .iter()
             .position(|(i, _)| i == inst)
-            .map(|p| 1u16 << p)
+            .map(|p| 1u64 << p)
             .unwrap_or(0)
     };
-    let mut bitmap: u16 = 0;
+    let mut bitmap: u64 = 0;
     for h in &res.headers {
         bitmap |= bit_of(&h.instance);
     }
