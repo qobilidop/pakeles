@@ -1,0 +1,6 @@
+# Covers the hand-written oracle-side C (factory/ and spike/ under
+# benchmarks/): plain upstream LLVM style, deliberately untuned.
+# Generated C under gen/ is equality-guarded, never formatted.
+# Note LLVM style sorts includes — guard order-sensitive includes
+# (BPF headers) with "// clang-format off/on" markers at the site.
+BasedOnStyle: LLVM

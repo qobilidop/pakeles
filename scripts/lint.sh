@@ -19,6 +19,11 @@ buf format --diff --exit-code
 find . \( -path ./third_party -o -path ./.ci -o -path ./target -o -path ./.git \) -prune \
   -o -name '*.sh' -print0 | xargs -0 shellcheck
 
+# Own C only; same find as fmt.sh (keep in step).
+find . \( -path ./third_party -o -path ./.ci -o -path ./target -o -path ./.git \
+          -o \( -type d -name gen \) \) -prune \
+  -o \( -name '*.c' -o -name '*.h' \) -print0 | xargs -0 clang-format --dry-run -Werror
+
 actionlint
 pyright
 cargo clippy --workspace --all-targets -- -D warnings

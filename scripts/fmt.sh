@@ -10,3 +10,10 @@ cd "$(dirname "$0")/.."
 cargo fmt
 ruff format .
 buf format -w
+
+# Own C only (oracle-side factory/spike code): gen/ holds generated C
+# gated by equality guards, never formatters. Keep this find in step
+# with the one in lint.sh.
+find . \( -path ./third_party -o -path ./.ci -o -path ./target -o -path ./.git \
+          -o \( -type d -name gen \) \) -prune \
+  -o \( -name '*.c' -o -name '*.h' \) -print0 | xargs -0 clang-format -i

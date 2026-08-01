@@ -3,8 +3,6 @@
 line-length = 88
 extend-exclude = [
     "python/src/pakeles/_pb",  # vendored generated protobuf modules
-    "**/factory",              # incumbent-side capture scripts, not eDSL surface
-    "**/spike",
     "**/gen",                  # generated artifacts
     ".claude",
     ".ci",                     # CI mounts its cargo caches inside the checkout
@@ -13,12 +11,15 @@ extend-exclude = [
 ]
 
 [format]
-# Formatting is enforced only on the library (python/). The gallery
-# descriptions (examples/, benchmarks/) keep deliberate vertical
-# alignment in header classes — they are documents as much as code —
-# and *.md keeps ruff away from fenced code blocks in README and the
-# historical design docs. Lint (below) still covers all of them.
-exclude = ["*.md", "examples/**", "benchmarks/**"]
+# Everything is format-enforced except the gallery *descriptions*
+# (the depth-pinned globs: examples/<name>/<name>.py and
+# benchmarks/<group>/<name>/<name>.py), which keep deliberate
+# vertical alignment in header classes — they are documents as much
+# as code — and *.md, which keeps ruff away from fenced code blocks
+# in README and the historical design docs. Factory/spike code under
+# benchmarks/ is deeper than the globs and so IS formatted. Lint
+# (below) covers all of it either way.
+exclude = ["*.md", "examples/*/*.py", "benchmarks/*/*/*.py"]
 
 [lint]
 extend-select = ["I"]

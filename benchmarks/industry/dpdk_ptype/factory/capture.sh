@@ -11,7 +11,9 @@ set -euo pipefail
 cd "$(dirname "$0")"
 mkdir -p build
 read -ra dpdk_flags <<<"$(pkg-config --cflags --libs libdpdk)"
-gcc -O2 -o build/capture capture.c "${dpdk_flags[@]}"
+# Strict flags: capture.c is entirely ours. (Spike compiles mix in
+# generated parser.c and upstream headers, so they stay permissive.)
+gcc -O2 -Wall -Wextra -Werror -o build/capture capture.c "${dpdk_flags[@]}"
 ver="$(pkg-config --modversion libdpdk)"
 out="../conformance/ptype.dpdk-${ver}.golden.json"
 ./build/capture corpus.txt > "$out"

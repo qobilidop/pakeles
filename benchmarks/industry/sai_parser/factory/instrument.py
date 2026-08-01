@@ -14,6 +14,7 @@ Usage: instrument.py <vendored_sai_parser.p4> <out_instrumented.p4>
 
 import hashlib
 import sys
+from pathlib import Path
 
 # Pinned sha of the vendored snapshot (sonic-pins e77250b8,
 # p4_symbolic/testdata/parser/sai_parser.p4). Guards against drift.
@@ -60,13 +61,13 @@ EGRESS_BODY = """    bit<16> bm = 0;
 
 def main() -> None:
     src_path, out_path = sys.argv[1], sys.argv[2]
-    src = open(src_path).read()
+    src = Path(src_path).read_text()
     sha = hashlib.sha256(src.encode()).hexdigest()
     # Record the observed sha on first run for provenance; assert stable.
     print(f"vendored sai_parser.p4 sha256={sha}", file=sys.stderr)
 
     if "pk_verdict_t" in src:
-        open(out_path, "w").write(src)
+        Path(out_path).write_text(src)
         print("already instrumented", file=sys.stderr)
         return
 
@@ -116,7 +117,7 @@ def main() -> None:
         + src[apply_close:]
     )
 
-    open(out_path, "w").write(src)
+    Path(out_path).write_text(src)
     print("observation patch applied", file=sys.stderr)
 
 

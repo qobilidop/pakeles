@@ -28,9 +28,9 @@ Regenerate: python3 mk_corpus.py > corpus.txt
 
 import sys
 
-U16 = lambda v: v.to_bytes(2, "big")  # noqa: E731
-U24 = lambda v: v.to_bytes(3, "big")  # noqa: E731
-U32 = lambda v: v.to_bytes(4, "big")  # noqa: E731
+U16 = lambda v: v.to_bytes(2, "big")
+U24 = lambda v: v.to_bytes(3, "big")
+U32 = lambda v: v.to_bytes(4, "big")
 
 ETH_V4 = 0x0800
 ETH_V6 = 0x86DD
