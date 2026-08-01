@@ -70,15 +70,15 @@ pub fn generate_lua(ir: &pb::Ir) -> Result<String> {
     // instance also gets an FT_NONE subtree field: unique JSON keys
     // (text-only subtrees all render as "_ws.lua.text" and collide).
     let mut pf_names: Vec<String> = Vec::new();
-    let mut pf_decl = String::new();
+    let mut pf_decl = String::from("local pf = {}\n");
     for state in &parser.states {
         for ex in &state.extracts {
             let ht = header_types[ex.header_type.as_str()];
             let inst = instance_name(ex);
-            let hdr_var = format!("f_hdr_{inst}");
+            let hdr_var = format!("pf.f_hdr_{inst}");
             if !pf_names.contains(&hdr_var) {
                 pf_decl.push_str(&format!(
-                    "local {hdr_var} = ProtoField.none(\"{proto}.{inst}\", \"{inst}\")\n"
+                    "{hdr_var} = ProtoField.none(\"{proto}.{inst}\", \"{inst}\")\n"
                 ));
                 pf_names.push(hdr_var);
             }
@@ -98,13 +98,13 @@ pub fn generate_lua(ir: &pb::Ir) -> Result<String> {
                     crate::codegen::field_alignment(parser, &entry_align, state, inst, &field.name)
                         == Some(0);
                 let decl = protofield_decl(&abbr, &name, field, &display, aligned)?;
-                pf_decl.push_str(&format!("local {var} = {decl}\n"));
+                pf_decl.push_str(&format!("{var} = {decl}\n"));
                 pf_names.push(var);
             }
         }
     }
     for md in &parser.metadata {
-        let var = format!("f_meta_{}", md.name);
+        let var = format!("pf.f_meta_{}", md.name);
         let abbr = format!("{proto}.meta.{}", md.name);
         let display = md.display.clone().unwrap_or_default();
         let name = if display.name.is_empty() {
@@ -113,13 +113,13 @@ pub fn generate_lua(ir: &pb::Ir) -> Result<String> {
             display.name.clone()
         };
         pf_decl.push_str(&format!(
-            "local {var} = ProtoField.uint64(\"{abbr}\", \"{name}\")\n"
+            "{var} = ProtoField.uint64(\"{abbr}\", \"{name}\")\n"
         ));
         pf_names.push(var);
     }
-    let payload_pf = "f_payload".to_string();
+    let payload_pf = "pf.f_payload".to_string();
     pf_decl.push_str(&format!(
-        "local {payload_pf} = ProtoField.bytes(\"{proto}.payload\", \"Payload\")\n"
+        "{payload_pf} = ProtoField.bytes(\"{proto}.payload\", \"Payload\")\n"
     ));
     pf_names.push(payload_pf);
     w.push_str(&pf_decl);
@@ -130,18 +130,17 @@ pub fn generate_lua(ir: &pb::Ir) -> Result<String> {
     // Parsed-value variables shared across state functions: a select key
     // or length expression may reference a field extracted in an EARLIER
     // state (e.g. the GRE flag bits sizing gre_opt.body), so these live
-    // at chunk scope as upvalues of every state function. Re-extraction
+    // in one chunk-scope table (`v`, not one local each — the 200-local
+    // chunk limit again) visible to every state function. Re-extraction
     // of a cyclic instance overwrites — last extraction wins, matching
     // the reference interpreter's environment.
     if !referenced.is_empty() {
-        let mut vars: Vec<String> = referenced.iter().map(|(i, f)| val_var(i, f)).collect();
-        vars.sort();
-        writeln!(w, "local {}", vars.join(", "))?;
+        writeln!(w, "local v = {{}}")?;
         writeln!(w)?;
     }
     writeln!(w, "local function add_payload(buf, tree, off)")?;
     writeln!(w, "  if off < buf:len() * 8 then")?;
-    writeln!(w, "    tree:add(f_payload, buf(math.floor(off / 8)))")?;
+    writeln!(w, "    tree:add(pf.f_payload, buf(math.floor(off / 8)))")?;
     writeln!(w, "  end")?;
     writeln!(w, "end")?;
     writeln!(w)?;
@@ -204,12 +203,15 @@ pub fn instance_name(ex: &pb::Extract) -> &str {
     }
 }
 
+// ProtoFields and shared parsed-value variables live in two chunk-level
+// tables (`pf`, `v`) rather than one `local` each: Lua caps locals at
+// 200 per function, and a switch.p4-sized parser needs 360 ProtoFields.
 fn pf_var(inst: &str, field: &str) -> String {
-    format!("f_{inst}_{field}")
+    format!("pf.f_{inst}_{field}")
 }
 
 fn val_var(inst: &str, field: &str) -> String {
-    format!("v_{inst}_{field}")
+    format!("v.v_{inst}_{field}")
 }
 
 /// (instance, field) pairs referenced by any expression in the parser.
@@ -405,7 +407,7 @@ fn target_lua(
                     // add_payload below.
                     writeln!(
                         w,
-                        "{indent}tree:add(f_meta_{}, UInt64(meta.{}))",
+                        "{indent}tree:add(pf.f_meta_{}, UInt64(meta.{}))",
                         md.name, md.name
                     )?;
                 }
@@ -470,7 +472,7 @@ fn emit_state(
         // per header instance.
         writeln!(
             w,
-            "  local hdr_{inst} = tree:add(f_hdr_{inst}, buf(math.floor(off / 8)))"
+            "  local hdr_{inst} = tree:add(pf.f_hdr_{inst}, buf(math.floor(off / 8)))"
         )?;
         for field in &ht.fields {
             let pf = pf_var(inst, &field.name);
@@ -753,13 +755,13 @@ mod tests {
     fn metadata_lua_emission() {
         let ir = crate::builder::meta_loop(); // shared test IR from Task 2
         let lua = generate_lua(&ir).unwrap();
-        assert!(lua.contains("f_meta_acc"));
+        assert!(lua.contains("pf.f_meta_acc"));
         assert!(lua.contains("local meta = { flag = 0, acc = 0 }"));
         assert!(lua.contains("meta.acc = "));
         // FT_UINT64 `add` needs a userdata Int64/UInt64, not a bare Lua
         // number — see the comment in target_lua's Accept arm.
-        assert!(lua.contains("tree:add(f_meta_acc, UInt64(meta.acc))"));
-        assert!(lua.contains("tree:add(f_meta_flag, UInt64(meta.flag))"));
+        assert!(lua.contains("tree:add(pf.f_meta_acc, UInt64(meta.acc))"));
+        assert!(lua.contains("tree:add(pf.f_meta_flag, UInt64(meta.flag))"));
         let plain = generate_lua(&crate::examples::eth_ipvx_l4()).unwrap();
         assert!(!plain.contains("meta"));
     }

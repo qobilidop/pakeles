@@ -9,22 +9,23 @@ local ef_error = ProtoExpert.new("pakeles_counted_items.malformed", "Malformed",
 local ef_info = ProtoExpert.new("pakeles_counted_items.boundary", "Payload boundary", expert.group.PROTOCOL, expert.severity.NOTE)
 p.experts = { ef_error, ef_info }
 
-local f_hdr_count = ProtoField.none("pakeles_counted_items.count", "count")
-local f_count_n = ProtoField.uint8("pakeles_counted_items.count.n", "Item Count", base.DEC)
-local f_hdr_item = ProtoField.none("pakeles_counted_items.item", "item")
-local f_item_v = ProtoField.uint8("pakeles_counted_items.item.v", "Value", base.HEX)
-local f_meta_done = ProtoField.uint64("pakeles_counted_items.meta.done", "Done")
-local f_meta_remaining = ProtoField.uint64("pakeles_counted_items.meta.remaining", "Remaining")
-local f_payload = ProtoField.bytes("pakeles_counted_items.payload", "Payload")
-p.fields = { f_hdr_count, f_count_n, f_hdr_item, f_item_v, f_meta_done, f_meta_remaining, f_payload }
+local pf = {}
+pf.f_hdr_count = ProtoField.none("pakeles_counted_items.count", "count")
+pf.f_count_n = ProtoField.uint8("pakeles_counted_items.count.n", "Item Count", base.DEC)
+pf.f_hdr_item = ProtoField.none("pakeles_counted_items.item", "item")
+pf.f_item_v = ProtoField.uint8("pakeles_counted_items.item.v", "Value", base.HEX)
+pf.f_meta_done = ProtoField.uint64("pakeles_counted_items.meta.done", "Done")
+pf.f_meta_remaining = ProtoField.uint64("pakeles_counted_items.meta.remaining", "Remaining")
+pf.f_payload = ProtoField.bytes("pakeles_counted_items.payload", "Payload")
+p.fields = { pf.f_hdr_count, pf.f_count_n, pf.f_hdr_item, pf.f_item_v, pf.f_meta_done, pf.f_meta_remaining, pf.f_payload }
 
 local states = {}
 
-local v_count_n
+local v = {}
 
 local function add_payload(buf, tree, off)
   if off < buf:len() * 8 then
-    tree:add(f_payload, buf(math.floor(off / 8)))
+    tree:add(pf.f_payload, buf(math.floor(off / 8)))
   end
 end
 
@@ -35,15 +36,15 @@ function states.parse_count(buf, pinfo, tree, off, depth, meta)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_count = tree:add(f_hdr_count, buf(math.floor(off / 8)))
+  local hdr_count = tree:add(pf.f_hdr_count, buf(math.floor(off / 8)))
   if off + 8 > avail then
     hdr_count:add_proto_expert_info(ef_error, "out of bounds in count.n")
     return off
   end
-  v_count_n = buf():bitfield(off, 8)
-  hdr_count:add(f_count_n, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v_count_n)
+  v.v_count_n = buf():bitfield(off, 8)
+  hdr_count:add(pf.f_count_n, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v.v_count_n)
   off = off + 8
-  meta.remaining = (v_count_n) % 2^8
+  meta.remaining = (v.v_count_n) % 2^8
   if meta.remaining == 0 then
     return states.mark_done(buf, pinfo, tree, off, depth, meta)
   else
@@ -58,12 +59,12 @@ function states.parse_item(buf, pinfo, tree, off, depth, meta)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_item = tree:add(f_hdr_item, buf(math.floor(off / 8)))
+  local hdr_item = tree:add(pf.f_hdr_item, buf(math.floor(off / 8)))
   if off + 8 > avail then
     hdr_item:add_proto_expert_info(ef_error, "out of bounds in item.v")
     return off
   end
-  hdr_item:add(f_item_v, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), buf():bitfield(off, 8))
+  hdr_item:add(pf.f_item_v, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), buf():bitfield(off, 8))
   off = off + 8
   meta.remaining = ((meta.remaining - 1)) % 2^8
   if meta.remaining == 0 then
@@ -81,8 +82,8 @@ function states.mark_done(buf, pinfo, tree, off, depth, meta)
   end
   local avail = buf:len() * 8
   meta.done = (1) % 2^1
-  tree:add(f_meta_done, UInt64(meta.done))
-  tree:add(f_meta_remaining, UInt64(meta.remaining))
+  tree:add(pf.f_meta_done, UInt64(meta.done))
+  tree:add(pf.f_meta_remaining, UInt64(meta.remaining))
   add_payload(buf, tree, off)
   return off
 end

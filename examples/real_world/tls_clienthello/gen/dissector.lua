@@ -9,55 +9,56 @@ local ef_error = ProtoExpert.new("pakeles_tls_clienthello.malformed", "Malformed
 local ef_info = ProtoExpert.new("pakeles_tls_clienthello.boundary", "Payload boundary", expert.group.PROTOCOL, expert.severity.NOTE)
 p.experts = { ef_error, ef_info }
 
-local f_hdr_record_hdr = ProtoField.none("pakeles_tls_clienthello.record_hdr", "record_hdr")
-local f_record_hdr_ctype = ProtoField.uint8("pakeles_tls_clienthello.record_hdr.ctype", "Content Type", base.HEX, { [22] = "handshake" })
-local f_record_hdr_ver_major = ProtoField.uint8("pakeles_tls_clienthello.record_hdr.ver_major", "Legacy Record Version (major)", base.HEX)
-local f_record_hdr_ver_minor = ProtoField.uint8("pakeles_tls_clienthello.record_hdr.ver_minor", "Legacy Record Version (minor)", base.HEX)
-local f_record_hdr_rlen = ProtoField.uint16("pakeles_tls_clienthello.record_hdr.rlen", "Record Length", base.DEC)
-local f_hdr_handshake_hdr = ProtoField.none("pakeles_tls_clienthello.handshake_hdr", "handshake_hdr")
-local f_handshake_hdr_typ = ProtoField.uint8("pakeles_tls_clienthello.handshake_hdr.typ", "Handshake Type", base.HEX, { [1] = "client_hello" })
-local f_handshake_hdr_hlen = ProtoField.uint24("pakeles_tls_clienthello.handshake_hdr.hlen", "Handshake Length", base.DEC)
-local f_hdr_body_fixed = ProtoField.none("pakeles_tls_clienthello.body_fixed", "body_fixed")
-local f_body_fixed_ver = ProtoField.uint16("pakeles_tls_clienthello.body_fixed.ver", "Legacy Version", base.HEX)
-local f_body_fixed_random = ProtoField.bytes("pakeles_tls_clienthello.body_fixed.random", "random")
-local f_hdr_sid_len = ProtoField.none("pakeles_tls_clienthello.sid_len", "sid_len")
-local f_sid_len_slen = ProtoField.uint8("pakeles_tls_clienthello.sid_len.slen", "Session ID Length", base.DEC)
-local f_hdr_sid = ProtoField.none("pakeles_tls_clienthello.sid", "sid")
-local f_sid_body = ProtoField.bytes("pakeles_tls_clienthello.sid.body", "body")
-local f_hdr_cs_len = ProtoField.none("pakeles_tls_clienthello.cs_len", "cs_len")
-local f_cs_len_clen = ProtoField.uint16("pakeles_tls_clienthello.cs_len.clen", "Cipher Suites Length", base.DEC)
-local f_hdr_cs = ProtoField.none("pakeles_tls_clienthello.cs", "cs")
-local f_cs_body = ProtoField.bytes("pakeles_tls_clienthello.cs.body", "body")
-local f_hdr_comp_len = ProtoField.none("pakeles_tls_clienthello.comp_len", "comp_len")
-local f_comp_len_plen = ProtoField.uint8("pakeles_tls_clienthello.comp_len.plen", "Compression Methods Length", base.DEC)
-local f_hdr_comp = ProtoField.none("pakeles_tls_clienthello.comp", "comp")
-local f_comp_body = ProtoField.bytes("pakeles_tls_clienthello.comp.body", "body")
-local f_hdr_ext_len = ProtoField.none("pakeles_tls_clienthello.ext_len", "ext_len")
-local f_ext_len_total = ProtoField.uint16("pakeles_tls_clienthello.ext_len.total", "Extensions Length", base.DEC)
-local f_hdr_ext = ProtoField.none("pakeles_tls_clienthello.ext", "ext")
-local f_ext_typ = ProtoField.uint16("pakeles_tls_clienthello.ext.typ", "Extension Type", base.HEX, { [0] = "server_name" })
-local f_ext_elen = ProtoField.uint16("pakeles_tls_clienthello.ext.elen", "Extension Length", base.DEC)
-local f_hdr_skip = ProtoField.none("pakeles_tls_clienthello.skip", "skip")
-local f_skip_body = ProtoField.bytes("pakeles_tls_clienthello.skip.body", "body")
-local f_hdr_sni_list = ProtoField.none("pakeles_tls_clienthello.sni_list", "sni_list")
-local f_sni_list_list_len = ProtoField.uint16("pakeles_tls_clienthello.sni_list.list_len", "Server Name List Length", base.DEC)
-local f_hdr_sni_entry = ProtoField.none("pakeles_tls_clienthello.sni_entry", "sni_entry")
-local f_sni_entry_ntype = ProtoField.uint8("pakeles_tls_clienthello.sni_entry.ntype", "Name Type", base.HEX, { [0] = "host_name" })
-local f_sni_entry_hlen = ProtoField.uint16("pakeles_tls_clienthello.sni_entry.hlen", "Host Name Length", base.DEC)
-local f_hdr_host = ProtoField.none("pakeles_tls_clienthello.host", "host")
-local f_host_name = ProtoField.bytes("pakeles_tls_clienthello.host.name", "name")
-local f_meta_seen_sni = ProtoField.uint64("pakeles_tls_clienthello.meta.seen_sni", "SNI Seen")
-local f_meta_cs_odd = ProtoField.uint64("pakeles_tls_clienthello.meta.cs_odd", "Odd Cipher Length")
-local f_payload = ProtoField.bytes("pakeles_tls_clienthello.payload", "Payload")
-p.fields = { f_hdr_record_hdr, f_record_hdr_ctype, f_record_hdr_ver_major, f_record_hdr_ver_minor, f_record_hdr_rlen, f_hdr_handshake_hdr, f_handshake_hdr_typ, f_handshake_hdr_hlen, f_hdr_body_fixed, f_body_fixed_ver, f_body_fixed_random, f_hdr_sid_len, f_sid_len_slen, f_hdr_sid, f_sid_body, f_hdr_cs_len, f_cs_len_clen, f_hdr_cs, f_cs_body, f_hdr_comp_len, f_comp_len_plen, f_hdr_comp, f_comp_body, f_hdr_ext_len, f_ext_len_total, f_hdr_ext, f_ext_typ, f_ext_elen, f_hdr_skip, f_skip_body, f_hdr_sni_list, f_sni_list_list_len, f_hdr_sni_entry, f_sni_entry_ntype, f_sni_entry_hlen, f_hdr_host, f_host_name, f_meta_seen_sni, f_meta_cs_odd, f_payload }
+local pf = {}
+pf.f_hdr_record_hdr = ProtoField.none("pakeles_tls_clienthello.record_hdr", "record_hdr")
+pf.f_record_hdr_ctype = ProtoField.uint8("pakeles_tls_clienthello.record_hdr.ctype", "Content Type", base.HEX, { [22] = "handshake" })
+pf.f_record_hdr_ver_major = ProtoField.uint8("pakeles_tls_clienthello.record_hdr.ver_major", "Legacy Record Version (major)", base.HEX)
+pf.f_record_hdr_ver_minor = ProtoField.uint8("pakeles_tls_clienthello.record_hdr.ver_minor", "Legacy Record Version (minor)", base.HEX)
+pf.f_record_hdr_rlen = ProtoField.uint16("pakeles_tls_clienthello.record_hdr.rlen", "Record Length", base.DEC)
+pf.f_hdr_handshake_hdr = ProtoField.none("pakeles_tls_clienthello.handshake_hdr", "handshake_hdr")
+pf.f_handshake_hdr_typ = ProtoField.uint8("pakeles_tls_clienthello.handshake_hdr.typ", "Handshake Type", base.HEX, { [1] = "client_hello" })
+pf.f_handshake_hdr_hlen = ProtoField.uint24("pakeles_tls_clienthello.handshake_hdr.hlen", "Handshake Length", base.DEC)
+pf.f_hdr_body_fixed = ProtoField.none("pakeles_tls_clienthello.body_fixed", "body_fixed")
+pf.f_body_fixed_ver = ProtoField.uint16("pakeles_tls_clienthello.body_fixed.ver", "Legacy Version", base.HEX)
+pf.f_body_fixed_random = ProtoField.bytes("pakeles_tls_clienthello.body_fixed.random", "random")
+pf.f_hdr_sid_len = ProtoField.none("pakeles_tls_clienthello.sid_len", "sid_len")
+pf.f_sid_len_slen = ProtoField.uint8("pakeles_tls_clienthello.sid_len.slen", "Session ID Length", base.DEC)
+pf.f_hdr_sid = ProtoField.none("pakeles_tls_clienthello.sid", "sid")
+pf.f_sid_body = ProtoField.bytes("pakeles_tls_clienthello.sid.body", "body")
+pf.f_hdr_cs_len = ProtoField.none("pakeles_tls_clienthello.cs_len", "cs_len")
+pf.f_cs_len_clen = ProtoField.uint16("pakeles_tls_clienthello.cs_len.clen", "Cipher Suites Length", base.DEC)
+pf.f_hdr_cs = ProtoField.none("pakeles_tls_clienthello.cs", "cs")
+pf.f_cs_body = ProtoField.bytes("pakeles_tls_clienthello.cs.body", "body")
+pf.f_hdr_comp_len = ProtoField.none("pakeles_tls_clienthello.comp_len", "comp_len")
+pf.f_comp_len_plen = ProtoField.uint8("pakeles_tls_clienthello.comp_len.plen", "Compression Methods Length", base.DEC)
+pf.f_hdr_comp = ProtoField.none("pakeles_tls_clienthello.comp", "comp")
+pf.f_comp_body = ProtoField.bytes("pakeles_tls_clienthello.comp.body", "body")
+pf.f_hdr_ext_len = ProtoField.none("pakeles_tls_clienthello.ext_len", "ext_len")
+pf.f_ext_len_total = ProtoField.uint16("pakeles_tls_clienthello.ext_len.total", "Extensions Length", base.DEC)
+pf.f_hdr_ext = ProtoField.none("pakeles_tls_clienthello.ext", "ext")
+pf.f_ext_typ = ProtoField.uint16("pakeles_tls_clienthello.ext.typ", "Extension Type", base.HEX, { [0] = "server_name" })
+pf.f_ext_elen = ProtoField.uint16("pakeles_tls_clienthello.ext.elen", "Extension Length", base.DEC)
+pf.f_hdr_skip = ProtoField.none("pakeles_tls_clienthello.skip", "skip")
+pf.f_skip_body = ProtoField.bytes("pakeles_tls_clienthello.skip.body", "body")
+pf.f_hdr_sni_list = ProtoField.none("pakeles_tls_clienthello.sni_list", "sni_list")
+pf.f_sni_list_list_len = ProtoField.uint16("pakeles_tls_clienthello.sni_list.list_len", "Server Name List Length", base.DEC)
+pf.f_hdr_sni_entry = ProtoField.none("pakeles_tls_clienthello.sni_entry", "sni_entry")
+pf.f_sni_entry_ntype = ProtoField.uint8("pakeles_tls_clienthello.sni_entry.ntype", "Name Type", base.HEX, { [0] = "host_name" })
+pf.f_sni_entry_hlen = ProtoField.uint16("pakeles_tls_clienthello.sni_entry.hlen", "Host Name Length", base.DEC)
+pf.f_hdr_host = ProtoField.none("pakeles_tls_clienthello.host", "host")
+pf.f_host_name = ProtoField.bytes("pakeles_tls_clienthello.host.name", "name")
+pf.f_meta_seen_sni = ProtoField.uint64("pakeles_tls_clienthello.meta.seen_sni", "SNI Seen")
+pf.f_meta_cs_odd = ProtoField.uint64("pakeles_tls_clienthello.meta.cs_odd", "Odd Cipher Length")
+pf.f_payload = ProtoField.bytes("pakeles_tls_clienthello.payload", "Payload")
+p.fields = { pf.f_hdr_record_hdr, pf.f_record_hdr_ctype, pf.f_record_hdr_ver_major, pf.f_record_hdr_ver_minor, pf.f_record_hdr_rlen, pf.f_hdr_handshake_hdr, pf.f_handshake_hdr_typ, pf.f_handshake_hdr_hlen, pf.f_hdr_body_fixed, pf.f_body_fixed_ver, pf.f_body_fixed_random, pf.f_hdr_sid_len, pf.f_sid_len_slen, pf.f_hdr_sid, pf.f_sid_body, pf.f_hdr_cs_len, pf.f_cs_len_clen, pf.f_hdr_cs, pf.f_cs_body, pf.f_hdr_comp_len, pf.f_comp_len_plen, pf.f_hdr_comp, pf.f_comp_body, pf.f_hdr_ext_len, pf.f_ext_len_total, pf.f_hdr_ext, pf.f_ext_typ, pf.f_ext_elen, pf.f_hdr_skip, pf.f_skip_body, pf.f_hdr_sni_list, pf.f_sni_list_list_len, pf.f_hdr_sni_entry, pf.f_sni_entry_ntype, pf.f_sni_entry_hlen, pf.f_hdr_host, pf.f_host_name, pf.f_meta_seen_sni, pf.f_meta_cs_odd, pf.f_payload }
 
 local states = {}
 
-local v_comp_len_plen, v_cs_len_clen, v_ext_elen, v_ext_len_total, v_ext_typ, v_handshake_hdr_hlen, v_handshake_hdr_typ, v_record_hdr_ctype, v_record_hdr_rlen, v_record_hdr_ver_major, v_sid_len_slen, v_sni_entry_hlen, v_sni_entry_ntype, v_sni_list_list_len
+local v = {}
 
 local function add_payload(buf, tree, off)
   if off < buf:len() * 8 then
-    tree:add(f_payload, buf(math.floor(off / 8)))
+    tree:add(pf.f_payload, buf(math.floor(off / 8)))
   end
 end
 
@@ -68,7 +69,7 @@ function states.s_record(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_record_hdr = tree:add(f_hdr_record_hdr, buf(math.floor(off / 8)))
+  local hdr_record_hdr = tree:add(pf.f_hdr_record_hdr, buf(math.floor(off / 8)))
   if regions[#regions] and off + 8 > regions[#regions] then
     hdr_record_hdr:add_proto_expert_info(ef_error, "out of region bounds in record_hdr.ctype")
     return off
@@ -77,8 +78,8 @@ function states.s_record(buf, pinfo, tree, off, depth, meta, regions)
     hdr_record_hdr:add_proto_expert_info(ef_error, "out of bounds in record_hdr.ctype")
     return off
   end
-  v_record_hdr_ctype = buf():bitfield(off, 8)
-  hdr_record_hdr:add(f_record_hdr_ctype, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v_record_hdr_ctype)
+  v.v_record_hdr_ctype = buf():bitfield(off, 8)
+  hdr_record_hdr:add(pf.f_record_hdr_ctype, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v.v_record_hdr_ctype)
   off = off + 8
   if regions[#regions] and off + 8 > regions[#regions] then
     hdr_record_hdr:add_proto_expert_info(ef_error, "out of region bounds in record_hdr.ver_major")
@@ -88,8 +89,8 @@ function states.s_record(buf, pinfo, tree, off, depth, meta, regions)
     hdr_record_hdr:add_proto_expert_info(ef_error, "out of bounds in record_hdr.ver_major")
     return off
   end
-  v_record_hdr_ver_major = buf():bitfield(off, 8)
-  hdr_record_hdr:add(f_record_hdr_ver_major, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v_record_hdr_ver_major)
+  v.v_record_hdr_ver_major = buf():bitfield(off, 8)
+  hdr_record_hdr:add(pf.f_record_hdr_ver_major, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v.v_record_hdr_ver_major)
   off = off + 8
   if regions[#regions] and off + 8 > regions[#regions] then
     hdr_record_hdr:add_proto_expert_info(ef_error, "out of region bounds in record_hdr.ver_minor")
@@ -99,7 +100,7 @@ function states.s_record(buf, pinfo, tree, off, depth, meta, regions)
     hdr_record_hdr:add_proto_expert_info(ef_error, "out of bounds in record_hdr.ver_minor")
     return off
   end
-  hdr_record_hdr:add(f_record_hdr_ver_minor, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), buf():bitfield(off, 8))
+  hdr_record_hdr:add(pf.f_record_hdr_ver_minor, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), buf():bitfield(off, 8))
   off = off + 8
   if regions[#regions] and off + 16 > regions[#regions] then
     hdr_record_hdr:add_proto_expert_info(ef_error, "out of region bounds in record_hdr.rlen")
@@ -109,18 +110,18 @@ function states.s_record(buf, pinfo, tree, off, depth, meta, regions)
     hdr_record_hdr:add_proto_expert_info(ef_error, "out of bounds in record_hdr.rlen")
     return off
   end
-  v_record_hdr_rlen = buf():bitfield(off, 16)
-  hdr_record_hdr:add(f_record_hdr_rlen, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v_record_hdr_rlen)
+  v.v_record_hdr_rlen = buf():bitfield(off, 16)
+  hdr_record_hdr:add(pf.f_record_hdr_rlen, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v.v_record_hdr_rlen)
   off = off + 16
   do
-    local rlen = v_record_hdr_rlen
+    local rlen = v.v_record_hdr_rlen
     if rlen < 0 or (regions[#regions] and off + rlen * 8 > regions[#regions]) then
       tree:add_proto_expert_info(ef_error, "region out of bounds")
       return off
     end
     regions[#regions + 1] = off + rlen * 8
   end
-  if v_record_hdr_ctype == 22 then
+  if v.v_record_hdr_ctype == 22 then
     return states.s_recver(buf, pinfo, tree, off, depth, meta, regions)
   else
     tree:add_proto_expert_info(ef_error, "not a handshake record")
@@ -135,7 +136,7 @@ function states.s_recver(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   local avail = buf:len() * 8
-  if v_record_hdr_ver_major == 3 then
+  if v.v_record_hdr_ver_major == 3 then
     return states.s_hs(buf, pinfo, tree, off, depth, meta, regions)
   else
     tree:add_proto_expert_info(ef_error, "unsupported record version")
@@ -150,7 +151,7 @@ function states.s_hs(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_handshake_hdr = tree:add(f_hdr_handshake_hdr, buf(math.floor(off / 8)))
+  local hdr_handshake_hdr = tree:add(pf.f_hdr_handshake_hdr, buf(math.floor(off / 8)))
   if regions[#regions] and off + 8 > regions[#regions] then
     hdr_handshake_hdr:add_proto_expert_info(ef_error, "out of region bounds in handshake_hdr.typ")
     return off
@@ -159,8 +160,8 @@ function states.s_hs(buf, pinfo, tree, off, depth, meta, regions)
     hdr_handshake_hdr:add_proto_expert_info(ef_error, "out of bounds in handshake_hdr.typ")
     return off
   end
-  v_handshake_hdr_typ = buf():bitfield(off, 8)
-  hdr_handshake_hdr:add(f_handshake_hdr_typ, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v_handshake_hdr_typ)
+  v.v_handshake_hdr_typ = buf():bitfield(off, 8)
+  hdr_handshake_hdr:add(pf.f_handshake_hdr_typ, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v.v_handshake_hdr_typ)
   off = off + 8
   if regions[#regions] and off + 24 > regions[#regions] then
     hdr_handshake_hdr:add_proto_expert_info(ef_error, "out of region bounds in handshake_hdr.hlen")
@@ -170,18 +171,18 @@ function states.s_hs(buf, pinfo, tree, off, depth, meta, regions)
     hdr_handshake_hdr:add_proto_expert_info(ef_error, "out of bounds in handshake_hdr.hlen")
     return off
   end
-  v_handshake_hdr_hlen = buf():bitfield(off, 24)
-  hdr_handshake_hdr:add(f_handshake_hdr_hlen, buf(math.floor(off / 8), math.floor((off % 8 + 24 + 7) / 8)), v_handshake_hdr_hlen)
+  v.v_handshake_hdr_hlen = buf():bitfield(off, 24)
+  hdr_handshake_hdr:add(pf.f_handshake_hdr_hlen, buf(math.floor(off / 8), math.floor((off % 8 + 24 + 7) / 8)), v.v_handshake_hdr_hlen)
   off = off + 24
   do
-    local rlen = v_handshake_hdr_hlen
+    local rlen = v.v_handshake_hdr_hlen
     if rlen < 0 or (regions[#regions] and off + rlen * 8 > regions[#regions]) then
       tree:add_proto_expert_info(ef_error, "region out of bounds")
       return off
     end
     regions[#regions + 1] = off + rlen * 8
   end
-  if v_handshake_hdr_typ == 1 then
+  if v.v_handshake_hdr_typ == 1 then
     return states.s_fixed(buf, pinfo, tree, off, depth, meta, regions)
   else
     tree:add_proto_expert_info(ef_error, "not a client hello")
@@ -196,7 +197,7 @@ function states.s_fixed(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_body_fixed = tree:add(f_hdr_body_fixed, buf(math.floor(off / 8)))
+  local hdr_body_fixed = tree:add(pf.f_hdr_body_fixed, buf(math.floor(off / 8)))
   if regions[#regions] and off + 16 > regions[#regions] then
     hdr_body_fixed:add_proto_expert_info(ef_error, "out of region bounds in body_fixed.ver")
     return off
@@ -205,7 +206,7 @@ function states.s_fixed(buf, pinfo, tree, off, depth, meta, regions)
     hdr_body_fixed:add_proto_expert_info(ef_error, "out of bounds in body_fixed.ver")
     return off
   end
-  hdr_body_fixed:add(f_body_fixed_ver, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), buf():bitfield(off, 16))
+  hdr_body_fixed:add(pf.f_body_fixed_ver, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), buf():bitfield(off, 16))
   off = off + 16
   local len_body_fixed_random = 32
   if regions[#regions] and (len_body_fixed_random < 0 or off + len_body_fixed_random * 8 > regions[#regions]) then
@@ -217,7 +218,7 @@ function states.s_fixed(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   if len_body_fixed_random > 0 then
-    hdr_body_fixed:add(f_body_fixed_random, buf(math.floor(off / 8), len_body_fixed_random))
+    hdr_body_fixed:add(pf.f_body_fixed_random, buf(math.floor(off / 8), len_body_fixed_random))
   end
   off = off + len_body_fixed_random * 8
   return states.s_sid_len(buf, pinfo, tree, off, depth, meta, regions)
@@ -230,7 +231,7 @@ function states.s_sid_len(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_sid_len = tree:add(f_hdr_sid_len, buf(math.floor(off / 8)))
+  local hdr_sid_len = tree:add(pf.f_hdr_sid_len, buf(math.floor(off / 8)))
   if regions[#regions] and off + 8 > regions[#regions] then
     hdr_sid_len:add_proto_expert_info(ef_error, "out of region bounds in sid_len.slen")
     return off
@@ -239,74 +240,74 @@ function states.s_sid_len(buf, pinfo, tree, off, depth, meta, regions)
     hdr_sid_len:add_proto_expert_info(ef_error, "out of bounds in sid_len.slen")
     return off
   end
-  v_sid_len_slen = buf():bitfield(off, 8)
-  hdr_sid_len:add(f_sid_len_slen, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v_sid_len_slen)
+  v.v_sid_len_slen = buf():bitfield(off, 8)
+  hdr_sid_len:add(pf.f_sid_len_slen, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v.v_sid_len_slen)
   off = off + 8
-  if v_sid_len_slen == 0 then
+  if v.v_sid_len_slen == 0 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 1 then
+  elseif v.v_sid_len_slen == 1 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 2 then
+  elseif v.v_sid_len_slen == 2 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 3 then
+  elseif v.v_sid_len_slen == 3 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 4 then
+  elseif v.v_sid_len_slen == 4 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 5 then
+  elseif v.v_sid_len_slen == 5 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 6 then
+  elseif v.v_sid_len_slen == 6 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 7 then
+  elseif v.v_sid_len_slen == 7 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 8 then
+  elseif v.v_sid_len_slen == 8 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 9 then
+  elseif v.v_sid_len_slen == 9 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 10 then
+  elseif v.v_sid_len_slen == 10 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 11 then
+  elseif v.v_sid_len_slen == 11 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 12 then
+  elseif v.v_sid_len_slen == 12 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 13 then
+  elseif v.v_sid_len_slen == 13 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 14 then
+  elseif v.v_sid_len_slen == 14 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 15 then
+  elseif v.v_sid_len_slen == 15 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 16 then
+  elseif v.v_sid_len_slen == 16 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 17 then
+  elseif v.v_sid_len_slen == 17 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 18 then
+  elseif v.v_sid_len_slen == 18 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 19 then
+  elseif v.v_sid_len_slen == 19 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 20 then
+  elseif v.v_sid_len_slen == 20 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 21 then
+  elseif v.v_sid_len_slen == 21 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 22 then
+  elseif v.v_sid_len_slen == 22 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 23 then
+  elseif v.v_sid_len_slen == 23 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 24 then
+  elseif v.v_sid_len_slen == 24 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 25 then
+  elseif v.v_sid_len_slen == 25 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 26 then
+  elseif v.v_sid_len_slen == 26 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 27 then
+  elseif v.v_sid_len_slen == 27 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 28 then
+  elseif v.v_sid_len_slen == 28 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 29 then
+  elseif v.v_sid_len_slen == 29 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 30 then
+  elseif v.v_sid_len_slen == 30 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 31 then
+  elseif v.v_sid_len_slen == 31 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_sid_len_slen == 32 then
+  elseif v.v_sid_len_slen == 32 then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
   else
     tree:add_proto_expert_info(ef_error, "session id too long")
@@ -321,8 +322,8 @@ function states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_sid = tree:add(f_hdr_sid, buf(math.floor(off / 8)))
-  local len_sid_body = v_sid_len_slen
+  local hdr_sid = tree:add(pf.f_hdr_sid, buf(math.floor(off / 8)))
+  local len_sid_body = v.v_sid_len_slen
   if regions[#regions] and (len_sid_body < 0 or off + len_sid_body * 8 > regions[#regions]) then
     hdr_sid:add_proto_expert_info(ef_error, "out of region bounds in sid.body")
     return off
@@ -332,7 +333,7 @@ function states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   if len_sid_body > 0 then
-    hdr_sid:add(f_sid_body, buf(math.floor(off / 8), len_sid_body))
+    hdr_sid:add(pf.f_sid_body, buf(math.floor(off / 8), len_sid_body))
   end
   off = off + len_sid_body * 8
   return states.s_cs_len(buf, pinfo, tree, off, depth, meta, regions)
@@ -345,7 +346,7 @@ function states.s_cs_len(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_cs_len = tree:add(f_hdr_cs_len, buf(math.floor(off / 8)))
+  local hdr_cs_len = tree:add(pf.f_hdr_cs_len, buf(math.floor(off / 8)))
   if regions[#regions] and off + 16 > regions[#regions] then
     hdr_cs_len:add_proto_expert_info(ef_error, "out of region bounds in cs_len.clen")
     return off
@@ -354,11 +355,11 @@ function states.s_cs_len(buf, pinfo, tree, off, depth, meta, regions)
     hdr_cs_len:add_proto_expert_info(ef_error, "out of bounds in cs_len.clen")
     return off
   end
-  v_cs_len_clen = buf():bitfield(off, 16)
-  hdr_cs_len:add(f_cs_len_clen, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v_cs_len_clen)
+  v.v_cs_len_clen = buf():bitfield(off, 16)
+  hdr_cs_len:add(pf.f_cs_len_clen, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v.v_cs_len_clen)
   off = off + 16
-  meta.cs_odd = (bit32.band(v_cs_len_clen, 1)) % 2^1
-  if v_cs_len_clen == 0 then
+  meta.cs_odd = (bit32.band(v.v_cs_len_clen, 1)) % 2^1
+  if v.v_cs_len_clen == 0 then
     tree:add_proto_expert_info(ef_error, "empty cipher suites")
     return off
   else
@@ -388,8 +389,8 @@ function states.s_cs(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_cs = tree:add(f_hdr_cs, buf(math.floor(off / 8)))
-  local len_cs_body = v_cs_len_clen
+  local hdr_cs = tree:add(pf.f_hdr_cs, buf(math.floor(off / 8)))
+  local len_cs_body = v.v_cs_len_clen
   if regions[#regions] and (len_cs_body < 0 or off + len_cs_body * 8 > regions[#regions]) then
     hdr_cs:add_proto_expert_info(ef_error, "out of region bounds in cs.body")
     return off
@@ -399,7 +400,7 @@ function states.s_cs(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   if len_cs_body > 0 then
-    hdr_cs:add(f_cs_body, buf(math.floor(off / 8), len_cs_body))
+    hdr_cs:add(pf.f_cs_body, buf(math.floor(off / 8), len_cs_body))
   end
   off = off + len_cs_body * 8
   return states.s_comp_len(buf, pinfo, tree, off, depth, meta, regions)
@@ -412,7 +413,7 @@ function states.s_comp_len(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_comp_len = tree:add(f_hdr_comp_len, buf(math.floor(off / 8)))
+  local hdr_comp_len = tree:add(pf.f_hdr_comp_len, buf(math.floor(off / 8)))
   if regions[#regions] and off + 8 > regions[#regions] then
     hdr_comp_len:add_proto_expert_info(ef_error, "out of region bounds in comp_len.plen")
     return off
@@ -421,10 +422,10 @@ function states.s_comp_len(buf, pinfo, tree, off, depth, meta, regions)
     hdr_comp_len:add_proto_expert_info(ef_error, "out of bounds in comp_len.plen")
     return off
   end
-  v_comp_len_plen = buf():bitfield(off, 8)
-  hdr_comp_len:add(f_comp_len_plen, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v_comp_len_plen)
+  v.v_comp_len_plen = buf():bitfield(off, 8)
+  hdr_comp_len:add(pf.f_comp_len_plen, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v.v_comp_len_plen)
   off = off + 8
-  if v_comp_len_plen == 0 then
+  if v.v_comp_len_plen == 0 then
     tree:add_proto_expert_info(ef_error, "empty compressions")
     return off
   else
@@ -439,8 +440,8 @@ function states.s_comp(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_comp = tree:add(f_hdr_comp, buf(math.floor(off / 8)))
-  local len_comp_body = v_comp_len_plen
+  local hdr_comp = tree:add(pf.f_hdr_comp, buf(math.floor(off / 8)))
+  local len_comp_body = v.v_comp_len_plen
   if regions[#regions] and (len_comp_body < 0 or off + len_comp_body * 8 > regions[#regions]) then
     hdr_comp:add_proto_expert_info(ef_error, "out of region bounds in comp.body")
     return off
@@ -450,7 +451,7 @@ function states.s_comp(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   if len_comp_body > 0 then
-    hdr_comp:add(f_comp_body, buf(math.floor(off / 8), len_comp_body))
+    hdr_comp:add(pf.f_comp_body, buf(math.floor(off / 8), len_comp_body))
   end
   off = off + len_comp_body * 8
   return states.s_ext_check(buf, pinfo, tree, off, depth, meta, regions)
@@ -480,7 +481,7 @@ function states.s_ext_len(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_ext_len = tree:add(f_hdr_ext_len, buf(math.floor(off / 8)))
+  local hdr_ext_len = tree:add(pf.f_hdr_ext_len, buf(math.floor(off / 8)))
   if regions[#regions] and off + 16 > regions[#regions] then
     hdr_ext_len:add_proto_expert_info(ef_error, "out of region bounds in ext_len.total")
     return off
@@ -489,11 +490,11 @@ function states.s_ext_len(buf, pinfo, tree, off, depth, meta, regions)
     hdr_ext_len:add_proto_expert_info(ef_error, "out of bounds in ext_len.total")
     return off
   end
-  v_ext_len_total = buf():bitfield(off, 16)
-  hdr_ext_len:add(f_ext_len_total, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v_ext_len_total)
+  v.v_ext_len_total = buf():bitfield(off, 16)
+  hdr_ext_len:add(pf.f_ext_len_total, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v.v_ext_len_total)
   off = off + 16
   do
-    local rlen = v_ext_len_total
+    local rlen = v.v_ext_len_total
     if rlen < 0 or (regions[#regions] and off + rlen * 8 > regions[#regions]) then
       tree:add_proto_expert_info(ef_error, "region out of bounds")
       return off
@@ -533,7 +534,7 @@ function states.s_ext(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_ext = tree:add(f_hdr_ext, buf(math.floor(off / 8)))
+  local hdr_ext = tree:add(pf.f_hdr_ext, buf(math.floor(off / 8)))
   if regions[#regions] and off + 16 > regions[#regions] then
     hdr_ext:add_proto_expert_info(ef_error, "out of region bounds in ext.typ")
     return off
@@ -542,8 +543,8 @@ function states.s_ext(buf, pinfo, tree, off, depth, meta, regions)
     hdr_ext:add_proto_expert_info(ef_error, "out of bounds in ext.typ")
     return off
   end
-  v_ext_typ = buf():bitfield(off, 16)
-  hdr_ext:add(f_ext_typ, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v_ext_typ)
+  v.v_ext_typ = buf():bitfield(off, 16)
+  hdr_ext:add(pf.f_ext_typ, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v.v_ext_typ)
   off = off + 16
   if regions[#regions] and off + 16 > regions[#regions] then
     hdr_ext:add_proto_expert_info(ef_error, "out of region bounds in ext.elen")
@@ -553,12 +554,12 @@ function states.s_ext(buf, pinfo, tree, off, depth, meta, regions)
     hdr_ext:add_proto_expert_info(ef_error, "out of bounds in ext.elen")
     return off
   end
-  v_ext_elen = buf():bitfield(off, 16)
-  hdr_ext:add(f_ext_elen, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v_ext_elen)
+  v.v_ext_elen = buf():bitfield(off, 16)
+  hdr_ext:add(pf.f_ext_elen, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v.v_ext_elen)
   off = off + 16
-  if v_ext_typ == 0 and meta.seen_sni == 0 then
+  if v.v_ext_typ == 0 and meta.seen_sni == 0 then
     return states.s_sni(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v_ext_typ == 0 and meta.seen_sni == 1 then
+  elseif v.v_ext_typ == 0 and meta.seen_sni == 1 then
     tree:add_proto_expert_info(ef_error, "duplicate sni")
     return off
   else
@@ -573,8 +574,8 @@ function states.s_skip(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_skip = tree:add(f_hdr_skip, buf(math.floor(off / 8)))
-  local len_skip_body = v_ext_elen
+  local hdr_skip = tree:add(pf.f_hdr_skip, buf(math.floor(off / 8)))
+  local len_skip_body = v.v_ext_elen
   if regions[#regions] and (len_skip_body < 0 or off + len_skip_body * 8 > regions[#regions]) then
     hdr_skip:add_proto_expert_info(ef_error, "out of region bounds in skip.body")
     return off
@@ -584,7 +585,7 @@ function states.s_skip(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   if len_skip_body > 0 then
-    hdr_skip:add(f_skip_body, buf(math.floor(off / 8), len_skip_body))
+    hdr_skip:add(pf.f_skip_body, buf(math.floor(off / 8), len_skip_body))
   end
   off = off + len_skip_body * 8
   return states.s_tlv(buf, pinfo, tree, off, depth, meta, regions)
@@ -599,7 +600,7 @@ function states.s_sni(buf, pinfo, tree, off, depth, meta, regions)
   local avail = buf:len() * 8
   meta.seen_sni = (1) % 2^1
   do
-    local rlen = v_ext_elen
+    local rlen = v.v_ext_elen
     if rlen < 0 or (regions[#regions] and off + rlen * 8 > regions[#regions]) then
       tree:add_proto_expert_info(ef_error, "region out of bounds")
       return off
@@ -616,7 +617,7 @@ function states.s_sni_list(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_sni_list = tree:add(f_hdr_sni_list, buf(math.floor(off / 8)))
+  local hdr_sni_list = tree:add(pf.f_hdr_sni_list, buf(math.floor(off / 8)))
   if regions[#regions] and off + 16 > regions[#regions] then
     hdr_sni_list:add_proto_expert_info(ef_error, "out of region bounds in sni_list.list_len")
     return off
@@ -625,11 +626,11 @@ function states.s_sni_list(buf, pinfo, tree, off, depth, meta, regions)
     hdr_sni_list:add_proto_expert_info(ef_error, "out of bounds in sni_list.list_len")
     return off
   end
-  v_sni_list_list_len = buf():bitfield(off, 16)
-  hdr_sni_list:add(f_sni_list_list_len, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v_sni_list_list_len)
+  v.v_sni_list_list_len = buf():bitfield(off, 16)
+  hdr_sni_list:add(pf.f_sni_list_list_len, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v.v_sni_list_list_len)
   off = off + 16
   do
-    local rlen = v_sni_list_list_len
+    local rlen = v.v_sni_list_list_len
     if rlen < 0 or (regions[#regions] and off + rlen * 8 > regions[#regions]) then
       tree:add_proto_expert_info(ef_error, "region out of bounds")
       return off
@@ -646,7 +647,7 @@ function states.s_sni_entry(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_sni_entry = tree:add(f_hdr_sni_entry, buf(math.floor(off / 8)))
+  local hdr_sni_entry = tree:add(pf.f_hdr_sni_entry, buf(math.floor(off / 8)))
   if regions[#regions] and off + 8 > regions[#regions] then
     hdr_sni_entry:add_proto_expert_info(ef_error, "out of region bounds in sni_entry.ntype")
     return off
@@ -655,8 +656,8 @@ function states.s_sni_entry(buf, pinfo, tree, off, depth, meta, regions)
     hdr_sni_entry:add_proto_expert_info(ef_error, "out of bounds in sni_entry.ntype")
     return off
   end
-  v_sni_entry_ntype = buf():bitfield(off, 8)
-  hdr_sni_entry:add(f_sni_entry_ntype, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v_sni_entry_ntype)
+  v.v_sni_entry_ntype = buf():bitfield(off, 8)
+  hdr_sni_entry:add(pf.f_sni_entry_ntype, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v.v_sni_entry_ntype)
   off = off + 8
   if regions[#regions] and off + 16 > regions[#regions] then
     hdr_sni_entry:add_proto_expert_info(ef_error, "out of region bounds in sni_entry.hlen")
@@ -666,10 +667,10 @@ function states.s_sni_entry(buf, pinfo, tree, off, depth, meta, regions)
     hdr_sni_entry:add_proto_expert_info(ef_error, "out of bounds in sni_entry.hlen")
     return off
   end
-  v_sni_entry_hlen = buf():bitfield(off, 16)
-  hdr_sni_entry:add(f_sni_entry_hlen, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v_sni_entry_hlen)
+  v.v_sni_entry_hlen = buf():bitfield(off, 16)
+  hdr_sni_entry:add(pf.f_sni_entry_hlen, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v.v_sni_entry_hlen)
   off = off + 16
-  if v_sni_entry_ntype == 0 then
+  if v.v_sni_entry_ntype == 0 then
     return states.s_host(buf, pinfo, tree, off, depth, meta, regions)
   else
     tree:add_proto_expert_info(ef_error, "unsupported sni name type")
@@ -684,8 +685,8 @@ function states.s_host(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_host = tree:add(f_hdr_host, buf(math.floor(off / 8)))
-  local len_host_name = v_sni_entry_hlen
+  local hdr_host = tree:add(pf.f_hdr_host, buf(math.floor(off / 8)))
+  local len_host_name = v.v_sni_entry_hlen
   if regions[#regions] and (len_host_name < 0 or off + len_host_name * 8 > regions[#regions]) then
     hdr_host:add_proto_expert_info(ef_error, "out of region bounds in host.name")
     return off
@@ -695,7 +696,7 @@ function states.s_host(buf, pinfo, tree, off, depth, meta, regions)
     return off
   end
   if len_host_name > 0 then
-    hdr_host:add(f_host_name, buf(math.floor(off / 8), len_host_name))
+    hdr_host:add(pf.f_host_name, buf(math.floor(off / 8), len_host_name))
   end
   off = off + len_host_name * 8
   do
@@ -743,8 +744,8 @@ function states.s_done(buf, pinfo, tree, off, depth, meta, regions)
       return off
     end
   end
-  tree:add(f_meta_seen_sni, UInt64(meta.seen_sni))
-  tree:add(f_meta_cs_odd, UInt64(meta.cs_odd))
+  tree:add(pf.f_meta_seen_sni, UInt64(meta.seen_sni))
+  tree:add(pf.f_meta_cs_odd, UInt64(meta.cs_odd))
   add_payload(buf, tree, off)
   return off
 end
@@ -770,8 +771,8 @@ function states.s_done_noext(buf, pinfo, tree, off, depth, meta, regions)
       return off
     end
   end
-  tree:add(f_meta_seen_sni, UInt64(meta.seen_sni))
-  tree:add(f_meta_cs_odd, UInt64(meta.cs_odd))
+  tree:add(pf.f_meta_seen_sni, UInt64(meta.seen_sni))
+  tree:add(pf.f_meta_cs_odd, UInt64(meta.cs_odd))
   add_payload(buf, tree, off)
   return off
 end
