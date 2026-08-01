@@ -249,6 +249,46 @@
         ]
       },
       {
+        "name": "len_lead",
+        "fields": [
+          {
+            "name": "prefix",
+            "width": {
+              "bits": 2
+            },
+            "display": {
+              "name": "Length Varint Width",
+              "valueLabels": [
+                {
+                  "label": "1-byte"
+                },
+                {
+                  "value": "1",
+                  "label": "2-byte"
+                },
+                {
+                  "value": "2",
+                  "label": "4-byte"
+                },
+                {
+                  "value": "3",
+                  "label": "8-byte"
+                }
+              ]
+            }
+          },
+          {
+            "name": "v6",
+            "width": {
+              "bits": 6
+            },
+            "display": {
+              "name": "Length Varint High Bits"
+            }
+          }
+        ]
+      },
+      {
         "name": "tok0",
         "fields": [
           {
@@ -392,46 +432,6 @@
                   }
                 }
               }
-            }
-          }
-        ]
-      },
-      {
-        "name": "len_lead",
-        "fields": [
-          {
-            "name": "prefix",
-            "width": {
-              "bits": 2
-            },
-            "display": {
-              "name": "Length Varint Width",
-              "valueLabels": [
-                {
-                  "label": "1-byte"
-                },
-                {
-                  "value": "1",
-                  "label": "2-byte"
-                },
-                {
-                  "value": "2",
-                  "label": "4-byte"
-                },
-                {
-                  "value": "3",
-                  "label": "8-byte"
-                }
-              ]
-            }
-          },
-          {
-            "name": "v6",
-            "width": {
-              "bits": 6
-            },
-            "display": {
-              "name": "Length Varint High Bits"
             }
           }
         ]
@@ -1225,6 +1225,197 @@
         }
       },
       {
+        "name": "parse_len_lead",
+        "extracts": [
+          {
+            "headerType": "len_lead"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "len_lead",
+                  "field": "prefix"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "len_w1"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "len_w2"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2"
+                  }
+                ],
+                "next": {
+                  "state": "len_w4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "3"
+                  }
+                ],
+                "next": {
+                  "state": "len_w8"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "reject": {
+                "reason": "unreachable"
+              }
+            }
+          }
+        },
+        "annotations": {
+          "doc": "The self-sizing varint, arm 2 of 2: payload length. Shared\nby Initial, 0-RTT, and Handshake (kind already in metadata);\nthe value is observed, not consumed - parsing stops before the\nprotected packet number."
+        }
+      },
+      {
+        "name": "parse_first__short",
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "7"
+            }
+          }
+        ],
+        "annotations": {
+          "doc": "Classify-only: the short-header DCID length is out-of-band LB configuration (the katran-config-gate analog)."
+        }
+      },
+      {
+        "name": "parse_version__negotiation",
+        "transition": {
+          "direct": {
+            "state": "parse_other_cids"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "5"
+            }
+          }
+        ],
+        "annotations": {
+          "doc": "Version list deliberately not walked (quinn's stance; quiche walks it - documented divergence)."
+        }
+      },
+      {
+        "name": "parse_version__default",
+        "transition": {
+          "direct": {
+            "state": "parse_other_cids"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "6"
+            }
+          }
+        ],
+        "annotations": {
+          "doc": "Unknown versions parse through (quiche's stance; quinn rejects with UnsupportedVersion after the CIDs)."
+        }
+      },
+      {
+        "name": "parse_scid__initial",
+        "transition": {
+          "direct": {
+            "state": "parse_tok_lead"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "1"
+            }
+          }
+        ]
+      },
+      {
+        "name": "parse_scid__zero_rtt",
+        "transition": {
+          "direct": {
+            "state": "parse_len_lead"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "2"
+            }
+          }
+        ]
+      },
+      {
+        "name": "parse_scid__handshake",
+        "transition": {
+          "direct": {
+            "state": "parse_len_lead"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "3"
+            }
+          }
+        ]
+      },
+      {
+        "name": "parse_scid__retry",
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "4"
+            }
+          }
+        ]
+      },
+      {
         "name": "tok_w1",
         "extracts": [
           {
@@ -1378,76 +1569,6 @@
         ]
       },
       {
-        "name": "parse_len_lead",
-        "extracts": [
-          {
-            "headerType": "len_lead"
-          }
-        ],
-        "transition": {
-          "select": {
-            "keys": [
-              {
-                "field": {
-                  "header": "len_lead",
-                  "field": "prefix"
-                }
-              }
-            ],
-            "arms": [
-              {
-                "entries": [
-                  {
-                    "value": "0"
-                  }
-                ],
-                "next": {
-                  "state": "len_w1"
-                }
-              },
-              {
-                "entries": [
-                  {
-                    "value": "1"
-                  }
-                ],
-                "next": {
-                  "state": "len_w2"
-                }
-              },
-              {
-                "entries": [
-                  {
-                    "value": "2"
-                  }
-                ],
-                "next": {
-                  "state": "len_w4"
-                }
-              },
-              {
-                "entries": [
-                  {
-                    "value": "3"
-                  }
-                ],
-                "next": {
-                  "state": "len_w8"
-                }
-              }
-            ],
-            "defaultTarget": {
-              "reject": {
-                "reason": "unreachable"
-              }
-            }
-          }
-        },
-        "annotations": {
-          "doc": "The self-sizing varint, arm 2 of 2: payload length. Shared\nby Initial, 0-RTT, and Handshake (kind already in metadata);\nthe value is observed, not consumed - parsing stops before the\nprotected packet number."
-        }
-      },
-      {
         "name": "len_w1",
         "transition": {
           "direct": {
@@ -1591,127 +1712,6 @@
                   }
                 }
               }
-            }
-          }
-        ]
-      },
-      {
-        "name": "parse_first__short",
-        "transition": {
-          "direct": {
-            "accept": {}
-          }
-        },
-        "assigns": [
-          {
-            "metadata": "kind",
-            "value": {
-              "constant": "7"
-            }
-          }
-        ],
-        "annotations": {
-          "doc": "Classify-only: the short-header DCID length is out-of-band LB configuration (the katran-config-gate analog)."
-        }
-      },
-      {
-        "name": "parse_version__negotiation",
-        "transition": {
-          "direct": {
-            "state": "parse_other_cids"
-          }
-        },
-        "assigns": [
-          {
-            "metadata": "kind",
-            "value": {
-              "constant": "5"
-            }
-          }
-        ],
-        "annotations": {
-          "doc": "Version list deliberately not walked (quinn's stance; quiche walks it - documented divergence)."
-        }
-      },
-      {
-        "name": "parse_version__default",
-        "transition": {
-          "direct": {
-            "state": "parse_other_cids"
-          }
-        },
-        "assigns": [
-          {
-            "metadata": "kind",
-            "value": {
-              "constant": "6"
-            }
-          }
-        ],
-        "annotations": {
-          "doc": "Unknown versions parse through (quiche's stance; quinn rejects with UnsupportedVersion after the CIDs)."
-        }
-      },
-      {
-        "name": "parse_scid__initial",
-        "transition": {
-          "direct": {
-            "state": "parse_tok_lead"
-          }
-        },
-        "assigns": [
-          {
-            "metadata": "kind",
-            "value": {
-              "constant": "1"
-            }
-          }
-        ]
-      },
-      {
-        "name": "parse_scid__zero_rtt",
-        "transition": {
-          "direct": {
-            "state": "parse_len_lead"
-          }
-        },
-        "assigns": [
-          {
-            "metadata": "kind",
-            "value": {
-              "constant": "2"
-            }
-          }
-        ]
-      },
-      {
-        "name": "parse_scid__handshake",
-        "transition": {
-          "direct": {
-            "state": "parse_len_lead"
-          }
-        },
-        "assigns": [
-          {
-            "metadata": "kind",
-            "value": {
-              "constant": "3"
-            }
-          }
-        ]
-      },
-      {
-        "name": "parse_scid__retry",
-        "transition": {
-          "direct": {
-            "accept": {}
-          }
-        },
-        "assigns": [
-          {
-            "metadata": "kind",
-            "value": {
-              "constant": "4"
             }
           }
         ]

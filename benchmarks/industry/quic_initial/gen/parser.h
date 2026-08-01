@@ -65,6 +65,11 @@ typedef struct {
 } pk_quic_initial_tok_lead_t;
 
 typedef struct {
+  uint8_t prefix;
+  uint8_t v6;
+} pk_quic_initial_len_lead_t;
+
+typedef struct {
   uint64_t body_bit_off;
   uint64_t body_bit_len;
 } pk_quic_initial_tok0_t;
@@ -86,11 +91,6 @@ typedef struct {
   uint64_t body_bit_off;
   uint64_t body_bit_len;
 } pk_quic_initial_tok3_t;
-
-typedef struct {
-  uint8_t prefix;
-  uint8_t v6;
-} pk_quic_initial_len_lead_t;
 
 typedef struct {
   uint8_t t;
@@ -124,6 +124,8 @@ typedef struct {
   pk_quic_initial_scid_t scid;
   uint8_t tok_lead_present;
   pk_quic_initial_tok_lead_t tok_lead;
+  uint8_t len_lead_present;
+  pk_quic_initial_len_lead_t len_lead;
   uint8_t tok0_present;
   pk_quic_initial_tok0_t tok0;
   uint8_t tok1_present;
@@ -132,8 +134,6 @@ typedef struct {
   pk_quic_initial_tok2_t tok2;
   uint8_t tok3_present;
   pk_quic_initial_tok3_t tok3;
-  uint8_t len_lead_present;
-  pk_quic_initial_len_lead_t len_lead;
   uint8_t len1_present;
   pk_quic_initial_len1_t len1;
   uint8_t len2_present;

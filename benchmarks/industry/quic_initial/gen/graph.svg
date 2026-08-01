@@ -37,9 +37,9 @@
 <text text-anchor="middle" x="3398" y="-1147.39" font-family="Times,serif" font-size="14.00">first_byte.form == 0x1</text>
 </g>
 <!-- parse_first__short -->
-<g id="node18" class="node">
+<g id="node10" class="node">
 <title>parse_first__short</title>
-<g id="a_node18"><a xlink:href="#" xlink:title="Classify&#45;only: the short&#45;header DCID length is out&#45;of&#45;band LB configuration (the katran&#45;config&#45;gate analog).">
+<g id="a_node10"><a xlink:href="#" xlink:title="Classify&#45;only: the short&#45;header DCID length is out&#45;of&#45;band LB configuration (the katran&#45;config&#45;gate analog).">
 <polygon fill="none" stroke="black" points="3707,-1069.59 3567,-1069.59 3567,-1033.59 3707,-1033.59 3707,-1069.59"/>
 <text text-anchor="middle" x="3637" y="-1047.89" font-family="Helvetica,sans-Serif" font-size="14.00">parse_first__short</text>
 </a>
@@ -55,15 +55,15 @@
 <!-- reject_0 -->
 <g id="node26" class="node">
 <title>reject_0</title>
-<polygon fill="none" stroke="black" points="1638,-201.59 1536,-163.59 1638,-125.59 1740,-163.59 1638,-201.59"/>
-<text text-anchor="middle" x="1638" y="-167.39" font-family="Helvetica,sans-Serif" font-size="14.00">reject:</text>
-<text text-anchor="middle" x="1638" y="-152.39" font-family="Helvetica,sans-Serif" font-size="14.00">unreachable</text>
+<polygon fill="none" stroke="black" points="1712,-201.59 1610,-163.59 1712,-125.59 1814,-163.59 1712,-201.59"/>
+<text text-anchor="middle" x="1712" y="-167.39" font-family="Helvetica,sans-Serif" font-size="14.00">reject:</text>
+<text text-anchor="middle" x="1712" y="-152.39" font-family="Helvetica,sans-Serif" font-size="14.00">unreachable</text>
 </g>
 <!-- parse_first&#45;&gt;reject_0 -->
 <g id="edge3" class="edge">
 <title>parse_first&#45;&gt;reject_0</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M3247.28,-1194.64C2775.64,-1194.76 0,-1191.88 0,-1107.59 0,-1107.59 0,-1107.59 0,-270.59 0,-193.59 1167.97,-171.05 1531.39,-165.9"/>
-<polygon fill="black" stroke="black" points="1531.7,-169.4 1541.65,-165.76 1531.6,-162.4 1531.7,-169.4"/>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M3247.28,-1194.64C2775.64,-1194.76 0,-1191.88 0,-1107.59 0,-1107.59 0,-1107.59 0,-270.59 0,-189.81 1230.35,-169.81 1605.02,-165.6"/>
+<polygon fill="black" stroke="black" points="1605.09,-169.1 1615.05,-165.49 1605.01,-162.1 1605.09,-169.1"/>
 <text text-anchor="middle" x="25.5" y="-682.89" font-family="Times,serif" font-size="14.00">default</text>
 </g>
 <!-- parse_dcid_len -->
@@ -84,9 +84,9 @@
 <text text-anchor="middle" x="2838.5" y="-1047.89" font-family="Times,serif" font-size="14.00">version.v == 0x1</text>
 </g>
 <!-- parse_version__negotiation -->
-<g id="node19" class="node">
+<g id="node11" class="node">
 <title>parse_version__negotiation</title>
-<g id="a_node19"><a xlink:href="#" xlink:title="Version list deliberately not walked (quinn&#39;s stance; quiche walks it &#45; documented divergence).">
+<g id="a_node11"><a xlink:href="#" xlink:title="Version list deliberately not walked (quinn&#39;s stance; quiche walks it &#45; documented divergence).">
 <polygon fill="none" stroke="black" points="3625.5,-1014.59 3420.5,-1014.59 3420.5,-978.59 3625.5,-978.59 3625.5,-1014.59"/>
 <text text-anchor="middle" x="3523" y="-992.89" font-family="Helvetica,sans-Serif" font-size="14.00">parse_version__negotiation</text>
 </a>
@@ -100,9 +100,9 @@
 <text text-anchor="middle" x="3495.5" y="-1047.89" font-family="Times,serif" font-size="14.00">version.v == 0x0</text>
 </g>
 <!-- parse_version__default -->
-<g id="node20" class="node">
+<g id="node12" class="node">
 <title>parse_version__default</title>
-<g id="a_node20"><a xlink:href="#" xlink:title="Unknown versions parse through (quiche&#39;s stance; quinn rejects with UnsupportedVersion after the CIDs).">
+<g id="a_node12"><a xlink:href="#" xlink:title="Unknown versions parse through (quiche&#39;s stance; quinn rejects with UnsupportedVersion after the CIDs).">
 <polygon fill="none" stroke="black" points="3403,-1014.59 3227,-1014.59 3227,-978.59 3403,-978.59 3403,-1014.59"/>
 <text text-anchor="middle" x="3315" y="-992.89" font-family="Helvetica,sans-Serif" font-size="14.00">parse_version__default</text>
 </a>
@@ -128,15 +128,15 @@
 <!-- accept -->
 <g id="node25" class="node">
 <title>accept</title>
-<ellipse fill="none" stroke="black" cx="2488" cy="-44.3" rx="40.11" ry="40.11"/>
-<ellipse fill="none" stroke="black" cx="2488" cy="-44.3" rx="44.09" ry="44.09"/>
-<text text-anchor="middle" x="2488" y="-40.6" font-family="Helvetica,sans-Serif" font-size="14.00">accept</text>
+<ellipse fill="none" stroke="black" cx="2433" cy="-44.3" rx="40.11" ry="40.11"/>
+<ellipse fill="none" stroke="black" cx="2433" cy="-44.3" rx="44.09" ry="44.09"/>
+<text text-anchor="middle" x="2433" y="-40.6" font-family="Helvetica,sans-Serif" font-size="14.00">accept</text>
 </g>
 <!-- parse_other_cids&#45;&gt;accept -->
 <g id="edge7" class="edge">
 <title>parse_other_cids&#45;&gt;accept</title>
-<path fill="none" stroke="black" d="M3557.53,-869.31C3559.88,-850.77 3563,-821.24 3563,-795.59 3563,-795.59 3563,-795.59 3563,-162.59 3563,-58.86 2761.81,-46.81 2542.77,-45.46"/>
-<polygon fill="black" stroke="black" points="2542.5,-41.96 2532.48,-45.4 2542.46,-48.96 2542.5,-41.96"/>
+<path fill="none" stroke="black" d="M3557.53,-869.31C3559.88,-850.77 3563,-821.24 3563,-795.59 3563,-795.59 3563,-795.59 3563,-162.59 3563,-53.14 2713.4,-45.31 2487.57,-45.16"/>
+<polygon fill="black" stroke="black" points="2487.3,-41.66 2477.3,-45.16 2487.3,-48.66 2487.3,-41.66"/>
 </g>
 <!-- parse_dcid -->
 <g id="node5" class="node">
@@ -491,298 +491,298 @@
 <text text-anchor="middle" x="3295.5" y="-746.39" font-family="Times,serif" font-size="14.00">default</text>
 </g>
 <!-- parse_scid__initial -->
-<g id="node21" class="node">
+<g id="node13" class="node">
 <title>parse_scid__initial</title>
-<polygon fill="none" stroke="black" points="1978.5,-597.59 1837.5,-597.59 1837.5,-561.59 1978.5,-561.59 1978.5,-597.59"/>
-<text text-anchor="middle" x="1908" y="-575.89" font-family="Helvetica,sans-Serif" font-size="14.00">parse_scid__initial</text>
+<polygon fill="none" stroke="black" points="1995.5,-597.59 1854.5,-597.59 1854.5,-561.59 1995.5,-561.59 1995.5,-597.59"/>
+<text text-anchor="middle" x="1925" y="-575.89" font-family="Helvetica,sans-Serif" font-size="14.00">parse_scid__initial</text>
 </g>
 <!-- parse_scid&#45;&gt;parse_scid__initial -->
 <g id="edge53" class="edge">
 <title>parse_scid&#45;&gt;parse_scid__initial</title>
-<path fill="none" stroke="black" d="M1736.58,-667.54C1772.18,-649.49 1826.95,-621.7 1864.97,-602.42"/>
-<polygon fill="black" stroke="black" points="1866.92,-605.36 1874.25,-597.71 1863.75,-599.11 1866.92,-605.36"/>
-<text text-anchor="middle" x="1909" y="-619.39" font-family="Times,serif" font-size="14.00">first_byte.ty == 0x0</text>
+<path fill="none" stroke="black" d="M1739.51,-667.54C1778.27,-649.37 1838.05,-621.35 1879.22,-602.05"/>
+<polygon fill="black" stroke="black" points="1880.91,-605.13 1888.48,-597.71 1877.94,-598.79 1880.91,-605.13"/>
+<text text-anchor="middle" x="1920" y="-619.39" font-family="Times,serif" font-size="14.00">first_byte.ty == 0x0</text>
 </g>
 <!-- parse_scid__zero_rtt -->
-<g id="node22" class="node">
+<g id="node14" class="node">
 <title>parse_scid__zero_rtt</title>
-<polygon fill="none" stroke="black" points="1736,-433.59 1580,-433.59 1580,-397.59 1736,-397.59 1736,-433.59"/>
-<text text-anchor="middle" x="1658" y="-411.89" font-family="Helvetica,sans-Serif" font-size="14.00">parse_scid__zero_rtt</text>
+<polygon fill="none" stroke="black" points="1719,-433.59 1563,-433.59 1563,-397.59 1719,-397.59 1719,-433.59"/>
+<text text-anchor="middle" x="1641" y="-411.89" font-family="Helvetica,sans-Serif" font-size="14.00">parse_scid__zero_rtt</text>
 </g>
 <!-- parse_scid&#45;&gt;parse_scid__zero_rtt -->
 <g id="edge54" class="edge">
 <title>parse_scid&#45;&gt;parse_scid__zero_rtt</title>
-<path fill="none" stroke="black" d="M1696.64,-667.47C1692.48,-649.74 1686.23,-621.92 1682,-597.59 1672.55,-543.25 1664.86,-479.16 1660.9,-443.68"/>
-<polygon fill="black" stroke="black" points="1664.37,-443.19 1659.79,-433.63 1657.41,-443.95 1664.37,-443.19"/>
-<text text-anchor="middle" x="1755" y="-575.89" font-family="Times,serif" font-size="14.00">first_byte.ty == 0x1</text>
+<path fill="none" stroke="black" d="M1696.97,-667.53C1686.67,-621.36 1659.35,-498.87 1647.1,-443.93"/>
+<polygon fill="black" stroke="black" points="1650.45,-442.88 1644.86,-433.88 1643.62,-444.4 1650.45,-442.88"/>
+<text text-anchor="middle" x="1754" y="-575.89" font-family="Times,serif" font-size="14.00">first_byte.ty == 0x1</text>
 </g>
 <!-- parse_scid__handshake -->
-<g id="node23" class="node">
+<g id="node15" class="node">
 <title>parse_scid__handshake</title>
-<polygon fill="none" stroke="black" points="2339.5,-543.59 2160.5,-543.59 2160.5,-507.59 2339.5,-507.59 2339.5,-543.59"/>
-<text text-anchor="middle" x="2250" y="-521.89" font-family="Helvetica,sans-Serif" font-size="14.00">parse_scid__handshake</text>
+<polygon fill="none" stroke="black" points="2360.5,-543.59 2181.5,-543.59 2181.5,-507.59 2360.5,-507.59 2360.5,-543.59"/>
+<text text-anchor="middle" x="2271" y="-521.89" font-family="Helvetica,sans-Serif" font-size="14.00">parse_scid__handshake</text>
 </g>
 <!-- parse_scid&#45;&gt;parse_scid__handshake -->
 <g id="edge55" class="edge">
 <title>parse_scid&#45;&gt;parse_scid__handshake</title>
-<path fill="none" stroke="black" d="M1750.06,-678.94C1807.37,-670.53 1904.71,-654.23 1986,-630.59 2064.37,-607.8 2151.89,-570.95 2203.88,-547.78"/>
-<polygon fill="black" stroke="black" points="2205.47,-550.91 2213.16,-543.62 2202.6,-544.52 2205.47,-550.91"/>
-<text text-anchor="middle" x="2102" y="-619.39" font-family="Times,serif" font-size="14.00">first_byte.ty == 0x2</text>
+<path fill="none" stroke="black" d="M1750.06,-679.22C1809.29,-670.91 1911.57,-654.54 1997,-630.59 2078.34,-607.8 2169.43,-570.82 2223.4,-547.65"/>
+<polygon fill="black" stroke="black" points="2224.92,-550.81 2232.71,-543.63 2222.14,-544.38 2224.92,-550.81"/>
+<text text-anchor="middle" x="2114" y="-619.39" font-family="Times,serif" font-size="14.00">first_byte.ty == 0x2</text>
 </g>
 <!-- parse_scid__retry -->
-<g id="node24" class="node">
+<g id="node16" class="node">
 <title>parse_scid__retry</title>
-<polygon fill="none" stroke="black" points="2622.5,-543.59 2485.5,-543.59 2485.5,-507.59 2622.5,-507.59 2622.5,-543.59"/>
-<text text-anchor="middle" x="2554" y="-521.89" font-family="Helvetica,sans-Serif" font-size="14.00">parse_scid__retry</text>
+<polygon fill="none" stroke="black" points="2566.5,-543.59 2429.5,-543.59 2429.5,-507.59 2566.5,-507.59 2566.5,-543.59"/>
+<text text-anchor="middle" x="2498" y="-521.89" font-family="Helvetica,sans-Serif" font-size="14.00">parse_scid__retry</text>
 </g>
 <!-- parse_scid&#45;&gt;parse_scid__retry -->
 <g id="edge56" class="edge">
 <title>parse_scid&#45;&gt;parse_scid__retry</title>
-<path fill="none" stroke="black" d="M1750.24,-682.47C1837.35,-676.38 2024.04,-660.8 2179,-630.59 2291.33,-608.69 2419.19,-570.24 2492.85,-546.73"/>
-<polygon fill="black" stroke="black" points="2493.99,-550.04 2502.44,-543.65 2491.85,-543.37 2493.99,-550.04"/>
-<text text-anchor="middle" x="2319" y="-619.39" font-family="Times,serif" font-size="14.00">first_byte.ty == 0x3</text>
+<path fill="none" stroke="black" d="M1750.26,-683.56C1839.23,-679.13 2032.25,-665.96 2191,-630.59 2283.61,-609.96 2387.41,-571.39 2447.48,-547.46"/>
+<polygon fill="black" stroke="black" points="2449.12,-550.58 2457.1,-543.61 2446.51,-544.08 2449.12,-550.58"/>
+<text text-anchor="middle" x="2320" y="-619.39" font-family="Times,serif" font-size="14.00">first_byte.ty == 0x3</text>
 </g>
 <!-- parse_scid&#45;&gt;reject_0 -->
 <g id="edge57" class="edge">
 <title>parse_scid&#45;&gt;reject_0</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M1651.7,-677.98C1599.32,-666.76 1524,-640.26 1524,-580.59 1524,-580.59 1524,-580.59 1524,-270.59 1524,-234.8 1554.51,-207.68 1583.96,-189.83"/>
-<polygon fill="black" stroke="black" points="1585.72,-192.85 1592.62,-184.81 1582.21,-186.79 1585.72,-192.85"/>
-<text text-anchor="middle" x="1549.5" y="-411.89" font-family="Times,serif" font-size="14.00">default</text>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M1651.79,-680.33C1594.32,-671.15 1507,-646.37 1507,-580.59 1507,-580.59 1507,-580.59 1507,-270.59 1507,-213.99 1569.43,-187.58 1625.38,-175.28"/>
+<polygon fill="black" stroke="black" points="1626.29,-178.66 1635.37,-173.21 1624.87,-171.81 1626.29,-178.66"/>
+<text text-anchor="middle" x="1532.5" y="-411.89" font-family="Times,serif" font-size="14.00">default</text>
 </g>
 <!-- parse_tok_lead -->
 <g id="node8" class="node">
 <title>parse_tok_lead</title>
 <g id="a_node8"><a xlink:href="#" xlink:title="The self&#45;sizing varint, arm 1 of 2: token length. The 2&#45;bit&#10;prefix is an ordinary fixed field; each width arm re&#45;composes&#10;the value inline because var&#45;width fields cannot cross the&#10;arms&#39; join (see the design doc&#39;s three walls).">
-<polygon fill="none" stroke="black" points="2031,-489.59 1903,-489.59 1903,-451.59 2031,-451.59 2031,-489.59"/>
-<text text-anchor="middle" x="1967" y="-474.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_tok_lead</text>
-<text text-anchor="middle" x="1967" y="-459.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract tok_lead</text>
+<polygon fill="none" stroke="black" points="2014,-489.59 1886,-489.59 1886,-451.59 2014,-451.59 2014,-489.59"/>
+<text text-anchor="middle" x="1950" y="-474.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_tok_lead</text>
+<text text-anchor="middle" x="1950" y="-459.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract tok_lead</text>
 </a>
 </g>
 </g>
 <!-- tok_w1 -->
-<g id="node9" class="node">
+<g id="node17" class="node">
 <title>tok_w1</title>
-<polygon fill="none" stroke="black" points="2188.5,-379.59 2087.5,-379.59 2087.5,-341.59 2188.5,-341.59 2188.5,-379.59"/>
-<text text-anchor="middle" x="2138" y="-364.39" font-family="Helvetica,sans-Serif" font-size="14.00">tok_w1</text>
-<text text-anchor="middle" x="2138" y="-349.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract tok0</text>
+<polygon fill="none" stroke="black" points="2175.5,-379.59 2074.5,-379.59 2074.5,-341.59 2175.5,-341.59 2175.5,-379.59"/>
+<text text-anchor="middle" x="2125" y="-364.39" font-family="Helvetica,sans-Serif" font-size="14.00">tok_w1</text>
+<text text-anchor="middle" x="2125" y="-349.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract tok0</text>
 </g>
 <!-- parse_tok_lead&#45;&gt;tok_w1 -->
 <g id="edge58" class="edge">
 <title>parse_tok_lead&#45;&gt;tok_w1</title>
-<path fill="none" stroke="black" d="M2031.36,-464.38C2074.02,-459.44 2124.52,-450.2 2138,-433.59 2147.76,-421.56 2148.07,-404.31 2145.79,-389.71"/>
-<polygon fill="black" stroke="black" points="2149.18,-388.77 2143.78,-379.66 2142.31,-390.15 2149.18,-388.77"/>
-<text text-anchor="middle" x="2229.5" y="-411.89" font-family="Times,serif" font-size="14.00">tok_lead.prefix == 0x0</text>
+<path fill="none" stroke="black" d="M2014.09,-464.15C2056.61,-459.09 2107.07,-449.82 2121,-433.59 2131.11,-421.82 2132.36,-404.58 2130.97,-389.91"/>
+<polygon fill="black" stroke="black" points="2134.41,-389.24 2129.58,-379.81 2127.48,-390.19 2134.41,-389.24"/>
+<text text-anchor="middle" x="2214.5" y="-411.89" font-family="Times,serif" font-size="14.00">tok_lead.prefix == 0x0</text>
 </g>
 <!-- tok_w2 -->
-<g id="node10" class="node">
+<g id="node18" class="node">
 <title>tok_w2</title>
-<polygon fill="none" stroke="black" points="2353.5,-379.59 2252.5,-379.59 2252.5,-341.59 2353.5,-341.59 2353.5,-379.59"/>
-<text text-anchor="middle" x="2303" y="-364.39" font-family="Helvetica,sans-Serif" font-size="14.00">tok_w2</text>
-<text text-anchor="middle" x="2303" y="-349.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract tok1</text>
+<polygon fill="none" stroke="black" points="2329.5,-379.59 2228.5,-379.59 2228.5,-341.59 2329.5,-341.59 2329.5,-379.59"/>
+<text text-anchor="middle" x="2279" y="-364.39" font-family="Helvetica,sans-Serif" font-size="14.00">tok_w2</text>
+<text text-anchor="middle" x="2279" y="-349.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract tok1</text>
 </g>
 <!-- parse_tok_lead&#45;&gt;tok_w2 -->
 <g id="edge59" class="edge">
 <title>parse_tok_lead&#45;&gt;tok_w2</title>
-<path fill="none" stroke="black" d="M2031.01,-467.54C2126.55,-463.82 2297.31,-454.31 2316,-433.59 2326.75,-421.68 2323.72,-403.99 2317.9,-389.13"/>
-<polygon fill="black" stroke="black" points="2321.04,-387.58 2313.79,-379.86 2314.64,-390.42 2321.04,-387.58"/>
-<text text-anchor="middle" x="2406.5" y="-411.89" font-family="Times,serif" font-size="14.00">tok_lead.prefix == 0x1</text>
+<path fill="none" stroke="black" d="M2014.37,-467.57C2110.46,-463.88 2282.2,-454.42 2301,-433.59 2312.17,-421.22 2306.75,-403.31 2298.5,-388.44"/>
+<polygon fill="black" stroke="black" points="2301.33,-386.36 2293.12,-379.66 2295.36,-390.01 2301.33,-386.36"/>
+<text text-anchor="middle" x="2390.5" y="-411.89" font-family="Times,serif" font-size="14.00">tok_lead.prefix == 0x1</text>
 </g>
 <!-- tok_w4 -->
-<g id="node11" class="node">
+<g id="node19" class="node">
 <title>tok_w4</title>
-<polygon fill="none" stroke="black" points="1891.5,-379.59 1790.5,-379.59 1790.5,-341.59 1891.5,-341.59 1891.5,-379.59"/>
-<text text-anchor="middle" x="1841" y="-364.39" font-family="Helvetica,sans-Serif" font-size="14.00">tok_w4</text>
-<text text-anchor="middle" x="1841" y="-349.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract tok2</text>
+<polygon fill="none" stroke="black" points="1874.5,-379.59 1773.5,-379.59 1773.5,-341.59 1874.5,-341.59 1874.5,-379.59"/>
+<text text-anchor="middle" x="1824" y="-364.39" font-family="Helvetica,sans-Serif" font-size="14.00">tok_w4</text>
+<text text-anchor="middle" x="1824" y="-349.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract tok2</text>
 </g>
 <!-- parse_tok_lead&#45;&gt;tok_w4 -->
 <g id="edge60" class="edge">
 <title>parse_tok_lead&#45;&gt;tok_w4</title>
-<path fill="none" stroke="black" d="M1902.94,-464.22C1860.87,-459.22 1811.26,-449.97 1798,-433.59 1787.93,-421.16 1791.23,-412.09 1798,-397.59 1799.81,-393.72 1802.26,-390.12 1805.08,-386.81"/>
-<polygon fill="black" stroke="black" points="1807.65,-389.19 1812.2,-379.62 1802.68,-384.26 1807.65,-389.19"/>
-<text text-anchor="middle" x="1880.5" y="-411.89" font-family="Times,serif" font-size="14.00">tok_lead.prefix == 0x2</text>
+<path fill="none" stroke="black" d="M1885.86,-464.12C1844.14,-459.07 1795.13,-449.83 1782,-433.59 1771.94,-421.15 1775.31,-412.13 1782,-397.59 1783.71,-393.87 1786.02,-390.39 1788.68,-387.17"/>
+<polygon fill="black" stroke="black" points="1791.43,-389.36 1795.86,-379.73 1786.4,-384.49 1791.43,-389.36"/>
+<text text-anchor="middle" x="1864.5" y="-411.89" font-family="Times,serif" font-size="14.00">tok_lead.prefix == 0x2</text>
 </g>
 <!-- tok_w8 -->
-<g id="node12" class="node">
+<g id="node20" class="node">
 <title>tok_w8</title>
-<polygon fill="none" stroke="black" points="2045.5,-379.59 1944.5,-379.59 1944.5,-341.59 2045.5,-341.59 2045.5,-379.59"/>
-<text text-anchor="middle" x="1995" y="-364.39" font-family="Helvetica,sans-Serif" font-size="14.00">tok_w8</text>
-<text text-anchor="middle" x="1995" y="-349.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract tok3</text>
+<polygon fill="none" stroke="black" points="2022.5,-379.59 1921.5,-379.59 1921.5,-341.59 2022.5,-341.59 2022.5,-379.59"/>
+<text text-anchor="middle" x="1972" y="-364.39" font-family="Helvetica,sans-Serif" font-size="14.00">tok_w8</text>
+<text text-anchor="middle" x="1972" y="-349.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract tok3</text>
 </g>
 <!-- parse_tok_lead&#45;&gt;tok_w8 -->
 <g id="edge61" class="edge">
 <title>parse_tok_lead&#45;&gt;tok_w8</title>
-<path fill="none" stroke="black" d="M1966.22,-451.38C1966.13,-436.55 1967.23,-415.24 1973,-397.59 1973.97,-394.63 1975.23,-391.65 1976.65,-388.75"/>
-<polygon fill="black" stroke="black" points="1979.8,-390.28 1981.6,-379.84 1973.68,-386.88 1979.8,-390.28"/>
-<text text-anchor="middle" x="2055.5" y="-411.89" font-family="Times,serif" font-size="14.00">tok_lead.prefix == 0x3</text>
+<path fill="none" stroke="black" d="M1949.84,-451.56C1950.11,-436.83 1951.39,-415.58 1956,-397.59 1956.72,-394.8 1957.63,-391.95 1958.66,-389.13"/>
+<polygon fill="black" stroke="black" points="1961.91,-390.43 1962.47,-379.85 1955.43,-387.77 1961.91,-390.43"/>
+<text text-anchor="middle" x="2038.5" y="-411.89" font-family="Times,serif" font-size="14.00">tok_lead.prefix == 0x3</text>
 </g>
 <!-- parse_tok_lead&#45;&gt;reject_0 -->
 <g id="edge62" class="edge">
 <title>parse_tok_lead&#45;&gt;reject_0</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M1902.94,-462.43C1859.27,-456.48 1806.18,-446.86 1788,-433.59 1710.87,-377.32 1668.36,-268.68 1649.7,-208.1"/>
-<polygon fill="black" stroke="black" points="1653.03,-207.02 1646.8,-198.45 1646.32,-209.03 1653.03,-207.02"/>
-<text text-anchor="middle" x="1723.5" y="-312.39" font-family="Times,serif" font-size="14.00">default</text>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M1885.98,-463.97C1841.75,-458.76 1788.1,-449.37 1772,-433.59 1712.21,-374.98 1706.12,-270.8 1708.26,-210.74"/>
+<polygon fill="black" stroke="black" points="1711.77,-210.57 1708.72,-200.42 1704.78,-210.25 1711.77,-210.57"/>
+<text text-anchor="middle" x="1742.5" y="-312.39" font-family="Times,serif" font-size="14.00">default</text>
 </g>
 <!-- parse_len_lead -->
-<g id="node13" class="node">
+<g id="node9" class="node">
 <title>parse_len_lead</title>
-<g id="a_node13"><a xlink:href="#" xlink:title="The self&#45;sizing varint, arm 2 of 2: payload length. Shared&#10;by Initial, 0&#45;RTT, and Handshake (kind already in metadata);&#10;the value is observed, not consumed &#45; parsing stops before the&#10;protected packet number.">
-<polygon fill="none" stroke="black" points="2177.5,-290.59 2050.5,-290.59 2050.5,-252.59 2177.5,-252.59 2177.5,-290.59"/>
-<text text-anchor="middle" x="2114" y="-275.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_len_lead</text>
-<text text-anchor="middle" x="2114" y="-260.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract len_lead</text>
+<g id="a_node9"><a xlink:href="#" xlink:title="The self&#45;sizing varint, arm 2 of 2: payload length. Shared&#10;by Initial, 0&#45;RTT, and Handshake (kind already in metadata);&#10;the value is observed, not consumed &#45; parsing stops before the&#10;protected packet number.">
+<polygon fill="none" stroke="black" points="2122.5,-290.59 1995.5,-290.59 1995.5,-252.59 2122.5,-252.59 2122.5,-290.59"/>
+<text text-anchor="middle" x="2059" y="-275.39" font-family="Helvetica,sans-Serif" font-size="14.00">parse_len_lead</text>
+<text text-anchor="middle" x="2059" y="-260.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract len_lead</text>
 </a>
 </g>
 </g>
-<!-- tok_w1&#45;&gt;parse_len_lead -->
-<g id="edge63" class="edge">
-<title>tok_w1&#45;&gt;parse_len_lead</title>
-<path fill="none" stroke="black" d="M2133.03,-341.57C2129.74,-329.67 2125.38,-313.84 2121.66,-300.35"/>
-<polygon fill="black" stroke="black" points="2125,-299.31 2118.97,-290.6 2118.25,-301.17 2125,-299.31"/>
-</g>
-<!-- tok_w2&#45;&gt;parse_len_lead -->
-<g id="edge64" class="edge">
-<title>tok_w2&#45;&gt;parse_len_lead</title>
-<path fill="none" stroke="black" d="M2263.84,-341.57C2234.44,-328.03 2194.02,-309.43 2162.56,-294.95"/>
-<polygon fill="black" stroke="black" points="2163.66,-291.6 2153.11,-290.6 2160.73,-297.96 2163.66,-291.6"/>
-</g>
-<!-- tok_w4&#45;&gt;parse_len_lead -->
-<g id="edge65" class="edge">
-<title>tok_w4&#45;&gt;parse_len_lead</title>
-<path fill="none" stroke="black" d="M1891.71,-343.43C1935.71,-329.41 1999.71,-309.02 2047.75,-293.71"/>
-<polygon fill="black" stroke="black" points="2048.97,-296.99 2057.44,-290.62 2046.85,-290.32 2048.97,-296.99"/>
-</g>
-<!-- tok_w8&#45;&gt;parse_len_lead -->
-<g id="edge66" class="edge">
-<title>tok_w8&#45;&gt;parse_len_lead</title>
-<path fill="none" stroke="black" d="M2019.66,-341.57C2037.45,-328.56 2061.66,-310.86 2081.09,-296.65"/>
-<polygon fill="black" stroke="black" points="2083.37,-299.32 2089.37,-290.6 2079.24,-293.67 2083.37,-299.32"/>
-</g>
 <!-- len_w1 -->
-<g id="node14" class="node">
+<g id="node21" class="node">
 <title>len_w1</title>
-<polygon fill="none" stroke="black" points="1989.5,-181.59 1924.5,-181.59 1924.5,-145.59 1989.5,-145.59 1989.5,-181.59"/>
-<text text-anchor="middle" x="1957" y="-159.89" font-family="Helvetica,sans-Serif" font-size="14.00">len_w1</text>
+<polygon fill="none" stroke="black" points="1924.5,-181.59 1859.5,-181.59 1859.5,-145.59 1924.5,-145.59 1924.5,-181.59"/>
+<text text-anchor="middle" x="1892" y="-159.89" font-family="Helvetica,sans-Serif" font-size="14.00">len_w1</text>
 </g>
 <!-- parse_len_lead&#45;&gt;len_w1 -->
-<g id="edge67" class="edge">
+<g id="edge63" class="edge">
 <title>parse_len_lead&#45;&gt;len_w1</title>
-<path fill="none" stroke="black" d="M2050.38,-265.28C2008.22,-260.28 1958.31,-251.03 1945,-234.59 1935.23,-222.52 1937.98,-205.39 1943.29,-191.09"/>
-<polygon fill="black" stroke="black" points="1946.57,-192.32 1947.26,-181.75 1940.13,-189.58 1946.57,-192.32"/>
-<text text-anchor="middle" x="2027" y="-223.39" font-family="Times,serif" font-size="14.00">len_lead.prefix == 0x0</text>
+<path fill="none" stroke="black" d="M1995.46,-265.38C1952.96,-260.42 1902.44,-251.18 1889,-234.59 1879.45,-222.81 1879.92,-205.89 1882.91,-191.64"/>
+<polygon fill="black" stroke="black" points="1886.32,-192.4 1885.42,-181.84 1879.55,-190.66 1886.32,-192.4"/>
+<text text-anchor="middle" x="1971" y="-223.39" font-family="Times,serif" font-size="14.00">len_lead.prefix == 0x0</text>
 </g>
 <!-- len_w2 -->
-<g id="node15" class="node">
+<g id="node22" class="node">
 <title>len_w2</title>
-<polygon fill="none" stroke="black" points="2198,-182.59 2098,-182.59 2098,-144.59 2198,-144.59 2198,-182.59"/>
-<text text-anchor="middle" x="2148" y="-167.39" font-family="Helvetica,sans-Serif" font-size="14.00">len_w2</text>
-<text text-anchor="middle" x="2148" y="-152.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract len1</text>
+<polygon fill="none" stroke="black" points="2161,-182.59 2061,-182.59 2061,-144.59 2161,-144.59 2161,-182.59"/>
+<text text-anchor="middle" x="2111" y="-167.39" font-family="Helvetica,sans-Serif" font-size="14.00">len_w2</text>
+<text text-anchor="middle" x="2111" y="-152.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract len1</text>
 </g>
 <!-- parse_len_lead&#45;&gt;len_w2 -->
-<g id="edge68" class="edge">
+<g id="edge64" class="edge">
 <title>parse_len_lead&#45;&gt;len_w2</title>
-<path fill="none" stroke="black" d="M2112.1,-252.32C2111.64,-242.44 2111.97,-230.15 2115,-219.59 2117.83,-209.74 2122.89,-199.87 2128.21,-191.26"/>
-<polygon fill="black" stroke="black" points="2131.21,-193.08 2133.77,-182.8 2125.36,-189.23 2131.21,-193.08"/>
-<text text-anchor="middle" x="2197" y="-223.39" font-family="Times,serif" font-size="14.00">len_lead.prefix == 0x1</text>
+<path fill="none" stroke="black" d="M2056.28,-252.5C2055.52,-242.46 2055.82,-229.94 2060,-219.59 2064.49,-208.48 2072.34,-198.25 2080.56,-189.7"/>
+<polygon fill="black" stroke="black" points="2083.08,-192.13 2087.8,-182.64 2078.19,-187.12 2083.08,-192.13"/>
+<text text-anchor="middle" x="2142" y="-223.39" font-family="Times,serif" font-size="14.00">len_lead.prefix == 0x1</text>
 </g>
 <!-- len_w4 -->
-<g id="node16" class="node">
+<g id="node23" class="node">
 <title>len_w4</title>
-<polygon fill="none" stroke="black" points="2385,-182.59 2285,-182.59 2285,-144.59 2385,-144.59 2385,-182.59"/>
-<text text-anchor="middle" x="2335" y="-167.39" font-family="Helvetica,sans-Serif" font-size="14.00">len_w4</text>
-<text text-anchor="middle" x="2335" y="-152.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract len2</text>
+<polygon fill="none" stroke="black" points="2331,-182.59 2231,-182.59 2231,-144.59 2331,-144.59 2331,-182.59"/>
+<text text-anchor="middle" x="2281" y="-167.39" font-family="Helvetica,sans-Serif" font-size="14.00">len_w4</text>
+<text text-anchor="middle" x="2281" y="-152.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract len2</text>
 </g>
 <!-- parse_len_lead&#45;&gt;len_w4 -->
-<g id="edge69" class="edge">
+<g id="edge65" class="edge">
 <title>parse_len_lead&#45;&gt;len_w4</title>
-<path fill="none" stroke="black" d="M2177.71,-266.78C2210.03,-262.44 2248.73,-253.38 2279,-234.59 2295.97,-224.06 2310,-206.49 2319.78,-191.59"/>
-<polygon fill="black" stroke="black" points="2322.97,-193.08 2325.3,-182.74 2317.03,-189.37 2322.97,-193.08"/>
-<text text-anchor="middle" x="2379" y="-223.39" font-family="Times,serif" font-size="14.00">len_lead.prefix == 0x2</text>
+<path fill="none" stroke="black" d="M2122.65,-266.67C2154.94,-262.3 2193.65,-253.25 2224,-234.59 2241.14,-224.06 2255.42,-206.49 2265.4,-191.59"/>
+<polygon fill="black" stroke="black" points="2268.62,-193.06 2271.05,-182.74 2262.72,-189.29 2268.62,-193.06"/>
+<text text-anchor="middle" x="2324" y="-223.39" font-family="Times,serif" font-size="14.00">len_lead.prefix == 0x2</text>
 </g>
 <!-- len_w8 -->
-<g id="node17" class="node">
+<g id="node24" class="node">
 <title>len_w8</title>
-<polygon fill="none" stroke="black" points="2538,-182.59 2438,-182.59 2438,-144.59 2538,-144.59 2538,-182.59"/>
-<text text-anchor="middle" x="2488" y="-167.39" font-family="Helvetica,sans-Serif" font-size="14.00">len_w8</text>
-<text text-anchor="middle" x="2488" y="-152.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract len3</text>
+<polygon fill="none" stroke="black" points="2483,-182.59 2383,-182.59 2383,-144.59 2483,-144.59 2483,-182.59"/>
+<text text-anchor="middle" x="2433" y="-167.39" font-family="Helvetica,sans-Serif" font-size="14.00">len_w8</text>
+<text text-anchor="middle" x="2433" y="-152.39" font-family="Helvetica,sans-Serif" font-size="14.00">extract len3</text>
 </g>
 <!-- parse_len_lead&#45;&gt;len_w8 -->
-<g id="edge70" class="edge">
+<g id="edge66" class="edge">
 <title>parse_len_lead&#45;&gt;len_w8</title>
-<path fill="none" stroke="black" d="M2177.63,-267.79C2272.72,-263.04 2443.14,-252.19 2465,-234.59 2477.43,-224.59 2483.21,-207.72 2485.86,-193.04"/>
-<polygon fill="black" stroke="black" points="2489.37,-193.27 2487.3,-182.88 2482.43,-192.29 2489.37,-193.27"/>
-<text text-anchor="middle" x="2559" y="-223.39" font-family="Times,serif" font-size="14.00">len_lead.prefix == 0x3</text>
+<path fill="none" stroke="black" d="M2122.63,-267.79C2217.72,-263.04 2388.14,-252.19 2410,-234.59 2422.43,-224.59 2428.21,-207.72 2430.86,-193.04"/>
+<polygon fill="black" stroke="black" points="2434.37,-193.27 2432.3,-182.88 2427.43,-192.29 2434.37,-193.27"/>
+<text text-anchor="middle" x="2504" y="-223.39" font-family="Times,serif" font-size="14.00">len_lead.prefix == 0x3</text>
 </g>
 <!-- parse_len_lead&#45;&gt;reject_0 -->
-<g id="edge71" class="edge">
+<g id="edge67" class="edge">
 <title>parse_len_lead&#45;&gt;reject_0</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M2050.16,-262.73C2003.78,-256.5 1939.66,-246.82 1884,-234.59 1820.98,-220.75 1750.24,-200.07 1700.85,-184.77"/>
-<polygon fill="black" stroke="black" points="1701.86,-181.42 1691.27,-181.79 1699.78,-188.1 1701.86,-181.42"/>
-<text text-anchor="middle" x="1909.5" y="-223.39" font-family="Times,serif" font-size="14.00">default</text>
-</g>
-<!-- len_w1&#45;&gt;accept -->
-<g id="edge72" class="edge">
-<title>len_w1&#45;&gt;accept</title>
-<path fill="none" stroke="black" d="M1989.64,-152.71C2016.25,-144.83 2054.87,-133.8 2089,-125.59 2211.79,-96.07 2357.6,-68.63 2434.45,-54.76"/>
-<polygon fill="black" stroke="black" points="2435.15,-58.19 2444.37,-52.97 2433.91,-51.3 2435.15,-58.19"/>
-</g>
-<!-- len_w2&#45;&gt;accept -->
-<g id="edge73" class="edge">
-<title>len_w2&#45;&gt;accept</title>
-<path fill="none" stroke="black" d="M2198.17,-145.29C2262.12,-123.22 2372.12,-85.28 2436.64,-63.02"/>
-<polygon fill="black" stroke="black" points="2437.89,-66.29 2446.2,-59.72 2435.61,-59.67 2437.89,-66.29"/>
-</g>
-<!-- len_w4&#45;&gt;accept -->
-<g id="edge74" class="edge">
-<title>len_w4&#45;&gt;accept</title>
-<path fill="none" stroke="black" d="M2358.57,-144.52C2381.61,-126.86 2417.22,-99.56 2445.25,-78.07"/>
-<polygon fill="black" stroke="black" points="2447.51,-80.75 2453.32,-71.89 2443.25,-75.19 2447.51,-80.75"/>
-</g>
-<!-- len_w8&#45;&gt;accept -->
-<g id="edge75" class="edge">
-<title>len_w8&#45;&gt;accept</title>
-<path fill="none" stroke="black" d="M2488,-144.52C2488,-132.23 2488,-115.27 2488,-98.85"/>
-<polygon fill="black" stroke="black" points="2491.5,-98.74 2488,-88.74 2484.5,-98.74 2491.5,-98.74"/>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M1995.1,-267.29C1947.77,-263.27 1882.36,-254.36 1828,-234.59 1801.77,-225.06 1774.94,-209.32 1753.69,-195.18"/>
+<polygon fill="black" stroke="black" points="1755.49,-192.17 1745.25,-189.45 1751.56,-197.96 1755.49,-192.17"/>
+<text text-anchor="middle" x="1853.5" y="-223.39" font-family="Times,serif" font-size="14.00">default</text>
 </g>
 <!-- parse_first__short&#45;&gt;accept -->
-<g id="edge76" class="edge">
+<g id="edge68" class="edge">
 <title>parse_first__short&#45;&gt;accept</title>
-<path fill="none" stroke="black" d="M3641.83,-1033.49C3646.85,-1014.14 3654,-981.62 3654,-953.09 3654,-953.09 3654,-953.09 3654,-162.59 3654,-49.44 2773.55,-44.37 2542.81,-44.98"/>
-<polygon fill="black" stroke="black" points="2542.63,-41.48 2532.64,-45.01 2542.65,-48.48 2542.63,-41.48"/>
+<path fill="none" stroke="black" d="M3641.83,-1033.49C3646.85,-1014.14 3654,-981.62 3654,-953.09 3654,-953.09 3654,-953.09 3654,-162.59 3654,-43.71 2724.96,-42.98 2487.66,-44.73"/>
+<polygon fill="black" stroke="black" points="2487.51,-41.23 2477.54,-44.81 2487.57,-48.23 2487.51,-41.23"/>
 </g>
 <!-- parse_version__negotiation&#45;&gt;parse_other_cids -->
-<g id="edge77" class="edge">
+<g id="edge69" class="edge">
 <title>parse_version__negotiation&#45;&gt;parse_other_cids</title>
 <path fill="none" stroke="black" d="M3528.14,-978.56C3533.11,-962.09 3540.73,-936.85 3546.59,-917.45"/>
 <polygon fill="black" stroke="black" points="3550.01,-918.23 3549.55,-907.65 3543.31,-916.21 3550.01,-918.23"/>
 </g>
 <!-- parse_version__default&#45;&gt;parse_other_cids -->
-<g id="edge78" class="edge">
+<g id="edge70" class="edge">
 <title>parse_version__default&#45;&gt;parse_other_cids</title>
 <path fill="none" stroke="black" d="M3402.14,-978.54C3429.45,-972.45 3455.68,-965.61 3468,-959.59 3491.05,-948.33 3513.52,-930.01 3529.85,-914.93"/>
 <polygon fill="black" stroke="black" points="3532.49,-917.25 3537.35,-907.84 3527.68,-912.17 3532.49,-917.25"/>
 </g>
 <!-- parse_scid__initial&#45;&gt;parse_tok_lead -->
-<g id="edge79" class="edge">
+<g id="edge71" class="edge">
 <title>parse_scid__initial&#45;&gt;parse_tok_lead</title>
-<path fill="none" stroke="black" d="M1917.48,-561.4C1926.82,-544.47 1941.22,-518.35 1952.09,-498.64"/>
-<polygon fill="black" stroke="black" points="1955.19,-500.26 1956.95,-489.82 1949.06,-496.88 1955.19,-500.26"/>
+<path fill="none" stroke="black" d="M1929.02,-561.4C1932.9,-544.78 1938.85,-519.29 1943.43,-499.72"/>
+<polygon fill="black" stroke="black" points="1946.88,-500.35 1945.74,-489.82 1940.06,-498.76 1946.88,-500.35"/>
 </g>
 <!-- parse_scid__zero_rtt&#45;&gt;parse_len_lead -->
-<g id="edge80" class="edge">
+<g id="edge72" class="edge">
 <title>parse_scid__zero_rtt&#45;&gt;parse_len_lead</title>
-<path fill="none" stroke="black" d="M1664,-397.5C1673.56,-373.11 1694.74,-328.99 1729,-308.59 1779.91,-278.29 1943.63,-272.66 2040.41,-272.08"/>
-<polygon fill="black" stroke="black" points="2040.44,-275.58 2050.42,-272.04 2040.41,-268.58 2040.44,-275.58"/>
+<path fill="none" stroke="black" d="M1647.03,-397.55C1656.62,-373.21 1677.84,-329.16 1712,-308.59 1756.48,-281.81 1897.04,-274.75 1985.02,-273.01"/>
+<polygon fill="black" stroke="black" points="1985.28,-276.51 1995.22,-272.83 1985.16,-269.51 1985.28,-276.51"/>
 </g>
 <!-- parse_scid__handshake&#45;&gt;parse_len_lead -->
-<g id="edge81" class="edge">
+<g id="edge73" class="edge">
 <title>parse_scid__handshake&#45;&gt;parse_len_lead</title>
-<path fill="none" stroke="black" d="M2339.83,-512.13C2425.54,-496.13 2535.74,-462.35 2493,-397.59 2458.91,-345.95 2287.89,-305.52 2187.61,-285.8"/>
-<polygon fill="black" stroke="black" points="2188.02,-282.31 2177.54,-283.84 2186.69,-289.18 2188.02,-282.31"/>
+<path fill="none" stroke="black" d="M2353.41,-507.56C2425.86,-488.54 2514.38,-452.96 2477,-397.59 2438.26,-340.22 2241.73,-301.05 2132.49,-283.34"/>
+<polygon fill="black" stroke="black" points="2132.95,-279.87 2122.52,-281.74 2131.85,-286.78 2132.95,-279.87"/>
 </g>
 <!-- parse_scid__retry&#45;&gt;accept -->
-<g id="edge82" class="edge">
+<g id="edge74" class="edge">
 <title>parse_scid__retry&#45;&gt;accept</title>
-<path fill="none" stroke="black" d="M2591.94,-507.58C2624.77,-489.97 2667,-459.06 2667,-416.59 2667,-416.59 2667,-416.59 2667,-162.59 2667,-101.86 2594.02,-70.86 2541.26,-56.39"/>
-<polygon fill="black" stroke="black" points="2541.89,-52.94 2531.33,-53.79 2540.12,-59.71 2541.89,-52.94"/>
+<path fill="none" stroke="black" d="M2536.6,-507.5C2569.67,-489.92 2612,-459.12 2612,-416.59 2612,-416.59 2612,-416.59 2612,-162.59 2612,-101.86 2539.02,-70.86 2486.26,-56.39"/>
+<polygon fill="black" stroke="black" points="2486.89,-52.94 2476.33,-53.79 2485.12,-59.71 2486.89,-52.94"/>
+</g>
+<!-- tok_w1&#45;&gt;parse_len_lead -->
+<g id="edge75" class="edge">
+<title>tok_w1&#45;&gt;parse_len_lead</title>
+<path fill="none" stroke="black" d="M2111.32,-341.57C2101.94,-329.2 2089.35,-312.6 2078.86,-298.78"/>
+<polygon fill="black" stroke="black" points="2081.49,-296.45 2072.66,-290.6 2075.91,-300.68 2081.49,-296.45"/>
+</g>
+<!-- tok_w2&#45;&gt;parse_len_lead -->
+<g id="edge76" class="edge">
+<title>tok_w2&#45;&gt;parse_len_lead</title>
+<path fill="none" stroke="black" d="M2233.42,-341.57C2198.76,-327.86 2150.92,-308.94 2114.11,-294.39"/>
+<polygon fill="black" stroke="black" points="2115.11,-291.02 2104.53,-290.6 2112.54,-297.53 2115.11,-291.02"/>
+</g>
+<!-- tok_w4&#45;&gt;parse_len_lead -->
+<g id="edge77" class="edge">
+<title>tok_w4&#45;&gt;parse_len_lead</title>
+<path fill="none" stroke="black" d="M1872.69,-341.57C1909.87,-327.8 1961.25,-308.78 2000.63,-294.2"/>
+<polygon fill="black" stroke="black" points="2002.21,-297.35 2010.37,-290.6 1999.78,-290.79 2002.21,-297.35"/>
+</g>
+<!-- tok_w8&#45;&gt;parse_len_lead -->
+<g id="edge78" class="edge">
+<title>tok_w8&#45;&gt;parse_len_lead</title>
+<path fill="none" stroke="black" d="M1990.03,-341.57C2002.62,-328.97 2019.62,-311.97 2033.59,-298"/>
+<polygon fill="black" stroke="black" points="2036.4,-300.14 2041,-290.6 2031.45,-295.19 2036.4,-300.14"/>
+</g>
+<!-- len_w1&#45;&gt;accept -->
+<g id="edge79" class="edge">
+<title>len_w1&#45;&gt;accept</title>
+<path fill="none" stroke="black" d="M1924.75,-154.82C1957.06,-147.2 2007.87,-135.34 2052,-125.59 2168.78,-99.79 2306.13,-71.3 2379.83,-56.16"/>
+<polygon fill="black" stroke="black" points="2380.71,-59.55 2389.8,-54.11 2379.3,-52.7 2380.71,-59.55"/>
+</g>
+<!-- len_w2&#45;&gt;accept -->
+<g id="edge80" class="edge">
+<title>len_w2&#45;&gt;accept</title>
+<path fill="none" stroke="black" d="M2160.61,-144.52C2220.6,-122.67 2321.07,-86.07 2381.78,-63.96"/>
+<polygon fill="black" stroke="black" points="2383.33,-67.11 2391.53,-60.4 2380.94,-60.54 2383.33,-67.11"/>
+</g>
+<!-- len_w4&#45;&gt;accept -->
+<g id="edge81" class="edge">
+<title>len_w4&#45;&gt;accept</title>
+<path fill="none" stroke="black" d="M2304.42,-144.52C2327.23,-126.92 2362.44,-99.74 2390.26,-78.28"/>
+<polygon fill="black" stroke="black" points="2392.48,-80.99 2398.26,-72.11 2388.2,-75.45 2392.48,-80.99"/>
+</g>
+<!-- len_w8&#45;&gt;accept -->
+<g id="edge82" class="edge">
+<title>len_w8&#45;&gt;accept</title>
+<path fill="none" stroke="black" d="M2433,-144.52C2433,-132.23 2433,-115.27 2433,-98.85"/>
+<polygon fill="black" stroke="black" points="2436.5,-98.74 2433,-88.74 2429.5,-98.74 2436.5,-98.74"/>
 </g>
 </g>
 </svg>

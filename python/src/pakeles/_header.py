@@ -5,11 +5,19 @@ the attribute name becomes the field name (no string duplication), and
 declaration order is preserved via documented class-body semantics.
 Earlier fields are in scope for later expressions (`ihl * 4 - 20`);
 their references resolve lazily once the class is finalized.
+
+For a *family* of near-identical headers (e.g. varint width tiers),
+`header()` manufactures one member per parameter set from plain
+Python — pair it with inline `State` targets to keep the whole family
+table-driven while the type checker still sees every name that
+matters (keep the passed `FieldSpec` objects in scope; a manufactured
+class's fields are not attributes pyright can see).
 """
 
 from __future__ import annotations
 
 import re
+import types
 from typing import ClassVar
 
 from pakeles._expr import BoundField, Expr, FieldSpec, Operand, coerce_expr
@@ -52,6 +60,22 @@ def var_bytes(length: Expr | Operand | int) -> FieldSpec:
     previously extracted fields."""
     expr = coerce_expr(length)
     return FieldSpec(byte_len_expr=expr)
+
+
+def header(name: str, /, **fields: FieldSpec) -> type[Header]:
+    """Manufacture a Header type outside a class statement — the
+    parameterized-family counterpart of subclassing:
+
+        t = bits(tail_bits, "Token Varint Tail")
+        Tok = header(f"Tok{i}", t=t, body=var_bytes((Lead.v6 << tail_bits) | t))
+
+    Keyword order is field order; validation and IR naming (snake of
+    `name`) are exactly a class statement's. Reference the family's
+    fields through the `FieldSpec` objects you passed (here `t`), not
+    as class attributes — the type checker cannot see manufactured
+    attributes, and the whole point is keeping every reference a name
+    it can check."""
+    return types.new_class(name, (Header,), exec_body=lambda ns: ns.update(fields))
 
 
 class Header:

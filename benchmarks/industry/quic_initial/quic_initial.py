@@ -27,6 +27,7 @@ version-negotiation lists are classified but not walked; QUIC v2.
 """
 
 from pakeles import (
+    Expr,
     Header,
     LabeledEnum,
     Metadata,
@@ -35,6 +36,7 @@ from pakeles import (
     assign,
     bits,
     extract,
+    header,
     metadata_bits,
     reject,
     var_bytes,
@@ -128,25 +130,6 @@ class TokLead(Header):
     v6 = bits(6, "Token Varint High Bits")
 
 
-class Tok0(Header):
-    body = var_bytes(TokLead.v6)
-
-
-class Tok1(Header):
-    t = bits(8, "Token Varint Tail")
-    body = var_bytes((TokLead.v6 << 8) | t)
-
-
-class Tok2(Header):
-    t = bits(24, "Token Varint Tail")
-    body = var_bytes((TokLead.v6 << 24) | t)
-
-
-class Tok3(Header):
-    t = bits(56, "Token Varint Tail")
-    body = var_bytes((TokLead.v6 << 56) | t)
-
-
 class LenLead(Header):
     """First byte of the payload-length varint."""
 
@@ -154,16 +137,37 @@ class LenLead(Header):
     v6 = bits(6, "Length Varint High Bits")
 
 
-class Len1(Header):
-    t = bits(8, "Length Varint Tail")
+# Tail bits of a varint whose 2-bit prefix is `w`: total width 2^w
+# bytes, minus the lead byte.
+_TAIL_BITS = {w: 8 * (1 << int(w)) - 8 for w in VarintWidth}
 
 
-class Len2(Header):
-    t = bits(24, "Length Varint Tail")
+def _tok_tier(w: VarintWidth) -> tuple[type[Header], Expr]:
+    """One token-varint width tier: the tail-carrying header (Tok0..3,
+    named by prefix value) and the composed value `(v6 << k) | t` —
+    written once here, used both as the token `var_bytes` length and
+    the observable metadata value."""
+    tail = _TAIL_BITS[w]
+    if tail == 0:
+        return header(f"Tok{int(w)}", body=var_bytes(TokLead.v6)), TokLead.v6.as_expr()
+    t = bits(tail, "Token Varint Tail")
+    value = (TokLead.v6 << tail) | t
+    return header(f"Tok{int(w)}", t=t, body=var_bytes(value)), value
 
 
-class Len3(Header):
-    t = bits(56, "Length Varint Tail")
+def _len_tier(w: VarintWidth) -> tuple[type[Header] | None, Expr]:
+    """One payload-length tier: W1 needs no extra header (the value is
+    the lead's low 6 bits); the rest carry a tail (Len1..3, named by
+    prefix value)."""
+    tail = _TAIL_BITS[w]
+    if tail == 0:
+        return None, LenLead.v6.as_expr()
+    t = bits(tail, "Length Varint Tail")
+    return header(f"Len{int(w)}", t=t), (LenLead.v6 << tail) | t
+
+
+_TOK = {w: _tok_tier(w) for w in VarintWidth}
+_LEN = {w: _len_tier(w) for w in VarintWidth}
 
 
 class QuicMeta(Metadata):
@@ -273,39 +277,12 @@ class QuicInitial(Parser):
         return extract(TokLead).select(
             TokLead.prefix,
             {
-                VarintWidth.W1: self.tok_w1,
-                VarintWidth.W2: self.tok_w2,
-                VarintWidth.W4: self.tok_w4,
-                VarintWidth.W8: self.tok_w8,
+                w: extract(hdr)
+                .assign(QuicMeta.token_len, value)
+                .named(f"tok_w{1 << int(w)}")
+                .then(self.parse_len_lead)
+                for w, (hdr, value) in _TOK.items()
             },
-        )
-
-    def tok_w1(self) -> State:
-        return (
-            extract(Tok0)
-            .assign(QuicMeta.token_len, TokLead.v6)
-            .then(self.parse_len_lead)
-        )
-
-    def tok_w2(self) -> State:
-        return (
-            extract(Tok1)
-            .assign(QuicMeta.token_len, (TokLead.v6 << 8) | Tok1.t)
-            .then(self.parse_len_lead)
-        )
-
-    def tok_w4(self) -> State:
-        return (
-            extract(Tok2)
-            .assign(QuicMeta.token_len, (TokLead.v6 << 24) | Tok2.t)
-            .then(self.parse_len_lead)
-        )
-
-    def tok_w8(self) -> State:
-        return (
-            extract(Tok3)
-            .assign(QuicMeta.token_len, (TokLead.v6 << 56) | Tok3.t)
-            .then(self.parse_len_lead)
         )
 
     def parse_len_lead(self) -> State:
@@ -316,35 +293,15 @@ class QuicInitial(Parser):
         return extract(LenLead).select(
             LenLead.prefix,
             {
-                VarintWidth.W1: self.len_w1,
-                VarintWidth.W2: self.len_w2,
-                VarintWidth.W4: self.len_w4,
-                VarintWidth.W8: self.len_w8,
+                w: (
+                    extract(hdr).assign(QuicMeta.length, value)
+                    if hdr is not None
+                    else assign(QuicMeta.length, value)
+                )
+                .named(f"len_w{1 << int(w)}")
+                .accept()
+                for w, (hdr, value) in _LEN.items()
             },
-        )
-
-    def len_w1(self) -> State:
-        return assign(QuicMeta.length, LenLead.v6).accept()
-
-    def len_w2(self) -> State:
-        return (
-            extract(Len1)
-            .assign(QuicMeta.length, (LenLead.v6 << 8) | Len1.t)
-            .accept()
-        )
-
-    def len_w4(self) -> State:
-        return (
-            extract(Len2)
-            .assign(QuicMeta.length, (LenLead.v6 << 24) | Len2.t)
-            .accept()
-        )
-
-    def len_w8(self) -> State:
-        return (
-            extract(Len3)
-            .assign(QuicMeta.length, (LenLead.v6 << 56) | Len3.t)
-            .accept()
         )
 
 
