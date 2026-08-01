@@ -56,8 +56,9 @@ class Assembly:
         if self._start not in self._states:
             raise ValueError(f"start state {self._start!r} is not in states")
         for sname, chain in self._states.items():
+            here = chain.src_note()
             if chain.transition is None:
-                raise ValueError(f"state {sname!r} has no transition")
+                raise ValueError(f"state {sname!r} has no transition{here}")
             for target, _value in chain.assigns:
                 self._check_metadata_field(sname, "assign target", target)
             targets: list[Target] = []
@@ -69,7 +70,8 @@ class Assembly:
                     if key_spec.width_bits is None:
                         raise ValueError(
                             f"state {sname!r}: select key "
-                            f"{key_spec.header}.{key_spec.name} is not a fixed field"
+                            f"{key_spec.header}.{key_spec.name} is not a "
+                            f"fixed field{here}"
                         )
                     if isinstance(key_spec, MetadataFieldSpec):
                         self._check_metadata_field(sname, "select key", key_spec)
@@ -87,7 +89,7 @@ class Assembly:
                             raise ValueError(
                                 f"state {sname!r}: arm value {bound:#x} does not "
                                 f"fit {key_spec.header}.{key_spec.name} "
-                                f"({key_spec.width_bits} bits)"
+                                f"({key_spec.width_bits} bits){here}"
                             )
             else:
                 targets.append(chain.transition)
@@ -95,7 +97,7 @@ class Assembly:
                 if isinstance(t, str):
                     if t not in self._states:
                         raise ValueError(
-                            f"state {sname!r} references unknown state {t!r}"
+                            f"state {sname!r} references unknown state {t!r}{here}"
                         )
                 elif not isinstance(t, (Accept, Reject)):
                     raise TypeError(

@@ -87,9 +87,7 @@ def test_default_inline_and_nested() -> None:
             return extract(H).select(
                 H.tag,
                 {Kind.A: "parse_h"},
-                default=assign(M.kind, Kind.B).then(
-                    assign(M.kind, Kind.A).accept()
-                ),
+                default=assign(M.kind, Kind.B).then(assign(M.kind, Kind.A).accept()),
             )
 
     assert state_names(P) == [

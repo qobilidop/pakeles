@@ -22,7 +22,9 @@ to exact per-value arms at `select()` time, in order.
 
 from __future__ import annotations
 
+import inspect
 import itertools
+import os
 from dataclasses import dataclass
 from dataclasses import field as dc_field
 from typing import Protocol
@@ -108,6 +110,22 @@ SelectKey = FieldSpec | BoundField | MetadataFieldSpec | RemainingSpec
 RegionOp = tuple[str, Expr | None]  # ("push", len_expr) | ("pop", None)
 
 
+_PKG_DIR = os.path.dirname(__file__)
+
+
+def _caller_src() -> tuple[str, int] | None:
+    """(file, line) of the nearest stack frame outside this package."""
+    frame = inspect.currentframe()
+    while frame is not None:
+        filename = frame.f_code.co_filename
+        # Skip this package and synthesized frames (dataclass __init__
+        # is compiled from "<string>").
+        if not filename.startswith("<") and os.path.dirname(filename) != _PKG_DIR:
+            return filename, frame.f_lineno
+        frame = frame.f_back
+    return None
+
+
 def _key_labels(key: SelectKey) -> dict[int, str]:
     if isinstance(key, BoundField):
         return key.spec.labels
@@ -128,7 +146,9 @@ def _first_missing(covered: set[int], total: int, want: int) -> list[int]:
     return out
 
 
-def _exhaustive_default(keys: tuple[SelectKey, ...], arms: dict[ArmValue, Target]) -> Reject:
+def _exhaustive_default(
+    keys: tuple[SelectKey, ...], arms: dict[ArmValue, Target]
+) -> Reject:
     """Prove the arms cover every representable value of the key,
     licensing an omitted `default=`; the synthesized IR default is a
     machine-written unreachable reject. Conservative by design: a
@@ -223,6 +243,20 @@ class State:
     name_override: str | None = None
     """Explicit state name for an inline target (`.named(...)`);
     ignored on a method state, whose def name is its name."""
+    src: tuple[str, int] | None = dc_field(default=None, compare=False)
+    """Authoring site (file, line): the first frame outside this
+    package when the chain started. Diagnostics only — deliberately
+    never emitted into the IR, so goldens stay machine-independent."""
+
+    def __post_init__(self) -> None:
+        if self.src is None:
+            self.src = _caller_src()
+
+    def src_note(self) -> str:
+        """` (defined at file:line)` for error messages, or ``."""
+        if self.src is None:
+            return ""
+        return f" (defined at {self.src[0]}:{self.src[1]})"
 
     def _need_open(self) -> None:
         if self.transition is not None:

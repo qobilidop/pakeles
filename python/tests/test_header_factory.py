@@ -22,7 +22,7 @@ def test_equivalent_to_class_statement() -> None:
 
 
 def test_snake_naming_and_field_order() -> None:
-    made = header("OptMss", kind = bits(8), length = bits(8))
+    made = header("OptMss", kind=bits(8), length=bits(8))
     ht = made.to_pb()
     assert ht.name == "opt_mss"
     assert [f.name for f in ht.fields] == ["kind", "length"]

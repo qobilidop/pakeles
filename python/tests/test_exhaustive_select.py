@@ -36,7 +36,12 @@ def test_exhaustive_omits_default_and_synthesizes_unreachable() -> None:
         def parse_h(self) -> State:
             return extract(H).select(
                 H.ty,
-                {Two.A: "parse_h", Two.B: "parse_h", Two.C: "parse_h", Two.D: "parse_h"},
+                {
+                    Two.A: "parse_h",
+                    Two.B: "parse_h",
+                    Two.C: "parse_h",
+                    Two.D: "parse_h",
+                },
             )
 
     sel = P.to_pb().parser.states[0].transition.select

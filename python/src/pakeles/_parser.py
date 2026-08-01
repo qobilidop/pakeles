@@ -35,9 +35,8 @@ up overrides.
 from __future__ import annotations
 
 import inspect
-from typing import Any, ClassVar, Protocol
-
 from enum import IntEnum
+from typing import Any, ClassVar, Protocol
 
 from pakeles._build import Assembly
 from pakeles._header import snake
@@ -103,7 +102,7 @@ def _resolve_all(states: dict[str, State]) -> None:
                 raise ValueError(
                     f"inline state name {name!r} (target of {parent!r}) "
                     f"collides with an existing state; use .named() to "
-                    f"disambiguate"
+                    f"disambiguate" + target.src_note()
                 )
             states[name] = target
             hoisted[id(target)] = name
