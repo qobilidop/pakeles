@@ -1,4 +1,4 @@
-name: Flow-dissector golden refresh
+name: Flow-dissector goldens
 
 # Refreshes the kernel-captured `flow_keys` goldens under
 # examples/real_world/linux_flow_dissector/conformance/ by running upstream
