@@ -23,6 +23,7 @@ REAL_WORLD = [
     "sai_parser",
     "tls_clienthello",
     "quic_initial",
+    "dash_parser",
 ]
 ACADEMIC = [
     "gibb_simple",

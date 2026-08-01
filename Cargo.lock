@@ -464,6 +464,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "pakeles-example-dash-parser"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "pakeles",
+ "pakeles-testkit",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "pakeles-example-dpdk-ptype"
 version = "0.1.0"
 dependencies = [

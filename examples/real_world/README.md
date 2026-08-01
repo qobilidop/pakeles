@@ -25,6 +25,7 @@ example's gate; deleting an example is deleting one directory.
 | `sai_parser/` | SONiC PINS `sai_p4` on BMv2 | e77250b8 |
 | `tls_clienthello/` | TLS ClientHello via rustls | 0.23.43 |
 | `quic_initial/` | QUIC v1 Initial long header via quiche (+ quinn-proto lane) | 0.29.3 |
+| `dash_parser/` | DASH BMv2 pipeline parser on simple_switch | d5c003dd7774 |
 
 ## Naming
 

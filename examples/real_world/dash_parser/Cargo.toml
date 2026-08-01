@@ -1,0 +1,16 @@
+[package]
+name = "pakeles-example-dash-parser"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Incumbent-agreement example: header-validity verdict vs the DASH BMv2 parser on simple_switch (projection + gate)"
+
+[dependencies]
+pakeles = { path = "../../../rust/pakeles" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+
+[dev-dependencies]
+pakeles-testkit = { path = "../../../rust/pakeles-testkit" }

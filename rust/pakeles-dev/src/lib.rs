@@ -16,13 +16,14 @@ pub fn repo_root() -> PathBuf {
 /// path (keep in step with the workspace members and
 /// scripts/gen-examples.sh) so that they — like the CLI — carry no
 /// dependency on the example crates.
-pub const REAL_WORLD: [&str; 6] = [
+pub const REAL_WORLD: [&str; 7] = [
     "linux_flow_dissector",
     "dpdk_ptype",
     "katran_parser",
     "sai_parser",
     "tls_clienthello",
     "quic_initial",
+    "dash_parser",
 ];
 
 /// The academic gallery examples: descriptions reproduced from
