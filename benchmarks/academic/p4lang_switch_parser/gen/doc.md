@@ -80,34 +80,6 @@ fabric-header family, INT over VXLAN-GPE, and sFlow.
 |---|---|---|---|---|---|
 | `v` | 4 | dec | Version Nibble | 4=IPv4, 6=IPv6 |  |
 
-## Header `inner_ipv4_rest`
-
-| Field | Bits | Format | Name | Labels | Notes |
-|---|---|---|---|---|---|
-| `ihl` | 4 | dec | IHL |  |  |
-| `diffserv` | 8 | hex | DiffServ |  |  |
-| `total_len` | 16 | dec | Total Length |  |  |
-| `identification` | 16 | hex | Identification |  |  |
-| `flags` | 3 |  | Flags |  |  |
-| `frag_offset` | 13 | dec | Fragment Offset |  |  |
-| `ttl` | 8 | dec | TTL |  |  |
-| `protocol` | 8 | dec | Protocol | 1=ICMP, 2=IGMP, 4=IPv4-in-IP, 6=TCP, 17=UDP, 41=IPv6-in-IP, 47=GRE, 58=ICMPv6, 88=EIGRP, 89=OSPF, 103=PIM, 112=VRRP |  |
-| `hdr_checksum` | 16 | hex | Header Checksum |  |  |
-| `src_addr` | 32 | hex | Source |  |  |
-| `dst_addr` | 32 | hex | Destination |  |  |
-
-## Header `inner_ipv6_rest`
-
-| Field | Bits | Format | Name | Labels | Notes |
-|---|---|---|---|---|---|
-| `traffic_class` | 8 | hex | Traffic Class |  |  |
-| `flow_label` | 20 | hex | Flow Label |  |  |
-| `payload_len` | 16 | dec | Payload Length |  |  |
-| `next_hdr` | 8 | dec | Next Header | 1=ICMP, 2=IGMP, 4=IPv4-in-IP, 6=TCP, 17=UDP, 41=IPv6-in-IP, 47=GRE, 58=ICMPv6, 88=EIGRP, 89=OSPF, 103=PIM, 112=VRRP |  |
-| `hop_limit` | 8 | dec | Hop Limit |  |  |
-| `src_addr` | `16` bytes |  |  |  |  |
-| `dst_addr` | `16` bytes |  |  |  |  |
-
 ## Header `ipv4`
 
 | Field | Bits | Format | Name | Labels | Notes |
@@ -309,14 +281,6 @@ fabric-header family, INT over VXLAN-GPE, and sFlow.
 | `timestamp` | 32 | dec | Timestamp |  |  |
 | `sgt` | 16 | hex | SGT |  |  |
 | `ft_d_other` | 16 | hex | Ft/D/Other |  |  |
-
-## Header `inner_ethernet_rest`
-
-| Field | Bits | Format | Name | Labels | Notes |
-|---|---|---|---|---|---|
-| `dst_addr_rest` | 44 | hex | Destination (low 44 bits) |  |  |
-| `src_addr` | 48 | MAC | Source |  |  |
-| `ether_type` | 16 | hex | EtherType | 2048=IPv4, 2054=ARP, 8939=ERSPAN type III, 25944=Transparent Ethernet Bridging, 33024=802.1Q, 34525=IPv6, 34825=Slow Protocols (source: LACP), 34887=MPLS (unicast), 35020=LLDP, 36864=internal fabric header (source: BF_FABRIC), 37120=QinQ (legacy 0x9100) |  |
 
 ## Header `vxlan`
 
@@ -604,26 +568,19 @@ Start state: `parse_ethernet`.
   > Third label: the stack is full. A fourth label (bos=0)
   > would overflow `mpls[3]` — a P4_14 parse exception,
   > transcribed as an explicit reject.
-- **`parse_mpls_bos`** — extracts ip_version_nibble; selects on `ip_version_nibble.v`:
+- **`parse_mpls_bos`** — extracts ip_version_nibble (lookahead); selects on `ip_version_nibble.v`:
   - ip_version_nibble.v == 0x4 → `parse_mpls_inner_ipv4`
   - ip_version_nibble.v == 0x6 → `parse_mpls_inner_ipv6`
   - otherwise → `parse_eompls`
-  > Bottom of stack: the source peeks `current(0, 4)`;
-  > transcribed as a real 4-bit nibble extract whose
-  > continuations are defined minus their leading nibble.
-- **`parse_mpls_inner_ipv4`** — extracts inner_ipv4_rest; selects on `inner_ipv4_rest.frag_offset`, `inner_ipv4_rest.ihl`, `inner_ipv4_rest.protocol`:
-  - inner_ipv4_rest.frag_offset == 0x0 && inner_ipv4_rest.ihl == 0x5 && inner_ipv4_rest.protocol == 0x1 → `parse_inner_icmp`
-  - inner_ipv4_rest.frag_offset == 0x0 && inner_ipv4_rest.ihl == 0x5 && inner_ipv4_rest.protocol == 0x6 → `parse_inner_tcp`
-  - inner_ipv4_rest.frag_offset == 0x0 && inner_ipv4_rest.ihl == 0x5 && inner_ipv4_rest.protocol == 0x11 → `parse_inner_udp`
-  - otherwise → **accept**
+  > Bottom of stack: the source peeks `current(0, 4)` —
+  > transcribed 1:1 as a `lookahead()`; the continuations extract
+  > the real full inner types over the peeked bits.
+- **`parse_mpls_inner_ipv4`**; then `parse_inner_ipv4`
   > Metadata-only in the source (tunnel type 9 = MPLS L3VPN),
-  > then parse_inner_ipv4; here it extracts the nibble-less
-  > `InnerIpv4Rest` and carries parse_inner_ipv4's dispatch.
-- **`parse_mpls_inner_ipv6`** — extracts inner_ipv6_rest; selects on `inner_ipv6_rest.next_hdr`:
-  - inner_ipv6_rest.next_hdr == 0x3a → `parse_inner_icmp`
-  - inner_ipv6_rest.next_hdr == 0x6 → `parse_inner_tcp`
-  - inner_ipv6_rest.next_hdr == 0x11 → `parse_inner_udp`
-  - otherwise → **accept**
+  > then parse_inner_ipv4.
+- **`parse_mpls_inner_ipv6`**; then `parse_inner_ipv6`
+  > Metadata-only in the source (tunnel type 12), then
+  > parse_inner_ipv6.
 - **`parse_vpls`**; then **accept**
   > Unreachable, extract-less `return ingress` in the source.
 - **`parse_pw`**; then **accept**
@@ -750,15 +707,10 @@ Start state: `parse_ethernet`.
 - **`parse_arp_rarp`**; then `parse_set_prio_med`
   > Extract-less in this configuration: ARP raises priority
   > and parsing ends (the ARP header extract is compiled out).
-- **`parse_eompls`** — extracts inner_ethernet_rest; selects on `inner_ethernet_rest.ether_type`:
-  - inner_ethernet_rest.ether_type == 0x800 → `parse_inner_ipv4`
-  - inner_ethernet_rest.ether_type == 0x86dd → `parse_inner_ipv6`
-  - otherwise → **accept**
+- **`parse_eompls`**; then `parse_inner_ethernet`
   > The source's eompls extract is commented out; the state
-  > jumps straight to parse_inner_ethernet. Since the transcribed
-  > nibble is already consumed, this state extracts the
-  > nibble-less `InnerEthernetRest` and carries
-  > parse_inner_ethernet's dispatch.
+  > jumps straight to parse_inner_ethernet (the peeked nibble was
+  > never consumed, so nothing needs re-assembling).
 - **`parse_vxlan`** — extracts vxlan; then `parse_inner_ethernet`
 - **`parse_vxlan_gpe`** — extracts vxlan_gpe; selects on `vxlan_gpe.next_proto`:
   - vxlan_gpe.next_proto & 0xff == 0x5 → `parse_gpe_int_header`
@@ -779,14 +731,13 @@ Start state: `parse_ethernet`.
   - otherwise → **accept**
   > Unreachable under shipped defaults; extracts the NSH base
   > and context headers back to back, as the source does.
-- **`parse_lisp`** — extracts lisp, ip_version_nibble; selects on `ip_version_nibble.v`:
-  - ip_version_nibble.v == 0x4 → `parse_mpls_inner_ipv4`
-  - ip_version_nibble.v == 0x6 → `parse_mpls_inner_ipv6`
+- **`parse_lisp`** — extracts lisp, ip_version_nibble (lookahead); selects on `ip_version_nibble.v`:
+  - ip_version_nibble.v == 0x4 → `parse_inner_ipv4`
+  - ip_version_nibble.v == 0x6 → `parse_inner_ipv6`
   - otherwise → **accept**
   > Unreachable under shipped defaults. The source's second
-  > `current(0, 4)` site: here the nibble arms route through
-  > parse_mpls_inner_ipv4/6, which own the nibble-less inner-IP
-  > continuations both lookahead sites share.
+  > `current(0, 4)` site, transcribed 1:1: extract-then-peek in
+  > one state, routing straight to the real inner-IP states.
 - **`parse_inner_ipv4`** — extracts inner_ipv4; selects on `inner_ipv4.frag_offset`, `inner_ipv4.ihl`, `inner_ipv4.protocol`:
   - inner_ipv4.frag_offset == 0x0 && inner_ipv4.ihl == 0x5 && inner_ipv4.protocol == 0x1 → `parse_inner_icmp`
   - inner_ipv4.frag_offset == 0x0 && inner_ipv4.ihl == 0x5 && inner_ipv4.protocol == 0x6 → `parse_inner_tcp`

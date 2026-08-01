@@ -18,10 +18,10 @@ Transcription shape (every choice detailed in README.md):
   (`parse_mpls`, `parse_mpls_2`, `parse_mpls_3` — the latter two
   names are unroll-invented); `int_val[24]` stays ONE cyclic state,
   bounded by `max_depth`, not by 24.
-- The two `current(0, 4)` lookaheads (`parse_mpls_bos`, `parse_lisp`)
-  become a real 4-bit `IpVersionNibble` header plus continuation
-  headers defined minus their leading nibble (`InnerIpv4Rest`,
-  `InnerIpv6Rest`, `InnerEthernetRest`).
+- The two `current(0, 4)` sites (`parse_mpls_bos`, `parse_lisp`) are
+  `lookahead()` of a 4-bit `IpVersionNibble` — the IR's peek, 1:1
+  with the source; their continuations extract the real full inner
+  types over the peeked bits.
 - `ingress` (the match-action control) and the source's
   metadata-only terminal states end parsing: `accept()`. All
   `set_metadata` statements are dropped — parse-time lookup-field
@@ -47,6 +47,7 @@ from pakeles import (
     bits,
     extract,
     goto,
+    lookahead,
     masked,
     reject,
     var_bytes,
@@ -551,53 +552,17 @@ class IntValue(Header):
     val = bits(31, "Value", HEX)
 
 
-# --- lookahead-transcription headers (not in the source; see README) ---
+# --- the lookahead vocabulary (the source's anonymous `current(0, 4)`) ---
 
 
 class IpVersionNibble(Header):
-    """The source's `current(0, 4)` lookahead, extracted as a real
-    4-bit header (the gibb_* nibble-split pattern)."""
+    """The source's `current(0, 4)`: peeked with `lookahead()` — bound
+    and dispatched on without consuming, exactly like the original.
+    (P4_14's current() is anonymous; the IR peeks a named 4-bit
+    header, and its continuations extract the REAL full types over
+    the same bits.)"""
 
     v = bits(4, "Version Nibble", DEC, labels=IpVersion)
-
-
-class InnerIpv4Rest(Header):
-    """ipv4_t minus its leading version nibble (already consumed as
-    `IpVersionNibble`)."""
-
-    ihl = bits(4, "IHL", DEC)
-    diffserv = bits(8, "DiffServ", HEX)
-    total_len = bits(16, "Total Length", DEC)
-    identification = bits(16, "Identification", HEX)
-    flags = bits(3, "Flags")
-    frag_offset = bits(13, "Fragment Offset", DEC)
-    ttl = bits(8, "TTL", DEC)
-    protocol = bits(8, "Protocol", DEC, labels=IpProto)
-    hdr_checksum = bits(16, "Header Checksum", HEX)
-    src_addr = bits(32, "Source", HEX)
-    dst_addr = bits(32, "Destination", HEX)
-
-
-class InnerIpv6Rest(Header):
-    """ipv6_t minus its leading version nibble (see `InnerIpv4Rest`)."""
-
-    traffic_class = bits(8, "Traffic Class", HEX)
-    flow_label = bits(20, "Flow Label", HEX)
-    payload_len = bits(16, "Payload Length", DEC)
-    next_hdr = bits(8, "Next Header", DEC, labels=IpProto)
-    hop_limit = bits(8, "Hop Limit", DEC)
-    src_addr = var_bytes(16)
-    dst_addr = var_bytes(16)
-
-
-class InnerEthernetRest(Header):
-    """ethernet_t minus the leading 4 bits of dstAddr: the
-    `parse_eompls` continuation, where the peeked nibble was neither
-    4 nor 6 and the source re-reads it as Ethernet."""
-
-    dst_addr_rest = bits(44, "Destination (low 44 bits)", HEX)
-    src_addr = bits(48, "Source", ETHER)
-    ether_type = bits(16, "EtherType", HEX, labels=EtherType)
 
 
 # --- named instances used in selects ---
@@ -798,10 +763,10 @@ class P4langSwitchParser(Parser):
         )
 
     def parse_mpls_bos(self) -> State:
-        """Bottom of stack: the source peeks `current(0, 4)`;
-        transcribed as a real 4-bit nibble extract whose
-        continuations are defined minus their leading nibble."""
-        return extract(IpVersionNibble).select(
+        """Bottom of stack: the source peeks `current(0, 4)` —
+        transcribed 1:1 as a `lookahead()`; the continuations extract
+        the real full inner types over the peeked bits."""
+        return lookahead(IpVersionNibble).select(
             IpVersionNibble.v,
             {
                 IpVersion.IPV4: self.parse_mpls_inner_ipv4,
@@ -812,20 +777,13 @@ class P4langSwitchParser(Parser):
 
     def parse_mpls_inner_ipv4(self) -> State:
         """Metadata-only in the source (tunnel type 9 = MPLS L3VPN),
-        then parse_inner_ipv4; here it extracts the nibble-less
-        `InnerIpv4Rest` and carries parse_inner_ipv4's dispatch."""
-        return extract(InnerIpv4Rest).select(
-            (InnerIpv4Rest.frag_offset, InnerIpv4Rest.ihl, InnerIpv4Rest.protocol),
-            self._inner_ipv4_arms(),
-            default=accept(),
-        )
+        then parse_inner_ipv4."""
+        return goto(self.parse_inner_ipv4)
 
     def parse_mpls_inner_ipv6(self) -> State:
-        return extract(InnerIpv6Rest).select(
-            InnerIpv6Rest.next_hdr,
-            self._inner_ipv6_arms(),
-            default=accept(),
-        )
+        """Metadata-only in the source (tunnel type 12), then
+        parse_inner_ipv6."""
+        return goto(self.parse_inner_ipv6)
 
     def parse_vpls(self) -> State:
         """Unreachable, extract-less `return ingress` in the source."""
@@ -1040,18 +998,9 @@ class P4langSwitchParser(Parser):
 
     def parse_eompls(self) -> State:
         """The source's eompls extract is commented out; the state
-        jumps straight to parse_inner_ethernet. Since the transcribed
-        nibble is already consumed, this state extracts the
-        nibble-less `InnerEthernetRest` and carries
-        parse_inner_ethernet's dispatch."""
-        return extract(InnerEthernetRest).select(
-            InnerEthernetRest.ether_type,
-            {
-                EtherType.IPV4: self.parse_inner_ipv4,
-                EtherType.IPV6: self.parse_inner_ipv6,
-            },
-            default=accept(),
-        )
+        jumps straight to parse_inner_ethernet (the peeked nibble was
+        never consumed, so nothing needs re-assembling)."""
+        return goto(self.parse_inner_ethernet)
 
     def parse_vxlan(self) -> State:
         return extract(Vxlan).then(self.parse_inner_ethernet)
@@ -1097,17 +1046,16 @@ class P4langSwitchParser(Parser):
 
     def parse_lisp(self) -> State:
         """Unreachable under shipped defaults. The source's second
-        `current(0, 4)` site: here the nibble arms route through
-        parse_mpls_inner_ipv4/6, which own the nibble-less inner-IP
-        continuations both lookahead sites share."""
+        `current(0, 4)` site, transcribed 1:1: extract-then-peek in
+        one state, routing straight to the real inner-IP states."""
         return (
             extract(Lisp)
-            .extract(IpVersionNibble)
+            .lookahead(IpVersionNibble)
             .select(
                 IpVersionNibble.v,
                 {
-                    IpVersion.IPV4: self.parse_mpls_inner_ipv4,
-                    IpVersion.IPV6: self.parse_mpls_inner_ipv6,
+                    IpVersion.IPV4: self.parse_inner_ipv4,
+                    IpVersion.IPV6: self.parse_inner_ipv6,
                 },
                 default=accept(),
             )

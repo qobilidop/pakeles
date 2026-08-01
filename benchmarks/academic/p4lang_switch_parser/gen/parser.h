@@ -78,32 +78,6 @@ typedef struct {
 } pk_p4lang_switch_parser_ip_version_nibble_t;
 
 typedef struct {
-  uint8_t ihl;
-  uint8_t diffserv;
-  uint16_t total_len;
-  uint16_t identification;
-  uint8_t flags;
-  uint16_t frag_offset;
-  uint8_t ttl;
-  uint8_t protocol;
-  uint16_t hdr_checksum;
-  uint32_t src_addr;
-  uint32_t dst_addr;
-} pk_p4lang_switch_parser_inner_ipv4_rest_t;
-
-typedef struct {
-  uint8_t traffic_class;
-  uint32_t flow_label;
-  uint16_t payload_len;
-  uint8_t next_hdr;
-  uint8_t hop_limit;
-  uint64_t src_addr_bit_off;
-  uint64_t src_addr_bit_len;
-  uint64_t dst_addr_bit_off;
-  uint64_t dst_addr_bit_len;
-} pk_p4lang_switch_parser_inner_ipv6_rest_t;
-
-typedef struct {
   uint8_t version;
   uint8_t ihl;
   uint8_t diffserv;
@@ -264,12 +238,6 @@ typedef struct {
   uint16_t sgt;
   uint16_t ft_d_other;
 } pk_p4lang_switch_parser_erspan_t3_header_t;
-
-typedef struct {
-  uint64_t dst_addr_rest;
-  uint64_t src_addr;
-  uint16_t ether_type;
-} pk_p4lang_switch_parser_inner_ethernet_rest_t;
 
 typedef struct {
   uint8_t flags;
@@ -511,10 +479,6 @@ typedef struct {
   pk_p4lang_switch_parser_mpls_t mpls;
   uint8_t ip_version_nibble_present;
   pk_p4lang_switch_parser_ip_version_nibble_t ip_version_nibble;
-  uint8_t inner_ipv4_rest_present;
-  pk_p4lang_switch_parser_inner_ipv4_rest_t inner_ipv4_rest;
-  uint8_t inner_ipv6_rest_present;
-  pk_p4lang_switch_parser_inner_ipv6_rest_t inner_ipv6_rest;
   uint8_t ipv4_present;
   pk_p4lang_switch_parser_ipv4_t ipv4;
   uint8_t udp_present;
@@ -557,8 +521,6 @@ typedef struct {
   pk_p4lang_switch_parser_nvgre_t nvgre;
   uint8_t erspan_t3_header_present;
   pk_p4lang_switch_parser_erspan_t3_header_t erspan_t3_header;
-  uint8_t inner_ethernet_rest_present;
-  pk_p4lang_switch_parser_inner_ethernet_rest_t inner_ethernet_rest;
   uint8_t vxlan_present;
   pk_p4lang_switch_parser_vxlan_t vxlan;
   uint8_t vxlan_gpe_present;

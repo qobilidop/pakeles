@@ -787,12 +787,18 @@ impl serde::Serialize for Extract {
         if !self.instance.is_empty() {
             len += 1;
         }
+        if self.lookahead {
+            len += 1;
+        }
         let mut struct_ser = serializer.serialize_struct("pakeles.ir.v1alpha1.Extract", len)?;
         if !self.header_type.is_empty() {
             struct_ser.serialize_field("headerType", &self.header_type)?;
         }
         if !self.instance.is_empty() {
             struct_ser.serialize_field("instance", &self.instance)?;
+        }
+        if self.lookahead {
+            struct_ser.serialize_field("lookahead", &self.lookahead)?;
         }
         struct_ser.end()
     }
@@ -807,12 +813,14 @@ impl<'de> serde::Deserialize<'de> for Extract {
             "header_type",
             "headerType",
             "instance",
+            "lookahead",
         ];
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
             HeaderType,
             Instance,
+            Lookahead,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -836,6 +844,7 @@ impl<'de> serde::Deserialize<'de> for Extract {
                         match value {
                             "headerType" | "header_type" => Ok(GeneratedField::HeaderType),
                             "instance" => Ok(GeneratedField::Instance),
+                            "lookahead" => Ok(GeneratedField::Lookahead),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -857,6 +866,7 @@ impl<'de> serde::Deserialize<'de> for Extract {
             {
                 let mut header_type__ = None;
                 let mut instance__ = None;
+                let mut lookahead__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::HeaderType => {
@@ -871,11 +881,18 @@ impl<'de> serde::Deserialize<'de> for Extract {
                             }
                             instance__ = Some(map_.next_value()?);
                         }
+                        GeneratedField::Lookahead => {
+                            if lookahead__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("lookahead"));
+                            }
+                            lookahead__ = Some(map_.next_value()?);
+                        }
                     }
                 }
                 Ok(Extract {
                     header_type: header_type__.unwrap_or_default(),
                     instance: instance__.unwrap_or_default(),
+                    lookahead: lookahead__.unwrap_or_default(),
                 })
             }
         }

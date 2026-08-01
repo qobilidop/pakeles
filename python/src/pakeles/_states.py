@@ -229,9 +229,10 @@ class SelectSpec:
 class State:
     """One state under construction: extracts, assigns, plus one transition."""
 
-    extracts: list[tuple[type[Header], str | None]] = dc_field(
-        default_factory=list[tuple[type[Header], str | None]]
+    extracts: list[tuple[type[Header], str | None, bool]] = dc_field(
+        default_factory=list[tuple[type[Header], str | None, bool]]
     )
+    """(header, instance, lookahead) triples, in declared order."""
     assigns: list[tuple[MetadataFieldSpec, Expr]] = dc_field(
         default_factory=list[tuple[MetadataFieldSpec, Expr]]
     )
@@ -266,7 +267,18 @@ class State:
         self, header: type[Header] | Instance, instance: str | None = None
     ) -> State:
         self._need_open()
-        self.extracts.append(_resolve(header, instance))
+        self.extracts.append((*_resolve(header, instance), False))
+        return self
+
+    def lookahead(
+        self, header: type[Header] | Instance, instance: str | None = None
+    ) -> State:
+        """Peek a header: bind its fields (they drive selects and appear
+        in the observables at their true offsets) WITHOUT advancing the
+        cursor — P4's `lookahead<T>()`. The peeked header must be
+        all-fixed-width (Rust validator authority, W9)."""
+        self._need_open()
+        self.extracts.append((*_resolve(header, instance), True))
         return self
 
     def assign(self, target: MetadataFieldSpec, value: Expr | Operand | int) -> State:
@@ -351,6 +363,11 @@ terminal, or an inline `State` chain hoisted at assembly time."""
 
 def extract(header: type[Header] | Instance, instance: str | None = None) -> State:
     return State().extract(header, instance)
+
+
+def lookahead(header: type[Header] | Instance, instance: str | None = None) -> State:
+    """A state chain starting with a peek (see `State.lookahead`)."""
+    return State().lookahead(header, instance)
 
 
 def assign(target: MetadataFieldSpec, value: Expr | Operand | int) -> State:

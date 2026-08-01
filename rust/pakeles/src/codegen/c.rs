@@ -215,7 +215,7 @@ impl<'a> Emit<'a> {
     /// True when some fixed-width field falls back to the bit loop.
     fn needs_bit_reader(&self) -> bool {
         self.any_fixed_field(|emit, s, inst, f, n| {
-            emit.byte_load_expr(s, inst, &f.name, n).is_none()
+            emit.byte_load_expr(s, inst, &f.name, n, "off").is_none()
         })
     }
 
@@ -253,7 +253,16 @@ impl<'a> Emit<'a> {
     /// size: the eBPF verifier walks every unrolled instruction, and
     /// the bit loop is what pushed `tls_clienthello` past the 1M-insn
     /// budget (see docs/designs/2026-07-29-tls-ebpf-deliverable.md).
-    fn byte_load_expr(&self, s: &pb::State, inst: &str, field: &str, n: u32) -> Option<String> {
+    /// `off_var` is the cursor variable to load through (`off`, or a
+    /// lookahead's local `poff`).
+    fn byte_load_expr(
+        &self,
+        s: &pb::State,
+        inst: &str,
+        field: &str,
+        n: u32,
+        off_var: &str,
+    ) -> Option<String> {
         if !n.is_multiple_of(8) || n > 64 {
             return None;
         }
@@ -269,7 +278,7 @@ impl<'a> Emit<'a> {
                 // refinement made on a different register.
                 let load = format!(
                     "(uint64_t)buf[{}]",
-                    self.byte_index(&format!("(off >> 3) + {i}"))
+                    self.byte_index(&format!("({off_var} >> 3) + {i}"))
                 );
                 if shift == 0 {
                     load
@@ -534,6 +543,14 @@ impl<'a> Emit<'a> {
             };
             writeln!(w, "      out->{inst}_present = 1;")?;
             let regions = self.region_cap() > 0;
+            // A lookahead reads through a scoped local cursor; the
+            // machine `off` never advances (so a mid-peek reject's
+            // consumed_bits is the machine cursor for free).
+            let cur = if ex.lookahead { "poff" } else { "off" };
+            if ex.lookahead {
+                writeln!(w, "      {{ /* lookahead: cursor does not advance */")?;
+                writeln!(w, "      uint64_t poff = off;")?;
+            }
             for f in &ht.fields {
                 match f.width.as_ref().and_then(|x| x.width.as_ref()) {
                     Some(pb::field_width::Width::Bits(n)) => {
@@ -543,15 +560,15 @@ impl<'a> Emit<'a> {
                         if regions {
                             writeln!(
                                 w,
-                                "      if (pk_rsp && off + {n} > pk_region_end[(pk_rsp - 1u) & PK_RMASK]) {{"
+                                "      if (pk_rsp && {cur} + {n} > pk_region_end[(pk_rsp - 1u) & PK_RMASK]) {{"
                             )?;
                             self.emit_reject(w, "        ", "out of region bounds")?;
                             writeln!(w, "      }}")?;
                         }
-                        writeln!(w, "      if (off + {n} > bit_len) {{")?;
+                        writeln!(w, "      if ({cur} + {n} > bit_len) {{")?;
                         self.emit_reject(w, "        ", "out of bounds")?;
                         writeln!(w, "      }}")?;
-                        match self.byte_load_expr(s, inst, &f.name, *n) {
+                        match self.byte_load_expr(s, inst, &f.name, *n, cur) {
                             Some(load) => writeln!(
                                 w,
                                 "      out->{inst}.{} = ({})({load});",
@@ -560,14 +577,18 @@ impl<'a> Emit<'a> {
                             )?,
                             None => writeln!(
                                 w,
-                                "      out->{inst}.{} = ({})pk_read_bits(buf, bit_len, off, {n});",
+                                "      out->{inst}.{} = ({})pk_read_bits(buf, bit_len, {cur}, {n});",
                                 f.name,
                                 uint_type(*n)
                             )?,
                         }
-                        writeln!(w, "      off += {n};")?;
+                        writeln!(w, "      {cur} += {n};")?;
                     }
                     Some(pb::field_width::Width::BitLen(expr)) => {
+                        anyhow::ensure!(
+                            !ex.lookahead,
+                            "validated IR: no variable-length field under a lookahead (W9)"
+                        );
                         writeln!(w, "      {{")?;
                         writeln!(w, "        uint64_t vlen = {};", expr_c(expr)?)?;
                         // Subtraction form is overflow-immune on wrapped
@@ -591,6 +612,9 @@ impl<'a> Emit<'a> {
                     }
                     None => bail!("field `{}` has no width", f.name),
                 }
+            }
+            if ex.lookahead {
+                writeln!(w, "      }}")?;
             }
         }
         for a in &s.assigns {

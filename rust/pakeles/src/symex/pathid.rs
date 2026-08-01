@@ -66,6 +66,8 @@ pub fn path_id(ir: &pb::Ir, result: &ParseResult) -> anyhow::Result<String> {
             } else {
                 &ex.instance
             };
+            // E-Peek: a lookahead's fields advance a local cursor only.
+            let entry_cursor = cursor_bits;
             let parsed = headers.next();
             for field in &ht.fields {
                 let parsed_field =
@@ -120,6 +122,9 @@ pub fn path_id(ir: &pb::Ir, result: &ParseResult) -> anyhow::Result<String> {
                     }
                     None => anyhow::bail!("field `{}` has no width", field.name),
                 }
+            }
+            if ex.lookahead {
+                cursor_bits = entry_cursor;
             }
         }
         // Region ops (after extracts/assigns, before the decision):

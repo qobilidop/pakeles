@@ -1,5 +1,16 @@
 # eDSL/IR design-review follow-ups — idea capture
 
+**Execution status (2026-08-01, same day):** the committed refinement
+arc SHIPPED — Idea 6 (bit-uniform IR, 0.2.0) + Idea 2
+(`fixed_bytes`/display) + the Idea-5 survivor (demoted alignment
+analysis as codegen aid + derived demands in `pakeles lint`) landed
+in one commit; Idea 1 (`lookahead`, E-Peek + W9 + all backends +
+symex aliasing) and the switch.p4 re-transcription (observationally
+identical suite: 93,727 vectors, 3 invented types deleted) landed
+next. See docs/designs/2026-08-01-bit-uniform-ir.md and
+docs/designs/2026-08-01-lookahead-primitive.md. Ideas 3b (caps) and
+4b (bytes-valued keysets) remain trigger-gated as recorded below.
+
 **Status: notes, not a charter.** Captured 2026-08-01 from the
 state-of-the-art design review (whose phases 1–5 shipped the same day:
 `40f9e56`…`199a839` — semantics spec, inline targets, exhaustive

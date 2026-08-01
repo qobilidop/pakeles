@@ -120,10 +120,15 @@ pub fn generate_markdown(ir: &pb::Ir) -> Result<String> {
             .extracts
             .iter()
             .map(|e| {
-                if e.instance.is_empty() {
+                let inst = if e.instance.is_empty() {
                     e.header_type.clone()
                 } else {
                     e.instance.clone()
+                };
+                if e.lookahead {
+                    format!("{inst} (lookahead)")
+                } else {
+                    inst
                 }
             })
             .collect::<Vec<_>>()

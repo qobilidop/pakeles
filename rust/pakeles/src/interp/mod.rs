@@ -154,10 +154,14 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
         field: Option<String>,
     }
 
+    // `bit_offset` is the forensic position (where the failing read
+    // sits); `consumed` is the machine cursor. They differ only for a
+    // reject inside a lookahead, which consumes nothing (§4.4).
     let reject = |reason: &str,
                   ctx: RejectCtx,
                   state: &str,
                   bit_offset: usize,
+                  consumed: usize,
                   headers: Vec<ParsedHeader>,
                   trace: Vec<TraceStep>,
                   metadata: Vec<(String, u64)>| {
@@ -175,7 +179,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                 reason: reason.into(),
                 severity: ctx.severity,
             }),
-            consumed_bits: bit_offset,
+            consumed_bits: consumed,
             metadata,
         })
     };
@@ -197,6 +201,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                 plain(Severity::Error),
                 current,
                 cursor_bits,
+                cursor_bits,
                 headers,
                 trace,
                 final_meta(parser, &meta),
@@ -215,6 +220,11 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
             } else {
                 &ex.instance
             };
+            // E-Peek (§4.4): a lookahead runs the same field sequence
+            // through the cursor, then restores it — and consumes
+            // nothing even on a mid-peek reject.
+            let entry_cursor = cursor_bits;
+            let consumed_on_reject = |c: usize| if ex.lookahead { entry_cursor } else { c };
             let mut parsed = ParsedHeader {
                 instance: instance.clone(),
                 header_type: ht.name.clone(),
@@ -259,6 +269,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                                 ctx,
                                 current,
                                 cursor_bits,
+                                consumed_on_reject(cursor_bits),
                                 headers,
                                 trace,
                                 final_meta(parser, &meta),
@@ -292,6 +303,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                                 ctx,
                                 current,
                                 cursor_bits,
+                                consumed_on_reject(cursor_bits),
                                 headers,
                                 trace,
                                 final_meta(parser, &meta),
@@ -309,6 +321,9 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                 }
             }
             headers.push(parsed);
+            if ex.lookahead {
+                cursor_bits = entry_cursor;
+            }
         }
 
         // remaining() at this state's use points (assigns, region
@@ -362,6 +377,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                             plain(Severity::Error),
                             current,
                             cursor_bits,
+                            cursor_bits,
                             headers,
                             trace,
                             final_meta(parser, &meta),
@@ -391,6 +407,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                             reason,
                             plain(Severity::Error),
                             current,
+                            cursor_bits,
                             cursor_bits,
                             headers,
                             trace,
@@ -444,6 +461,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                                     plain(Severity::Error),
                                     current,
                                     cursor_bits,
+                                    cursor_bits,
                                     headers,
                                     trace,
                                     final_meta(parser, &meta),
@@ -477,6 +495,7 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                     plain(severity),
                     current,
                     cursor_bits,
+                    cursor_bits,
                     headers,
                     trace,
                     final_meta(parser, &meta),
@@ -501,7 +520,7 @@ mod tests {
     use super::*;
     use crate::builder::meta_loop; // shared test IR from Task 2
     use crate::builder::{
-        arm, c, f, reject_info, to, v, HeaderTypeBuilder, ParserBuilder, StateBuilder,
+        arm, c, f, reject, reject_info, to, v, HeaderTypeBuilder, ParserBuilder, StateBuilder,
     };
     use crate::fixtures::eth_ipvx_l4;
     use crate::fixtures::*;
@@ -772,6 +791,82 @@ mod tests {
                 reason: "region out of bounds".into()
             }
         );
+    }
+
+    #[test]
+    fn lookahead_binds_and_dispatches_without_consuming() {
+        // s0 peeks h (16-bit tag) and selects on it; s1 then extracts
+        // the real header g over the same bits.
+        let ir = ParserBuilder::new("peek", 3)
+            .header(HeaderTypeBuilder::new("h").bits("tag", 16))
+            .header(HeaderTypeBuilder::new("g").bits("a", 16).bits("b", 8))
+            .state(StateBuilder::new("s0").lookahead("h").select(
+                vec![f("h", "tag")],
+                vec![arm(vec![v(0xABCD)], to("s1"))],
+                reject("bad tag"),
+            ))
+            .state(StateBuilder::new("s1").extract("g").accept())
+            .start("s0")
+            .build()
+            .unwrap();
+        let res = run(&ir, &[0xAB, 0xCD, 0x7F]).unwrap();
+        assert_eq!(res.outcome, Outcome::Accept);
+        assert_eq!(res.consumed_bits, 24);
+        // Both instances observed, at their true (overlapping) offsets.
+        assert_eq!(res.headers.len(), 2);
+        assert_eq!(res.headers[0].instance, "h");
+        assert_eq!(res.headers[0].fields[0].bit_offset, 0);
+        assert_eq!(res.headers[0].fields[0].value, FieldValue::Uint(0xABCD));
+        assert_eq!(res.headers[1].fields[0].bit_offset, 0);
+        assert_eq!(res.headers[1].fields[0].value, FieldValue::Uint(0xABCD));
+    }
+
+    #[test]
+    fn lookahead_reject_consumes_nothing() {
+        // Extract p (8 bits), then peek h {x:8, y:16}. A 2-byte packet
+        // lets x peek fine and truncates y: the reject is the ordinary
+        // truncation class, consumed stays at the machine cursor (8),
+        // and forensics report the failing read's own offset (16).
+        let ir = ParserBuilder::new("peek_short", 2)
+            .header(HeaderTypeBuilder::new("p").bits("v", 8))
+            .header(HeaderTypeBuilder::new("h").bits("x", 8).bits("y", 16))
+            .state(StateBuilder::new("s0").extract("p").lookahead("h").accept())
+            .start("s0")
+            .build()
+            .unwrap();
+        let res = run(&ir, &[0x01, 0x02]).unwrap();
+        assert_eq!(
+            res.outcome,
+            Outcome::Reject {
+                reason: "out of bounds".into()
+            }
+        );
+        assert_eq!(res.consumed_bits, 8);
+        let err = res.error.unwrap();
+        assert_eq!(err.instance.as_deref(), Some("h"));
+        assert_eq!(err.field.as_deref(), Some("y"));
+        assert_eq!(err.bit_offset, 16);
+    }
+
+    #[test]
+    fn lookahead_only_cycle_is_depth_bounded() {
+        // A peek consumes nothing, so a peek-only loop makes no cursor
+        // progress — max_depth alone terminates it (E-Peek changes no
+        // termination machinery).
+        let ir = ParserBuilder::new("peek_loop", 4)
+            .header(HeaderTypeBuilder::new("h").bits("tag", 8))
+            .state(StateBuilder::new("s").lookahead("h").goto_(to("s")))
+            .start("s")
+            .build()
+            .unwrap();
+        let res = run(&ir, &[0xFF]).unwrap();
+        assert_eq!(
+            res.outcome,
+            Outcome::Reject {
+                reason: "max depth exceeded".into()
+            }
+        );
+        assert_eq!(res.consumed_bits, 0);
     }
 
     #[test]

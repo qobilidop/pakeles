@@ -697,14 +697,17 @@ static int pk_p4lang_switch_parser_parse_core(const uint8_t *buf, uint64_t bit_l
     }
     case PK_S_PARSE_MPLS_BOS: {
       out->ip_version_nibble_present = 1;
-      if (off + 4 > bit_len) {
+      { /* lookahead: cursor does not advance */
+      uint64_t poff = off;
+      if (poff + 4 > bit_len) {
         out->outcome = 1;
         out->reason = PK_R_OUT_OF_BOUNDS;
         out->consumed_bits = off;
         return 1;
       }
-      out->ip_version_nibble.v = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
-      off += 4;
+      out->ip_version_nibble.v = (uint8_t)pk_read_bits(buf, bit_len, poff, 4);
+      poff += 4;
+      }
       uint64_t key0 = (uint64_t)out->ip_version_nibble.v;
       if (key0 == 4ULL) {
         state = PK_S_PARSE_MPLS_INNER_IPV4;
@@ -718,196 +721,12 @@ static int pk_p4lang_switch_parser_parse_core(const uint8_t *buf, uint64_t bit_l
       }
     }
     case PK_S_PARSE_MPLS_INNER_IPV4: {
-      out->inner_ipv4_rest_present = 1;
-      if (off + 4 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->inner_ipv4_rest.ihl = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
-      off += 4;
-      if (off + 8 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->inner_ipv4_rest.diffserv = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
-      off += 8;
-      if (off + 16 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->inner_ipv4_rest.total_len = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
-      off += 16;
-      if (off + 16 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->inner_ipv4_rest.identification = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
-      off += 16;
-      if (off + 3 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->inner_ipv4_rest.flags = (uint8_t)pk_read_bits(buf, bit_len, off, 3);
-      off += 3;
-      if (off + 13 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->inner_ipv4_rest.frag_offset = (uint16_t)pk_read_bits(buf, bit_len, off, 13);
-      off += 13;
-      if (off + 8 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->inner_ipv4_rest.ttl = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
-      off += 8;
-      if (off + 8 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->inner_ipv4_rest.protocol = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
-      off += 8;
-      if (off + 16 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->inner_ipv4_rest.hdr_checksum = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
-      off += 16;
-      if (off + 32 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->inner_ipv4_rest.src_addr = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
-      off += 32;
-      if (off + 32 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->inner_ipv4_rest.dst_addr = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
-      off += 32;
-      uint64_t key0 = (uint64_t)out->inner_ipv4_rest.frag_offset;
-      uint64_t key1 = (uint64_t)out->inner_ipv4_rest.ihl;
-      uint64_t key2 = (uint64_t)out->inner_ipv4_rest.protocol;
-      if (key0 == 0ULL && key1 == 5ULL && key2 == 1ULL) {
-        state = PK_S_PARSE_INNER_ICMP;
-        continue;
-      } else if (key0 == 0ULL && key1 == 5ULL && key2 == 6ULL) {
-        state = PK_S_PARSE_INNER_TCP;
-        continue;
-      } else if (key0 == 0ULL && key1 == 5ULL && key2 == 17ULL) {
-        state = PK_S_PARSE_INNER_UDP;
-        continue;
-      } else {
-        out->outcome = 0;
-        out->reason = PK_R_NONE;
-        out->consumed_bits = off;
-        return 0;
-      }
+      state = PK_S_PARSE_INNER_IPV4;
+      continue;
     }
     case PK_S_PARSE_MPLS_INNER_IPV6: {
-      out->inner_ipv6_rest_present = 1;
-      if (off + 8 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->inner_ipv6_rest.traffic_class = (uint8_t)pk_read_bits(buf, bit_len, off, 8);
-      off += 8;
-      if (off + 20 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->inner_ipv6_rest.flow_label = (uint32_t)pk_read_bits(buf, bit_len, off, 20);
-      off += 20;
-      if (off + 16 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->inner_ipv6_rest.payload_len = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
-      off += 16;
-      if (off + 8 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->inner_ipv6_rest.next_hdr = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
-      off += 8;
-      if (off + 8 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->inner_ipv6_rest.hop_limit = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
-      off += 8;
-      {
-        uint64_t vlen = (16ULL * 8ULL);
-        if (vlen > bit_len - off) {
-          out->outcome = 1;
-          out->reason = PK_R_OUT_OF_BOUNDS;
-          out->consumed_bits = off;
-          return 1;
-        }
-        out->inner_ipv6_rest.src_addr_bit_off = off;
-        out->inner_ipv6_rest.src_addr_bit_len = vlen;
-        off += vlen;
-      }
-      {
-        uint64_t vlen = (16ULL * 8ULL);
-        if (vlen > bit_len - off) {
-          out->outcome = 1;
-          out->reason = PK_R_OUT_OF_BOUNDS;
-          out->consumed_bits = off;
-          return 1;
-        }
-        out->inner_ipv6_rest.dst_addr_bit_off = off;
-        out->inner_ipv6_rest.dst_addr_bit_len = vlen;
-        off += vlen;
-      }
-      uint64_t key0 = (uint64_t)out->inner_ipv6_rest.next_hdr;
-      if (key0 == 58ULL) {
-        state = PK_S_PARSE_INNER_ICMP;
-        continue;
-      } else if (key0 == 6ULL) {
-        state = PK_S_PARSE_INNER_TCP;
-        continue;
-      } else if (key0 == 17ULL) {
-        state = PK_S_PARSE_INNER_UDP;
-        continue;
-      } else {
-        out->outcome = 0;
-        out->reason = PK_R_NONE;
-        out->consumed_bits = off;
-        return 0;
-      }
+      state = PK_S_PARSE_INNER_IPV6;
+      continue;
     }
     case PK_S_PARSE_VPLS: {
       out->outcome = 0;
@@ -2154,44 +1973,8 @@ static int pk_p4lang_switch_parser_parse_core(const uint8_t *buf, uint64_t bit_l
       continue;
     }
     case PK_S_PARSE_EOMPLS: {
-      out->inner_ethernet_rest_present = 1;
-      if (off + 44 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->inner_ethernet_rest.dst_addr_rest = (uint64_t)pk_read_bits(buf, bit_len, off, 44);
-      off += 44;
-      if (off + 48 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->inner_ethernet_rest.src_addr = (uint64_t)(((uint64_t)buf[(off >> 3) + 0] << 40) | ((uint64_t)buf[(off >> 3) + 1] << 32) | ((uint64_t)buf[(off >> 3) + 2] << 24) | ((uint64_t)buf[(off >> 3) + 3] << 16) | ((uint64_t)buf[(off >> 3) + 4] << 8) | (uint64_t)buf[(off >> 3) + 5]);
-      off += 48;
-      if (off + 16 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->inner_ethernet_rest.ether_type = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
-      off += 16;
-      uint64_t key0 = (uint64_t)out->inner_ethernet_rest.ether_type;
-      if (key0 == 2048ULL) {
-        state = PK_S_PARSE_INNER_IPV4;
-        continue;
-      } else if (key0 == 34525ULL) {
-        state = PK_S_PARSE_INNER_IPV6;
-        continue;
-      } else {
-        out->outcome = 0;
-        out->reason = PK_R_NONE;
-        out->consumed_bits = off;
-        return 0;
-      }
+      state = PK_S_PARSE_INNER_ETHERNET;
+      continue;
     }
     case PK_S_PARSE_VXLAN: {
       out->vxlan_present = 1;
@@ -2495,20 +2278,23 @@ static int pk_p4lang_switch_parser_parse_core(const uint8_t *buf, uint64_t bit_l
       out->lisp.lsbs_instance_id = (uint32_t)pk_read_bits(buf, bit_len, off, 32);
       off += 32;
       out->ip_version_nibble_present = 1;
-      if (off + 4 > bit_len) {
+      { /* lookahead: cursor does not advance */
+      uint64_t poff = off;
+      if (poff + 4 > bit_len) {
         out->outcome = 1;
         out->reason = PK_R_OUT_OF_BOUNDS;
         out->consumed_bits = off;
         return 1;
       }
-      out->ip_version_nibble.v = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
-      off += 4;
+      out->ip_version_nibble.v = (uint8_t)pk_read_bits(buf, bit_len, poff, 4);
+      poff += 4;
+      }
       uint64_t key0 = (uint64_t)out->ip_version_nibble.v;
       if (key0 == 4ULL) {
-        state = PK_S_PARSE_MPLS_INNER_IPV4;
+        state = PK_S_PARSE_INNER_IPV4;
         continue;
       } else if (key0 == 6ULL) {
-        state = PK_S_PARSE_MPLS_INNER_IPV6;
+        state = PK_S_PARSE_INNER_IPV6;
         continue;
       } else {
         out->outcome = 0;

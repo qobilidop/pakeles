@@ -503,6 +503,13 @@ pub fn generate_p4(ir: &pb::Ir) -> Result<String> {
                 } else {
                     format!("hdr.{member}")
                 };
+                if ex.lookahead {
+                    // Native P4-16 lookahead: bind without advancing.
+                    // W9 guarantees a single all-fixed segment.
+                    let tname = format!("{inst}_s{i}_t");
+                    writeln!(w, "        {tgt} = pkt.lookahead<{tname}>();")?;
+                    continue;
+                }
                 match seg {
                     Seg::Fixed(_) => writeln!(w, "        pkt.extract({tgt});")?,
                     Seg::Var(f) => {
@@ -829,6 +836,28 @@ mod tests {
     }
 
     #[test]
+    fn lookahead_emits_native_p4_and_compiles() {
+        use crate::builder::*;
+        // The refusal-marker direction reversed: a peek becomes P4's
+        // own lookahead<T>().
+        let ir = ParserBuilder::new("peeky", 3)
+            .header(HeaderTypeBuilder::new("h").bits("tag", 8))
+            .header(HeaderTypeBuilder::new("g").bits("all", 8).bits("more", 8))
+            .state(StateBuilder::new("s0").lookahead("h").select(
+                vec![f("h", "tag")],
+                vec![arm(vec![v(1)], to("s1"))],
+                accept(),
+            ))
+            .state(StateBuilder::new("s1").extract("g").accept())
+            .start("s0")
+            .build()
+            .unwrap();
+        let p4 = generate_p4(&ir).unwrap();
+        assert!(p4.contains("hdr.h_s0 = pkt.lookahead<h_s0_t>();"), "{p4}");
+        run_p4test(&p4, "pakeles_p4test_lookahead", true);
+    }
+
+    #[test]
     fn counted_items_p4_compiles_with_p4test() {
         let p4 = generate_p4(&crate::fixtures::counted_items()).unwrap();
         assert!(p4.contains("bit<8> remaining;"), "{p4}");
@@ -877,6 +906,7 @@ mod tests {
                     extracts: vec![pb::Extract {
                         header_type: "h".into(),
                         instance: format!("h{i}"),
+                        lookahead: false,
                     }],
                     transition: Some(pb::Transition {
                         kind: Some(pb::transition::Kind::Direct(target)),

@@ -41,15 +41,19 @@ sFlow, and the LLC/SNAP, QinQ, MPLS and GRE side branches.
 | | source | here |
 |---|---|---|
 | parse states | 63 (p4v: "58" in its modified config) | **64** = 63 − 1 (`start` folded into the entry) + 2 (`mpls[3]` unrolled) |
-| header types | 57 declared, 45 extracted | **50** = 45 + 1 (`ipv6_t` split into `Ipv6`/`InnerIpv6`) + 4 (lookahead-transcription types) |
-| header instances | 56 declared (53 singles + 3 stacks), 52 extracted (counting each stack once) | **56** = 52 + 4 (lookahead-transcription instances) |
-| verdict bitmap | — | 56 instances > 32 ⇒ the 64-bit bitmap tier |
+| header types | 57 declared, 45 extracted | **47** = 45 + 1 (`ipv6_t` split into `Ipv6`/`InnerIpv6`) + 1 (`IpVersionNibble`, the `current(0, 4)` peek's type) |
+| header instances | 56 declared (53 singles + 3 stacks), 52 extracted (counting each stack once) | **53** = 52 + 1 (the peeked `ip_version_nibble`) |
+| verdict bitmap | — | 53 instances > 32 ⇒ the 64-bit bitmap tier |
 
 Symbolic execution enumerates **~93.7k paths**; the conformance
 suite carries **93,727 vectors** (13,003 accept / 162 reject /
-80,562 truncation; 161 MB of vectors.json — the gallery's largest
-suite by far, past linux_flow_dissector's ~57k-path record),
-generated in **97 s wall-clock** by `gen_examples` (debug build).
+80,562 truncation; ~161 MB of vectors.json — the gallery's largest
+suite by far, past linux_flow_dissector's ~57k-path record).
+Notably, the 2026-08-01 re-transcription of the two `current(0, 4)`
+sites from the nibble-split emulation to the real `lookahead`
+primitive reproduced **exactly** these counts — the two encodings
+are observationally equivalent; the primitive is just the honest
+structure.
 All backends generate: C, eBPF C, Lua dissector, and P4-16 (no
 sized regions, so no `P4-UNSUPPORTED` marker; no >32-bit select
 material, so no `LUA-UNSUPPORTED` marker). C and eBPF (rbpf)
@@ -102,17 +106,20 @@ exit code is accordingly non-zero for this example, by design.
   match only packets whose IHL is zero. A known switch.p4 quirk;
   kept exactly.
 - **The two `current(0, 4)` lookaheads** (`parse_mpls_bos`,
-  `parse_lisp`) become a real 4-bit `IpVersionNibble` extract (the
-  gibb_* nibble-split pattern) with continuation headers defined
-  minus their leading nibble: `InnerIpv4Rest`, `InnerIpv6Rest`, and
-  — because `parse_eompls`'s own extract is commented out in the
-  source, so the default lookahead arm runs straight into inner
-  Ethernet — `InnerEthernetRest` (dstAddr short its top 4 bits).
-  `parse_mpls_inner_ipv4`/`_ipv6` (metadata-only pass-throughs in
-  the source) extract those Rest headers and carry
-  `parse_inner_ipv4`/`_ipv6`'s dispatch; `parse_lisp`'s nibble arms
-  route through the same two states, which own the shared
-  nibble-less continuations.
+  `parse_lisp`) are the IR's `lookahead()` of a 4-bit
+  `IpVersionNibble`, 1:1 with the source: the nibble is bound and
+  dispatched on without consuming, and the continuations extract the
+  REAL full inner types (`inner_ipv4`, `inner_ipv6`,
+  `inner_ethernet`) over the peeked bits.
+  `parse_mpls_inner_ipv4`/`_ipv6` are the pure pass-throughs they
+  are in the source (metadata-only), and `parse_eompls` jumps
+  straight to `parse_inner_ethernet` exactly as the source does.
+  *(Until 2026-08-01 this needed the nibble-split emulation — a
+  consuming nibble extract plus three invented `*Rest` headers
+  defined minus their leading bits, with rerouted continuations.
+  The `lookahead` IR primitive deleted all three invented types and
+  restored the source correspondence; this transcription was its
+  motivating exhibit.)*
 - **Stacks.** `vlan_tag_[2]`: the source's three VLAN states extract
   `vlan_tag_[0]`/`[1]`; here all three share one `vlan_tag_`
   instance (the gibb pattern — a later extract overwrites).

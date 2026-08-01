@@ -257,6 +257,18 @@ impl StateBuilder {
         self.state.extracts.push(pb::Extract {
             header_type: header_type.into(),
             instance: String::new(),
+            lookahead: false,
+        });
+        self
+    }
+
+    /// Peek a header (`lookahead`): bind its fields without advancing
+    /// the cursor. Instance name defaults to the header type name.
+    pub fn lookahead(mut self, header_type: &str) -> Self {
+        self.state.extracts.push(pb::Extract {
+            header_type: header_type.into(),
+            instance: String::new(),
+            lookahead: true,
         });
         self
     }

@@ -182,6 +182,9 @@ pub fn replay(ir: &irpb::Ir, suite: &pb::TestSuite) -> Result<Vec<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::builder::{
+        arm, f, reject, reject_info, to, v, HeaderTypeBuilder, ParserBuilder, StateBuilder,
+    };
     use crate::fixtures::eth_ipvx_l4;
 
     #[test]
@@ -275,6 +278,139 @@ mod tests {
             let pid = crate::symex::pathid::path_id(&ir, &res).unwrap();
             assert_eq!(pid, v.id, "pathid diverges from engine on {}", v.id);
         }
+    }
+
+    #[test]
+    fn lookahead_exact_overlap_suite_replays_green() {
+        // Peek a 16-bit tag, select on it, then re-extract the same
+        // bits as the real header: the peek read and g.a are the SAME
+        // (offset, len) term — one field variable, aliased for free.
+        let ir = ParserBuilder::new("peek_exact", 3)
+            .header(HeaderTypeBuilder::new("h").bits("tag", 16))
+            .header(HeaderTypeBuilder::new("g").bits("a", 16).bits("b", 8))
+            .state(StateBuilder::new("s0").lookahead("h").select(
+                vec![f("h", "tag")],
+                vec![arm(vec![v(0xABCD)], to("s1"))],
+                reject("bad tag"),
+            ))
+            .state(StateBuilder::new("s1").extract("g").accept())
+            .start("s0")
+            .build()
+            .unwrap();
+        let suite = generate(&ir).unwrap();
+        assert!(replay(&ir, &suite).unwrap().is_empty());
+        // The accept vector's packet must satisfy the peeked select.
+        let accept = suite
+            .vectors
+            .iter()
+            .find(|v| v.category == pb::Category::Accept as i32)
+            .expect("accept vector");
+        let (bits, _) = Bits::from_pb(accept.packet.as_ref().unwrap());
+        assert_eq!(&bits.bytes[..2], &[0xAB, 0xCD]);
+        // pathid mirrors the engine over every peeked witness.
+        for v in &suite.vectors {
+            let (bits, _) = Bits::from_pb(v.packet.as_ref().unwrap());
+            let res = run_bits(&ir, &bits).unwrap();
+            let pid = crate::symex::pathid::path_id(&ir, &res).unwrap();
+            assert_eq!(pid, v.id, "pathid diverges from engine on {}", v.id);
+        }
+    }
+
+    #[test]
+    fn lookahead_partial_overlap_gets_aliasing() {
+        // Peek an 8-bit tag, then extract it as two nibbles: distinct
+        // field variables over shared wire bits — the slice-equality
+        // constraints must keep the witness self-consistent (without
+        // them, HashMap write order could put 0-valued nibbles over
+        // the 0xAB tag and the interp would take the other branch).
+        let ir = ParserBuilder::new("peek_split", 3)
+            .header(HeaderTypeBuilder::new("h").bits("tag", 8))
+            .header(HeaderTypeBuilder::new("g").bits("hi", 4).bits("lo", 4))
+            .state(StateBuilder::new("s0").lookahead("h").select(
+                vec![f("h", "tag")],
+                vec![arm(vec![v(0xAB)], to("s1"))],
+                reject_info("other"),
+            ))
+            .state(StateBuilder::new("s1").extract("g").accept())
+            .start("s0")
+            .build()
+            .unwrap();
+        let suite = generate(&ir).unwrap();
+        assert!(replay(&ir, &suite).unwrap().is_empty());
+        let accept = suite
+            .vectors
+            .iter()
+            .find(|v| v.category == pb::Category::Accept as i32)
+            .expect("accept vector");
+        let (bits, _) = Bits::from_pb(accept.packet.as_ref().unwrap());
+        assert_eq!(bits.bytes[0], 0xAB);
+        // And the expected fields agree with the peeked value.
+        let Some(pb::expected::Outcome::Accept(a)) =
+            accept.expected.as_ref().and_then(|e| e.outcome.as_ref())
+        else {
+            panic!()
+        };
+        let g = a.headers.iter().find(|h| h.instance == "g").unwrap();
+        let vals: Vec<u64> = g
+            .fields
+            .iter()
+            .map(|f| match f.value {
+                Some(pb::expected_field::Value::Uint(u)) => u,
+                _ => panic!(),
+            })
+            .collect();
+        assert_eq!(vals, vec![0xA, 0xB]);
+    }
+
+    #[test]
+    fn lookahead_branch_different_types_suite_replays_green() {
+        // The adversarial case from the design note: peek, branch on
+        // the peeked value, and overlay DIFFERENT field layouts on the
+        // peeked bits per branch. Each branch's aliasing constraints
+        // are scoped to its own path.
+        let ir = ParserBuilder::new("peek_branch", 3)
+            .header(HeaderTypeBuilder::new("h").bits("tag", 8))
+            .header(HeaderTypeBuilder::new("a").bits("hi", 4).bits("lo", 4))
+            .header(HeaderTypeBuilder::new("b").bits("all", 8).bits("more", 8))
+            .state(StateBuilder::new("s0").lookahead("h").select(
+                vec![f("h", "tag")],
+                vec![arm(vec![v(0xAB)], to("s_a")), arm(vec![v(0xCD)], to("s_b"))],
+                reject_info("other"),
+            ))
+            .state(StateBuilder::new("s_a").extract("a").accept())
+            .state(StateBuilder::new("s_b").extract("b").accept())
+            .start("s0")
+            .build()
+            .unwrap();
+        let suite = generate(&ir).unwrap();
+        assert!(replay(&ir, &suite).unwrap().is_empty());
+        let accepts: Vec<_> = suite
+            .vectors
+            .iter()
+            .filter(|v| v.category == pb::Category::Accept as i32)
+            .collect();
+        assert_eq!(accepts.len(), 2, "one accept per branch");
+    }
+
+    #[test]
+    fn lookahead_then_accept_carries_overhang() {
+        // Peek 16 bits then accept immediately: the machine consumed 0
+        // bits, but the witness must still CONTAIN the peeked bits or
+        // the interp would reject where the engine predicted accept.
+        let ir = ParserBuilder::new("peek_only", 2)
+            .header(HeaderTypeBuilder::new("h").bits("tag", 16))
+            .state(StateBuilder::new("s0").lookahead("h").accept())
+            .start("s0")
+            .build()
+            .unwrap();
+        let suite = generate(&ir).unwrap();
+        assert!(replay(&ir, &suite).unwrap().is_empty());
+        let accept = suite
+            .vectors
+            .iter()
+            .find(|v| v.category == pb::Category::Accept as i32)
+            .expect("accept vector");
+        assert!(accept.packet.as_ref().unwrap().bit_len >= 16);
     }
 
     #[test]

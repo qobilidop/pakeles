@@ -515,307 +515,6 @@
         ]
       },
       {
-        "name": "inner_ipv4_rest",
-        "fields": [
-          {
-            "name": "ihl",
-            "width": {
-              "bits": 4
-            },
-            "display": {
-              "name": "IHL",
-              "format": "DISPLAY_FORMAT_DEC"
-            }
-          },
-          {
-            "name": "diffserv",
-            "width": {
-              "bits": 8
-            },
-            "display": {
-              "name": "DiffServ",
-              "format": "DISPLAY_FORMAT_HEX"
-            }
-          },
-          {
-            "name": "total_len",
-            "width": {
-              "bits": 16
-            },
-            "display": {
-              "name": "Total Length",
-              "format": "DISPLAY_FORMAT_DEC"
-            }
-          },
-          {
-            "name": "identification",
-            "width": {
-              "bits": 16
-            },
-            "display": {
-              "name": "Identification",
-              "format": "DISPLAY_FORMAT_HEX"
-            }
-          },
-          {
-            "name": "flags",
-            "width": {
-              "bits": 3
-            },
-            "display": {
-              "name": "Flags"
-            }
-          },
-          {
-            "name": "frag_offset",
-            "width": {
-              "bits": 13
-            },
-            "display": {
-              "name": "Fragment Offset",
-              "format": "DISPLAY_FORMAT_DEC"
-            }
-          },
-          {
-            "name": "ttl",
-            "width": {
-              "bits": 8
-            },
-            "display": {
-              "name": "TTL",
-              "format": "DISPLAY_FORMAT_DEC"
-            }
-          },
-          {
-            "name": "protocol",
-            "width": {
-              "bits": 8
-            },
-            "display": {
-              "name": "Protocol",
-              "format": "DISPLAY_FORMAT_DEC",
-              "valueLabels": [
-                {
-                  "value": "1",
-                  "label": "ICMP"
-                },
-                {
-                  "value": "2",
-                  "label": "IGMP"
-                },
-                {
-                  "value": "4",
-                  "label": "IPv4-in-IP"
-                },
-                {
-                  "value": "6",
-                  "label": "TCP"
-                },
-                {
-                  "value": "17",
-                  "label": "UDP"
-                },
-                {
-                  "value": "41",
-                  "label": "IPv6-in-IP"
-                },
-                {
-                  "value": "47",
-                  "label": "GRE"
-                },
-                {
-                  "value": "58",
-                  "label": "ICMPv6"
-                },
-                {
-                  "value": "88",
-                  "label": "EIGRP"
-                },
-                {
-                  "value": "89",
-                  "label": "OSPF"
-                },
-                {
-                  "value": "103",
-                  "label": "PIM"
-                },
-                {
-                  "value": "112",
-                  "label": "VRRP"
-                }
-              ]
-            }
-          },
-          {
-            "name": "hdr_checksum",
-            "width": {
-              "bits": 16
-            },
-            "display": {
-              "name": "Header Checksum",
-              "format": "DISPLAY_FORMAT_HEX"
-            }
-          },
-          {
-            "name": "src_addr",
-            "width": {
-              "bits": 32
-            },
-            "display": {
-              "name": "Source",
-              "format": "DISPLAY_FORMAT_HEX"
-            }
-          },
-          {
-            "name": "dst_addr",
-            "width": {
-              "bits": 32
-            },
-            "display": {
-              "name": "Destination",
-              "format": "DISPLAY_FORMAT_HEX"
-            }
-          }
-        ]
-      },
-      {
-        "name": "inner_ipv6_rest",
-        "fields": [
-          {
-            "name": "traffic_class",
-            "width": {
-              "bits": 8
-            },
-            "display": {
-              "name": "Traffic Class",
-              "format": "DISPLAY_FORMAT_HEX"
-            }
-          },
-          {
-            "name": "flow_label",
-            "width": {
-              "bits": 20
-            },
-            "display": {
-              "name": "Flow Label",
-              "format": "DISPLAY_FORMAT_HEX"
-            }
-          },
-          {
-            "name": "payload_len",
-            "width": {
-              "bits": 16
-            },
-            "display": {
-              "name": "Payload Length",
-              "format": "DISPLAY_FORMAT_DEC"
-            }
-          },
-          {
-            "name": "next_hdr",
-            "width": {
-              "bits": 8
-            },
-            "display": {
-              "name": "Next Header",
-              "format": "DISPLAY_FORMAT_DEC",
-              "valueLabels": [
-                {
-                  "value": "1",
-                  "label": "ICMP"
-                },
-                {
-                  "value": "2",
-                  "label": "IGMP"
-                },
-                {
-                  "value": "4",
-                  "label": "IPv4-in-IP"
-                },
-                {
-                  "value": "6",
-                  "label": "TCP"
-                },
-                {
-                  "value": "17",
-                  "label": "UDP"
-                },
-                {
-                  "value": "41",
-                  "label": "IPv6-in-IP"
-                },
-                {
-                  "value": "47",
-                  "label": "GRE"
-                },
-                {
-                  "value": "58",
-                  "label": "ICMPv6"
-                },
-                {
-                  "value": "88",
-                  "label": "EIGRP"
-                },
-                {
-                  "value": "89",
-                  "label": "OSPF"
-                },
-                {
-                  "value": "103",
-                  "label": "PIM"
-                },
-                {
-                  "value": "112",
-                  "label": "VRRP"
-                }
-              ]
-            }
-          },
-          {
-            "name": "hop_limit",
-            "width": {
-              "bits": 8
-            },
-            "display": {
-              "name": "Hop Limit",
-              "format": "DISPLAY_FORMAT_DEC"
-            }
-          },
-          {
-            "name": "src_addr",
-            "width": {
-              "bitLen": {
-                "bin": {
-                  "op": "BIN_OP_KIND_MUL",
-                  "lhs": {
-                    "constant": "16"
-                  },
-                  "rhs": {
-                    "constant": "8"
-                  }
-                }
-              }
-            }
-          },
-          {
-            "name": "dst_addr",
-            "width": {
-              "bitLen": {
-                "bin": {
-                  "op": "BIN_OP_KIND_MUL",
-                  "lhs": {
-                    "constant": "16"
-                  },
-                  "rhs": {
-                    "constant": "8"
-                  }
-                }
-              }
-            }
-          }
-        ]
-      },
-      {
         "name": "ipv4",
         "fields": [
           {
@@ -2047,87 +1746,6 @@
             "display": {
               "name": "Ft/D/Other",
               "format": "DISPLAY_FORMAT_HEX"
-            }
-          }
-        ]
-      },
-      {
-        "name": "inner_ethernet_rest",
-        "fields": [
-          {
-            "name": "dst_addr_rest",
-            "width": {
-              "bits": 44
-            },
-            "display": {
-              "name": "Destination (low 44 bits)",
-              "format": "DISPLAY_FORMAT_HEX"
-            }
-          },
-          {
-            "name": "src_addr",
-            "width": {
-              "bits": 48
-            },
-            "display": {
-              "name": "Source",
-              "format": "DISPLAY_FORMAT_ETHER"
-            }
-          },
-          {
-            "name": "ether_type",
-            "width": {
-              "bits": 16
-            },
-            "display": {
-              "name": "EtherType",
-              "format": "DISPLAY_FORMAT_HEX",
-              "valueLabels": [
-                {
-                  "value": "2048",
-                  "label": "IPv4"
-                },
-                {
-                  "value": "2054",
-                  "label": "ARP"
-                },
-                {
-                  "value": "8939",
-                  "label": "ERSPAN type III"
-                },
-                {
-                  "value": "25944",
-                  "label": "Transparent Ethernet Bridging"
-                },
-                {
-                  "value": "33024",
-                  "label": "802.1Q"
-                },
-                {
-                  "value": "34525",
-                  "label": "IPv6"
-                },
-                {
-                  "value": "34825",
-                  "label": "Slow Protocols (source: LACP)"
-                },
-                {
-                  "value": "34887",
-                  "label": "MPLS (unicast)"
-                },
-                {
-                  "value": "35020",
-                  "label": "LLDP"
-                },
-                {
-                  "value": "36864",
-                  "label": "internal fabric header (source: BF_FABRIC)"
-                },
-                {
-                  "value": "37120",
-                  "label": "QinQ (legacy 0x9100)"
-                }
-              ]
             }
           }
         ]
@@ -4143,7 +3761,8 @@
         "name": "parse_mpls_bos",
         "extracts": [
           {
-            "headerType": "ip_version_nibble"
+            "headerType": "ip_version_nibble",
+            "lookahead": true
           }
         ],
         "transition": {
@@ -4184,150 +3803,29 @@
           }
         },
         "annotations": {
-          "doc": "Bottom of stack: the source peeks `current(0, 4)`;\ntranscribed as a real 4-bit nibble extract whose\ncontinuations are defined minus their leading nibble."
+          "doc": "Bottom of stack: the source peeks `current(0, 4)` —\ntranscribed 1:1 as a `lookahead()`; the continuations extract\nthe real full inner types over the peeked bits."
         }
       },
       {
         "name": "parse_mpls_inner_ipv4",
-        "extracts": [
-          {
-            "headerType": "inner_ipv4_rest"
-          }
-        ],
         "transition": {
-          "select": {
-            "keys": [
-              {
-                "field": {
-                  "header": "inner_ipv4_rest",
-                  "field": "frag_offset"
-                }
-              },
-              {
-                "field": {
-                  "header": "inner_ipv4_rest",
-                  "field": "ihl"
-                }
-              },
-              {
-                "field": {
-                  "header": "inner_ipv4_rest",
-                  "field": "protocol"
-                }
-              }
-            ],
-            "arms": [
-              {
-                "entries": [
-                  {
-                    "value": "0"
-                  },
-                  {
-                    "value": "5"
-                  },
-                  {
-                    "value": "1"
-                  }
-                ],
-                "next": {
-                  "state": "parse_inner_icmp"
-                }
-              },
-              {
-                "entries": [
-                  {
-                    "value": "0"
-                  },
-                  {
-                    "value": "5"
-                  },
-                  {
-                    "value": "6"
-                  }
-                ],
-                "next": {
-                  "state": "parse_inner_tcp"
-                }
-              },
-              {
-                "entries": [
-                  {
-                    "value": "0"
-                  },
-                  {
-                    "value": "5"
-                  },
-                  {
-                    "value": "17"
-                  }
-                ],
-                "next": {
-                  "state": "parse_inner_udp"
-                }
-              }
-            ],
-            "defaultTarget": {
-              "accept": {}
-            }
+          "direct": {
+            "state": "parse_inner_ipv4"
           }
         },
         "annotations": {
-          "doc": "Metadata-only in the source (tunnel type 9 = MPLS L3VPN),\nthen parse_inner_ipv4; here it extracts the nibble-less\n`InnerIpv4Rest` and carries parse_inner_ipv4's dispatch."
+          "doc": "Metadata-only in the source (tunnel type 9 = MPLS L3VPN),\nthen parse_inner_ipv4."
         }
       },
       {
         "name": "parse_mpls_inner_ipv6",
-        "extracts": [
-          {
-            "headerType": "inner_ipv6_rest"
-          }
-        ],
         "transition": {
-          "select": {
-            "keys": [
-              {
-                "field": {
-                  "header": "inner_ipv6_rest",
-                  "field": "next_hdr"
-                }
-              }
-            ],
-            "arms": [
-              {
-                "entries": [
-                  {
-                    "value": "58"
-                  }
-                ],
-                "next": {
-                  "state": "parse_inner_icmp"
-                }
-              },
-              {
-                "entries": [
-                  {
-                    "value": "6"
-                  }
-                ],
-                "next": {
-                  "state": "parse_inner_tcp"
-                }
-              },
-              {
-                "entries": [
-                  {
-                    "value": "17"
-                  }
-                ],
-                "next": {
-                  "state": "parse_inner_udp"
-                }
-              }
-            ],
-            "defaultTarget": {
-              "accept": {}
-            }
+          "direct": {
+            "state": "parse_inner_ipv6"
           }
+        },
+        "annotations": {
+          "doc": "Metadata-only in the source (tunnel type 12), then\nparse_inner_ipv6."
         }
       },
       {
@@ -5648,50 +5146,13 @@
       },
       {
         "name": "parse_eompls",
-        "extracts": [
-          {
-            "headerType": "inner_ethernet_rest"
-          }
-        ],
         "transition": {
-          "select": {
-            "keys": [
-              {
-                "field": {
-                  "header": "inner_ethernet_rest",
-                  "field": "ether_type"
-                }
-              }
-            ],
-            "arms": [
-              {
-                "entries": [
-                  {
-                    "value": "2048"
-                  }
-                ],
-                "next": {
-                  "state": "parse_inner_ipv4"
-                }
-              },
-              {
-                "entries": [
-                  {
-                    "value": "34525"
-                  }
-                ],
-                "next": {
-                  "state": "parse_inner_ipv6"
-                }
-              }
-            ],
-            "defaultTarget": {
-              "accept": {}
-            }
+          "direct": {
+            "state": "parse_inner_ethernet"
           }
         },
         "annotations": {
-          "doc": "The source's eompls extract is commented out; the state\njumps straight to parse_inner_ethernet. Since the transcribed\nnibble is already consumed, this state extracts the\nnibble-less `InnerEthernetRest` and carries\nparse_inner_ethernet's dispatch."
+          "doc": "The source's eompls extract is commented out; the state\njumps straight to parse_inner_ethernet (the peeked nibble was\nnever consumed, so nothing needs re-assembling)."
         }
       },
       {
@@ -5874,7 +5335,8 @@
             "headerType": "lisp"
           },
           {
-            "headerType": "ip_version_nibble"
+            "headerType": "ip_version_nibble",
+            "lookahead": true
           }
         ],
         "transition": {
@@ -5895,7 +5357,7 @@
                   }
                 ],
                 "next": {
-                  "state": "parse_mpls_inner_ipv4"
+                  "state": "parse_inner_ipv4"
                 }
               },
               {
@@ -5905,7 +5367,7 @@
                   }
                 ],
                 "next": {
-                  "state": "parse_mpls_inner_ipv6"
+                  "state": "parse_inner_ipv6"
                 }
               }
             ],
@@ -5915,7 +5377,7 @@
           }
         },
         "annotations": {
-          "doc": "Unreachable under shipped defaults. The source's second\n`current(0, 4)` site: here the nibble arms route through\nparse_mpls_inner_ipv4/6, which own the nibble-less inner-IP\ncontinuations both lookahead sites share."
+          "doc": "Unreachable under shipped defaults. The source's second\n`current(0, 4)` site, transcribed 1:1: extract-then-peek in\none state, routing straight to the real inner-IP states."
         }
       },
       {

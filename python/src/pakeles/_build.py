@@ -111,7 +111,7 @@ class Assembly:
     def _header_types(self) -> list[type[Header]]:
         seen: dict[str, type[Header]] = {}
         for chain in self._states.values():
-            for header, _ in chain.extracts:
+            for header, _, _ in chain.extracts:
                 seen.setdefault(header.ir_name(), header)
         return list(seen.values())
 
@@ -128,7 +128,7 @@ class Assembly:
         per-instance header types, which the IR does not model."""
         out: dict[str, str] = {}
         for chain in self._states.values():
-            for header, instance in chain.extracts:
+            for header, instance, _ in chain.extracts:
                 if not any(
                     f.bit_len_expr is not None
                     for f in header._fields  # type: ignore[attr-defined]
@@ -178,11 +178,13 @@ class Assembly:
             st.name = sname
             if chain.doc_text:
                 st.annotations["doc"] = chain.doc_text
-            for header, instance in chain.extracts:
+            for header, instance, peek in chain.extracts:
                 ex = st.extracts.add()
                 ex.header_type = header.ir_name()
                 if instance is not None:
                     ex.instance = instance
+                if peek:
+                    ex.lookahead = True
             for target, value in chain.assigns:
                 a = st.assigns.add()
                 a.metadata = target.name

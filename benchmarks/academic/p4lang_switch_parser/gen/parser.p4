@@ -60,36 +60,6 @@ header ip_version_nibble_s0_t {
     bit<4> v;
 }
 
-header inner_ipv4_rest_s0_t {
-    bit<4> ihl;
-    bit<8> diffserv;
-    bit<16> total_len;
-    bit<16> identification;
-    bit<3> flags;
-    bit<13> frag_offset;
-    bit<8> ttl;
-    bit<8> protocol;
-    bit<16> hdr_checksum;
-    bit<32> src_addr;
-    bit<32> dst_addr;
-}
-
-header inner_ipv6_rest_s0_t {
-    bit<8> traffic_class;
-    bit<20> flow_label;
-    bit<16> payload_len;
-    bit<8> next_hdr;
-    bit<8> hop_limit;
-}
-
-header inner_ipv6_rest_v1_t {
-    varbit<128> src_addr;
-}
-
-header inner_ipv6_rest_v2_t {
-    varbit<128> dst_addr;
-}
-
 header ipv4_s0_t {
     bit<4> version;
     bit<4> ihl;
@@ -254,12 +224,6 @@ header erspan_t3_header_s0_t {
     bit<32> timestamp;
     bit<16> sgt;
     bit<16> ft_d_other;
-}
-
-header inner_ethernet_rest_s0_t {
-    bit<44> dst_addr_rest;
-    bit<48> src_addr;
-    bit<16> ether_type;
 }
 
 header vxlan_s0_t {
@@ -501,10 +465,6 @@ struct headers {
     vlan_tag__s0_t[43] vlan_tag__s0;
     mpls_s0_t[43] mpls_s0;
     ip_version_nibble_s0_t[43] ip_version_nibble_s0;
-    inner_ipv4_rest_s0_t inner_ipv4_rest_s0;
-    inner_ipv6_rest_s0_t inner_ipv6_rest_s0;
-    inner_ipv6_rest_v1_t inner_ipv6_rest_v1;
-    inner_ipv6_rest_v2_t inner_ipv6_rest_v2;
     ipv4_s0_t ipv4_s0;
     udp_s0_t[43] udp_s0;
     gre_s0_t[43] gre_s0;
@@ -528,7 +488,6 @@ struct headers {
     sctp_s0_t sctp_s0;
     nvgre_s0_t nvgre_s0;
     erspan_t3_header_s0_t erspan_t3_header_s0;
-    inner_ethernet_rest_s0_t inner_ethernet_rest_s0;
     vxlan_s0_t vxlan_s0;
     vxlan_gpe_s0_t vxlan_gpe_s0;
     genv_s0_t genv_s0;
@@ -668,7 +627,7 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
         }
     }
     state st_parse_mpls_bos {
-        pkt.extract(hdr.ip_version_nibble_s0.next);
+        hdr.ip_version_nibble_s0.next = pkt.lookahead<ip_version_nibble_s0_t>();
         transition select((bit<64>)hdr.ip_version_nibble_s0.last.v) {
             64w4: st_parse_mpls_inner_ipv4;
             64w6: st_parse_mpls_inner_ipv6;
@@ -676,24 +635,10 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
         }
     }
     state st_parse_mpls_inner_ipv4 {
-        pkt.extract(hdr.inner_ipv4_rest_s0);
-        transition select((bit<64>)hdr.inner_ipv4_rest_s0.frag_offset, (bit<64>)hdr.inner_ipv4_rest_s0.ihl, (bit<64>)hdr.inner_ipv4_rest_s0.protocol) {
-            (64w0, 64w5, 64w1): st_parse_inner_icmp;
-            (64w0, 64w5, 64w6): st_parse_inner_tcp;
-            (64w0, 64w5, 64w17): st_parse_inner_udp;
-            default: accept;
-        }
+        transition st_parse_inner_ipv4;
     }
     state st_parse_mpls_inner_ipv6 {
-        pkt.extract(hdr.inner_ipv6_rest_s0);
-        pkt.extract(hdr.inner_ipv6_rest_v1, (bit<32>)(64w16 * 64w8));
-        pkt.extract(hdr.inner_ipv6_rest_v2, (bit<32>)(64w16 * 64w8));
-        transition select((bit<64>)hdr.inner_ipv6_rest_s0.next_hdr) {
-            64w58: st_parse_inner_icmp;
-            64w6: st_parse_inner_tcp;
-            64w17: st_parse_inner_udp;
-            default: accept;
-        }
+        transition st_parse_inner_ipv6;
     }
     state st_parse_vpls {
         transition accept;
@@ -864,12 +809,7 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
         transition st_parse_set_prio_med;
     }
     state st_parse_eompls {
-        pkt.extract(hdr.inner_ethernet_rest_s0);
-        transition select((bit<64>)hdr.inner_ethernet_rest_s0.ether_type) {
-            64w2048: st_parse_inner_ipv4;
-            64w34525: st_parse_inner_ipv6;
-            default: accept;
-        }
+        transition st_parse_inner_ethernet;
     }
     state st_parse_vxlan {
         pkt.extract(hdr.vxlan_s0);
@@ -900,10 +840,10 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_lisp {
         pkt.extract(hdr.lisp_s0);
-        pkt.extract(hdr.ip_version_nibble_s0.next);
+        hdr.ip_version_nibble_s0.next = pkt.lookahead<ip_version_nibble_s0_t>();
         transition select((bit<64>)hdr.ip_version_nibble_s0.last.v) {
-            64w4: st_parse_mpls_inner_ipv4;
-            64w6: st_parse_mpls_inner_ipv6;
+            64w4: st_parse_inner_ipv4;
+            64w6: st_parse_inner_ipv6;
             default: accept;
         }
     }
@@ -1048,54 +988,51 @@ control PkIngress(inout headers hdr, inout metadata meta,
         if (hdr.vlan_tag__s0[0].isValid()) { bm = bm | 64w32; }
         if (hdr.mpls_s0[0].isValid()) { bm = bm | 64w64; }
         if (hdr.ip_version_nibble_s0[0].isValid()) { bm = bm | 64w128; }
-        if (hdr.inner_ipv4_rest_s0.isValid()) { bm = bm | 64w256; }
-        if (hdr.inner_ipv6_rest_v2.isValid()) { bm = bm | 64w512; }
-        if (hdr.ipv4_s0.isValid()) { bm = bm | 64w1024; }
-        if (hdr.udp_s0[0].isValid()) { bm = bm | 64w2048; }
-        if (hdr.gre_s0[0].isValid()) { bm = bm | 64w4096; }
-        if (hdr.ipv6_v2.isValid()) { bm = bm | 64w8192; }
-        if (hdr.icmp_s0.isValid()) { bm = bm | 64w16384; }
-        if (hdr.tcp_s0.isValid()) { bm = bm | 64w32768; }
-        if (hdr.roce_v2_s0.isValid()) { bm = bm | 64w65536; }
-        if (hdr.vxlan_gpe_int_header_s0.isValid()) { bm = bm | 64w131072; }
-        if (hdr.int_header_s0.isValid()) { bm = bm | 64w262144; }
-        if (hdr.int_val_s0[0].isValid()) { bm = bm | 64w524288; }
-        if (hdr.int_switch_id_header_s0.isValid()) { bm = bm | 64w1048576; }
-        if (hdr.int_ingress_port_id_header_s0.isValid()) { bm = bm | 64w2097152; }
-        if (hdr.int_hop_latency_header_s0.isValid()) { bm = bm | 64w4194304; }
-        if (hdr.int_q_occupancy_header_s0.isValid()) { bm = bm | 64w8388608; }
-        if (hdr.int_ingress_tstamp_header_s0.isValid()) { bm = bm | 64w16777216; }
-        if (hdr.int_egress_port_id_header_s0.isValid()) { bm = bm | 64w33554432; }
-        if (hdr.int_q_congestion_header_s0.isValid()) { bm = bm | 64w67108864; }
-        if (hdr.int_egress_port_tx_utilization_header_s0.isValid()) { bm = bm | 64w134217728; }
-        if (hdr.sctp_s0.isValid()) { bm = bm | 64w268435456; }
-        if (hdr.nvgre_s0.isValid()) { bm = bm | 64w536870912; }
-        if (hdr.erspan_t3_header_s0.isValid()) { bm = bm | 64w1073741824; }
-        if (hdr.inner_ethernet_rest_s0.isValid()) { bm = bm | 64w2147483648; }
-        if (hdr.vxlan_s0.isValid()) { bm = bm | 64w4294967296; }
-        if (hdr.vxlan_gpe_s0.isValid()) { bm = bm | 64w8589934592; }
-        if (hdr.genv_s0.isValid()) { bm = bm | 64w17179869184; }
-        if (hdr.nsh_s0.isValid()) { bm = bm | 64w34359738368; }
-        if (hdr.nsh_context_s0.isValid()) { bm = bm | 64w68719476736; }
-        if (hdr.lisp_s0.isValid()) { bm = bm | 64w137438953472; }
-        if (hdr.inner_ipv4_s0.isValid()) { bm = bm | 64w274877906944; }
-        if (hdr.inner_icmp_s0.isValid()) { bm = bm | 64w549755813888; }
-        if (hdr.inner_tcp_s0.isValid()) { bm = bm | 64w1099511627776; }
-        if (hdr.inner_udp_s0.isValid()) { bm = bm | 64w2199023255552; }
-        if (hdr.inner_sctp_s0.isValid()) { bm = bm | 64w4398046511104; }
-        if (hdr.inner_ipv6_v2.isValid()) { bm = bm | 64w8796093022208; }
-        if (hdr.inner_ethernet_s0.isValid()) { bm = bm | 64w17592186044416; }
-        if (hdr.trill_s0.isValid()) { bm = bm | 64w35184372088832; }
-        if (hdr.vntag_s0.isValid()) { bm = bm | 64w70368744177664; }
-        if (hdr.bfd_s0.isValid()) { bm = bm | 64w140737488355328; }
-        if (hdr.sflow_s0.isValid()) { bm = bm | 64w281474976710656; }
-        if (hdr.fabric_header_s0.isValid()) { bm = bm | 64w562949953421312; }
-        if (hdr.fabric_header_unicast_s0.isValid()) { bm = bm | 64w1125899906842624; }
-        if (hdr.fabric_header_multicast_s0.isValid()) { bm = bm | 64w2251799813685248; }
-        if (hdr.fabric_header_mirror_s0.isValid()) { bm = bm | 64w4503599627370496; }
-        if (hdr.fabric_header_cpu_s0.isValid()) { bm = bm | 64w9007199254740992; }
-        if (hdr.fabric_header_sflow_s0.isValid()) { bm = bm | 64w18014398509481984; }
-        if (hdr.fabric_payload_header_s0.isValid()) { bm = bm | 64w36028797018963968; }
+        if (hdr.ipv4_s0.isValid()) { bm = bm | 64w256; }
+        if (hdr.udp_s0[0].isValid()) { bm = bm | 64w512; }
+        if (hdr.gre_s0[0].isValid()) { bm = bm | 64w1024; }
+        if (hdr.ipv6_v2.isValid()) { bm = bm | 64w2048; }
+        if (hdr.icmp_s0.isValid()) { bm = bm | 64w4096; }
+        if (hdr.tcp_s0.isValid()) { bm = bm | 64w8192; }
+        if (hdr.roce_v2_s0.isValid()) { bm = bm | 64w16384; }
+        if (hdr.vxlan_gpe_int_header_s0.isValid()) { bm = bm | 64w32768; }
+        if (hdr.int_header_s0.isValid()) { bm = bm | 64w65536; }
+        if (hdr.int_val_s0[0].isValid()) { bm = bm | 64w131072; }
+        if (hdr.int_switch_id_header_s0.isValid()) { bm = bm | 64w262144; }
+        if (hdr.int_ingress_port_id_header_s0.isValid()) { bm = bm | 64w524288; }
+        if (hdr.int_hop_latency_header_s0.isValid()) { bm = bm | 64w1048576; }
+        if (hdr.int_q_occupancy_header_s0.isValid()) { bm = bm | 64w2097152; }
+        if (hdr.int_ingress_tstamp_header_s0.isValid()) { bm = bm | 64w4194304; }
+        if (hdr.int_egress_port_id_header_s0.isValid()) { bm = bm | 64w8388608; }
+        if (hdr.int_q_congestion_header_s0.isValid()) { bm = bm | 64w16777216; }
+        if (hdr.int_egress_port_tx_utilization_header_s0.isValid()) { bm = bm | 64w33554432; }
+        if (hdr.sctp_s0.isValid()) { bm = bm | 64w67108864; }
+        if (hdr.nvgre_s0.isValid()) { bm = bm | 64w134217728; }
+        if (hdr.erspan_t3_header_s0.isValid()) { bm = bm | 64w268435456; }
+        if (hdr.vxlan_s0.isValid()) { bm = bm | 64w536870912; }
+        if (hdr.vxlan_gpe_s0.isValid()) { bm = bm | 64w1073741824; }
+        if (hdr.genv_s0.isValid()) { bm = bm | 64w2147483648; }
+        if (hdr.nsh_s0.isValid()) { bm = bm | 64w4294967296; }
+        if (hdr.nsh_context_s0.isValid()) { bm = bm | 64w8589934592; }
+        if (hdr.lisp_s0.isValid()) { bm = bm | 64w17179869184; }
+        if (hdr.inner_ipv4_s0.isValid()) { bm = bm | 64w34359738368; }
+        if (hdr.inner_icmp_s0.isValid()) { bm = bm | 64w68719476736; }
+        if (hdr.inner_tcp_s0.isValid()) { bm = bm | 64w137438953472; }
+        if (hdr.inner_udp_s0.isValid()) { bm = bm | 64w274877906944; }
+        if (hdr.inner_sctp_s0.isValid()) { bm = bm | 64w549755813888; }
+        if (hdr.inner_ipv6_v2.isValid()) { bm = bm | 64w1099511627776; }
+        if (hdr.inner_ethernet_s0.isValid()) { bm = bm | 64w2199023255552; }
+        if (hdr.trill_s0.isValid()) { bm = bm | 64w4398046511104; }
+        if (hdr.vntag_s0.isValid()) { bm = bm | 64w8796093022208; }
+        if (hdr.bfd_s0.isValid()) { bm = bm | 64w17592186044416; }
+        if (hdr.sflow_s0.isValid()) { bm = bm | 64w35184372088832; }
+        if (hdr.fabric_header_s0.isValid()) { bm = bm | 64w70368744177664; }
+        if (hdr.fabric_header_unicast_s0.isValid()) { bm = bm | 64w140737488355328; }
+        if (hdr.fabric_header_multicast_s0.isValid()) { bm = bm | 64w281474976710656; }
+        if (hdr.fabric_header_mirror_s0.isValid()) { bm = bm | 64w562949953421312; }
+        if (hdr.fabric_header_cpu_s0.isValid()) { bm = bm | 64w1125899906842624; }
+        if (hdr.fabric_header_sflow_s0.isValid()) { bm = bm | 64w2251799813685248; }
+        if (hdr.fabric_payload_header_s0.isValid()) { bm = bm | 64w4503599627370496; }
         hdr.verdict.bitmap = bm;
         bit<8> err = 8w255;
         if (smeta.parser_error == error.NoError) { err = 8w0; }

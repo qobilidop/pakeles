@@ -488,11 +488,18 @@ fn emit_state(
     for ex in &state.extracts {
         let ht = header_types[ex.header_type.as_str()];
         let inst = instance_name(ex);
+        // A lookahead reads through a scoped local cursor; overlapping
+        // tree items are ordinary dissector output.
+        let cur = if ex.lookahead { "poff" } else { "off" };
+        if ex.lookahead {
+            writeln!(w, "  do -- lookahead: cursor does not advance")?;
+            writeln!(w, "  local poff = off")?;
+        }
         // FT_NONE subtree under the single proto root: unique JSON key
         // per header instance.
         writeln!(
             w,
-            "  local hdr_{inst} = tree:add(pf.f_hdr_{inst}, buf(math.floor(off / 8)))"
+            "  local hdr_{inst} = tree:add(pf.f_hdr_{inst}, buf(math.floor({cur} / 8)))"
         )?;
         for field in &ht.fields {
             let pf = pf_var(inst, &field.name);
@@ -503,7 +510,7 @@ fn emit_state(
                         // Region end first (avail-free reason rule).
                         writeln!(
                             w,
-                            "  if regions[#regions] and off + {n} > regions[#regions] then"
+                            "  if regions[#regions] and {cur} + {n} > regions[#regions] then"
                         )?;
                         writeln!(
                             w,
@@ -513,7 +520,7 @@ fn emit_state(
                         writeln!(w, "    return off")?;
                         writeln!(w, "  end")?;
                     }
-                    writeln!(w, "  if off + {n} > avail then")?;
+                    writeln!(w, "  if {cur} + {n} > avail then")?;
                     writeln!(
                         w,
                         "    hdr_{inst}:add_proto_expert_info(ef_error, \"out of bounds in {inst}.{}\")",
@@ -521,8 +528,9 @@ fn emit_state(
                     )?;
                     writeln!(w, "    return off")?;
                     writeln!(w, "  end")?;
-                    let cover =
-                        format!("buf(math.floor(off / 8), math.floor((off % 8 + {n} + 7) / 8))");
+                    let cover = format!(
+                        "buf(math.floor({cur} / 8), math.floor(({cur} % 8 + {n} + 7) / 8))"
+                    );
                     let is_ref = referenced.contains(&(inst.to_string(), field.name.clone()));
                     if is_ref && n > 32 {
                         bail!(
@@ -548,22 +556,22 @@ fn emit_state(
                             || n > 32);
                     if is_ref {
                         let v = val_var(inst, &field.name);
-                        writeln!(w, "  {v} = buf():bitfield(off, {n})")?;
+                        writeln!(w, "  {v} = buf():bitfield({cur}, {n})")?;
                         writeln!(w, "  hdr_{inst}:add({pf}, {cover}, {v})")?;
                     } else if typed_range_add {
                         // Byte-aligned: exact range, Wireshark decodes.
                         writeln!(
                             w,
-                            "  hdr_{inst}:add({pf}, buf(math.floor(off / 8), {}))",
+                            "  hdr_{inst}:add({pf}, buf(math.floor({cur} / 8), {}))",
                             n.div_ceil(8)
                         )?;
                     } else {
                         writeln!(
                             w,
-                            "  hdr_{inst}:add({pf}, {cover}, buf():bitfield(off, {n}))"
+                            "  hdr_{inst}:add({pf}, {cover}, buf():bitfield({cur}, {n}))"
                         )?;
                     }
-                    writeln!(w, "  off = off + {n}")?;
+                    writeln!(w, "  {cur} = {cur} + {n}")?;
                 }
                 Some(pb::field_width::Width::BitLen(expr)) => {
                     // The tvb range add is byte-addressed: the run's
@@ -624,6 +632,9 @@ fn emit_state(
                 }
                 None => bail!("field `{}` has no width", field.name),
             }
+        }
+        if ex.lookahead {
+            writeln!(w, "  end")?;
         }
     }
 

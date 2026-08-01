@@ -228,6 +228,15 @@ pub struct Extract {
     /// defaults to header_type when empty
     #[prost(string, tag = "2")]
     pub instance: ::prost::alloc::string::String,
+    /// Peek: instantiate the header (bind fields, drive selects, appear
+    /// in the extracted-headers observables with true offsets) WITHOUT
+    /// advancing the cursor. Reads are checked exactly like an extract
+    /// (same region/input bounds, same reject classes — errors on short
+    /// input, matching P4's lookahead). v1: the peeked type must be
+    /// all-fixed-width (validator W9). This is P4-16 `lookahead<T>()` /
+    /// P4_14 `current(o, w)` as one flag on the existing op.
+    #[prost(bool, tag = "3")]
+    pub lookahead: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Transition {

@@ -51,26 +51,6 @@ pf.f_mpls_bos = ProtoField.uint8("pakeles_p4lang_switch_parser.mpls.bos", "Botto
 pf.f_mpls_ttl = ProtoField.uint8("pakeles_p4lang_switch_parser.mpls.ttl", "TTL", base.DEC)
 pf.f_hdr_ip_version_nibble = ProtoField.none("pakeles_p4lang_switch_parser.ip_version_nibble", "ip_version_nibble")
 pf.f_ip_version_nibble_v = ProtoField.uint8("pakeles_p4lang_switch_parser.ip_version_nibble.v", "Version Nibble", base.DEC, { [4] = "IPv4", [6] = "IPv6" })
-pf.f_hdr_inner_ipv4_rest = ProtoField.none("pakeles_p4lang_switch_parser.inner_ipv4_rest", "inner_ipv4_rest")
-pf.f_inner_ipv4_rest_ihl = ProtoField.uint8("pakeles_p4lang_switch_parser.inner_ipv4_rest.ihl", "IHL", base.DEC)
-pf.f_inner_ipv4_rest_diffserv = ProtoField.uint8("pakeles_p4lang_switch_parser.inner_ipv4_rest.diffserv", "DiffServ", base.HEX)
-pf.f_inner_ipv4_rest_total_len = ProtoField.uint16("pakeles_p4lang_switch_parser.inner_ipv4_rest.total_len", "Total Length", base.DEC)
-pf.f_inner_ipv4_rest_identification = ProtoField.uint16("pakeles_p4lang_switch_parser.inner_ipv4_rest.identification", "Identification", base.HEX)
-pf.f_inner_ipv4_rest_flags = ProtoField.uint8("pakeles_p4lang_switch_parser.inner_ipv4_rest.flags", "Flags", base.HEX)
-pf.f_inner_ipv4_rest_frag_offset = ProtoField.uint16("pakeles_p4lang_switch_parser.inner_ipv4_rest.frag_offset", "Fragment Offset", base.DEC)
-pf.f_inner_ipv4_rest_ttl = ProtoField.uint8("pakeles_p4lang_switch_parser.inner_ipv4_rest.ttl", "TTL", base.DEC)
-pf.f_inner_ipv4_rest_protocol = ProtoField.uint8("pakeles_p4lang_switch_parser.inner_ipv4_rest.protocol", "Protocol", base.DEC, { [1] = "ICMP", [2] = "IGMP", [4] = "IPv4-in-IP", [6] = "TCP", [17] = "UDP", [41] = "IPv6-in-IP", [47] = "GRE", [58] = "ICMPv6", [88] = "EIGRP", [89] = "OSPF", [103] = "PIM", [112] = "VRRP" })
-pf.f_inner_ipv4_rest_hdr_checksum = ProtoField.uint16("pakeles_p4lang_switch_parser.inner_ipv4_rest.hdr_checksum", "Header Checksum", base.HEX)
-pf.f_inner_ipv4_rest_src_addr = ProtoField.uint32("pakeles_p4lang_switch_parser.inner_ipv4_rest.src_addr", "Source", base.HEX)
-pf.f_inner_ipv4_rest_dst_addr = ProtoField.uint32("pakeles_p4lang_switch_parser.inner_ipv4_rest.dst_addr", "Destination", base.HEX)
-pf.f_hdr_inner_ipv6_rest = ProtoField.none("pakeles_p4lang_switch_parser.inner_ipv6_rest", "inner_ipv6_rest")
-pf.f_inner_ipv6_rest_traffic_class = ProtoField.uint8("pakeles_p4lang_switch_parser.inner_ipv6_rest.traffic_class", "Traffic Class", base.HEX)
-pf.f_inner_ipv6_rest_flow_label = ProtoField.uint24("pakeles_p4lang_switch_parser.inner_ipv6_rest.flow_label", "Flow Label", base.HEX)
-pf.f_inner_ipv6_rest_payload_len = ProtoField.uint16("pakeles_p4lang_switch_parser.inner_ipv6_rest.payload_len", "Payload Length", base.DEC)
-pf.f_inner_ipv6_rest_next_hdr = ProtoField.uint8("pakeles_p4lang_switch_parser.inner_ipv6_rest.next_hdr", "Next Header", base.DEC, { [1] = "ICMP", [2] = "IGMP", [4] = "IPv4-in-IP", [6] = "TCP", [17] = "UDP", [41] = "IPv6-in-IP", [47] = "GRE", [58] = "ICMPv6", [88] = "EIGRP", [89] = "OSPF", [103] = "PIM", [112] = "VRRP" })
-pf.f_inner_ipv6_rest_hop_limit = ProtoField.uint8("pakeles_p4lang_switch_parser.inner_ipv6_rest.hop_limit", "Hop Limit", base.DEC)
-pf.f_inner_ipv6_rest_src_addr = ProtoField.bytes("pakeles_p4lang_switch_parser.inner_ipv6_rest.src_addr", "src_addr")
-pf.f_inner_ipv6_rest_dst_addr = ProtoField.bytes("pakeles_p4lang_switch_parser.inner_ipv6_rest.dst_addr", "dst_addr")
 pf.f_hdr_ipv4 = ProtoField.none("pakeles_p4lang_switch_parser.ipv4", "ipv4")
 pf.f_ipv4_version = ProtoField.uint8("pakeles_p4lang_switch_parser.ipv4.version", "Version", base.HEX)
 pf.f_ipv4_ihl = ProtoField.uint8("pakeles_p4lang_switch_parser.ipv4.ihl", "IHL", base.DEC)
@@ -189,10 +169,6 @@ pf.f_erspan_t3_header_span_id = ProtoField.uint16("pakeles_p4lang_switch_parser.
 pf.f_erspan_t3_header_timestamp = ProtoField.uint32("pakeles_p4lang_switch_parser.erspan_t3_header.timestamp", "Timestamp", base.DEC)
 pf.f_erspan_t3_header_sgt = ProtoField.uint16("pakeles_p4lang_switch_parser.erspan_t3_header.sgt", "SGT", base.HEX)
 pf.f_erspan_t3_header_ft_d_other = ProtoField.uint16("pakeles_p4lang_switch_parser.erspan_t3_header.ft_d_other", "Ft/D/Other", base.HEX)
-pf.f_hdr_inner_ethernet_rest = ProtoField.none("pakeles_p4lang_switch_parser.inner_ethernet_rest", "inner_ethernet_rest")
-pf.f_inner_ethernet_rest_dst_addr_rest = ProtoField.uint64("pakeles_p4lang_switch_parser.inner_ethernet_rest.dst_addr_rest", "Destination (low 44 bits)", base.HEX)
-pf.f_inner_ethernet_rest_src_addr = ProtoField.ether("pakeles_p4lang_switch_parser.inner_ethernet_rest.src_addr", "Source")
-pf.f_inner_ethernet_rest_ether_type = ProtoField.uint16("pakeles_p4lang_switch_parser.inner_ethernet_rest.ether_type", "EtherType", base.HEX, { [2048] = "IPv4", [2054] = "ARP", [8939] = "ERSPAN type III", [25944] = "Transparent Ethernet Bridging", [33024] = "802.1Q", [34525] = "IPv6", [34825] = "Slow Protocols (source: LACP)", [34887] = "MPLS (unicast)", [35020] = "LLDP", [36864] = "internal fabric header (source: BF_FABRIC)", [37120] = "QinQ (legacy 0x9100)" })
 pf.f_hdr_vxlan = ProtoField.none("pakeles_p4lang_switch_parser.vxlan", "vxlan")
 pf.f_vxlan_flags = ProtoField.uint8("pakeles_p4lang_switch_parser.vxlan.flags", "Flags", base.HEX)
 pf.f_vxlan_reserved = ProtoField.uint24("pakeles_p4lang_switch_parser.vxlan.reserved", "Reserved", base.HEX)
@@ -364,7 +340,7 @@ pf.f_fabric_header_sflow_sflow_egress_ifindex = ProtoField.uint16("pakeles_p4lan
 pf.f_hdr_fabric_payload_header = ProtoField.none("pakeles_p4lang_switch_parser.fabric_payload_header", "fabric_payload_header")
 pf.f_fabric_payload_header_ether_type = ProtoField.uint16("pakeles_p4lang_switch_parser.fabric_payload_header.ether_type", "EtherType", base.HEX, { [2048] = "IPv4", [2054] = "ARP", [8939] = "ERSPAN type III", [25944] = "Transparent Ethernet Bridging", [33024] = "802.1Q", [34525] = "IPv6", [34825] = "Slow Protocols (source: LACP)", [34887] = "MPLS (unicast)", [35020] = "LLDP", [36864] = "internal fabric header (source: BF_FABRIC)", [37120] = "QinQ (legacy 0x9100)" })
 pf.f_payload = ProtoField.bytes("pakeles_p4lang_switch_parser.payload", "Payload")
-p.fields = { pf.f_hdr_ethernet, pf.f_ethernet_dst_addr, pf.f_ethernet_src_addr, pf.f_ethernet_ether_type, pf.f_hdr_llc_header, pf.f_llc_header_dsap, pf.f_llc_header_ssap, pf.f_llc_header_control_, pf.f_hdr_snap_header, pf.f_snap_header_oui, pf.f_snap_header_type_, pf.f_hdr_roce, pf.f_roce_ib_grh_0, pf.f_roce_ib_grh_1, pf.f_roce_ib_grh_2, pf.f_roce_ib_grh_3, pf.f_roce_ib_grh_4, pf.f_roce_ib_bth_0, pf.f_roce_ib_bth_1, pf.f_hdr_fcoe, pf.f_fcoe_version, pf.f_fcoe_type_, pf.f_fcoe_sof, pf.f_fcoe_rsvd1, pf.f_fcoe_ts_upper, pf.f_fcoe_ts_lower, pf.f_fcoe_size_, pf.f_fcoe_eof, pf.f_fcoe_rsvd2, pf.f_hdr_vlan_tag_, pf.f_vlan_tag__pcp, pf.f_vlan_tag__cfi, pf.f_vlan_tag__vid, pf.f_vlan_tag__ether_type, pf.f_hdr_mpls, pf.f_mpls_label, pf.f_mpls_exp, pf.f_mpls_bos, pf.f_mpls_ttl, pf.f_hdr_ip_version_nibble, pf.f_ip_version_nibble_v, pf.f_hdr_inner_ipv4_rest, pf.f_inner_ipv4_rest_ihl, pf.f_inner_ipv4_rest_diffserv, pf.f_inner_ipv4_rest_total_len, pf.f_inner_ipv4_rest_identification, pf.f_inner_ipv4_rest_flags, pf.f_inner_ipv4_rest_frag_offset, pf.f_inner_ipv4_rest_ttl, pf.f_inner_ipv4_rest_protocol, pf.f_inner_ipv4_rest_hdr_checksum, pf.f_inner_ipv4_rest_src_addr, pf.f_inner_ipv4_rest_dst_addr, pf.f_hdr_inner_ipv6_rest, pf.f_inner_ipv6_rest_traffic_class, pf.f_inner_ipv6_rest_flow_label, pf.f_inner_ipv6_rest_payload_len, pf.f_inner_ipv6_rest_next_hdr, pf.f_inner_ipv6_rest_hop_limit, pf.f_inner_ipv6_rest_src_addr, pf.f_inner_ipv6_rest_dst_addr, pf.f_hdr_ipv4, pf.f_ipv4_version, pf.f_ipv4_ihl, pf.f_ipv4_diffserv, pf.f_ipv4_total_len, pf.f_ipv4_identification, pf.f_ipv4_flags, pf.f_ipv4_frag_offset, pf.f_ipv4_ttl, pf.f_ipv4_protocol, pf.f_ipv4_hdr_checksum, pf.f_ipv4_src_addr, pf.f_ipv4_dst_addr, pf.f_hdr_udp, pf.f_udp_src_port, pf.f_udp_dst_port, pf.f_udp_length_, pf.f_udp_checksum, pf.f_hdr_gre, pf.f_gre_c, pf.f_gre_r, pf.f_gre_k, pf.f_gre_s, pf.f_gre_strict, pf.f_gre_recurse, pf.f_gre_flags, pf.f_gre_ver, pf.f_gre_proto, pf.f_hdr_ipv6, pf.f_ipv6_version, pf.f_ipv6_traffic_class, pf.f_ipv6_flow_label, pf.f_ipv6_payload_len, pf.f_ipv6_next_hdr, pf.f_ipv6_hop_limit, pf.f_ipv6_src_addr, pf.f_ipv6_dst_addr, pf.f_hdr_icmp, pf.f_icmp_type_code, pf.f_icmp_hdr_checksum, pf.f_hdr_tcp, pf.f_tcp_src_port, pf.f_tcp_dst_port, pf.f_tcp_seq_no, pf.f_tcp_ack_no, pf.f_tcp_data_offset, pf.f_tcp_res, pf.f_tcp_flags, pf.f_tcp_window, pf.f_tcp_checksum, pf.f_tcp_urgent_ptr, pf.f_hdr_roce_v2, pf.f_roce_v2_ib_bth_0, pf.f_roce_v2_ib_bth_1, pf.f_hdr_vxlan_gpe_int_header, pf.f_vxlan_gpe_int_header_int_type, pf.f_vxlan_gpe_int_header_rsvd, pf.f_vxlan_gpe_int_header_len, pf.f_vxlan_gpe_int_header_next_proto, pf.f_hdr_int_header, pf.f_int_header_ver, pf.f_int_header_rep, pf.f_int_header_c, pf.f_int_header_e, pf.f_int_header_rsvd1, pf.f_int_header_ins_cnt, pf.f_int_header_max_hop_cnt, pf.f_int_header_total_hop_cnt, pf.f_int_header_instruction_mask_0003, pf.f_int_header_instruction_mask_0407, pf.f_int_header_instruction_mask_0811, pf.f_int_header_instruction_mask_1215, pf.f_int_header_rsvd2, pf.f_hdr_int_val, pf.f_int_val_bos, pf.f_int_val_val, pf.f_hdr_int_switch_id_header, pf.f_int_switch_id_header_bos, pf.f_int_switch_id_header_switch_id, pf.f_hdr_int_ingress_port_id_header, pf.f_int_ingress_port_id_header_bos, pf.f_int_ingress_port_id_header_ingress_port_id_1, pf.f_int_ingress_port_id_header_ingress_port_id_0, pf.f_hdr_int_hop_latency_header, pf.f_int_hop_latency_header_bos, pf.f_int_hop_latency_header_hop_latency, pf.f_hdr_int_q_occupancy_header, pf.f_int_q_occupancy_header_bos, pf.f_int_q_occupancy_header_q_occupancy1, pf.f_int_q_occupancy_header_q_occupancy0, pf.f_hdr_int_ingress_tstamp_header, pf.f_int_ingress_tstamp_header_bos, pf.f_int_ingress_tstamp_header_ingress_tstamp, pf.f_hdr_int_egress_port_id_header, pf.f_int_egress_port_id_header_bos, pf.f_int_egress_port_id_header_egress_port_id, pf.f_hdr_int_q_congestion_header, pf.f_int_q_congestion_header_bos, pf.f_int_q_congestion_header_q_congestion, pf.f_hdr_int_egress_port_tx_utilization_header, pf.f_int_egress_port_tx_utilization_header_bos, pf.f_int_egress_port_tx_utilization_header_egress_port_tx_utilization, pf.f_hdr_sctp, pf.f_sctp_src_port, pf.f_sctp_dst_port, pf.f_sctp_verif_tag, pf.f_sctp_checksum, pf.f_hdr_nvgre, pf.f_nvgre_tni, pf.f_nvgre_flow_id, pf.f_hdr_erspan_t3_header, pf.f_erspan_t3_header_version, pf.f_erspan_t3_header_vlan, pf.f_erspan_t3_header_priority, pf.f_erspan_t3_header_span_id, pf.f_erspan_t3_header_timestamp, pf.f_erspan_t3_header_sgt, pf.f_erspan_t3_header_ft_d_other, pf.f_hdr_inner_ethernet_rest, pf.f_inner_ethernet_rest_dst_addr_rest, pf.f_inner_ethernet_rest_src_addr, pf.f_inner_ethernet_rest_ether_type, pf.f_hdr_vxlan, pf.f_vxlan_flags, pf.f_vxlan_reserved, pf.f_vxlan_vni, pf.f_vxlan_reserved2, pf.f_hdr_vxlan_gpe, pf.f_vxlan_gpe_flags, pf.f_vxlan_gpe_reserved, pf.f_vxlan_gpe_next_proto, pf.f_vxlan_gpe_vni, pf.f_vxlan_gpe_reserved2, pf.f_hdr_genv, pf.f_genv_ver, pf.f_genv_opt_len, pf.f_genv_oam, pf.f_genv_critical, pf.f_genv_reserved, pf.f_genv_proto_type, pf.f_genv_vni, pf.f_genv_reserved2, pf.f_hdr_nsh, pf.f_nsh_oam, pf.f_nsh_context, pf.f_nsh_flags, pf.f_nsh_reserved, pf.f_nsh_proto_type, pf.f_nsh_spath, pf.f_nsh_sindex, pf.f_hdr_nsh_context, pf.f_nsh_context_network_platform, pf.f_nsh_context_network_shared, pf.f_nsh_context_service_platform, pf.f_nsh_context_service_shared, pf.f_hdr_lisp, pf.f_lisp_flags, pf.f_lisp_nonce, pf.f_lisp_lsbs_instance_id, pf.f_hdr_inner_ipv4, pf.f_inner_ipv4_version, pf.f_inner_ipv4_ihl, pf.f_inner_ipv4_diffserv, pf.f_inner_ipv4_total_len, pf.f_inner_ipv4_identification, pf.f_inner_ipv4_flags, pf.f_inner_ipv4_frag_offset, pf.f_inner_ipv4_ttl, pf.f_inner_ipv4_protocol, pf.f_inner_ipv4_hdr_checksum, pf.f_inner_ipv4_src_addr, pf.f_inner_ipv4_dst_addr, pf.f_hdr_inner_icmp, pf.f_inner_icmp_type_code, pf.f_inner_icmp_hdr_checksum, pf.f_hdr_inner_tcp, pf.f_inner_tcp_src_port, pf.f_inner_tcp_dst_port, pf.f_inner_tcp_seq_no, pf.f_inner_tcp_ack_no, pf.f_inner_tcp_data_offset, pf.f_inner_tcp_res, pf.f_inner_tcp_flags, pf.f_inner_tcp_window, pf.f_inner_tcp_checksum, pf.f_inner_tcp_urgent_ptr, pf.f_hdr_inner_udp, pf.f_inner_udp_src_port, pf.f_inner_udp_dst_port, pf.f_inner_udp_length_, pf.f_inner_udp_checksum, pf.f_hdr_inner_sctp, pf.f_inner_sctp_src_port, pf.f_inner_sctp_dst_port, pf.f_inner_sctp_verif_tag, pf.f_inner_sctp_checksum, pf.f_hdr_inner_ipv6, pf.f_inner_ipv6_version, pf.f_inner_ipv6_traffic_class, pf.f_inner_ipv6_flow_label, pf.f_inner_ipv6_payload_len, pf.f_inner_ipv6_next_hdr, pf.f_inner_ipv6_hop_limit, pf.f_inner_ipv6_src_addr, pf.f_inner_ipv6_dst_addr, pf.f_hdr_inner_ethernet, pf.f_inner_ethernet_dst_addr, pf.f_inner_ethernet_src_addr, pf.f_inner_ethernet_ether_type, pf.f_hdr_trill, pf.f_trill_version, pf.f_trill_reserved, pf.f_trill_multi_destination, pf.f_trill_opt_length, pf.f_trill_hop_count, pf.f_trill_egress_rbridge, pf.f_trill_ingress_rbridge, pf.f_hdr_vntag, pf.f_vntag_direction, pf.f_vntag_pointer, pf.f_vntag_dest_vif, pf.f_vntag_looped, pf.f_vntag_reserved, pf.f_vntag_version, pf.f_vntag_src_vif, pf.f_hdr_bfd, pf.f_bfd_version, pf.f_bfd_diag, pf.f_bfd_state, pf.f_bfd_p, pf.f_bfd_f, pf.f_bfd_c, pf.f_bfd_a, pf.f_bfd_d, pf.f_bfd_m, pf.f_bfd_detect_mult, pf.f_bfd_len, pf.f_bfd_my_discriminator, pf.f_bfd_your_discriminator, pf.f_bfd_desired_min_tx_interval, pf.f_bfd_required_min_rx_interval, pf.f_bfd_required_min_echo_rx_interval, pf.f_hdr_sflow, pf.f_sflow_version, pf.f_sflow_addr_type, pf.f_sflow_ip_address, pf.f_sflow_sub_agent_id, pf.f_sflow_seq_number, pf.f_sflow_uptime, pf.f_sflow_num_samples, pf.f_hdr_fabric_header, pf.f_fabric_header_packet_type, pf.f_fabric_header_header_version, pf.f_fabric_header_packet_version, pf.f_fabric_header_pad1, pf.f_fabric_header_fabric_color, pf.f_fabric_header_fabric_qos, pf.f_fabric_header_dst_device, pf.f_fabric_header_dst_port_or_group, pf.f_hdr_fabric_header_unicast, pf.f_fabric_header_unicast_routed, pf.f_fabric_header_unicast_outer_routed, pf.f_fabric_header_unicast_tunnel_terminate, pf.f_fabric_header_unicast_ingress_tunnel_type, pf.f_fabric_header_unicast_nexthop_index, pf.f_hdr_fabric_header_multicast, pf.f_fabric_header_multicast_routed, pf.f_fabric_header_multicast_outer_routed, pf.f_fabric_header_multicast_tunnel_terminate, pf.f_fabric_header_multicast_ingress_tunnel_type, pf.f_fabric_header_multicast_ingress_ifindex, pf.f_fabric_header_multicast_ingress_bd, pf.f_fabric_header_multicast_mcast_grp, pf.f_hdr_fabric_header_mirror, pf.f_fabric_header_mirror_rewrite_index, pf.f_fabric_header_mirror_egress_port, pf.f_fabric_header_mirror_egress_queue, pf.f_fabric_header_mirror_pad, pf.f_hdr_fabric_header_cpu, pf.f_fabric_header_cpu_egress_queue, pf.f_fabric_header_cpu_tx_bypass, pf.f_fabric_header_cpu_reserved, pf.f_fabric_header_cpu_ingress_port, pf.f_fabric_header_cpu_ingress_ifindex, pf.f_fabric_header_cpu_ingress_bd, pf.f_fabric_header_cpu_reason_code, pf.f_fabric_header_cpu_mcast_grp, pf.f_hdr_fabric_header_sflow, pf.f_fabric_header_sflow_sflow_session_id, pf.f_fabric_header_sflow_sflow_egress_ifindex, pf.f_hdr_fabric_payload_header, pf.f_fabric_payload_header_ether_type, pf.f_payload }
+p.fields = { pf.f_hdr_ethernet, pf.f_ethernet_dst_addr, pf.f_ethernet_src_addr, pf.f_ethernet_ether_type, pf.f_hdr_llc_header, pf.f_llc_header_dsap, pf.f_llc_header_ssap, pf.f_llc_header_control_, pf.f_hdr_snap_header, pf.f_snap_header_oui, pf.f_snap_header_type_, pf.f_hdr_roce, pf.f_roce_ib_grh_0, pf.f_roce_ib_grh_1, pf.f_roce_ib_grh_2, pf.f_roce_ib_grh_3, pf.f_roce_ib_grh_4, pf.f_roce_ib_bth_0, pf.f_roce_ib_bth_1, pf.f_hdr_fcoe, pf.f_fcoe_version, pf.f_fcoe_type_, pf.f_fcoe_sof, pf.f_fcoe_rsvd1, pf.f_fcoe_ts_upper, pf.f_fcoe_ts_lower, pf.f_fcoe_size_, pf.f_fcoe_eof, pf.f_fcoe_rsvd2, pf.f_hdr_vlan_tag_, pf.f_vlan_tag__pcp, pf.f_vlan_tag__cfi, pf.f_vlan_tag__vid, pf.f_vlan_tag__ether_type, pf.f_hdr_mpls, pf.f_mpls_label, pf.f_mpls_exp, pf.f_mpls_bos, pf.f_mpls_ttl, pf.f_hdr_ip_version_nibble, pf.f_ip_version_nibble_v, pf.f_hdr_ipv4, pf.f_ipv4_version, pf.f_ipv4_ihl, pf.f_ipv4_diffserv, pf.f_ipv4_total_len, pf.f_ipv4_identification, pf.f_ipv4_flags, pf.f_ipv4_frag_offset, pf.f_ipv4_ttl, pf.f_ipv4_protocol, pf.f_ipv4_hdr_checksum, pf.f_ipv4_src_addr, pf.f_ipv4_dst_addr, pf.f_hdr_udp, pf.f_udp_src_port, pf.f_udp_dst_port, pf.f_udp_length_, pf.f_udp_checksum, pf.f_hdr_gre, pf.f_gre_c, pf.f_gre_r, pf.f_gre_k, pf.f_gre_s, pf.f_gre_strict, pf.f_gre_recurse, pf.f_gre_flags, pf.f_gre_ver, pf.f_gre_proto, pf.f_hdr_ipv6, pf.f_ipv6_version, pf.f_ipv6_traffic_class, pf.f_ipv6_flow_label, pf.f_ipv6_payload_len, pf.f_ipv6_next_hdr, pf.f_ipv6_hop_limit, pf.f_ipv6_src_addr, pf.f_ipv6_dst_addr, pf.f_hdr_icmp, pf.f_icmp_type_code, pf.f_icmp_hdr_checksum, pf.f_hdr_tcp, pf.f_tcp_src_port, pf.f_tcp_dst_port, pf.f_tcp_seq_no, pf.f_tcp_ack_no, pf.f_tcp_data_offset, pf.f_tcp_res, pf.f_tcp_flags, pf.f_tcp_window, pf.f_tcp_checksum, pf.f_tcp_urgent_ptr, pf.f_hdr_roce_v2, pf.f_roce_v2_ib_bth_0, pf.f_roce_v2_ib_bth_1, pf.f_hdr_vxlan_gpe_int_header, pf.f_vxlan_gpe_int_header_int_type, pf.f_vxlan_gpe_int_header_rsvd, pf.f_vxlan_gpe_int_header_len, pf.f_vxlan_gpe_int_header_next_proto, pf.f_hdr_int_header, pf.f_int_header_ver, pf.f_int_header_rep, pf.f_int_header_c, pf.f_int_header_e, pf.f_int_header_rsvd1, pf.f_int_header_ins_cnt, pf.f_int_header_max_hop_cnt, pf.f_int_header_total_hop_cnt, pf.f_int_header_instruction_mask_0003, pf.f_int_header_instruction_mask_0407, pf.f_int_header_instruction_mask_0811, pf.f_int_header_instruction_mask_1215, pf.f_int_header_rsvd2, pf.f_hdr_int_val, pf.f_int_val_bos, pf.f_int_val_val, pf.f_hdr_int_switch_id_header, pf.f_int_switch_id_header_bos, pf.f_int_switch_id_header_switch_id, pf.f_hdr_int_ingress_port_id_header, pf.f_int_ingress_port_id_header_bos, pf.f_int_ingress_port_id_header_ingress_port_id_1, pf.f_int_ingress_port_id_header_ingress_port_id_0, pf.f_hdr_int_hop_latency_header, pf.f_int_hop_latency_header_bos, pf.f_int_hop_latency_header_hop_latency, pf.f_hdr_int_q_occupancy_header, pf.f_int_q_occupancy_header_bos, pf.f_int_q_occupancy_header_q_occupancy1, pf.f_int_q_occupancy_header_q_occupancy0, pf.f_hdr_int_ingress_tstamp_header, pf.f_int_ingress_tstamp_header_bos, pf.f_int_ingress_tstamp_header_ingress_tstamp, pf.f_hdr_int_egress_port_id_header, pf.f_int_egress_port_id_header_bos, pf.f_int_egress_port_id_header_egress_port_id, pf.f_hdr_int_q_congestion_header, pf.f_int_q_congestion_header_bos, pf.f_int_q_congestion_header_q_congestion, pf.f_hdr_int_egress_port_tx_utilization_header, pf.f_int_egress_port_tx_utilization_header_bos, pf.f_int_egress_port_tx_utilization_header_egress_port_tx_utilization, pf.f_hdr_sctp, pf.f_sctp_src_port, pf.f_sctp_dst_port, pf.f_sctp_verif_tag, pf.f_sctp_checksum, pf.f_hdr_nvgre, pf.f_nvgre_tni, pf.f_nvgre_flow_id, pf.f_hdr_erspan_t3_header, pf.f_erspan_t3_header_version, pf.f_erspan_t3_header_vlan, pf.f_erspan_t3_header_priority, pf.f_erspan_t3_header_span_id, pf.f_erspan_t3_header_timestamp, pf.f_erspan_t3_header_sgt, pf.f_erspan_t3_header_ft_d_other, pf.f_hdr_vxlan, pf.f_vxlan_flags, pf.f_vxlan_reserved, pf.f_vxlan_vni, pf.f_vxlan_reserved2, pf.f_hdr_vxlan_gpe, pf.f_vxlan_gpe_flags, pf.f_vxlan_gpe_reserved, pf.f_vxlan_gpe_next_proto, pf.f_vxlan_gpe_vni, pf.f_vxlan_gpe_reserved2, pf.f_hdr_genv, pf.f_genv_ver, pf.f_genv_opt_len, pf.f_genv_oam, pf.f_genv_critical, pf.f_genv_reserved, pf.f_genv_proto_type, pf.f_genv_vni, pf.f_genv_reserved2, pf.f_hdr_nsh, pf.f_nsh_oam, pf.f_nsh_context, pf.f_nsh_flags, pf.f_nsh_reserved, pf.f_nsh_proto_type, pf.f_nsh_spath, pf.f_nsh_sindex, pf.f_hdr_nsh_context, pf.f_nsh_context_network_platform, pf.f_nsh_context_network_shared, pf.f_nsh_context_service_platform, pf.f_nsh_context_service_shared, pf.f_hdr_lisp, pf.f_lisp_flags, pf.f_lisp_nonce, pf.f_lisp_lsbs_instance_id, pf.f_hdr_inner_ipv4, pf.f_inner_ipv4_version, pf.f_inner_ipv4_ihl, pf.f_inner_ipv4_diffserv, pf.f_inner_ipv4_total_len, pf.f_inner_ipv4_identification, pf.f_inner_ipv4_flags, pf.f_inner_ipv4_frag_offset, pf.f_inner_ipv4_ttl, pf.f_inner_ipv4_protocol, pf.f_inner_ipv4_hdr_checksum, pf.f_inner_ipv4_src_addr, pf.f_inner_ipv4_dst_addr, pf.f_hdr_inner_icmp, pf.f_inner_icmp_type_code, pf.f_inner_icmp_hdr_checksum, pf.f_hdr_inner_tcp, pf.f_inner_tcp_src_port, pf.f_inner_tcp_dst_port, pf.f_inner_tcp_seq_no, pf.f_inner_tcp_ack_no, pf.f_inner_tcp_data_offset, pf.f_inner_tcp_res, pf.f_inner_tcp_flags, pf.f_inner_tcp_window, pf.f_inner_tcp_checksum, pf.f_inner_tcp_urgent_ptr, pf.f_hdr_inner_udp, pf.f_inner_udp_src_port, pf.f_inner_udp_dst_port, pf.f_inner_udp_length_, pf.f_inner_udp_checksum, pf.f_hdr_inner_sctp, pf.f_inner_sctp_src_port, pf.f_inner_sctp_dst_port, pf.f_inner_sctp_verif_tag, pf.f_inner_sctp_checksum, pf.f_hdr_inner_ipv6, pf.f_inner_ipv6_version, pf.f_inner_ipv6_traffic_class, pf.f_inner_ipv6_flow_label, pf.f_inner_ipv6_payload_len, pf.f_inner_ipv6_next_hdr, pf.f_inner_ipv6_hop_limit, pf.f_inner_ipv6_src_addr, pf.f_inner_ipv6_dst_addr, pf.f_hdr_inner_ethernet, pf.f_inner_ethernet_dst_addr, pf.f_inner_ethernet_src_addr, pf.f_inner_ethernet_ether_type, pf.f_hdr_trill, pf.f_trill_version, pf.f_trill_reserved, pf.f_trill_multi_destination, pf.f_trill_opt_length, pf.f_trill_hop_count, pf.f_trill_egress_rbridge, pf.f_trill_ingress_rbridge, pf.f_hdr_vntag, pf.f_vntag_direction, pf.f_vntag_pointer, pf.f_vntag_dest_vif, pf.f_vntag_looped, pf.f_vntag_reserved, pf.f_vntag_version, pf.f_vntag_src_vif, pf.f_hdr_bfd, pf.f_bfd_version, pf.f_bfd_diag, pf.f_bfd_state, pf.f_bfd_p, pf.f_bfd_f, pf.f_bfd_c, pf.f_bfd_a, pf.f_bfd_d, pf.f_bfd_m, pf.f_bfd_detect_mult, pf.f_bfd_len, pf.f_bfd_my_discriminator, pf.f_bfd_your_discriminator, pf.f_bfd_desired_min_tx_interval, pf.f_bfd_required_min_rx_interval, pf.f_bfd_required_min_echo_rx_interval, pf.f_hdr_sflow, pf.f_sflow_version, pf.f_sflow_addr_type, pf.f_sflow_ip_address, pf.f_sflow_sub_agent_id, pf.f_sflow_seq_number, pf.f_sflow_uptime, pf.f_sflow_num_samples, pf.f_hdr_fabric_header, pf.f_fabric_header_packet_type, pf.f_fabric_header_header_version, pf.f_fabric_header_packet_version, pf.f_fabric_header_pad1, pf.f_fabric_header_fabric_color, pf.f_fabric_header_fabric_qos, pf.f_fabric_header_dst_device, pf.f_fabric_header_dst_port_or_group, pf.f_hdr_fabric_header_unicast, pf.f_fabric_header_unicast_routed, pf.f_fabric_header_unicast_outer_routed, pf.f_fabric_header_unicast_tunnel_terminate, pf.f_fabric_header_unicast_ingress_tunnel_type, pf.f_fabric_header_unicast_nexthop_index, pf.f_hdr_fabric_header_multicast, pf.f_fabric_header_multicast_routed, pf.f_fabric_header_multicast_outer_routed, pf.f_fabric_header_multicast_tunnel_terminate, pf.f_fabric_header_multicast_ingress_tunnel_type, pf.f_fabric_header_multicast_ingress_ifindex, pf.f_fabric_header_multicast_ingress_bd, pf.f_fabric_header_multicast_mcast_grp, pf.f_hdr_fabric_header_mirror, pf.f_fabric_header_mirror_rewrite_index, pf.f_fabric_header_mirror_egress_port, pf.f_fabric_header_mirror_egress_queue, pf.f_fabric_header_mirror_pad, pf.f_hdr_fabric_header_cpu, pf.f_fabric_header_cpu_egress_queue, pf.f_fabric_header_cpu_tx_bypass, pf.f_fabric_header_cpu_reserved, pf.f_fabric_header_cpu_ingress_port, pf.f_fabric_header_cpu_ingress_ifindex, pf.f_fabric_header_cpu_ingress_bd, pf.f_fabric_header_cpu_reason_code, pf.f_fabric_header_cpu_mcast_grp, pf.f_hdr_fabric_header_sflow, pf.f_fabric_header_sflow_sflow_session_id, pf.f_fabric_header_sflow_sflow_egress_ifindex, pf.f_hdr_fabric_payload_header, pf.f_fabric_payload_header_ether_type, pf.f_payload }
 
 local states = {}
 
@@ -912,14 +888,17 @@ function states.parse_mpls_bos(buf, pinfo, tree, off, depth)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_ip_version_nibble = tree:add(pf.f_hdr_ip_version_nibble, buf(math.floor(off / 8)))
-  if off + 4 > avail then
+  do -- lookahead: cursor does not advance
+  local poff = off
+  local hdr_ip_version_nibble = tree:add(pf.f_hdr_ip_version_nibble, buf(math.floor(poff / 8)))
+  if poff + 4 > avail then
     hdr_ip_version_nibble:add_proto_expert_info(ef_error, "out of bounds in ip_version_nibble.v")
     return off
   end
-  v.v_ip_version_nibble_v = buf():bitfield(off, 4)
-  hdr_ip_version_nibble:add(pf.f_ip_version_nibble_v, buf(math.floor(off / 8), math.floor((off % 8 + 4 + 7) / 8)), v.v_ip_version_nibble_v)
-  off = off + 4
+  v.v_ip_version_nibble_v = buf():bitfield(poff, 4)
+  hdr_ip_version_nibble:add(pf.f_ip_version_nibble_v, buf(math.floor(poff / 8), math.floor((poff % 8 + 4 + 7) / 8)), v.v_ip_version_nibble_v)
+  poff = poff + 4
+  end
   if v.v_ip_version_nibble_v == 4 then
     return states.parse_mpls_inner_ipv4(buf, pinfo, tree, off, depth)
   elseif v.v_ip_version_nibble_v == 6 then
@@ -936,86 +915,7 @@ function states.parse_mpls_inner_ipv4(buf, pinfo, tree, off, depth)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_inner_ipv4_rest = tree:add(pf.f_hdr_inner_ipv4_rest, buf(math.floor(off / 8)))
-  if off + 4 > avail then
-    hdr_inner_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ipv4_rest.ihl")
-    return off
-  end
-  v.v_inner_ipv4_rest_ihl = buf():bitfield(off, 4)
-  hdr_inner_ipv4_rest:add(pf.f_inner_ipv4_rest_ihl, buf(math.floor(off / 8), math.floor((off % 8 + 4 + 7) / 8)), v.v_inner_ipv4_rest_ihl)
-  off = off + 4
-  if off + 8 > avail then
-    hdr_inner_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ipv4_rest.diffserv")
-    return off
-  end
-  hdr_inner_ipv4_rest:add(pf.f_inner_ipv4_rest_diffserv, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), buf():bitfield(off, 8))
-  off = off + 8
-  if off + 16 > avail then
-    hdr_inner_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ipv4_rest.total_len")
-    return off
-  end
-  hdr_inner_ipv4_rest:add(pf.f_inner_ipv4_rest_total_len, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), buf():bitfield(off, 16))
-  off = off + 16
-  if off + 16 > avail then
-    hdr_inner_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ipv4_rest.identification")
-    return off
-  end
-  hdr_inner_ipv4_rest:add(pf.f_inner_ipv4_rest_identification, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), buf():bitfield(off, 16))
-  off = off + 16
-  if off + 3 > avail then
-    hdr_inner_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ipv4_rest.flags")
-    return off
-  end
-  hdr_inner_ipv4_rest:add(pf.f_inner_ipv4_rest_flags, buf(math.floor(off / 8), math.floor((off % 8 + 3 + 7) / 8)), buf():bitfield(off, 3))
-  off = off + 3
-  if off + 13 > avail then
-    hdr_inner_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ipv4_rest.frag_offset")
-    return off
-  end
-  v.v_inner_ipv4_rest_frag_offset = buf():bitfield(off, 13)
-  hdr_inner_ipv4_rest:add(pf.f_inner_ipv4_rest_frag_offset, buf(math.floor(off / 8), math.floor((off % 8 + 13 + 7) / 8)), v.v_inner_ipv4_rest_frag_offset)
-  off = off + 13
-  if off + 8 > avail then
-    hdr_inner_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ipv4_rest.ttl")
-    return off
-  end
-  hdr_inner_ipv4_rest:add(pf.f_inner_ipv4_rest_ttl, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), buf():bitfield(off, 8))
-  off = off + 8
-  if off + 8 > avail then
-    hdr_inner_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ipv4_rest.protocol")
-    return off
-  end
-  v.v_inner_ipv4_rest_protocol = buf():bitfield(off, 8)
-  hdr_inner_ipv4_rest:add(pf.f_inner_ipv4_rest_protocol, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v.v_inner_ipv4_rest_protocol)
-  off = off + 8
-  if off + 16 > avail then
-    hdr_inner_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ipv4_rest.hdr_checksum")
-    return off
-  end
-  hdr_inner_ipv4_rest:add(pf.f_inner_ipv4_rest_hdr_checksum, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), buf():bitfield(off, 16))
-  off = off + 16
-  if off + 32 > avail then
-    hdr_inner_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ipv4_rest.src_addr")
-    return off
-  end
-  hdr_inner_ipv4_rest:add(pf.f_inner_ipv4_rest_src_addr, buf(math.floor(off / 8), math.floor((off % 8 + 32 + 7) / 8)), buf():bitfield(off, 32))
-  off = off + 32
-  if off + 32 > avail then
-    hdr_inner_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ipv4_rest.dst_addr")
-    return off
-  end
-  hdr_inner_ipv4_rest:add(pf.f_inner_ipv4_rest_dst_addr, buf(math.floor(off / 8), math.floor((off % 8 + 32 + 7) / 8)), buf():bitfield(off, 32))
-  off = off + 32
-  if v.v_inner_ipv4_rest_frag_offset == 0 and v.v_inner_ipv4_rest_ihl == 5 and v.v_inner_ipv4_rest_protocol == 1 then
-    return states.parse_inner_icmp(buf, pinfo, tree, off, depth)
-  elseif v.v_inner_ipv4_rest_frag_offset == 0 and v.v_inner_ipv4_rest_ihl == 5 and v.v_inner_ipv4_rest_protocol == 6 then
-    return states.parse_inner_tcp(buf, pinfo, tree, off, depth)
-  elseif v.v_inner_ipv4_rest_frag_offset == 0 and v.v_inner_ipv4_rest_ihl == 5 and v.v_inner_ipv4_rest_protocol == 17 then
-    return states.parse_inner_udp(buf, pinfo, tree, off, depth)
-  else
-    add_payload(buf, tree, off)
-    return off
-  end
+  return states.parse_inner_ipv4(buf, pinfo, tree, off, depth)
 end
 
 function states.parse_mpls_inner_ipv6(buf, pinfo, tree, off, depth)
@@ -1025,66 +925,7 @@ function states.parse_mpls_inner_ipv6(buf, pinfo, tree, off, depth)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_inner_ipv6_rest = tree:add(pf.f_hdr_inner_ipv6_rest, buf(math.floor(off / 8)))
-  if off + 8 > avail then
-    hdr_inner_ipv6_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ipv6_rest.traffic_class")
-    return off
-  end
-  hdr_inner_ipv6_rest:add(pf.f_inner_ipv6_rest_traffic_class, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), buf():bitfield(off, 8))
-  off = off + 8
-  if off + 20 > avail then
-    hdr_inner_ipv6_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ipv6_rest.flow_label")
-    return off
-  end
-  hdr_inner_ipv6_rest:add(pf.f_inner_ipv6_rest_flow_label, buf(math.floor(off / 8), math.floor((off % 8 + 20 + 7) / 8)), buf():bitfield(off, 20))
-  off = off + 20
-  if off + 16 > avail then
-    hdr_inner_ipv6_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ipv6_rest.payload_len")
-    return off
-  end
-  hdr_inner_ipv6_rest:add(pf.f_inner_ipv6_rest_payload_len, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), buf():bitfield(off, 16))
-  off = off + 16
-  if off + 8 > avail then
-    hdr_inner_ipv6_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ipv6_rest.next_hdr")
-    return off
-  end
-  v.v_inner_ipv6_rest_next_hdr = buf():bitfield(off, 8)
-  hdr_inner_ipv6_rest:add(pf.f_inner_ipv6_rest_next_hdr, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v.v_inner_ipv6_rest_next_hdr)
-  off = off + 8
-  if off + 8 > avail then
-    hdr_inner_ipv6_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ipv6_rest.hop_limit")
-    return off
-  end
-  hdr_inner_ipv6_rest:add(pf.f_inner_ipv6_rest_hop_limit, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), buf():bitfield(off, 8))
-  off = off + 8
-  local len_inner_ipv6_rest_src_addr = (16 * 8)
-  if len_inner_ipv6_rest_src_addr < 0 or off + len_inner_ipv6_rest_src_addr > avail then
-    hdr_inner_ipv6_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ipv6_rest.src_addr")
-    return off
-  end
-  if len_inner_ipv6_rest_src_addr > 0 then
-    hdr_inner_ipv6_rest:add(pf.f_inner_ipv6_rest_src_addr, buf(math.floor(off / 8), math.floor(len_inner_ipv6_rest_src_addr / 8)))
-  end
-  off = off + len_inner_ipv6_rest_src_addr
-  local len_inner_ipv6_rest_dst_addr = (16 * 8)
-  if len_inner_ipv6_rest_dst_addr < 0 or off + len_inner_ipv6_rest_dst_addr > avail then
-    hdr_inner_ipv6_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ipv6_rest.dst_addr")
-    return off
-  end
-  if len_inner_ipv6_rest_dst_addr > 0 then
-    hdr_inner_ipv6_rest:add(pf.f_inner_ipv6_rest_dst_addr, buf(math.floor(off / 8), math.floor(len_inner_ipv6_rest_dst_addr / 8)))
-  end
-  off = off + len_inner_ipv6_rest_dst_addr
-  if v.v_inner_ipv6_rest_next_hdr == 58 then
-    return states.parse_inner_icmp(buf, pinfo, tree, off, depth)
-  elseif v.v_inner_ipv6_rest_next_hdr == 6 then
-    return states.parse_inner_tcp(buf, pinfo, tree, off, depth)
-  elseif v.v_inner_ipv6_rest_next_hdr == 17 then
-    return states.parse_inner_udp(buf, pinfo, tree, off, depth)
-  else
-    add_payload(buf, tree, off)
-    return off
-  end
+  return states.parse_inner_ipv6(buf, pinfo, tree, off, depth)
 end
 
 function states.parse_vpls(buf, pinfo, tree, off, depth)
@@ -2185,34 +2026,7 @@ function states.parse_eompls(buf, pinfo, tree, off, depth)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_inner_ethernet_rest = tree:add(pf.f_hdr_inner_ethernet_rest, buf(math.floor(off / 8)))
-  if off + 44 > avail then
-    hdr_inner_ethernet_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ethernet_rest.dst_addr_rest")
-    return off
-  end
-  hdr_inner_ethernet_rest:add(pf.f_inner_ethernet_rest_dst_addr_rest, buf(math.floor(off / 8), math.floor((off % 8 + 44 + 7) / 8)), buf():bitfield(off, 44))
-  off = off + 44
-  if off + 48 > avail then
-    hdr_inner_ethernet_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ethernet_rest.src_addr")
-    return off
-  end
-  hdr_inner_ethernet_rest:add(pf.f_inner_ethernet_rest_src_addr, buf(math.floor(off / 8), 6))
-  off = off + 48
-  if off + 16 > avail then
-    hdr_inner_ethernet_rest:add_proto_expert_info(ef_error, "out of bounds in inner_ethernet_rest.ether_type")
-    return off
-  end
-  v.v_inner_ethernet_rest_ether_type = buf():bitfield(off, 16)
-  hdr_inner_ethernet_rest:add(pf.f_inner_ethernet_rest_ether_type, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), v.v_inner_ethernet_rest_ether_type)
-  off = off + 16
-  if v.v_inner_ethernet_rest_ether_type == 2048 then
-    return states.parse_inner_ipv4(buf, pinfo, tree, off, depth)
-  elseif v.v_inner_ethernet_rest_ether_type == 34525 then
-    return states.parse_inner_ipv6(buf, pinfo, tree, off, depth)
-  else
-    add_payload(buf, tree, off)
-    return off
-  end
+  return states.parse_inner_ethernet(buf, pinfo, tree, off, depth)
 end
 
 function states.parse_vxlan(buf, pinfo, tree, off, depth)
@@ -2477,18 +2291,21 @@ function states.parse_lisp(buf, pinfo, tree, off, depth)
   end
   hdr_lisp:add(pf.f_lisp_lsbs_instance_id, buf(math.floor(off / 8), math.floor((off % 8 + 32 + 7) / 8)), buf():bitfield(off, 32))
   off = off + 32
-  local hdr_ip_version_nibble = tree:add(pf.f_hdr_ip_version_nibble, buf(math.floor(off / 8)))
-  if off + 4 > avail then
+  do -- lookahead: cursor does not advance
+  local poff = off
+  local hdr_ip_version_nibble = tree:add(pf.f_hdr_ip_version_nibble, buf(math.floor(poff / 8)))
+  if poff + 4 > avail then
     hdr_ip_version_nibble:add_proto_expert_info(ef_error, "out of bounds in ip_version_nibble.v")
     return off
   end
-  v.v_ip_version_nibble_v = buf():bitfield(off, 4)
-  hdr_ip_version_nibble:add(pf.f_ip_version_nibble_v, buf(math.floor(off / 8), math.floor((off % 8 + 4 + 7) / 8)), v.v_ip_version_nibble_v)
-  off = off + 4
+  v.v_ip_version_nibble_v = buf():bitfield(poff, 4)
+  hdr_ip_version_nibble:add(pf.f_ip_version_nibble_v, buf(math.floor(poff / 8), math.floor((poff % 8 + 4 + 7) / 8)), v.v_ip_version_nibble_v)
+  poff = poff + 4
+  end
   if v.v_ip_version_nibble_v == 4 then
-    return states.parse_mpls_inner_ipv4(buf, pinfo, tree, off, depth)
+    return states.parse_inner_ipv4(buf, pinfo, tree, off, depth)
   elseif v.v_ip_version_nibble_v == 6 then
-    return states.parse_mpls_inner_ipv6(buf, pinfo, tree, off, depth)
+    return states.parse_inner_ipv6(buf, pinfo, tree, off, depth)
   else
     add_payload(buf, tree, off)
     return off

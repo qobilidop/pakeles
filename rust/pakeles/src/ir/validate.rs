@@ -124,6 +124,23 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
                 ));
             } else {
                 instances.insert(inst.as_str(), e.header_type.as_str());
+                // W9: a peeked type is all-fixed-width (v1 — keeps
+                // peeked layouts offset-computable per symbolic path).
+                if e.lookahead {
+                    let ht = header_types[e.header_type.as_str()];
+                    for f in &ht.fields {
+                        if matches!(
+                            f.width.as_ref().and_then(|w| w.width.as_ref()),
+                            Some(pb::field_width::Width::BitLen(_))
+                        ) {
+                            errs.push(format!(
+                                "state `{}` lookahead of `{}`: field `{}.{}` is \
+                                 variable-length (a peeked type must be all-fixed-width)",
+                                s.name, e.header_type, ht.name, f.name
+                            ));
+                        }
+                    }
+                }
             }
         }
     }
@@ -876,6 +893,7 @@ mod tests {
         parser(&mut ir).states[0].extracts.push(pb::Extract {
             header_type: "h".into(),
             instance: String::new(),
+            lookahead: false,
         });
         with_select(
             &mut ir,
@@ -964,6 +982,25 @@ mod tests {
         });
         assert_err_contains(&ir, "unknown metadata `ghost`");
         assert_err_contains(&ir, "unknown metadata `ghost2`");
+    }
+
+    #[test]
+    fn rejects_var_length_under_lookahead() {
+        use crate::builder::*;
+        let err = ParserBuilder::new("peek_var", 2)
+            .header(
+                HeaderTypeBuilder::new("h")
+                    .bits("n", 8)
+                    .var_bytes("body", f("h", "n")),
+            )
+            .state(StateBuilder::new("s").lookahead("h").accept())
+            .start("s")
+            .build()
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("all-fixed-width"),
+            "unexpected: {err}"
+        );
     }
 
     #[test]

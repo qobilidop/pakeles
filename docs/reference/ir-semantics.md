@@ -21,7 +21,7 @@ Two constructs are deliberately absent from every rule below:
 `Display` (and its `ValueLabel`s) and the free-form `annotations`
 maps. No judgment reads them; they cannot affect any outcome. The one
 carve-out is `Reject.annotations["severity"]`, which classifies a
-reject for diagnostic consumers (§4.8) without changing the outcome
+reject for diagnostic consumers (§4.9) without changing the outcome
 itself.
 
 ## 1. Notation and domains
@@ -130,6 +130,10 @@ dynamic semantics is defined only over well-formed programs.
   state's entry depth is positive; in select keys, the depth after
   the state's region ops is positive. Depth consistency implies the
   region stack is bounded.
+- **W9 (lookahead widths).** Every field of a header type extracted
+  with `lookahead` is fixed-width (v1: no `bit_len` under a peek —
+  every known use case is a small fixed peek, and the restriction
+  keeps peeked layouts offset-computable per symbolic path).
 
 Well-formedness is decidable (all conditions are finite checks or
 monotone fixpoints over the finite state graph) and is checked by
@@ -179,7 +183,7 @@ $$
 $$
 
 Metadata reads zero-extend by construction: stores maintain $\mu(m) <
-2^{w_m}$ (§4.4), and a read returns the stored value unchanged.
+2^{w_m}$ (§4.5), and a read returns the stored value unchanged.
 
 **`remaining()`** is *structural*: the distance, in bits, to the
 innermost region end, with no input clamp —
@@ -287,7 +291,38 @@ with `ihl` < 5) produces a huge $\ell$ and rejects by this rule; it
 is never undefined behavior. Variable-length fields bind no numeric
 value in $\rho$; W4 keeps them out of every expression.
 
-### 4.4 Metadata assignment
+### 4.4 Lookahead extraction
+
+An extract marked `lookahead` instantiates its header type exactly as
+§4.2–4.3 describe — same field order, same joint bound
+$\mathrm{bound}(R)$, same two-class rejects, same bindings in $\rho$
+(and the same visibility to W7) — but the machine cursor is restored
+afterwards. Writing $\Downarrow^{*}$ for the field-sequence judgment
+of §4.2–4.3 threaded through a *local* cursor:
+
+$$
+\dfrac{\langle \mathrm{fields}(h),\, c \rangle \;\Downarrow^{*}\;
+\langle \rho',\, c'' \rangle}
+{\langle \mathit{lookahead}\ h,\, c \rangle \;\Downarrow\;
+\langle \rho',\, c \rangle}
+\quad \text{(E-Peek)}
+$$
+
+A reject arising inside the field sequence terminates the run with
+the same two-class reason (the peek's reads are *checked* reads — a
+peek past the region end or the input rejects exactly like an
+extract; this matches P4's lookahead-errors-on-short), and the
+reject's $c$ is the **machine** cursor: a peek consumes nothing even
+when it rejects. (Diagnostic forensics — not part of $\mathbf{Reject}$
+— may report the failing read's own offset.) Every field of $h$ is fixed-width by
+W9, so $c''$ is $c$ plus the type's total width; nothing after the
+peek observes $c''$. The instance appears among the extracted-headers
+observables with its fields' true offsets. Termination is untouched:
+a peek consumes no input, but entering its state still increments $d$
+(§4.1) — `max_depth` remains the sole termination authority, exactly
+because progress was never measured in bits consumed.
+
+### 4.5 Metadata assignment
 
 Assigns run after the state's extracts, in declared order; each
 truncates to its target's width:
@@ -303,7 +338,7 @@ where $r$ is `remaining()` at the state's entry region depth (W8
 guarantees a region is open if $r$ is consulted). Assignment is total:
 no failure mode, no effect on the cursor, the regions, or the budget.
 
-### 4.5 Region push
+### 4.6 Region push
 
 Region ops run after assigns, in declared order. A push of $e$ bits
 at cursor $c$ (any alignment) checks *structurally only* against the
@@ -335,7 +370,7 @@ the reads it licenses will fail in the truncation class. A region
 that cannot fit its *enclosing region* is a structural lie at the
 moment it is declared.
 
-### 4.6 Region pop (exact mode)
+### 4.7 Region pop (exact mode)
 
 Pop closes the innermost region; the cursor must sit exactly at its
 end:
@@ -367,7 +402,7 @@ bytes" (truncation); a region end within the input means real
 trailing content the program failed to consume (structural). W8 rules
 out popping an empty stack.
 
-### 4.7 Transition
+### 4.8 Transition
 
 After the region ops, the state takes its transition. A `direct`
 transition yields its target. A `select` first evaluates its keys
@@ -396,7 +431,7 @@ $$
 Arm order is the priority order — overlapping keysets (masks, ranges)
 are resolved by first match, never by specificity.
 
-### 4.8 Targets
+### 4.9 Targets
 
 $$
 \dfrac{\mathit{target} = \mathit{state}\ q'}

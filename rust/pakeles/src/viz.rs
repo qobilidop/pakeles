@@ -137,7 +137,11 @@ pub fn to_dot(ir: &pb::Ir) -> String {
                 } else {
                     &e.instance
                 };
-                format!("extract {inst}")
+                if e.lookahead {
+                    format!("lookahead {inst}")
+                } else {
+                    format!("extract {inst}")
+                }
             })
             .collect::<Vec<_>>()
             .join("\\n");

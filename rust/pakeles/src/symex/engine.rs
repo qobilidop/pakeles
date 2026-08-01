@@ -280,6 +280,26 @@ struct Frame {
     /// Sized-region stack: symbolic end bit offsets, innermost last
     /// (see the sized-region design doc, build-time refinements).
     regions: Vec<Term>,
+    /// Lookahead machinery. `peek_saved`: cursor triple saved at
+    /// BeginPeek (cursor term, cursor_min, overhang) — cursor_max is
+    /// deliberately NOT restored (monotone width budget; the peeked
+    /// bits are real reads the packet BV must cover).
+    peek_saved: Vec<(Term, usize, usize)>,
+    /// Concrete upper bound on bits a peek has read PAST the current
+    /// cursor. Non-truncation witnesses extend their length by this
+    /// slack so peeked reads stay inside the packet; a fixed read of
+    /// `n <= overhang` bits is wholly peek-covered and cannot
+    /// independently truncate (its trunc fork is skipped as
+    /// infeasible). Shrinks as the cursor advances.
+    peek_overhang: usize,
+    /// Reads placed under a lookahead on this path, as
+    /// (normalized offset addends, const offset, len, read term).
+    /// Every later read overlapping one of these gets a slice-equality
+    /// constraint — the aliasing that keeps the field-variable
+    /// encoding sound when two variables cover the same wire bits.
+    /// (Identical (offset, len) reads are the SAME term/variable and
+    /// alias for free; only partial overlaps need constraints.)
+    peek_reads: Vec<(Vec<Term>, u64, usize, Term)>,
 }
 
 impl Default for Frame {
@@ -295,8 +315,106 @@ impl Default for Frame {
             loop_counts: HashMap::new(),
             meta: HashMap::new(),
             regions: Vec::new(),
+            peek_saved: Vec::new(),
+            peek_overhang: 0,
+            peek_reads: Vec::new(),
         }
     }
+}
+
+/// Normalize a cursor/offset term into (sorted non-constant addends,
+/// constant sum): cursor terms are built exclusively by `t_add`, so
+/// peeling Add chains and folding constants captures them exactly.
+/// Any non-Add structure becomes a single opaque addend.
+fn normalize_off(t: &Term) -> (Vec<Term>, u64) {
+    fn walk(t: &Term, addends: &mut Vec<Term>, k: &mut u64) {
+        match t {
+            Term::Const(v) => *k = k.wrapping_add(*v),
+            Term::Bin(pb::BinOpKind::Add, l, r) => {
+                walk(l, addends, k);
+                walk(r, addends, k);
+            }
+            other => addends.push(other.clone()),
+        }
+    }
+    let mut addends = Vec::new();
+    let mut k = 0u64;
+    walk(t, &mut addends, &mut k);
+    addends.sort_by_key(|a| format!("{a:?}"));
+    (addends, k)
+}
+
+/// MSB-first slice of a read term's value: bits [from, from+w) of a
+/// `len`-bit read, as a 64-bit value.
+fn slice_term(read: &Term, len: usize, from: usize, w: usize) -> Term {
+    let shifted = if len - from - w > 0 {
+        Term::Bin(
+            pb::BinOpKind::Shr,
+            Box::new(read.clone()),
+            Box::new(t_cst((len - from - w) as u64)),
+        )
+    } else {
+        read.clone()
+    };
+    if w >= 64 {
+        shifted
+    } else {
+        Term::Bin(
+            pb::BinOpKind::And,
+            Box::new(shifted),
+            Box::new(t_cst((1u64 << w) - 1)),
+        )
+    }
+}
+
+/// Aliasing constraints between a newly placed read and every recorded
+/// peek read it overlaps: the overlapping slices must be equal
+/// (`slice_a - slice_b == 0`; exact equality since both < 2^64).
+/// Returns an error when overlap can neither be proven nor refuted —
+/// a variable-length layout between a peek and a later read (v1 cap).
+fn alias_constraints(
+    peek_reads: &[(Vec<Term>, u64, usize, Term)],
+    new_off: &Term,
+    new_len: usize,
+    new_read: &Term,
+) -> anyhow::Result<Vec<Constraint>> {
+    let (new_adds, new_c) = normalize_off(new_off);
+    let mut out = Vec::new();
+    for (p_adds, p_c, p_len, p_read) in peek_reads {
+        if p_read == new_read {
+            continue; // identical term: same variable, aliased for free
+        }
+        if *p_adds == new_adds {
+            // Same symbolic base: overlap is decided by the constants.
+            let (a_c, a_len, a_read) = (*p_c, *p_len, p_read);
+            let lo = a_c.max(new_c);
+            let hi = (a_c + a_len as u64).min(new_c + new_len as u64);
+            if lo >= hi {
+                continue;
+            }
+            let w = (hi - lo) as usize;
+            let sa = slice_term(a_read, a_len, (lo - a_c) as usize, w);
+            let sb = slice_term(new_read, new_len, (lo - new_c) as usize, w);
+            out.push(Constraint::Eq(
+                Term::Bin(pb::BinOpKind::Sub, Box::new(sa), Box::new(sb)),
+                0,
+            ));
+        } else if new_adds.len() > p_adds.len() && p_adds.iter().all(|a| new_adds.contains(a)) {
+            // The new read sits after extra symbolic (>= 0) advances.
+            // Provably disjoint when its constant part alone clears the
+            // peek's end; otherwise the overlap is data-dependent.
+            if new_c >= p_c + *p_len as u64 {
+                continue;
+            }
+            anyhow::bail!(
+                "SYMEX-UNSUPPORTED: a variable-length layout between a lookahead \
+                 and a possibly-overlapping later read (v1 aliasing cap)"
+            );
+        }
+        // Disjoint symbolic bases (e.g. sibling branches): unreachable
+        // on one path — cursor terms only ever gain addends.
+    }
+    Ok(out)
 }
 
 pub(crate) fn enumerate(ir: &pb::Ir, solver: &mut dyn Solver) -> anyhow::Result<Enumeration> {
@@ -486,8 +604,8 @@ fn walk_state(ctx: &mut Ctx, state_name: &str, mut frame: Frame) -> anyhow::Resu
             PathKind::Reject {
                 reason: "max depth exceeded".into(),
             },
-            frame.cursor.clone(),
-            frame.cursor_min,
+            slacked(&frame, frame.cursor.clone()),
+            frame.cursor_min + frame.peek_overhang,
         );
         return Ok(());
     }
@@ -510,8 +628,9 @@ fn walk_state(ctx: &mut Ctx, state_name: &str, mut frame: Frame) -> anyhow::Resu
         .get(state_name)
         .ok_or_else(|| anyhow::anyhow!("unknown state `{state_name}`"))?;
 
-    // Flatten this state's extracts into (instance, header_type field) work items.
-    let mut items: Vec<(String, pb::Field)> = Vec::new();
+    // Flatten this state's extracts into work items; a lookahead
+    // extract brackets its fields with cursor save/restore markers.
+    let mut items: Vec<Item> = Vec::new();
     for ex in &state.extracts {
         let ht = *ctx
             .header_types
@@ -522,24 +641,75 @@ fn walk_state(ctx: &mut Ctx, state_name: &str, mut frame: Frame) -> anyhow::Resu
         } else {
             ex.instance.clone()
         };
+        if ex.lookahead {
+            items.push(Item::BeginPeek);
+        }
         for f in &ht.fields {
-            items.push((inst.clone(), f.clone()));
+            items.push(Item::Field {
+                inst: inst.clone(),
+                field: Box::new(f.clone()),
+                in_peek: ex.lookahead,
+            });
+        }
+        if ex.lookahead {
+            items.push(Item::EndPeek);
         }
     }
     walk_extracts(ctx, state, &items, 0, frame)
 }
 
+enum Item {
+    Field {
+        inst: String,
+        field: Box<pb::Field>,
+        in_peek: bool,
+    },
+    BeginPeek,
+    EndPeek,
+}
+
+/// Non-truncation witness lengths carry the peek overhang so peeked
+/// reads stay inside the packet (extra tail bits are unconstrained
+/// payload — same outcome, same path).
+fn slacked(frame: &Frame, len: Term) -> Term {
+    if frame.peek_overhang > 0 {
+        t_add(len, t_cst(frame.peek_overhang as u64))
+    } else {
+        len
+    }
+}
+
 fn walk_extracts(
     ctx: &mut Ctx,
     state: &pb::State,
-    items: &[(String, pb::Field)],
+    items: &[Item],
     idx: usize,
     mut frame: Frame,
 ) -> anyhow::Result<()> {
-    if idx == items.len() {
-        return walk_transition(ctx, state, frame);
-    }
-    let (inst, field) = &items[idx];
+    let (inst, field, in_peek) = match items.get(idx) {
+        None => return walk_transition(ctx, state, frame),
+        Some(Item::BeginPeek) => {
+            frame
+                .peek_saved
+                .push((frame.cursor.clone(), frame.cursor_min, frame.peek_overhang));
+            return walk_extracts(ctx, state, items, idx + 1, frame);
+        }
+        Some(Item::EndPeek) => {
+            let (cursor, cursor_min, overhang) =
+                frame.peek_saved.pop().expect("balanced peek markers");
+            // The peek advanced by exactly its (all-fixed, W9) width.
+            let peek_width = frame.cursor_min - cursor_min;
+            frame.cursor = cursor;
+            frame.cursor_min = cursor_min;
+            frame.peek_overhang = overhang.max(peek_width);
+            return walk_extracts(ctx, state, items, idx + 1, frame);
+        }
+        Some(Item::Field {
+            inst,
+            field,
+            in_peek,
+        }) => (inst, field, *in_peek),
+    };
     match field.width.as_ref().and_then(|w| w.width.as_ref()) {
         Some(pb::field_width::Width::Bits(n)) => {
             let n = *n as usize;
@@ -548,7 +718,7 @@ fn walk_extracts(
             // fits the region but the buffer ends mid-field ->
             // truncation, fits -> continue}. Without a region, only the
             // latter two exist.
-            let mut scoped = false;
+            let mut scopes = 0usize;
             if let Some(top) = frame.regions.last().cloned() {
                 let end = t_add(frame.cursor.clone(), t_cst(n as u64));
                 let cross = t_gt(end, top);
@@ -565,8 +735,8 @@ fn walk_extracts(
                             PathKind::Reject {
                                 reason: "out of region bounds".into(),
                             },
-                            f.cursor.clone(),
-                            f.cursor_min,
+                            slacked(&f, f.cursor.clone()),
+                            f.cursor_min + f.peek_overhang,
                         );
                     }
                     ctx.session.pop();
@@ -575,13 +745,39 @@ fn walk_extracts(
                 frame.constraints.push(fits.clone());
                 ctx.session.push();
                 ctx.session.assert_cs(std::slice::from_ref(&fits));
-                scoped = true;
+                scopes += 1;
             }
-            // Truncation fork: packet ends before this field is fully read.
-            {
+            // Aliasing with earlier peeks: overlapping slices must
+            // agree — this is what keeps the field-variable encoding's
+            // witnesses consistent once two variables cover shared
+            // wire bits (identical reads are the same variable and
+            // need nothing).
+            let read_term = match &frame.cursor {
+                Term::Const(c) => Term::Extract {
+                    bit_off: *c as usize,
+                    len: n,
+                },
+                off => Term::ExtractAt {
+                    off: Box::new(off.clone()),
+                    len: n,
+                },
+            };
+            let aliases = alias_constraints(&frame.peek_reads, &frame.cursor, n, &read_term)?;
+            if !aliases.is_empty() {
+                frame.constraints.extend(aliases.iter().cloned());
+                ctx.session.push();
+                ctx.session.assert_cs(&aliases);
+                scopes += 1;
+            }
+            // Truncation fork: packet ends before this field is fully
+            // read. A field wholly covered by a peek's earlier reads
+            // cannot independently truncate — any packet long enough
+            // to satisfy the peek already contains it.
+            if n > frame.peek_overhang {
                 let mut t = frame.clone();
                 t.segments.push(format!("!trunc@{inst}.{}", field.name));
-                // avail = cursor + n - 1: one bit short of the field.
+                // avail = cursor + n - 1: one bit short of the field
+                // (>= every peeked read's end, since n > overhang).
                 emit(
                     ctx,
                     &t,
@@ -590,6 +786,10 @@ fn walk_extracts(
                     frame.cursor_min + n - 1,
                 );
             }
+            if in_peek {
+                let (adds, k) = normalize_off(&frame.cursor);
+                frame.peek_reads.push((adds, k, n, read_term));
+            }
             frame.placed.insert(
                 (inst.clone(), field.name.clone()),
                 (frame.cursor.clone(), n),
@@ -597,8 +797,9 @@ fn walk_extracts(
             frame.cursor = t_add(frame.cursor, t_cst(n as u64));
             frame.cursor_max += n;
             frame.cursor_min += n;
+            frame.peek_overhang = frame.peek_overhang.saturating_sub(n);
             let r = walk_extracts(ctx, state, items, idx + 1, frame);
-            if scoped {
+            for _ in 0..scopes {
                 ctx.session.pop();
             }
             r
@@ -665,8 +866,8 @@ fn walk_extracts(
                         PathKind::Reject {
                             reason: reason.into(),
                         },
-                        frame.cursor.clone(),
-                        frame.cursor_min,
+                        slacked(&oob, frame.cursor.clone()),
+                        frame.cursor_min + frame.peek_overhang,
                     );
                 }
                 ctx.session.pop();
@@ -689,9 +890,14 @@ fn walk_extracts(
             ctx.session.assert_cs(&cont);
 
             // Body-truncation: packet ends inside a non-empty body.
-            {
+            // Bodies shorter than the peek overhang are excluded: a
+            // cut inside peek-covered bits fails at the peek first,
+            // which is a different path (the floor keeps the cut at or
+            // past every peeked read's end).
+            let trunc_floor = frame.peek_overhang as u64 + 1;
+            if trunc_floor <= bound_bits_u64 {
                 let mut t = frame.clone();
-                let delta = Constraint::InRange(len_term.clone(), 1, bound_bits_u64);
+                let delta = Constraint::InRange(len_term.clone(), trunc_floor, bound_bits_u64);
                 t.constraints.push(delta.clone());
                 ctx.session.push();
                 ctx.session.assert_cs(std::slice::from_ref(&delta));
@@ -699,13 +905,13 @@ fn walk_extracts(
                     t.segments.push(format!("!trunc@{inst}.{}", field.name));
                     // avail = cursor + len - 1: one bit short of the body.
                     let bl = t_sub(t_add(frame.cursor.clone(), len_term.clone()), t_cst(1));
-                    // len >= max(1, interval min) in this fork.
+                    // len >= max(floor, interval min) in this fork.
                     emit(
                         ctx,
                         &t,
                         PathKind::Truncation,
                         bl,
-                        frame.cursor_min + min_bits.max(1) - 1,
+                        frame.cursor_min + (min_bits as u64).max(trunc_floor) as usize - 1,
                     );
                 }
                 ctx.session.pop();
@@ -715,6 +921,7 @@ fn walk_extracts(
             frame.cursor = t_add(frame.cursor, len_term);
             frame.cursor_max += bound_bits;
             frame.cursor_min += min_bits;
+            frame.peek_overhang = frame.peek_overhang.saturating_sub(min_bits);
             let r = walk_extracts(ctx, state, items, idx + 1, frame);
             ctx.session.pop();
             r
@@ -731,8 +938,8 @@ fn walk_target(ctx: &mut Ctx, target: &pb::Target, frame: Frame) -> anyhow::Resu
                 ctx,
                 &frame,
                 PathKind::Accept,
-                frame.cursor.clone(),
-                frame.cursor_min,
+                slacked(&frame, frame.cursor.clone()),
+                frame.cursor_min + frame.peek_overhang,
             );
             Ok(())
         }
@@ -743,8 +950,8 @@ fn walk_target(ctx: &mut Ctx, target: &pb::Target, frame: Frame) -> anyhow::Resu
                 PathKind::Reject {
                     reason: r.reason.clone(),
                 },
-                frame.cursor.clone(),
-                frame.cursor_min,
+                slacked(&frame, frame.cursor.clone()),
+                frame.cursor_min + frame.peek_overhang,
             );
             Ok(())
         }
@@ -823,8 +1030,8 @@ fn walk_region_ops(
                         PathKind::Reject {
                             reason: "region out of bounds".into(),
                         },
-                        f.cursor.clone(),
-                        f.cursor_min,
+                        slacked(&f, f.cursor.clone()),
+                        f.cursor_min + f.peek_overhang,
                     );
                 }
                 ctx.session.pop();
@@ -859,14 +1066,17 @@ fn walk_region_ops(
                 ctx.session.assert_cs(std::slice::from_ref(&short));
                 if ctx.check(f.cursor_max.max(1), &f.constraints) {
                     f.segments.push(format!("!rtrail@{}#{idx}", state.name));
+                    // In-region peeks are bounded by the region top, so
+                    // the region end alone contains them; the slack
+                    // covers a pre-region peek's overhang.
                     emit(
                         ctx,
                         &f,
                         PathKind::Reject {
                             reason: "region not exhausted".into(),
                         },
-                        end.clone(),
-                        f.cursor_min,
+                        slacked(&f, end.clone()),
+                        f.cursor_min + f.peek_overhang,
                     );
                 }
                 ctx.session.pop();
@@ -1017,8 +1227,8 @@ fn walk_dispatch(ctx: &mut Ctx, state: &pb::State, frame: Frame) -> anyhow::Resu
                             PathKind::Reject {
                                 reason: "no matching select arm".into(),
                             },
-                            child.cursor.clone(),
-                            child.cursor_min,
+                            slacked(&child, child.cursor.clone()),
+                            child.cursor_min + child.peek_overhang,
                         );
                         Ok(())
                     }

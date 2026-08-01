@@ -1,10 +1,39 @@
 # The `lookahead` primitive
 
-**Status: design settled 2026-08-01; execution in the same arc as the
-bit-uniform IR (which landed first — E-Peek is specified on the
-bit-uniform base, alignment-condition-free).** Consolidates the
-decisions from the 2026-08-01 design review
+**Status: SHIPPED 2026-08-01**, same-day with the bit-uniform IR it
+was specified on (E-Peek is alignment-condition-free on that base).
+Consolidates the decisions from the 2026-08-01 design review
 (`docs/plans/2026-08-01-edsl-ir-review-followups.md`, Idea 1).
+
+Shipped shape: spec §4.4 (E-Peek) + W9; `Extract.lookahead` flag;
+interpreter (consumes nothing even on a mid-peek reject — forensics
+still name the failing read); symex (see below — the predicted "long
+pole" collapsed); C/eBPF (scoped local cursor), Lua (overlapping tree
+items), `gen p4` (native `pkt.lookahead<T>()` — the refusal direction
+reversed); eDSL `lookahead(H)` / `.lookahead(H)`.
+
+**The exhibit landed:** `p4lang_switch_parser` re-transcribed — the
+three invented `*Rest` types deleted (50→47 header types, 56→53
+instances), `parse_mpls_inner_ipv4/6`/`parse_eompls` restored to the
+pure pass-throughs they are in the source, and the regenerated suite
+is **observationally identical**: exactly 93,727 vectors with the
+same 13,003/162/80,562 accept/reject/truncation split as the
+emulation — same behavior, honest structure.
+
+**Symex, as-built (the interesting part):** the field-variable
+encoding keys variables on the *(offset, len)* read term, so a peek
+and a re-extract of the same bits are literally the same variable —
+exact overlap aliases for free. What remained: (a) slice-equality
+constraints for *partial* overlaps (peek 8 bits, re-extract as two
+nibbles), emitted at placement time from statically-comparable offset
+terms (normalize Add-chains; bail loudly on a var-length layout
+between a peek and a possibly-overlapping read — v1 cap); (b) a
+concrete **peek-overhang** bound: non-truncation witnesses extend
+their solved length by it so peeked reads stay inside the packet, a
+fixed read of `n <= overhang` bits skips its (infeasible) truncation
+fork, and var-body truncation forks floor their length at
+`overhang + 1`. Adversarial peek-then-branch-then-extract-different-
+types is a committed test; suites replay green and pathid mirrors.
 
 ## What and why
 

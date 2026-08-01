@@ -139,6 +139,9 @@ pub(crate) fn entry_alignments(parser: &pb::Parser) -> HashMap<String, Option<u3
         // a data-dependent residue makes every later offset unknown).
         let mut delta = Some(0u32);
         for ex in &state.extracts {
+            if ex.lookahead {
+                continue; // E-Peek: the cursor is restored — no delta
+            }
             if let Some(ht) = parser
                 .header_types
                 .iter()
@@ -260,17 +263,23 @@ pub(crate) fn field_alignment(
         } else {
             ex.instance.as_str()
         };
+        // A lookahead's fields sit at the current cursor but leave it
+        // unmoved for the extracts that follow.
+        let mut local = off;
         for f in &ht.fields {
             if this_inst == inst && f.name == field_name {
-                return Some(off % 8);
+                return Some(local % 8);
             }
             match f.width.as_ref().and_then(|w| w.width.as_ref()) {
-                Some(pb::field_width::Width::Bits(n)) => off = (off + n) % 8,
+                Some(pb::field_width::Width::Bits(n)) => local = (local + n) % 8,
                 // Var fields advance by their length's static residue,
                 // if any (×8-sugar lengths are ≡ 0).
-                Some(pb::field_width::Width::BitLen(e)) => off = (off + expr_mod8(e)?) % 8,
+                Some(pb::field_width::Width::BitLen(e)) => local = (local + expr_mod8(e)?) % 8,
                 None => return None,
             }
+        }
+        if !ex.lookahead {
+            off = local;
         }
     }
     None

@@ -70,12 +70,14 @@ class Expr(_message.Message):
     def __init__(self, constant: _Optional[int] = ..., field: _Optional[_Union[FieldRef, _Mapping]] = ..., bin: _Optional[_Union[BinOp, _Mapping]] = ..., metadata: _Optional[_Union[MetadataRef, _Mapping]] = ..., remaining: _Optional[_Union[Remaining, _Mapping]] = ...) -> None: ...
 
 class Extract(_message.Message):
-    __slots__ = ["header_type", "instance"]
+    __slots__ = ["header_type", "instance", "lookahead"]
     HEADER_TYPE_FIELD_NUMBER: _ClassVar[int]
     INSTANCE_FIELD_NUMBER: _ClassVar[int]
+    LOOKAHEAD_FIELD_NUMBER: _ClassVar[int]
     header_type: str
     instance: str
-    def __init__(self, header_type: _Optional[str] = ..., instance: _Optional[str] = ...) -> None: ...
+    lookahead: bool
+    def __init__(self, header_type: _Optional[str] = ..., instance: _Optional[str] = ..., lookahead: bool = ...) -> None: ...
 
 class Field(_message.Message):
     __slots__ = ["annotations", "display", "name", "width"]
