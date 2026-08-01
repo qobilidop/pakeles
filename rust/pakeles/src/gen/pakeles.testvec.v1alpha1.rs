@@ -81,7 +81,7 @@ pub struct ExpectedHeader {
 pub struct ExpectedField {
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
-    #[prost(oneof = "expected_field::Value", tags = "2, 3")]
+    #[prost(oneof = "expected_field::Value", tags = "2, 4")]
     pub value: ::core::option::Option<expected_field::Value>,
 }
 /// Nested message and enum types in `ExpectedField`.
@@ -90,8 +90,10 @@ pub mod expected_field {
     pub enum Value {
         #[prost(uint64, tag = "2")]
         Uint(u64),
-        #[prost(string, tag = "3")]
-        BytesHex(::prost::alloc::string::String),
+        /// Opaque bit-run value in canonical BitString form (for
+        /// byte-multiple runs, data_hex is exactly the run's bytes).
+        #[prost(message, tag = "4")]
+        Bits(super::BitString),
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]

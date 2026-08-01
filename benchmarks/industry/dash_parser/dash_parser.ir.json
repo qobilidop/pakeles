@@ -1,5 +1,5 @@
 {
-  "irVersion": "0.1.0",
+  "irVersion": "0.2.0",
   "parser": {
     "name": "dash_parser",
     "headerTypes": [
@@ -178,16 +178,32 @@
           {
             "name": "src_ip",
             "width": {
-              "byteLen": {
-                "constant": "16"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "constant": "16"
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
+                }
               }
             }
           },
           {
             "name": "dst_ip",
             "width": {
-              "byteLen": {
-                "constant": "16"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "constant": "16"
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
+                }
               }
             }
           },
@@ -335,32 +351,64 @@
           {
             "name": "sip",
             "width": {
-              "byteLen": {
-                "constant": "16"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "constant": "16"
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
+                }
               }
             }
           },
           {
             "name": "dip",
             "width": {
-              "byteLen": {
-                "constant": "16"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "constant": "16"
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
+                }
               }
             }
           },
           {
             "name": "sip_mask",
             "width": {
-              "byteLen": {
-                "constant": "16"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "constant": "16"
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
+                }
               }
             }
           },
           {
             "name": "dip_mask",
             "width": {
-              "byteLen": {
-                "constant": "16"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "constant": "16"
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
+                }
               }
             }
           },
@@ -635,25 +683,33 @@
           {
             "name": "options",
             "width": {
-              "byteLen": {
+              "bitLen": {
                 "bin": {
                   "op": "BIN_OP_KIND_MUL",
                   "lhs": {
                     "bin": {
-                      "op": "BIN_OP_KIND_SUB",
+                      "op": "BIN_OP_KIND_MUL",
                       "lhs": {
-                        "field": {
-                          "header": "u0_ipv4",
-                          "field": "ihl"
+                        "bin": {
+                          "op": "BIN_OP_KIND_SUB",
+                          "lhs": {
+                            "field": {
+                              "header": "u0_ipv4",
+                              "field": "ihl"
+                            }
+                          },
+                          "rhs": {
+                            "constant": "5"
+                          }
                         }
                       },
                       "rhs": {
-                        "constant": "5"
+                        "constant": "4"
                       }
                     }
                   },
                   "rhs": {
-                    "constant": "4"
+                    "constant": "8"
                   }
                 }
               }

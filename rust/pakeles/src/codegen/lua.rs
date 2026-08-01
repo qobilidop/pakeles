@@ -220,7 +220,7 @@ fn referenced_fields(parser: &pb::Parser) -> HashSet<(String, String)> {
     let mut walk = |e: &pb::Expr| collect_refs(e, &mut out);
     for ht in &parser.header_types {
         for f in &ht.fields {
-            if let Some(pb::field_width::Width::ByteLen(e)) =
+            if let Some(pb::field_width::Width::BitLen(e)) =
                 f.width.as_ref().and_then(|w| w.width.as_ref())
             {
                 walk(e);
@@ -315,17 +315,37 @@ fn protofield_decl(
             "ProtoField.{ctor}(\"{abbr}\", \"{name}\", {base}{labels})"
         ))
     } else {
-        Ok(format!("ProtoField.bytes(\"{abbr}\", \"{name}\")"))
+        // Constant-length byte runs may carry a typed display format
+        // (the `fixed_bytes(16, ..., IPV6)` case) — type the
+        // ProtoField so Wireshark decodes the value.
+        let const_bits = field
+            .width
+            .as_ref()
+            .and_then(|w| w.width.as_ref())
+            .and_then(|w| match w {
+                pb::field_width::Width::BitLen(e) => crate::codegen::expr_const(e),
+                _ => None,
+            });
+        match (format, const_bits) {
+            (pb::DisplayFormat::Ipv6, Some(128)) if byte_aligned => {
+                Ok(format!("ProtoField.ipv6(\"{abbr}\", \"{name}\")"))
+            }
+            (pb::DisplayFormat::Ipv4, Some(32)) if byte_aligned => {
+                Ok(format!("ProtoField.ipv4(\"{abbr}\", \"{name}\")"))
+            }
+            (pb::DisplayFormat::Ether, Some(48)) if byte_aligned => {
+                Ok(format!("ProtoField.ether(\"{abbr}\", \"{name}\")"))
+            }
+            _ => Ok(format!("ProtoField.bytes(\"{abbr}\", \"{name}\")")),
+        }
     }
 }
 
 fn expr_lua(e: &pb::Expr, referenced: &HashSet<(String, String)>) -> Result<String> {
     match e.kind.as_ref() {
-        // Structural bytes to the innermost region end; only legal
+        // Structural bits to the innermost region end; only legal
         // with a region open (validator), so regions[#regions] exists.
-        Some(pb::expr::Kind::Remaining(_)) => {
-            Ok("math.floor((regions[#regions] - off) / 8)".to_string())
-        }
+        Some(pb::expr::Kind::Remaining(_)) => Ok("(regions[#regions] - off)".to_string()),
         Some(pb::expr::Kind::Constant(v)) => {
             if *v > (1u64 << 53) {
                 bail!("constant {v} exceeds Lua number exactness (2^53)");
@@ -545,7 +565,11 @@ fn emit_state(
                     }
                     writeln!(w, "  off = off + {n}")?;
                 }
-                Some(pb::field_width::Width::ByteLen(expr)) => {
+                Some(pb::field_width::Width::BitLen(expr)) => {
+                    // The tvb range add is byte-addressed: the run's
+                    // start alignment AND whole-byte length must be
+                    // statically proven (the ×8 sugar always is; a raw
+                    // bit-granular run is a loud LUA-UNSUPPORTED cap).
                     let aligned = crate::codegen::field_alignment(
                         parser,
                         entry_align,
@@ -559,12 +583,20 @@ fn emit_state(
                             field.name
                         );
                     }
+                    if crate::codegen::expr_mod8(expr) != Some(0) {
+                        bail!(
+                            "variable-length field `{inst}.{}` has a bit length not \
+                             statically whole-byte; the Lua backend's tvb ranges are \
+                             byte-addressed",
+                            field.name
+                        );
+                    }
                     let len = format!("len_{inst}_{}", field.name);
                     writeln!(w, "  local {len} = {}", expr_lua(expr, referenced)?)?;
                     if has_regions {
                         writeln!(
                             w,
-                            "  if regions[#regions] and ({len} < 0 or off + {len} * 8 > regions[#regions]) then"
+                            "  if regions[#regions] and ({len} < 0 or off + {len} > regions[#regions]) then"
                         )?;
                         writeln!(
                             w,
@@ -574,7 +606,7 @@ fn emit_state(
                         writeln!(w, "    return off")?;
                         writeln!(w, "  end")?;
                     }
-                    writeln!(w, "  if {len} < 0 or off + {len} * 8 > avail then")?;
+                    writeln!(w, "  if {len} < 0 or off + {len} > avail then")?;
                     writeln!(
                         w,
                         "    hdr_{inst}:add_proto_expert_info(ef_error, \"out of bounds in {inst}.{}\")",
@@ -585,10 +617,10 @@ fn emit_state(
                     writeln!(w, "  if {len} > 0 then")?;
                     writeln!(
                         w,
-                        "    hdr_{inst}:add({pf}, buf(math.floor(off / 8), {len}))"
+                        "    hdr_{inst}:add({pf}, buf(math.floor(off / 8), math.floor({len} / 8)))"
                     )?;
                     writeln!(w, "  end")?;
-                    writeln!(w, "  off = off + {len} * 8")?;
+                    writeln!(w, "  off = off + {len}")?;
                 }
                 None => bail!("field `{}` has no width", field.name),
             }
@@ -626,7 +658,7 @@ fn emit_state(
                 writeln!(w, "    local rlen = {}", expr_lua(e, referenced)?)?;
                 writeln!(
                     w,
-                    "    if rlen < 0 or (regions[#regions] and off + rlen * 8 > regions[#regions]) then"
+                    "    if rlen < 0 or (regions[#regions] and off + rlen > regions[#regions]) then"
                 )?;
                 writeln!(
                     w,
@@ -634,7 +666,7 @@ fn emit_state(
                 )?;
                 writeln!(w, "      return off")?;
                 writeln!(w, "    end")?;
-                writeln!(w, "    regions[#regions + 1] = off + rlen * 8")?;
+                writeln!(w, "    regions[#regions + 1] = off + rlen")?;
                 writeln!(w, "  end")?;
             }
             Some(pb::region_op::Kind::Pop(_)) => {
@@ -775,6 +807,48 @@ mod tests {
         assert!(lua.contains("function states.parse_ipv4"));
         assert!(lua.contains("ProtoField.ether"));
         assert!(lua.contains("[6] = \"TCP\""));
+    }
+
+    #[test]
+    fn fixed_byte_run_with_ipv6_format_is_typed() {
+        use crate::builder::*;
+        // fixed_bytes(16, ..., IPV6) arrives as bit_len = 16*8 with an
+        // IPV6 display format; the ProtoField must be typed ipv6.
+        let ir = ParserBuilder::new("v6", 2)
+            .header(HeaderTypeBuilder::new("h").var_bits_full(
+                "src_addr",
+                mul(c(16), c(8)),
+                disp("Source Address", pb::DisplayFormat::Ipv6),
+            ))
+            .state(StateBuilder::new("s").extract("h").accept())
+            .start("s")
+            .build()
+            .unwrap();
+        let lua = generate_lua(&ir).unwrap();
+        assert!(
+            lua.contains("ProtoField.ipv6(\"pakeles_v6.h.src_addr\", \"Source Address\")"),
+            "{lua}"
+        );
+    }
+
+    #[test]
+    fn bit_granular_run_is_generation_error() {
+        use crate::builder::*;
+        let ir = ParserBuilder::new("bitrun", 2)
+            .header(
+                HeaderTypeBuilder::new("h")
+                    .bits("n", 8)
+                    .var_bits("body", f("h", "n")),
+            )
+            .state(StateBuilder::new("s").extract("h").accept())
+            .start("s")
+            .build()
+            .unwrap();
+        let err = generate_lua(&ir).unwrap_err();
+        assert!(
+            err.to_string().contains("not statically whole-byte"),
+            "{err}"
+        );
     }
 
     #[test]

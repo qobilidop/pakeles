@@ -295,16 +295,16 @@ static int pk_gibb_edge_parse_core(const uint8_t *buf, uint64_t bit_len, pk_gibb
       out->ipv4.dst_addr = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
       off += 32;
       {
-        uint64_t vlen = (((uint64_t)out->ipv4.ihl * 4ULL) - 20ULL);
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = ((((uint64_t)out->ipv4.ihl * 4ULL) - 20ULL) * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->ipv4.options_bit_off = off;
-        out->ipv4.options_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->ipv4.options_bit_len = vlen;
+        off += vlen;
       }
       out->outcome = 0;
       out->reason = PK_R_NONE;
@@ -402,16 +402,16 @@ static int pk_gibb_edge_parse_core(const uint8_t *buf, uint64_t bit_len, pk_gibb
       out->ipv4_rest.dst_addr = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
       off += 32;
       {
-        uint64_t vlen = (((uint64_t)out->ipv4_rest.ihl * 4ULL) - 20ULL);
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = ((((uint64_t)out->ipv4_rest.ihl * 4ULL) - 20ULL) * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->ipv4_rest.options_bit_off = off;
-        out->ipv4_rest.options_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->ipv4_rest.options_bit_len = vlen;
+        off += vlen;
       }
       out->outcome = 0;
       out->reason = PK_R_NONE;
@@ -469,28 +469,28 @@ static int pk_gibb_edge_parse_core(const uint8_t *buf, uint64_t bit_len, pk_gibb
       out->ipv6.hop_limit = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->ipv6.src_addr_bit_off = off;
-        out->ipv6.src_addr_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->ipv6.src_addr_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->ipv6.dst_addr_bit_off = off;
-        out->ipv6.dst_addr_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->ipv6.dst_addr_bit_len = vlen;
+        off += vlen;
       }
       out->outcome = 0;
       out->reason = PK_R_NONE;
@@ -540,28 +540,28 @@ static int pk_gibb_edge_parse_core(const uint8_t *buf, uint64_t bit_len, pk_gibb
       out->ipv6_rest.hop_limit = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->ipv6_rest.src_addr_bit_off = off;
-        out->ipv6_rest.src_addr_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->ipv6_rest.src_addr_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->ipv6_rest.dst_addr_bit_off = off;
-        out->ipv6_rest.dst_addr_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->ipv6_rest.dst_addr_bit_len = vlen;
+        off += vlen;
       }
       out->outcome = 0;
       out->reason = PK_R_NONE;

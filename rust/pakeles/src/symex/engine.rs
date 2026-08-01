@@ -19,13 +19,12 @@ use crate::ir::pb;
 use std::collections::{HashMap, HashSet};
 
 /// Ceiling on a materializable var-length body: the per-field bound is
-/// `min(interval-max, SANITY_BYTES)`. A length above it (a wrapping expr like
-/// ihl<5 -> ~2^64 bytes, or a genuinely huge field) is a semantic reject
+/// `min(interval-max, SANITY_BITS)`. A length above it (a wrapping expr like
+/// ihl<5 -> ~2^64 bits, or a genuinely huge field) is a semantic reject
 /// ("out of bounds"), not a layout to build; it also caps the width budget so
 /// the packet BV stays finite. Mirrored by `pathid` (same `min(expr_max,
-/// SANITY_BYTES)` classifier) so engine and path-id agree per witness.
+/// SANITY_BITS)` classifier) so engine and path-id agree per witness.
 const SANITY_BITS: usize = 8 * 1024 * 1024;
-const SANITY_BYTES: u64 = (SANITY_BITS / 8) as u64;
 
 /// Max times a cyclic state may be entered per path during testgen. A
 /// self-loop (e.g. IPv6 option chains) otherwise forks exponentially in
@@ -71,15 +70,12 @@ fn t_add(a: Term, b: Term) -> Term {
 fn t_sub(a: Term, b: Term) -> Term {
     Term::Bin(pb::BinOpKind::Sub, Box::new(a), Box::new(b))
 }
-fn t_mul(a: Term, b: Term) -> Term {
-    Term::Bin(pb::BinOpKind::Mul, Box::new(a), Box::new(b))
-}
 
 /// `a > b` over cursor/region-end terms via the wrap window: both sides
 /// are bounded far below 2^32 under the path constraints (cursor_max <=
-/// SANITY_BITS, region ends <= cursor + 8*SANITY_BYTES), so `a - b`
+/// SANITY_BITS, region ends <= cursor + SANITY_BITS), so `a - b`
 /// lands in [1, WINDOW] exactly when a > b and wraps to >= 2^64 - WINDOW
-/// otherwise. Same idiom as the wrapped-var_bytes oob split.
+/// otherwise. Same idiom as the wrapped-length oob split.
 const REGION_CMP_WINDOW: u64 = 1 << 32;
 fn t_gt(a: Term, b: Term) -> Constraint {
     Constraint::InRange(t_sub(a, b), 1, REGION_CMP_WINDOW)
@@ -394,18 +390,14 @@ fn cyclic_states(parser: &pb::Parser) -> HashSet<String> {
 
 fn term_of_expr(e: &pb::Expr, frame: &Frame) -> anyhow::Result<Term> {
     match e.kind.as_ref() {
-        // Structural: (top - cursor) / 8, exact because both are
-        // byte-aligned sums and cursor <= top holds on continue worlds.
+        // Structural: top - cursor, in bits; exact because
+        // cursor <= top holds on continue worlds.
         Some(pb::expr::Kind::Remaining(_)) => {
             let top = frame
                 .regions
                 .last()
                 .ok_or_else(|| anyhow::anyhow!("remaining() with no open region"))?;
-            Ok(Term::Bin(
-                pb::BinOpKind::Shr,
-                Box::new(t_sub(top.clone(), frame.cursor.clone())),
-                Box::new(t_cst(3)),
-            ))
+            Ok(t_sub(top.clone(), frame.cursor.clone()))
         }
         Some(pb::expr::Kind::Constant(v)) => Ok(Term::Const(*v)),
         Some(pb::expr::Kind::Field(r)) => {
@@ -611,25 +603,25 @@ fn walk_extracts(
             }
             r
         }
-        Some(pb::field_width::Width::ByteLen(expr)) => {
+        Some(pb::field_width::Width::BitLen(expr)) => {
             // No per-value forking: the body length stays symbolic. Fork
             // control flow only into {out-of-bounds, body-truncation,
-            // continue}. The oob/continue split is at SANITY_BYTES, matching
+            // continue}. The oob/continue split is at SANITY_BITS, matching
             // pathid; the width budget uses the tighter interval max.
             let len_term = term_of_expr(expr, &frame)?;
             // Bound the body by `min(interval-max, SANITY)`. This is the single
             // quantity that keeps THREE things consistent: (a) the oob/continue
-            // split matches pathid (which mirrors `bound_bytes`); (b) the width
-            // budget `8*bound_bytes <= SANITY_BITS` is a sound upper bound on
+            // split matches pathid (which mirrors `bound_bits`); (b) the width
+            // budget `bound_bits <= SANITY_BITS` is a sound upper bound on
             // the continue branch's body AND never overflows `usize`/`u32` even
             // if `expr_max` (a u128) is astronomically large; (c) a wrapped or
             // oversized length lands in the oob branch, so no feasible continue
             // layout ever exceeds the width. `expr_max` alone would be unsound
-            // for add/mul-wrap into `(expr_max, SANITY_BYTES]`.
-            let bound_bytes: u64 = expr_max(expr, ctx.parser)?.min(SANITY_BYTES as u128) as u64;
-            let bound_bits: usize = bound_bytes as usize * 8;
+            // for add/mul-wrap into `(expr_max, SANITY_BITS]`.
+            let bound_bits_u64: u64 = expr_max(expr, ctx.parser)?.min(SANITY_BITS as u128) as u64;
+            let bound_bits: usize = bound_bits_u64 as usize;
 
-            // Out-of-bounds reject: length wraps / exceeds `bound_bytes`
+            // Out-of-bounds reject: length wraps / exceeds `bound_bits`
             // (feasible only when the expr can wrap, e.g. ihl<5, or exceed the
             // sane cap; z3 prunes it otherwise). Short witness -> interp
             // "out of bounds". Inside a region the failure set widens to
@@ -638,12 +630,12 @@ fn walk_extracts(
             // length crosses everything, so one unified fork suffices —
             // matching the interp's avail-free reason rule).
             let region_top = frame.regions.last().cloned();
-            let body_end = t_add(frame.cursor.clone(), t_mul(t_cst(8), len_term.clone()));
+            let body_end = t_add(frame.cursor.clone(), len_term.clone());
             {
                 let mut oob = frame.clone();
                 let mut fails = vec![Constraint::InRange(
                     len_term.clone(),
-                    bound_bytes + 1,
+                    bound_bits_u64 + 1,
                     u64::MAX,
                 )];
                 if let Some(top) = &region_top {
@@ -680,15 +672,15 @@ fn walk_extracts(
                 ctx.session.pop();
             }
 
-            // Interval min of the body length (bytes) — 0 unless the
-            // length expr provably floors higher (e.g. (hdrlen+1)*8).
+            // Interval min of the body length (bits) — 0 unless the
+            // length expr provably floors higher (e.g. (hdrlen+1)*64).
             // Feeds cursor_min so the witness ladder skips doomed rungs.
-            let min_bytes = term_interval(&len_term).0.min(bound_bytes);
+            let min_bits = term_interval(&len_term).0.min(bound_bits_u64) as usize;
 
             // The continue world is the non-wrapping, within-bound lengths
             // that also fit the innermost region, if one is open. Its
             // scope wraps the rest of this state's walk.
-            let mut cont = vec![Constraint::InRange(len_term.clone(), 0, bound_bytes)];
+            let mut cont = vec![Constraint::InRange(len_term.clone(), 0, bound_bits_u64)];
             if let Some(top) = &region_top {
                 cont.push(Constraint::Not(Box::new(t_gt(body_end, top.clone()))));
             }
@@ -699,33 +691,30 @@ fn walk_extracts(
             // Body-truncation: packet ends inside a non-empty body.
             {
                 let mut t = frame.clone();
-                let delta = Constraint::InRange(len_term.clone(), 1, bound_bytes);
+                let delta = Constraint::InRange(len_term.clone(), 1, bound_bits_u64);
                 t.constraints.push(delta.clone());
                 ctx.session.push();
                 ctx.session.assert_cs(std::slice::from_ref(&delta));
                 if ctx.check(t.cursor_max.max(1), &t.constraints) {
                     t.segments.push(format!("!trunc@{inst}.{}", field.name));
-                    // avail = cursor + 8*len - 1: one bit short of the body.
-                    let bl = t_sub(
-                        t_add(frame.cursor.clone(), t_mul(t_cst(8), len_term.clone())),
-                        t_cst(1),
-                    );
+                    // avail = cursor + len - 1: one bit short of the body.
+                    let bl = t_sub(t_add(frame.cursor.clone(), len_term.clone()), t_cst(1));
                     // len >= max(1, interval min) in this fork.
                     emit(
                         ctx,
                         &t,
                         PathKind::Truncation,
                         bl,
-                        frame.cursor_min + 8 * min_bytes.max(1) as usize - 1,
+                        frame.cursor_min + min_bits.max(1) - 1,
                     );
                 }
                 ctx.session.pop();
             }
 
             // Continue: consume the opaque body (not placeable for refs).
-            frame.cursor = t_add(frame.cursor, t_mul(t_cst(8), len_term));
+            frame.cursor = t_add(frame.cursor, len_term);
             frame.cursor_max += bound_bits;
-            frame.cursor_min += 8 * min_bytes as usize;
+            frame.cursor_min += min_bits;
             let r = walk_extracts(ctx, state, items, idx + 1, frame);
             ctx.session.pop();
             r
@@ -807,14 +796,14 @@ fn walk_region_ops(
     match op.kind.as_ref() {
         Some(pb::region_op::Kind::Push(e)) => {
             let len_term = term_of_expr(e, &frame)?;
-            let bound_bytes: u64 = expr_max(e, ctx.parser)?.min(SANITY_BYTES as u128) as u64;
-            let end_term = t_add(frame.cursor.clone(), t_mul(t_cst(8), len_term.clone()));
+            let bound_bits: u64 = expr_max(e, ctx.parser)?.min(SANITY_BITS as u128) as u64;
+            let end_term = t_add(frame.cursor.clone(), len_term.clone());
             // Failure fork: wrapped/oversized length, or (nested) the new
             // end crossing the enclosing region end. One fork, one
             // reason — matching the interp's "region out of bounds".
             let mut fails = vec![Constraint::InRange(
                 len_term.clone(),
-                bound_bytes + 1,
+                bound_bits + 1,
                 u64::MAX,
             )];
             if let Some(top) = frame.regions.last() {

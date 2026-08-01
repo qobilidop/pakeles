@@ -13,7 +13,11 @@ pub mod pb {
 
 pub mod validate;
 
-pub const IR_VERSION: &str = "0.1.0";
+// 0.2.0: bit-uniform lengths (`bit_len` widths, region push lengths,
+// `remaining()` all in BITS). Pre-1.0: `validate()` requires an exact
+// match — a 0.1.0 byte-denominated IR must fail loudly, never be
+// silently re-read with its lengths ×8 off.
+pub const IR_VERSION: &str = "0.2.0";
 
 use anyhow::Result;
 use prost::Message;

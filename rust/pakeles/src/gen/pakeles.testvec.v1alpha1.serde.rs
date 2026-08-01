@@ -431,8 +431,8 @@ impl serde::Serialize for ExpectedField {
                     #[allow(clippy::needless_borrows_for_generic_args)]
                     struct_ser.serialize_field("uint", ToString::to_string(&v).as_str())?;
                 }
-                expected_field::Value::BytesHex(v) => {
-                    struct_ser.serialize_field("bytesHex", v)?;
+                expected_field::Value::Bits(v) => {
+                    struct_ser.serialize_field("bits", v)?;
                 }
             }
         }
@@ -448,15 +448,14 @@ impl<'de> serde::Deserialize<'de> for ExpectedField {
         const FIELDS: &[&str] = &[
             "name",
             "uint",
-            "bytes_hex",
-            "bytesHex",
+            "bits",
         ];
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
             Name,
             Uint,
-            BytesHex,
+            Bits,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -480,7 +479,7 @@ impl<'de> serde::Deserialize<'de> for ExpectedField {
                         match value {
                             "name" => Ok(GeneratedField::Name),
                             "uint" => Ok(GeneratedField::Uint),
-                            "bytesHex" | "bytes_hex" => Ok(GeneratedField::BytesHex),
+                            "bits" => Ok(GeneratedField::Bits),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -516,11 +515,12 @@ impl<'de> serde::Deserialize<'de> for ExpectedField {
                             }
                             value__ = map_.next_value::<::std::option::Option<::pbjson::private::NumberDeserialize<_>>>()?.map(|x| expected_field::Value::Uint(x.0));
                         }
-                        GeneratedField::BytesHex => {
+                        GeneratedField::Bits => {
                             if value__.is_some() {
-                                return Err(serde::de::Error::duplicate_field("bytesHex"));
+                                return Err(serde::de::Error::duplicate_field("bits"));
                             }
-                            value__ = map_.next_value::<::std::option::Option<_>>()?.map(expected_field::Value::BytesHex);
+                            value__ = map_.next_value::<::std::option::Option<_>>()?.map(expected_field::Value::Bits)
+;
                         }
                     }
                 }

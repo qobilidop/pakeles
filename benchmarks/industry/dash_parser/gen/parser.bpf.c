@@ -417,28 +417,28 @@ static __attribute__((always_inline)) int pk_dash_parser_parse_core(const uint8_
       out->flow_key.vnet_id = (uint16_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK]);
       off += 16;
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->flow_key.src_ip_bit_off = off;
-        out->flow_key.src_ip_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->flow_key.src_ip_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->flow_key.dst_ip_bit_off = off;
-        out->flow_key.dst_ip_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->flow_key.dst_ip_bit_len = vlen;
+        off += vlen;
       }
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -576,52 +576,52 @@ static __attribute__((always_inline)) int pk_dash_parser_parse_core(const uint8_
       out->flow_overlay_data.dmac = (uint64_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 40) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 32) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 4) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 5) & PK_BUF_MASK]);
       off += 48;
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->flow_overlay_data.sip_bit_off = off;
-        out->flow_overlay_data.sip_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->flow_overlay_data.sip_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->flow_overlay_data.dip_bit_off = off;
-        out->flow_overlay_data.dip_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->flow_overlay_data.dip_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->flow_overlay_data.sip_mask_bit_off = off;
-        out->flow_overlay_data.sip_mask_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->flow_overlay_data.sip_mask_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->flow_overlay_data.dip_mask_bit_off = off;
-        out->flow_overlay_data.dip_mask_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->flow_overlay_data.dip_mask_bit_len = vlen;
+        off += vlen;
       }
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -669,52 +669,52 @@ static __attribute__((always_inline)) int pk_dash_parser_parse_core(const uint8_
       out->flow_overlay_data.dmac = (uint64_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 40) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 32) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 4) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 5) & PK_BUF_MASK]);
       off += 48;
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->flow_overlay_data.sip_bit_off = off;
-        out->flow_overlay_data.sip_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->flow_overlay_data.sip_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->flow_overlay_data.dip_bit_off = off;
-        out->flow_overlay_data.dip_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->flow_overlay_data.dip_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->flow_overlay_data.sip_mask_bit_off = off;
-        out->flow_overlay_data.sip_mask_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->flow_overlay_data.sip_mask_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->flow_overlay_data.dip_mask_bit_off = off;
-        out->flow_overlay_data.dip_mask_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->flow_overlay_data.dip_mask_bit_len = vlen;
+        off += vlen;
       }
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -819,52 +819,52 @@ static __attribute__((always_inline)) int pk_dash_parser_parse_core(const uint8_
       out->flow_overlay_data.dmac = (uint64_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 40) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 32) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 4) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 5) & PK_BUF_MASK]);
       off += 48;
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->flow_overlay_data.sip_bit_off = off;
-        out->flow_overlay_data.sip_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->flow_overlay_data.sip_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->flow_overlay_data.dip_bit_off = off;
-        out->flow_overlay_data.dip_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->flow_overlay_data.dip_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->flow_overlay_data.sip_mask_bit_off = off;
-        out->flow_overlay_data.sip_mask_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->flow_overlay_data.sip_mask_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->flow_overlay_data.dip_mask_bit_off = off;
-        out->flow_overlay_data.dip_mask_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->flow_overlay_data.dip_mask_bit_len = vlen;
+        off += vlen;
       }
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -969,52 +969,52 @@ static __attribute__((always_inline)) int pk_dash_parser_parse_core(const uint8_
       out->flow_overlay_data.dmac = (uint64_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 40) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 32) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 4) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 5) & PK_BUF_MASK]);
       off += 48;
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->flow_overlay_data.sip_bit_off = off;
-        out->flow_overlay_data.sip_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->flow_overlay_data.sip_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->flow_overlay_data.dip_bit_off = off;
-        out->flow_overlay_data.dip_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->flow_overlay_data.dip_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->flow_overlay_data.sip_mask_bit_off = off;
-        out->flow_overlay_data.sip_mask_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->flow_overlay_data.sip_mask_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->flow_overlay_data.dip_mask_bit_off = off;
-        out->flow_overlay_data.dip_mask_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->flow_overlay_data.dip_mask_bit_len = vlen;
+        off += vlen;
       }
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -1312,16 +1312,16 @@ static __attribute__((always_inline)) int pk_dash_parser_parse_core(const uint8_
     case PK_S_PARSE_U0_IPV4OPTIONS: {
       out->u0_ipv4options_present = 1;
       {
-        uint64_t vlen = (((uint64_t)out->u0_ipv4.ihl - 5ULL) * 4ULL);
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = ((((uint64_t)out->u0_ipv4.ihl - 5ULL) * 4ULL) * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->u0_ipv4options.options_bit_off = off;
-        out->u0_ipv4options.options_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->u0_ipv4options.options_bit_len = vlen;
+        off += vlen;
       }
       state = PK_S_DISPATCH_ON_U0_PROTOCOL;
       continue;

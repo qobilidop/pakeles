@@ -68,7 +68,7 @@ pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<OurClass> {
                         .iter()
                         .find(|f| f.name == "name")
                         .map(|f| match &f.value {
-                            pakeles::interp::FieldValue::Bytes(b) => {
+                            pakeles::interp::FieldValue::Bits(b) => {
                                 String::from_utf8_lossy(b).into_owned()
                             }
                             pakeles::interp::FieldValue::Uint(u) => u.to_string(),

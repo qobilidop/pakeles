@@ -1,5 +1,5 @@
 {
-  "irVersion": "0.1.0",
+  "irVersion": "0.2.0",
   "parser": {
     "name": "gibb_service_provider",
     "headerTypes": [
@@ -249,25 +249,33 @@
           {
             "name": "options",
             "width": {
-              "byteLen": {
+              "bitLen": {
                 "bin": {
-                  "op": "BIN_OP_KIND_SUB",
+                  "op": "BIN_OP_KIND_MUL",
                   "lhs": {
                     "bin": {
-                      "op": "BIN_OP_KIND_MUL",
+                      "op": "BIN_OP_KIND_SUB",
                       "lhs": {
-                        "field": {
-                          "header": "ipv4",
-                          "field": "ihl"
+                        "bin": {
+                          "op": "BIN_OP_KIND_MUL",
+                          "lhs": {
+                            "field": {
+                              "header": "ipv4",
+                              "field": "ihl"
+                            }
+                          },
+                          "rhs": {
+                            "constant": "4"
+                          }
                         }
                       },
                       "rhs": {
-                        "constant": "4"
+                        "constant": "20"
                       }
                     }
                   },
                   "rhs": {
-                    "constant": "20"
+                    "constant": "8"
                   }
                 }
               }
@@ -340,16 +348,32 @@
           {
             "name": "src_addr",
             "width": {
-              "byteLen": {
-                "constant": "16"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "constant": "16"
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
+                }
               }
             }
           },
           {
             "name": "dst_addr",
             "width": {
-              "byteLen": {
-                "constant": "16"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "constant": "16"
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
+                }
               }
             }
           }
@@ -470,25 +494,33 @@
           {
             "name": "options",
             "width": {
-              "byteLen": {
+              "bitLen": {
                 "bin": {
-                  "op": "BIN_OP_KIND_SUB",
+                  "op": "BIN_OP_KIND_MUL",
                   "lhs": {
                     "bin": {
-                      "op": "BIN_OP_KIND_MUL",
+                      "op": "BIN_OP_KIND_SUB",
                       "lhs": {
-                        "field": {
-                          "header": "ipv4_rest",
-                          "field": "ihl"
+                        "bin": {
+                          "op": "BIN_OP_KIND_MUL",
+                          "lhs": {
+                            "field": {
+                              "header": "ipv4_rest",
+                              "field": "ihl"
+                            }
+                          },
+                          "rhs": {
+                            "constant": "4"
+                          }
                         }
                       },
                       "rhs": {
-                        "constant": "4"
+                        "constant": "20"
                       }
                     }
                   },
                   "rhs": {
-                    "constant": "20"
+                    "constant": "8"
                   }
                 }
               }
@@ -552,16 +584,32 @@
           {
             "name": "src_addr",
             "width": {
-              "byteLen": {
-                "constant": "16"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "constant": "16"
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
+                }
               }
             }
           },
           {
             "name": "dst_addr",
             "width": {
-              "byteLen": {
-                "constant": "16"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "constant": "16"
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
+                }
               }
             }
           }

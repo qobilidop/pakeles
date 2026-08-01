@@ -87,7 +87,7 @@ pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Option<FlowKeys>> {
             .iter()
             .find(|x| x.name == f)
             .and_then(|x| match &x.value {
-                pakeles::interp::FieldValue::Bytes(b) => Some(b.clone()),
+                pakeles::interp::FieldValue::Bits(b) => Some(b.clone()),
                 _ => None,
             })
     };

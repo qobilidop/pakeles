@@ -6,6 +6,24 @@ use crate::ir::pb;
 use anyhow::{Context, Result};
 use std::fmt::Write;
 
+/// If `e` is the frontends' byte-length sugar `expr * 8` (either
+/// operand order), the byte-denominated inner expression. Purely
+/// presentational — semantics always use the bit length.
+fn as_byte_len(e: &pb::Expr) -> Option<&pb::Expr> {
+    let Some(pb::expr::Kind::Bin(b)) = e.kind.as_ref() else {
+        return None;
+    };
+    if pb::BinOpKind::try_from(b.op) != Ok(pb::BinOpKind::Mul) {
+        return None;
+    }
+    let is_eight = |x: &pb::Expr| matches!(x.kind.as_ref(), Some(pb::expr::Kind::Constant(8)));
+    match (b.lhs.as_deref(), b.rhs.as_deref()) {
+        (Some(l), Some(r)) if is_eight(r) => Some(l),
+        (Some(l), Some(r)) if is_eight(l) => Some(r),
+        _ => None,
+    }
+}
+
 pub fn generate_markdown(ir: &pb::Ir) -> Result<String> {
     let parser = ir
         .parser
@@ -34,9 +52,13 @@ pub fn generate_markdown(ir: &pb::Ir) -> Result<String> {
         for f in &ht.fields {
             let width = match f.width.as_ref().and_then(|x| x.width.as_ref()) {
                 Some(pb::field_width::Width::Bits(n)) => n.to_string(),
-                Some(pb::field_width::Width::ByteLen(e)) => {
-                    format!("`{}` bytes", crate::viz::expr_text(e))
-                }
+                // Present the frontends' ×8 sugar back in bytes — the
+                // unit the wire format was authored in; a genuinely
+                // bit-granular length renders in bits.
+                Some(pb::field_width::Width::BitLen(e)) => match as_byte_len(e) {
+                    Some(bytes) => format!("`{}` bytes", crate::viz::expr_text(bytes)),
+                    None => format!("`{}` bits", crate::viz::expr_text(e)),
+                },
                 None => "?".into(),
             };
             let d = f.display.clone().unwrap_or_default();

@@ -15,7 +15,9 @@ from pakeles._metadata import Metadata, MetadataFieldSpec
 from pakeles._pb import ir_pb2
 from pakeles._states import Accept, Masked, Reject, SelectSpec, State, Target
 
-IR_VERSION = "0.1.0"
+# Kept in step with the Rust core's `pakeles::ir::IR_VERSION` (the
+# validator requires an exact match). 0.2.0: bit-uniform lengths.
+IR_VERSION = "0.2.0"
 
 
 class Assembly:
@@ -128,7 +130,7 @@ class Assembly:
         for chain in self._states.values():
             for header, instance in chain.extracts:
                 if not any(
-                    f.byte_len_expr is not None
+                    f.bit_len_expr is not None
                     for f in header._fields  # type: ignore[attr-defined]
                 ):
                     continue
@@ -168,8 +170,8 @@ class Assembly:
             inst = var_inst.get(header.ir_name())
             if inst is not None and inst != header.ir_name():
                 for f in ht.fields:
-                    if f.width.WhichOneof("width") == "byte_len":
-                        _rebind_expr_header(f.width.byte_len, header.ir_name(), inst)
+                    if f.width.WhichOneof("width") == "bit_len":
+                        _rebind_expr_header(f.width.bit_len, header.ir_name(), inst)
             p.header_types.append(ht)
         for sname, chain in self._states.items():
             st = p.states.add()

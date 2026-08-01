@@ -18,7 +18,7 @@ pub(crate) fn eval_expr_pub(
     e: &pb::Expr,
     env: &std::collections::HashMap<(String, String), u64>,
 ) -> anyhow::Result<u64> {
-    // byte_len can't reference metadata or remaining() (validator-
+    // bit_len can't reference metadata or remaining() (validator-
     // enforced), so the store is always empty and no region context
     // is needed here.
     eval_expr(e, env, &std::collections::HashMap::new(), None)
@@ -33,7 +33,10 @@ pub enum Outcome {
 #[derive(Debug, Clone, PartialEq)]
 pub enum FieldValue {
     Uint(u64),
-    Bytes(Vec<u8>),
+    /// Opaque bit run in canonical form: `ceil(bit_len/8)` bytes,
+    /// MSB-first, trailing pad bits zero. The owning `ParsedField`'s
+    /// `bit_len` is the authoritative length.
+    Bits(Vec<u8>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -270,20 +273,13 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                         });
                         cursor_bits += n;
                     }
-                    pb::field_width::Width::ByteLen(expr) => {
-                        let len_bytes = eval_expr(expr, &env, &meta, None)? as usize;
-                        if !cursor_bits.is_multiple_of(8) {
-                            anyhow::bail!(
-                                "var-length field `{}` at non-byte-aligned offset",
-                                field.name
-                            );
-                        }
-                        let start = cursor_bits / 8;
-                        // len_bytes may be a wrapped u64 (e.g. ihl<5);
+                    pb::field_width::Width::BitLen(expr) => {
+                        // The length may be a wrapped u64 (e.g. ihl<5);
                         // checked math makes that an oob, not a panic.
-                        let end_bits = len_bytes
-                            .checked_mul(8)
-                            .and_then(|lb| lb.checked_add(cursor_bits));
+                        let len_bits = eval_expr(expr, &env, &meta, None)?;
+                        let end_bits = usize::try_from(len_bits)
+                            .ok()
+                            .and_then(|l| l.checked_add(cursor_bits));
                         if end_bits.is_none_or(|e| e > bound_bits) {
                             let ctx = RejectCtx {
                                 severity: Severity::Error,
@@ -301,14 +297,14 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
                                 final_meta(parser, &meta),
                             );
                         }
-                        let slice = &packet[start..start + len_bytes];
+                        let len_bits = len_bits as usize;
                         parsed.fields.push(ParsedField {
                             name: field.name.clone(),
                             bit_offset: cursor_bits,
-                            bit_len: len_bytes * 8,
-                            value: FieldValue::Bytes(slice.to_vec()),
+                            bit_len: len_bits,
+                            value: FieldValue::Bits(bits::read_run(packet, cursor_bits, len_bits)),
                         });
-                        cursor_bits += len_bytes * 8;
+                        cursor_bits += len_bits;
                     }
                 }
             }
@@ -316,15 +312,14 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
         }
 
         // remaining() at this state's use points (assigns, region
-        // pushes, select keys): STRUCTURAL bytes to the innermost
+        // pushes, select keys): STRUCTURAL bits to the innermost
         // region end — no buffer clamp (design doc, build-time
-        // refinements). `None` (-> eval error) when no region is open
-        // (validator-enforced) or at a non-byte-aligned cursor.
+        // refinements). `None` (-> eval error) only when no region is
+        // open (validator-enforced). `c <= top` is invariant (reads
+        // never cross the region end), so the subtraction is exact.
         let remaining_here = |regions: &[usize], cursor_bits: usize| -> Option<u64> {
             let top = *regions.last()?;
-            cursor_bits
-                .is_multiple_of(8)
-                .then(|| (top.saturating_sub(cursor_bits) / 8) as u64)
+            Some(top.saturating_sub(cursor_bits) as u64)
         };
 
         for a in &state.assigns {
@@ -349,17 +344,13 @@ pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<Par
         for op in &state.region_ops {
             match op.kind.as_ref() {
                 Some(pb::region_op::Kind::Push(e)) => {
-                    if !cursor_bits.is_multiple_of(8) {
-                        anyhow::bail!("region push at non-byte-aligned offset");
-                    }
                     let len = eval_expr(e, &env, &meta, remaining_here(&regions, cursor_bits))?;
                     // Structural check ONLY against the enclosing region
                     // (a region reaching past the buffer is a truncation
                     // found by reads, not a lie). Wrapped math is a lie.
                     let end = usize::try_from(len)
                         .ok()
-                        .and_then(|l| l.checked_mul(8))
-                        .and_then(|lb| lb.checked_add(cursor_bits));
+                        .and_then(|l| l.checked_add(cursor_bits));
                     let structural_lie = match (end, regions.last()) {
                         (None, _) => true,
                         (Some(e), Some(top)) => e > *top,

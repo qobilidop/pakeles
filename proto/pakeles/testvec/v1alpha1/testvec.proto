@@ -66,9 +66,17 @@ message ExpectedHeader {
 }
 
 message ExpectedField {
+  // Until the bit-uniform IR (0.2.0), opaque runs were byte-denominated
+  // and recorded as `string bytes_hex = 3`; bit runs need an explicit
+  // bit length, so the canonical BitString took over wholesale (one
+  // encoding, not two).
+  reserved 3;
+  reserved "bytes_hex";
   string name = 1;
   oneof value {
     uint64 uint = 2;
-    string bytes_hex = 3;
+    // Opaque bit-run value in canonical BitString form (for
+    // byte-multiple runs, data_hex is exactly the run's bytes).
+    BitString bits = 4;
   }
 }

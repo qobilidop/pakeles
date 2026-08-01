@@ -1,5 +1,5 @@
 {
-  "irVersion": "0.1.0",
+  "irVersion": "0.2.0",
   "parser": {
     "name": "quic_initial",
     "headerTypes": [
@@ -113,10 +113,18 @@
           {
             "name": "dcid",
             "width": {
-              "byteLen": {
-                "field": {
-                  "header": "other_cids",
-                  "field": "dcid_len"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "field": {
+                      "header": "other_cids",
+                      "field": "dcid_len"
+                    }
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
                 }
               }
             }
@@ -134,10 +142,18 @@
           {
             "name": "scid",
             "width": {
-              "byteLen": {
-                "field": {
-                  "header": "other_cids",
-                  "field": "scid_len"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "field": {
+                      "header": "other_cids",
+                      "field": "scid_len"
+                    }
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
                 }
               }
             }
@@ -166,10 +182,18 @@
           {
             "name": "cid",
             "width": {
-              "byteLen": {
-                "field": {
-                  "header": "dcid_len",
-                  "field": "ln"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "field": {
+                      "header": "dcid_len",
+                      "field": "ln"
+                    }
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
                 }
               }
             }
@@ -198,10 +222,18 @@
           {
             "name": "cid",
             "width": {
-              "byteLen": {
-                "field": {
-                  "header": "scid_len",
-                  "field": "ln"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "field": {
+                      "header": "scid_len",
+                      "field": "ln"
+                    }
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
                 }
               }
             }
@@ -294,10 +326,18 @@
           {
             "name": "body",
             "width": {
-              "byteLen": {
-                "field": {
-                  "header": "tok_lead",
-                  "field": "v6"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "field": {
+                      "header": "tok_lead",
+                      "field": "v6"
+                    }
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
                 }
               }
             }
@@ -319,28 +359,36 @@
           {
             "name": "body",
             "width": {
-              "byteLen": {
+              "bitLen": {
                 "bin": {
-                  "op": "BIN_OP_KIND_OR",
+                  "op": "BIN_OP_KIND_MUL",
                   "lhs": {
                     "bin": {
-                      "op": "BIN_OP_KIND_SHL",
+                      "op": "BIN_OP_KIND_OR",
                       "lhs": {
-                        "field": {
-                          "header": "tok_lead",
-                          "field": "v6"
+                        "bin": {
+                          "op": "BIN_OP_KIND_SHL",
+                          "lhs": {
+                            "field": {
+                              "header": "tok_lead",
+                              "field": "v6"
+                            }
+                          },
+                          "rhs": {
+                            "constant": "8"
+                          }
                         }
                       },
                       "rhs": {
-                        "constant": "8"
+                        "field": {
+                          "header": "tok1",
+                          "field": "t"
+                        }
                       }
                     }
                   },
                   "rhs": {
-                    "field": {
-                      "header": "tok1",
-                      "field": "t"
-                    }
+                    "constant": "8"
                   }
                 }
               }
@@ -363,28 +411,36 @@
           {
             "name": "body",
             "width": {
-              "byteLen": {
+              "bitLen": {
                 "bin": {
-                  "op": "BIN_OP_KIND_OR",
+                  "op": "BIN_OP_KIND_MUL",
                   "lhs": {
                     "bin": {
-                      "op": "BIN_OP_KIND_SHL",
+                      "op": "BIN_OP_KIND_OR",
                       "lhs": {
-                        "field": {
-                          "header": "tok_lead",
-                          "field": "v6"
+                        "bin": {
+                          "op": "BIN_OP_KIND_SHL",
+                          "lhs": {
+                            "field": {
+                              "header": "tok_lead",
+                              "field": "v6"
+                            }
+                          },
+                          "rhs": {
+                            "constant": "24"
+                          }
                         }
                       },
                       "rhs": {
-                        "constant": "24"
+                        "field": {
+                          "header": "tok2",
+                          "field": "t"
+                        }
                       }
                     }
                   },
                   "rhs": {
-                    "field": {
-                      "header": "tok2",
-                      "field": "t"
-                    }
+                    "constant": "8"
                   }
                 }
               }
@@ -407,28 +463,36 @@
           {
             "name": "body",
             "width": {
-              "byteLen": {
+              "bitLen": {
                 "bin": {
-                  "op": "BIN_OP_KIND_OR",
+                  "op": "BIN_OP_KIND_MUL",
                   "lhs": {
                     "bin": {
-                      "op": "BIN_OP_KIND_SHL",
+                      "op": "BIN_OP_KIND_OR",
                       "lhs": {
-                        "field": {
-                          "header": "tok_lead",
-                          "field": "v6"
+                        "bin": {
+                          "op": "BIN_OP_KIND_SHL",
+                          "lhs": {
+                            "field": {
+                              "header": "tok_lead",
+                              "field": "v6"
+                            }
+                          },
+                          "rhs": {
+                            "constant": "56"
+                          }
                         }
                       },
                       "rhs": {
-                        "constant": "56"
+                        "field": {
+                          "header": "tok3",
+                          "field": "t"
+                        }
                       }
                     }
                   },
                   "rhs": {
-                    "field": {
-                      "header": "tok3",
-                      "field": "t"
-                    }
+                    "constant": "8"
                   }
                 }
               }

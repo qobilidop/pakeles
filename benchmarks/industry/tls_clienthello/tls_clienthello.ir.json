@@ -1,5 +1,5 @@
 {
-  "irVersion": "0.1.0",
+  "irVersion": "0.2.0",
   "parser": {
     "name": "tls_clienthello",
     "headerTypes": [
@@ -101,8 +101,16 @@
           {
             "name": "random",
             "width": {
-              "byteLen": {
-                "constant": "32"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "constant": "32"
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
+                }
               }
             }
           }
@@ -129,10 +137,18 @@
           {
             "name": "body",
             "width": {
-              "byteLen": {
-                "field": {
-                  "header": "sid_len",
-                  "field": "slen"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "field": {
+                      "header": "sid_len",
+                      "field": "slen"
+                    }
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
                 }
               }
             }
@@ -160,10 +176,18 @@
           {
             "name": "body",
             "width": {
-              "byteLen": {
-                "field": {
-                  "header": "cs_len",
-                  "field": "clen"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "field": {
+                      "header": "cs_len",
+                      "field": "clen"
+                    }
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
                 }
               }
             }
@@ -191,10 +215,18 @@
           {
             "name": "body",
             "width": {
-              "byteLen": {
-                "field": {
-                  "header": "comp_len",
-                  "field": "plen"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "field": {
+                      "header": "comp_len",
+                      "field": "plen"
+                    }
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
                 }
               }
             }
@@ -252,10 +284,18 @@
           {
             "name": "body",
             "width": {
-              "byteLen": {
-                "field": {
-                  "header": "ext",
-                  "field": "elen"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "field": {
+                      "header": "ext",
+                      "field": "elen"
+                    }
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
                 }
               }
             }
@@ -313,10 +353,18 @@
           {
             "name": "name",
             "width": {
-              "byteLen": {
-                "field": {
-                  "header": "sni_entry",
-                  "field": "hlen"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "field": {
+                      "header": "sni_entry",
+                      "field": "hlen"
+                    }
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
                 }
               }
             }
@@ -364,9 +412,17 @@
         "regionOps": [
           {
             "push": {
-              "field": {
-                "header": "record_hdr",
-                "field": "rlen"
+              "bin": {
+                "op": "BIN_OP_KIND_MUL",
+                "lhs": {
+                  "field": {
+                    "header": "record_hdr",
+                    "field": "rlen"
+                  }
+                },
+                "rhs": {
+                  "constant": "8"
+                }
               }
             }
           }
@@ -449,9 +505,17 @@
         "regionOps": [
           {
             "push": {
-              "field": {
-                "header": "handshake_hdr",
-                "field": "hlen"
+              "bin": {
+                "op": "BIN_OP_KIND_MUL",
+                "lhs": {
+                  "field": {
+                    "header": "handshake_hdr",
+                    "field": "hlen"
+                  }
+                },
+                "rhs": {
+                  "constant": "8"
+                }
               }
             }
           }
@@ -1008,7 +1072,15 @@
           "select": {
             "keys": [
               {
-                "remaining": {}
+                "bin": {
+                  "op": "BIN_OP_KIND_SHR",
+                  "lhs": {
+                    "remaining": {}
+                  },
+                  "rhs": {
+                    "constant": "3"
+                  }
+                }
               }
             ],
             "arms": [
@@ -1059,9 +1131,17 @@
         "regionOps": [
           {
             "push": {
-              "field": {
-                "header": "ext_len",
-                "field": "total"
+              "bin": {
+                "op": "BIN_OP_KIND_MUL",
+                "lhs": {
+                  "field": {
+                    "header": "ext_len",
+                    "field": "total"
+                  }
+                },
+                "rhs": {
+                  "constant": "8"
+                }
               }
             }
           }
@@ -1073,7 +1153,15 @@
           "select": {
             "keys": [
               {
-                "remaining": {}
+                "bin": {
+                  "op": "BIN_OP_KIND_SHR",
+                  "lhs": {
+                    "remaining": {}
+                  },
+                  "rhs": {
+                    "constant": "3"
+                  }
+                }
               }
             ],
             "arms": [
@@ -1222,9 +1310,17 @@
         "regionOps": [
           {
             "push": {
-              "field": {
-                "header": "ext",
-                "field": "elen"
+              "bin": {
+                "op": "BIN_OP_KIND_MUL",
+                "lhs": {
+                  "field": {
+                    "header": "ext",
+                    "field": "elen"
+                  }
+                },
+                "rhs": {
+                  "constant": "8"
+                }
               }
             }
           }
@@ -1248,9 +1344,17 @@
         "regionOps": [
           {
             "push": {
-              "field": {
-                "header": "sni_list",
-                "field": "list_len"
+              "bin": {
+                "op": "BIN_OP_KIND_MUL",
+                "lhs": {
+                  "field": {
+                    "header": "sni_list",
+                    "field": "list_len"
+                  }
+                },
+                "rhs": {
+                  "constant": "8"
+                }
               }
             }
           }

@@ -50,14 +50,27 @@ def test_region_ops_serialize() -> None:
     states = {s["name"]: s for s in json.loads(_tlv())["parser"]["states"]}
     push_ops = states["s0"]["regionOps"]
     assert len(push_ops) == 1
-    assert push_ops[0]["push"]["field"] == {"header": "total_hdr", "field": "total"}
+    # push_region(bytes) is ×8 sugar over the bit-denominated IR.
+    push = push_ops[0]["push"]
+    assert push["bin"]["op"] == "BIN_OP_KIND_MUL"
+    assert push["bin"]["lhs"]["field"] == {"header": "total_hdr", "field": "total"}
+    assert push["bin"]["rhs"]["constant"] == "8"
     assert states["done"]["regionOps"] == [{"pop": {}}]
 
 
 def test_remaining_select_key_serializes() -> None:
     by_name = {s["name"]: s for s in json.loads(_tlv())["parser"]["states"]}
     tlv = by_name["tlv"]
-    assert tlv["transition"]["select"]["keys"] == [{"remaining": {}}]
+    # remaining() (bytes view) serializes as the raw bit quantity >> 3.
+    assert tlv["transition"]["select"]["keys"] == [
+        {
+            "bin": {
+                "op": "BIN_OP_KIND_SHR",
+                "lhs": {"remaining": {}},
+                "rhs": {"constant": "3"},
+            }
+        }
+    ]
 
 
 def test_push_region_after_transition_rejected() -> None:

@@ -128,16 +128,16 @@ static int pk_quic_initial_parse_core(const uint8_t *buf, uint64_t bit_len, pk_q
       out->other_cids.dcid_len = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       {
-        uint64_t vlen = (uint64_t)out->other_cids.dcid_len;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = ((uint64_t)out->other_cids.dcid_len * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->other_cids.dcid_bit_off = off;
-        out->other_cids.dcid_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->other_cids.dcid_bit_len = vlen;
+        off += vlen;
       }
       if (off + 8 > bit_len) {
         out->outcome = 1;
@@ -148,16 +148,16 @@ static int pk_quic_initial_parse_core(const uint8_t *buf, uint64_t bit_len, pk_q
       out->other_cids.scid_len = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       {
-        uint64_t vlen = (uint64_t)out->other_cids.scid_len;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = ((uint64_t)out->other_cids.scid_len * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->other_cids.scid_bit_off = off;
-        out->other_cids.scid_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->other_cids.scid_bit_len = vlen;
+        off += vlen;
       }
       out->outcome = 0;
       out->reason = PK_R_NONE;
@@ -248,16 +248,16 @@ static int pk_quic_initial_parse_core(const uint8_t *buf, uint64_t bit_len, pk_q
     case PK_S_PARSE_DCID: {
       out->dcid_present = 1;
       {
-        uint64_t vlen = (uint64_t)out->dcid_len.ln;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = ((uint64_t)out->dcid_len.ln * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->dcid.cid_bit_off = off;
-        out->dcid.cid_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->dcid.cid_bit_len = vlen;
+        off += vlen;
       }
       state = PK_S_PARSE_SCID_LEN;
       continue;
@@ -346,16 +346,16 @@ static int pk_quic_initial_parse_core(const uint8_t *buf, uint64_t bit_len, pk_q
     case PK_S_PARSE_SCID: {
       out->scid_present = 1;
       {
-        uint64_t vlen = (uint64_t)out->scid_len.ln;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = ((uint64_t)out->scid_len.ln * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->scid.cid_bit_off = off;
-        out->scid.cid_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->scid.cid_bit_len = vlen;
+        off += vlen;
       }
       uint64_t key0 = (uint64_t)out->first_byte.ty;
       if (key0 == 0ULL) {
@@ -495,16 +495,16 @@ static int pk_quic_initial_parse_core(const uint8_t *buf, uint64_t bit_len, pk_q
     case PK_S_TOK_W1: {
       out->tok0_present = 1;
       {
-        uint64_t vlen = (uint64_t)out->tok_lead.v6;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = ((uint64_t)out->tok_lead.v6 * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->tok0.body_bit_off = off;
-        out->tok0.body_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->tok0.body_bit_len = vlen;
+        off += vlen;
       }
       out->m_token_len = (uint64_t)out->tok_lead.v6;
       state = PK_S_PARSE_LEN_LEAD;
@@ -521,16 +521,16 @@ static int pk_quic_initial_parse_core(const uint8_t *buf, uint64_t bit_len, pk_q
       out->tok1.t = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       {
-        uint64_t vlen = (((uint64_t)out->tok_lead.v6 << 8ULL) | (uint64_t)out->tok1.t);
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = ((((uint64_t)out->tok_lead.v6 << 8ULL) | (uint64_t)out->tok1.t) * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->tok1.body_bit_off = off;
-        out->tok1.body_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->tok1.body_bit_len = vlen;
+        off += vlen;
       }
       out->m_token_len = (((uint64_t)out->tok_lead.v6 << 8ULL) | (uint64_t)out->tok1.t);
       state = PK_S_PARSE_LEN_LEAD;
@@ -547,16 +547,16 @@ static int pk_quic_initial_parse_core(const uint8_t *buf, uint64_t bit_len, pk_q
       out->tok2.t = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 16) | ((uint64_t)buf[(off >> 3) + 1] << 8) | (uint64_t)buf[(off >> 3) + 2]);
       off += 24;
       {
-        uint64_t vlen = (((uint64_t)out->tok_lead.v6 << 24ULL) | (uint64_t)out->tok2.t);
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = ((((uint64_t)out->tok_lead.v6 << 24ULL) | (uint64_t)out->tok2.t) * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->tok2.body_bit_off = off;
-        out->tok2.body_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->tok2.body_bit_len = vlen;
+        off += vlen;
       }
       out->m_token_len = (((uint64_t)out->tok_lead.v6 << 24ULL) | (uint64_t)out->tok2.t);
       state = PK_S_PARSE_LEN_LEAD;
@@ -573,16 +573,16 @@ static int pk_quic_initial_parse_core(const uint8_t *buf, uint64_t bit_len, pk_q
       out->tok3.t = (uint64_t)(((uint64_t)buf[(off >> 3) + 0] << 48) | ((uint64_t)buf[(off >> 3) + 1] << 40) | ((uint64_t)buf[(off >> 3) + 2] << 32) | ((uint64_t)buf[(off >> 3) + 3] << 24) | ((uint64_t)buf[(off >> 3) + 4] << 16) | ((uint64_t)buf[(off >> 3) + 5] << 8) | (uint64_t)buf[(off >> 3) + 6]);
       off += 56;
       {
-        uint64_t vlen = (((uint64_t)out->tok_lead.v6 << 56ULL) | (uint64_t)out->tok3.t);
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = ((((uint64_t)out->tok_lead.v6 << 56ULL) | (uint64_t)out->tok3.t) * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->tok3.body_bit_off = off;
-        out->tok3.body_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->tok3.body_bit_len = vlen;
+        off += vlen;
       }
       out->m_token_len = (((uint64_t)out->tok_lead.v6 << 56ULL) | (uint64_t)out->tok3.t);
       state = PK_S_PARSE_LEN_LEAD;

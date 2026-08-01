@@ -7,7 +7,7 @@ digraph "tlv_items" {
   "close" [shape=box, label="close", tooltip="Exact-mode pop: trailing bytes inside the region reject.", href="#"];
   "accept" [shape=doublecircle];
   "parse_total" -> "tlv_loop";
-  "tlv_loop" -> "close" [label="remaining() == 0x0"];
+  "tlv_loop" -> "close" [label="(remaining() >> 3) == 0x0"];
   "tlv_loop" -> "parse_item" [label="default", style=dashed];
   "parse_item" -> "tlv_loop";
   "close" -> "accept";

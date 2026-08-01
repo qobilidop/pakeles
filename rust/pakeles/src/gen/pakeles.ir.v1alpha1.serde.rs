@@ -1151,8 +1151,8 @@ impl serde::Serialize for FieldWidth {
                 field_width::Width::Bits(v) => {
                     struct_ser.serialize_field("bits", v)?;
                 }
-                field_width::Width::ByteLen(v) => {
-                    struct_ser.serialize_field("byteLen", v)?;
+                field_width::Width::BitLen(v) => {
+                    struct_ser.serialize_field("bitLen", v)?;
                 }
             }
         }
@@ -1167,14 +1167,14 @@ impl<'de> serde::Deserialize<'de> for FieldWidth {
     {
         const FIELDS: &[&str] = &[
             "bits",
-            "byte_len",
-            "byteLen",
+            "bit_len",
+            "bitLen",
         ];
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
             Bits,
-            ByteLen,
+            BitLen,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -1197,7 +1197,7 @@ impl<'de> serde::Deserialize<'de> for FieldWidth {
                     {
                         match value {
                             "bits" => Ok(GeneratedField::Bits),
-                            "byteLen" | "byte_len" => Ok(GeneratedField::ByteLen),
+                            "bitLen" | "bit_len" => Ok(GeneratedField::BitLen),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -1226,11 +1226,11 @@ impl<'de> serde::Deserialize<'de> for FieldWidth {
                             }
                             width__ = map_.next_value::<::std::option::Option<::pbjson::private::NumberDeserialize<_>>>()?.map(|x| field_width::Width::Bits(x.0));
                         }
-                        GeneratedField::ByteLen => {
+                        GeneratedField::BitLen => {
                             if width__.is_some() {
-                                return Err(serde::de::Error::duplicate_field("byteLen"));
+                                return Err(serde::de::Error::duplicate_field("bitLen"));
                             }
-                            width__ = map_.next_value::<::std::option::Option<_>>()?.map(field_width::Width::ByteLen)
+                            width__ = map_.next_value::<::std::option::Option<_>>()?.map(field_width::Width::BitLen)
 ;
                         }
                     }

@@ -112,11 +112,11 @@ fn instances(parser: &pb::Parser) -> Vec<(String, String)> {
 
 fn expr_c(e: &pb::Expr) -> Result<String> {
     match e.kind.as_ref() {
-        // Structural bytes to the innermost region end. Only legal
+        // Structural bits to the innermost region end. Only legal
         // with a region open (validator), so rsp >= 1 here; the mask
         // keeps the index verifier-bounded (see `region_locals`).
         Some(pb::expr::Kind::Remaining(_)) => {
-            Ok("((pk_region_end[(pk_rsp - 1u) & PK_RMASK] - off) >> 3)".to_string())
+            Ok("(pk_region_end[(pk_rsp - 1u) & PK_RMASK] - off)".to_string())
         }
         Some(pb::expr::Kind::Constant(v)) => Ok(format!("{v}ULL")),
         Some(pb::expr::Kind::Field(r)) => Ok(format!("(uint64_t)out->{}.{}", r.header, r.field)),
@@ -297,7 +297,7 @@ impl<'a> Emit<'a> {
                     Some(pb::field_width::Width::Bits(n)) => {
                         writeln!(w, "  {} {};", uint_type(*n), f.name)?;
                     }
-                    Some(pb::field_width::Width::ByteLen(_)) => {
+                    Some(pb::field_width::Width::BitLen(_)) => {
                         writeln!(w, "  uint64_t {}_bit_off;", f.name)?;
                         writeln!(w, "  uint64_t {}_bit_len;", f.name)?;
                     }
@@ -567,25 +567,26 @@ impl<'a> Emit<'a> {
                         }
                         writeln!(w, "      off += {n};")?;
                     }
-                    Some(pb::field_width::Width::ByteLen(expr)) => {
+                    Some(pb::field_width::Width::BitLen(expr)) => {
                         writeln!(w, "      {{")?;
                         writeln!(w, "        uint64_t vlen = {};", expr_c(expr)?)?;
-                        // Division form: immune to u64 overflow on
-                        // wrapped lengths; off <= bound holds here.
+                        // Subtraction form is overflow-immune on wrapped
+                        // lengths: off <= bound holds here, and the bit-
+                        // uniform length needs no ×8 that could wrap.
                         if regions {
                             writeln!(
                                 w,
-                                "        if (pk_rsp && vlen > (pk_region_end[(pk_rsp - 1u) & PK_RMASK] - off) / 8) {{"
+                                "        if (pk_rsp && vlen > pk_region_end[(pk_rsp - 1u) & PK_RMASK] - off) {{"
                             )?;
                             self.emit_reject(w, "          ", "out of region bounds")?;
                             writeln!(w, "        }}")?;
                         }
-                        writeln!(w, "        if (vlen > (bit_len - off) / 8) {{")?;
+                        writeln!(w, "        if (vlen > bit_len - off) {{")?;
                         self.emit_reject(w, "          ", "out of bounds")?;
                         writeln!(w, "        }}")?;
                         writeln!(w, "        out->{inst}.{}_bit_off = off;", f.name)?;
-                        writeln!(w, "        out->{inst}.{}_bit_len = vlen * 8;", f.name)?;
-                        writeln!(w, "        off += vlen * 8;")?;
+                        writeln!(w, "        out->{inst}.{}_bit_len = vlen;", f.name)?;
+                        writeln!(w, "        off += vlen;")?;
                         writeln!(w, "      }}")?;
                     }
                     None => bail!("field `{}` has no width", f.name),
@@ -612,28 +613,25 @@ impl<'a> Emit<'a> {
                     writeln!(w, "      {{")?;
                     writeln!(w, "        uint64_t rlen = {};", expr_c(e)?)?;
                     // Structural check against the enclosing region only
-                    // (division form, overflow-immune); at depth 0 just
-                    // guard the end arithmetic itself.
+                    // (subtraction form, overflow-immune); at depth 0
+                    // just guard the end arithmetic itself.
                     writeln!(w, "        if (pk_rsp) {{")?;
                     writeln!(
                         w,
-                        "          if (rlen > (pk_region_end[(pk_rsp - 1u) & PK_RMASK] - off) / 8) {{"
+                        "          if (rlen > pk_region_end[(pk_rsp - 1u) & PK_RMASK] - off) {{"
                     )?;
                     self.emit_reject(w, "            ", "region out of bounds")?;
                     writeln!(w, "          }}")?;
                     writeln!(
                         w,
-                        "        }} else if (rlen > (0xffffffffffffffffULL - off) / 8) {{"
+                        "        }} else if (rlen > 0xffffffffffffffffULL - off) {{"
                     )?;
                     self.emit_reject(w, "          ", "region out of bounds")?;
                     writeln!(w, "        }}")?;
                     writeln!(w, "        if (pk_rsp > PK_RMASK) {{")?;
                     self.emit_reject(w, "          ", "region out of bounds")?;
                     writeln!(w, "        }}")?;
-                    writeln!(
-                        w,
-                        "        pk_region_end[pk_rsp & PK_RMASK] = off + rlen * 8;"
-                    )?;
+                    writeln!(w, "        pk_region_end[pk_rsp & PK_RMASK] = off + rlen;")?;
                     writeln!(w, "        pk_rsp++;")?;
                     writeln!(w, "      }}")?;
                 }
@@ -747,6 +745,18 @@ pub fn generate_c_harness(ir: &pb::Ir) -> Result<String> {
         .parser
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("ir has no parser"))?;
+    // The harness prints var runs as byte hex (`_bit_off / 8`); the
+    // parse core itself is bit-exact at any alignment, but this test
+    // surface is byte-addressed. Derived-capability refusal, in the
+    // committed C-UNSUPPORTED culture.
+    let misaligned = super::misaligned_var_runs(parser);
+    if !misaligned.is_empty() {
+        bail!(
+            "C-UNSUPPORTED: harness byte-hex printing requires provably \
+             byte-aligned, whole-byte var runs; unproven at: {}",
+            misaligned.join(", ")
+        );
+    }
     let emit = Emit::new(parser);
     let p = &emit.prefix;
     let mut w = String::new();
@@ -805,7 +815,10 @@ pub fn generate_c_harness(ir: &pb::Ir) -> Result<String> {
                         f.name, f.name
                     )?;
                 }
-                Some(pb::field_width::Width::ByteLen(_)) => {
+                Some(pb::field_width::Width::BitLen(_)) => {
+                    // Byte-hex printing relies on the alignment analysis
+                    // having proven this run byte-aligned and whole-byte
+                    // (`generate_c_harness` refuses otherwise).
                     writeln!(w, "      printf(\"|{inst}.{}=\");", f.name)?;
                     writeln!(
                         w,
@@ -925,6 +938,27 @@ mod tests {
         // and the zero-metadata guarantee:
         let plain = generate_c(&crate::fixtures::eth_ipvx_l4()).unwrap();
         assert!(!plain.header.contains("m_"));
+    }
+
+    #[test]
+    fn harness_refuses_bit_granular_runs_parser_does_not() {
+        use crate::builder::*;
+        let ir = ParserBuilder::new("bitrun", 2)
+            .header(
+                HeaderTypeBuilder::new("h")
+                    .bits("n", 8)
+                    .var_bits("body", f("h", "n")),
+            )
+            .state(StateBuilder::new("s").extract("h").accept())
+            .start("s")
+            .build()
+            .unwrap();
+        // The parse core is bit-exact at any alignment — it generates.
+        generate_c(&ir).unwrap();
+        // The harness's byte-hex printing is the byte-addressed
+        // surface — it refuses, loudly.
+        let err = generate_c_harness(&ir).unwrap_err();
+        assert!(err.to_string().contains("C-UNSUPPORTED"), "{err}");
     }
 
     fn cc_compiles(files: &[(&str, &str)], cmd: &[&str]) -> std::process::Output {

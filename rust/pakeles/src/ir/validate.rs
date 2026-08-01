@@ -6,6 +6,18 @@ use super::pb;
 pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
     let mut errs = Vec::new();
 
+    // Version gate before anything else: length units changed at 0.2.0
+    // (bytes -> bits), so interpreting a stale IR would be silently
+    // wrong, not merely deprecated.
+    if ir.ir_version != super::IR_VERSION {
+        return Err(vec![format!(
+            "ir_version `{}` is not the supported `{}` (pre-1.0: regenerate \
+             the IR from its source description)",
+            ir.ir_version,
+            super::IR_VERSION
+        )]);
+    }
+
     let Some(parser) = &ir.parser else {
         return Err(vec!["ir has no parser".into()]);
     };
@@ -168,13 +180,13 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
         }
     }
 
-    // Field refs inside variable-length widths. `byte_len` must not
+    // Field refs inside variable-length widths. `bit_len` must not
     // reference metadata (v1 restriction: metadata may not affect a
     // header's extracted size, which would undermine pathid soundness)
     // and must not use `remaining()` (v1: widths stay region-blind).
     for ht in &parser.header_types {
         for f in &ht.fields {
-            if let Some(pb::field_width::Width::ByteLen(e)) =
+            if let Some(pb::field_width::Width::BitLen(e)) =
                 f.width.as_ref().and_then(|w| w.width.as_ref())
             {
                 let mut refs = Vec::new();
@@ -186,13 +198,13 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
                 walk_meta_refs(e, &mut meta_refs);
                 if !meta_refs.is_empty() {
                     errs.push(format!(
-                        "field `{}.{}`: byte_len must not reference metadata",
+                        "field `{}.{}`: bit_len must not reference metadata",
                         ht.name, f.name
                     ));
                 }
                 if contains_remaining(e) {
                     errs.push(format!(
-                        "field `{}.{}`: byte_len must not use remaining()",
+                        "field `{}.{}`: bit_len must not use remaining()",
                         ht.name, f.name
                     ));
                 }
@@ -574,7 +586,7 @@ fn definite_extraction_errors(
             avail.insert(inst.clone());
             if let Some(ht) = header_types.get(ex.header_type.as_str()) {
                 for f in &ht.fields {
-                    if let Some(pb::field_width::Width::ByteLen(e)) =
+                    if let Some(pb::field_width::Width::BitLen(e)) =
                         f.width.as_ref().and_then(|w| w.width.as_ref())
                     {
                         check_expr(
@@ -657,8 +669,18 @@ mod tests {
 
     #[test]
     fn rejects_missing_parser() {
-        let ir = pb::Ir::default();
+        let ir = pb::Ir {
+            ir_version: crate::ir::IR_VERSION.into(),
+            parser: None,
+        };
         assert_err_contains(&ir, "no parser");
+    }
+
+    #[test]
+    fn rejects_stale_ir_version() {
+        let mut ir = tiny();
+        ir.ir_version = "0.1.0".into();
+        assert_err_contains(&ir, "ir_version `0.1.0`");
     }
 
     #[test]
@@ -977,7 +999,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_remaining_in_byte_len() {
+    fn rejects_remaining_in_bit_len() {
         use crate::builder::*;
         let err = ParserBuilder::new("rem_width", 2)
             .header(HeaderTypeBuilder::new("h").var_bytes("rest", remaining()))
@@ -985,9 +1007,7 @@ mod tests {
             .start("s")
             .build()
             .unwrap_err();
-        assert!(err
-            .to_string()
-            .contains("byte_len must not use remaining()"));
+        assert!(err.to_string().contains("bit_len must not use remaining()"));
     }
 
     #[test]
@@ -1021,8 +1041,8 @@ mod tests {
     }
 
     #[test]
-    fn rejects_metadata_in_byte_len() {
-        // v1 restriction: byte_len must not reference metadata (pathid soundness).
+    fn rejects_metadata_in_bit_len() {
+        // v1 restriction: bit_len must not reference metadata (pathid soundness).
         let mut ir = tiny();
         let p = ir.parser.as_mut().unwrap();
         p.metadata.push(pb::MetadataField {
@@ -1036,7 +1056,7 @@ mod tests {
             fields: vec![pb::Field {
                 name: "body".into(),
                 width: Some(pb::FieldWidth {
-                    width: Some(pb::field_width::Width::ByteLen(pb::Expr {
+                    width: Some(pb::field_width::Width::BitLen(pb::Expr {
                         kind: Some(pb::expr::Kind::Metadata(pb::MetadataRef {
                             name: "n".into(),
                         })),
@@ -1046,6 +1066,6 @@ mod tests {
             }],
             ..Default::default()
         });
-        assert_err_contains(&ir, "byte_len must not reference metadata");
+        assert_err_contains(&ir, "bit_len must not reference metadata");
     }
 }

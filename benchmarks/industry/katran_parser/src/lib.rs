@@ -87,7 +87,7 @@ fn field_bytes(h: &pakeles::interp::ParsedHeader, f: &str) -> Option<Vec<u8>> {
         .iter()
         .find(|x| x.name == f)
         .and_then(|x| match &x.value {
-            pakeles::interp::FieldValue::Bytes(b) => Some(b.clone()),
+            pakeles::interp::FieldValue::Bits(b) => Some(b.clone()),
             _ => None,
         })
 }

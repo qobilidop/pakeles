@@ -31,8 +31,8 @@ pub fn m(name: &str) -> pb::Expr {
     }
 }
 
-/// `remaining()`: bytes between the cursor and the innermost sized
-/// region's end (packet end when no region is open).
+/// `remaining()`: BITS between the cursor and the innermost sized
+/// region's end (the raw IR quantity; wrap in `shr(_, 3)` for bytes).
 pub fn remaining() -> pb::Expr {
     pb::Expr {
         kind: Some(pb::expr::Kind::Remaining(pb::Remaining {})),
@@ -190,8 +190,30 @@ impl HeaderTypeBuilder {
         self.field(name, pb::field_width::Width::Bits(n), Some(display), anns)
     }
 
+    /// Variable-length field whose length expression is in BYTES —
+    /// sugar for `bit_len = expr * 8` (wire formats speak bytes; the
+    /// IR is bit-denominated). Mirrors the Python eDSL's `var_bytes`
+    /// exactly (same `mul(expr, 8)` tree) so single-source examples
+    /// emit identical IR from either language.
     pub fn var_bytes(self, name: &str, byte_len: pb::Expr) -> Self {
-        self.field(name, pb::field_width::Width::ByteLen(byte_len), None, &[])
+        self.var_bits(name, mul(byte_len, c(8)))
+    }
+
+    /// Variable-length field with its length expression in BITS (the
+    /// raw IR denomination).
+    pub fn var_bits(self, name: &str, bit_len: pb::Expr) -> Self {
+        self.field(name, pb::field_width::Width::BitLen(bit_len), None, &[])
+    }
+
+    /// Variable-length field (BITS) with typed Display metadata — the
+    /// `fixed_bytes(16, "Source Address", IPV6)` shape.
+    pub fn var_bits_full(self, name: &str, bit_len: pb::Expr, display: pb::Display) -> Self {
+        self.field(
+            name,
+            pb::field_width::Width::BitLen(bit_len),
+            Some(display),
+            &[],
+        )
     }
 
     fn field(
@@ -251,7 +273,15 @@ impl StateBuilder {
 
     /// Open a sized region of `len` BYTES at the cursor (run after
     /// assigns, before the transition; ops keep their call order).
-    pub fn push_region(mut self, len: pb::Expr) -> Self {
+    /// Sugar for `push_region_bits(len * 8)`, mirroring the Python
+    /// eDSL's byte-denominated surface.
+    pub fn push_region(self, len: pb::Expr) -> Self {
+        self.push_region_bits(mul(len, c(8)))
+    }
+
+    /// Open a sized region of `len` BITS at the cursor (the raw IR
+    /// denomination).
+    pub fn push_region_bits(mut self, len: pb::Expr) -> Self {
         self.state.region_ops.push(pb::RegionOp {
             kind: Some(pb::region_op::Kind::Push(len)),
         });

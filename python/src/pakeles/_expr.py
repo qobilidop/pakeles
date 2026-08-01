@@ -121,31 +121,50 @@ def const(v: int) -> Expr:
 
 @dataclass(frozen=True)
 class RemainingSpec(Operand):
-    """`remaining()`: bytes between the cursor and the innermost sized
-    region's end. Presents a select-key surface (width/name/header) so
-    it can be used directly as a key; only legal with a region open
-    (Rust validator authority)."""
+    """Distance from the cursor to the innermost sized region's end.
+    The IR quantity is BITS; `in_bytes` presents the byte view
+    (`bits >> 3`, exact when region lengths and extractions are all
+    whole-byte — every current parser). Presents a select-key surface
+    (width/name/header) so it can be used directly as a key; only
+    legal with a region open (Rust validator authority)."""
 
+    in_bytes: bool = False
     width_bits: int = 64
     name: str = "remaining()"
     header: str = ""
 
     def as_expr(self) -> Expr:
-        return Expr(is_remaining=True)
+        e = Expr(is_remaining=True)
+        if self.in_bytes:
+            return Expr(op=_OPS["shr"], lhs=e, rhs=const(3))
+        return e
 
 
 def remaining() -> RemainingSpec:
-    return RemainingSpec()
+    """`remaining()` in BYTES — the common wire unit (alias of
+    `remaining_bytes()`; use `remaining_bits()` for the raw IR
+    quantity)."""
+    return RemainingSpec(in_bytes=True)
+
+
+def remaining_bytes() -> RemainingSpec:
+    return RemainingSpec(in_bytes=True)
+
+
+def remaining_bits() -> RemainingSpec:
+    return RemainingSpec(in_bytes=False)
 
 
 @dataclass
 class FieldSpec(Operand):
-    """One declared field; created by `bits()` / `var_bytes()` in a
-    Header class body. `name` and `header` are assigned by the Header
-    machinery at class finalization."""
+    """One declared field; created by `bits()` / `var_bytes()` /
+    `var_bits()` / `fixed_bytes()` in a Header class body. `name` and
+    `header` are assigned by the Header machinery at class
+    finalization. `bit_len_expr` is the IR's bit-denominated length
+    (the byte-taking constructors install `expr * 8`)."""
 
     width_bits: int | None = None
-    byte_len_expr: Expr | None = None
+    bit_len_expr: Expr | None = None
     display_name: str = ""
     format: ir_pb2.DisplayFormat = ir_pb2.DISPLAY_FORMAT_UNSPECIFIED
     doc: str = ""

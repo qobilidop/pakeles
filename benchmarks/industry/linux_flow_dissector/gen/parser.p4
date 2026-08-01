@@ -189,7 +189,7 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_ipv4 {
         pkt.extract(hdr.ipv4_s0.next);
-        pkt.extract(hdr.ipv4_v1.next, (bit<32>)(64w8 * (((bit<64>)hdr.ipv4_s0.last.ihl * 64w4) - 64w20)));
+        pkt.extract(hdr.ipv4_v1.next, (bit<32>)((((bit<64>)hdr.ipv4_s0.last.ihl * 64w4) - 64w20) * 64w8));
         transition select((bit<64>)hdr.ipv4_s0.last.protocol) {
             64w4: st_parse_ipip;
             64w6: st_parse_tcp;
@@ -200,8 +200,8 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_ipv6 {
         pkt.extract(hdr.ipv6_s0.next);
-        pkt.extract(hdr.ipv6_v1.next, (bit<32>)(64w8 * 64w16));
-        pkt.extract(hdr.ipv6_v2.next, (bit<32>)(64w8 * 64w16));
+        pkt.extract(hdr.ipv6_v1.next, (bit<32>)(64w16 * 64w8));
+        pkt.extract(hdr.ipv6_v2.next, (bit<32>)(64w16 * 64w8));
         transition select((bit<64>)hdr.ipv6_s0.last.next_header) {
             64w0: st_parse_ipv6_opt;
             64w60: st_parse_ipv6_opt;
@@ -215,7 +215,7 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_ipv6_opt {
         pkt.extract(hdr.ext_opt_s0.next);
-        pkt.extract(hdr.ext_opt_v1.next, (bit<32>)(64w8 * (((64w1 + (bit<64>)hdr.ext_opt_s0.last.hdr_ext_len) << (bit<8>)(64w3)) - 64w2)));
+        pkt.extract(hdr.ext_opt_v1.next, (bit<32>)((((64w1 + (bit<64>)hdr.ext_opt_s0.last.hdr_ext_len) << (bit<8>)(64w3)) - 64w2) * 64w8));
         transition select((bit<64>)hdr.ext_opt_s0.last.next_header) {
             64w0: st_parse_ipv6_opt;
             64w60: st_parse_ipv6_opt;
@@ -243,7 +243,7 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
         }
     }
     state st_parse_gre_opt {
-        pkt.extract(hdr.gre_opt_v0.next, (bit<32>)(64w8 * ((((bit<64>)hdr.gre_s0.last.c * 64w4) + ((bit<64>)hdr.gre_s0.last.key_flag * 64w4)) + ((bit<64>)hdr.gre_s0.last.seq_flag * 64w4))));
+        pkt.extract(hdr.gre_opt_v0.next, (bit<32>)(((((bit<64>)hdr.gre_s0.last.c * 64w4) + ((bit<64>)hdr.gre_s0.last.key_flag * 64w4)) + ((bit<64>)hdr.gre_s0.last.seq_flag * 64w4)) * 64w8));
         meta.is_encap = (bit<1>)(64w1);
         transition select((bit<64>)hdr.gre_s0.last.proto) {
             64w2048: st_parse_ipv4;
@@ -261,7 +261,7 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_tcp {
         pkt.extract(hdr.tcp_s0);
-        pkt.extract(hdr.tcp_v1, (bit<32>)(64w8 * (((bit<64>)hdr.tcp_s0.data_offset * 64w4) - 64w20)));
+        pkt.extract(hdr.tcp_v1, (bit<32>)((((bit<64>)hdr.tcp_s0.data_offset * 64w4) - 64w20) * 64w8));
         transition accept;
     }
     state st_parse_udp {

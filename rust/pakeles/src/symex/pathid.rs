@@ -5,8 +5,8 @@
 use crate::interp::{Decision, FieldValue, ParseResult};
 use crate::ir::pb;
 
-/// Engine's sanity ceiling, mirrored (see engine::SANITY_BITS/SANITY_BYTES).
-const SANITY_BYTES: u64 = (8 * 1024 * 1024) / 8;
+/// Engine's sanity ceiling, mirrored (see engine::SANITY_BITS).
+const SANITY_BITS: u64 = 8 * 1024 * 1024;
 
 pub fn path_id(ir: &pb::Ir, result: &ParseResult) -> anyhow::Result<String> {
     let parser = ir
@@ -85,12 +85,12 @@ pub fn path_id(ir: &pb::Ir, result: &ParseResult) -> anyhow::Result<String> {
                             return Ok(segments.join("/"));
                         }
                     },
-                    Some(pb::field_width::Width::ByteLen(expr)) => {
+                    Some(pb::field_width::Width::BitLen(expr)) => {
                         // A successful var-field read adds NO segment (the
                         // length is layout, not control flow). A failed read
                         // ends the path: `!roob` inside a region (reason-
                         // keyed), `!oob` if the length wraps/exceeds the
-                        // sane max (matching engine's SANITY_BYTES split),
+                        // sane max (matching engine's SANITY_BITS split),
                         // else `!trunc` (packet simply too short).
                         match parsed_field {
                             Some(pf) => cursor_bits = (pf.bit_offset + pf.bit_len) as u128,
@@ -101,14 +101,14 @@ pub fn path_id(ir: &pb::Ir, result: &ParseResult) -> anyhow::Result<String> {
                                 }
                                 let v = crate::interp::eval_expr_pub(expr, &env)?;
                                 // Classify on the SAME quantity the engine
-                                // splits on: `v > min(expr_max, SANITY_BYTES)`.
-                                // (Not `v*8 + cursor` — that shifts the
+                                // splits on: `v > min(expr_max, SANITY_BITS)`.
+                                // (Not `v + cursor` — that shifts the
                                 // boundary by the cursor and diverges from the
                                 // engine near ~1 MB lengths.)
-                                let bound_bytes: u64 = crate::codegen::p4::expr_max(expr, parser)?
-                                    .min(SANITY_BYTES as u128)
+                                let bound_bits: u64 = crate::codegen::p4::expr_max(expr, parser)?
+                                    .min(SANITY_BITS as u128)
                                     as u64;
-                                let oob_by_len = v > bound_bytes;
+                                let oob_by_len = v > bound_bits;
                                 if oob_by_len {
                                     segments.push(format!("!oob@{inst}.{}", field.name));
                                 } else {
@@ -130,10 +130,10 @@ pub fn path_id(ir: &pb::Ir, result: &ParseResult) -> anyhow::Result<String> {
             match &op.kind {
                 Some(pb::region_op::Kind::Push(e)) => {
                     let v = crate::interp::eval_expr_pub(e, &env)? as u128;
-                    let bound_bytes =
-                        crate::codegen::p4::expr_max(e, parser)?.min(SANITY_BYTES as u128);
-                    let end = cursor_bits + 8 * v;
-                    let lie = v > bound_bytes || regions.last().is_some_and(|top| end > *top);
+                    let bound_bits =
+                        crate::codegen::p4::expr_max(e, parser)?.min(SANITY_BITS as u128);
+                    let end = cursor_bits + v;
+                    let lie = v > bound_bits || regions.last().is_some_and(|top| end > *top);
                     if lie {
                         segments.push(format!("!rpush@{}#{i}", step.state));
                         return Ok(segments.join("/"));

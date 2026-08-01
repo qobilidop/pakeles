@@ -274,11 +274,21 @@ class State:
         self.assigns.append((target, coerce_expr(value)))
         return self
 
-    def push_region(self, length: Expr | Operand | int) -> State:
-        """Open a sized region of `length` BYTES at the cursor (region
-        ops run after assigns, before the transition, in call order)."""
+    def push_region(
+        self,
+        length: Expr | Operand | int | None = None,
+        *,
+        bits: Expr | Operand | int | None = None,
+    ) -> State:
+        """Open a sized region at the cursor (region ops run after
+        assigns, before the transition, in call order). `length` is in
+        BYTES — the common wire unit, sugar for `bits=length * 8`;
+        pass `bits=` for a bit-denominated length."""
         self._need_open()
-        self.region_ops.append(("push", coerce_expr(length)))
+        if (length is None) == (bits is None):
+            raise ValueError("push_region takes exactly one of length (bytes) or bits=")
+        expr = coerce_expr(length) * 8 if length is not None else coerce_expr(bits)
+        self.region_ops.append(("push", expr))
         return self
 
     def pop_region(self) -> State:
@@ -362,8 +372,12 @@ def goto(target: Target) -> State:
     return State().then(target)
 
 
-def push_region(length: Expr | Operand | int) -> State:
-    return State().push_region(length)
+def push_region(
+    length: Expr | Operand | int | None = None,
+    *,
+    bits: Expr | Operand | int | None = None,
+) -> State:
+    return State().push_region(length, bits=bits)
 
 
 def pop_region() -> State:

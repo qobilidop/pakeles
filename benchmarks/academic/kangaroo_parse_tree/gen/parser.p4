@@ -367,7 +367,7 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_ipv4 {
         pkt.extract(hdr.ipv4_s0.next);
-        pkt.extract(hdr.ipv4_v1.next, (bit<32>)(64w8 * (((bit<64>)hdr.ipv4_s0.last.ihl * 64w4) - 64w20)));
+        pkt.extract(hdr.ipv4_v1.next, (bit<32>)((((bit<64>)hdr.ipv4_s0.last.ihl * 64w4) - 64w20) * 64w8));
         transition select((bit<64>)hdr.ipv4_s0.last.protocol) {
             64w1: st_parse_icmp;
             64w4: st_parse_ipv4_inner;
@@ -380,7 +380,7 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_ipv4_rest {
         pkt.extract(hdr.ipv4_rest_s0);
-        pkt.extract(hdr.ipv4_rest_v1, (bit<32>)(64w8 * (((bit<64>)hdr.ipv4_rest_s0.ihl * 64w4) - 64w20)));
+        pkt.extract(hdr.ipv4_rest_v1, (bit<32>)((((bit<64>)hdr.ipv4_rest_s0.ihl * 64w4) - 64w20) * 64w8));
         transition select((bit<64>)hdr.ipv4_rest_s0.protocol) {
             64w1: st_parse_icmp;
             64w4: st_parse_ipv4_inner;
@@ -393,8 +393,8 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_ipv6 {
         pkt.extract(hdr.ipv6_s0.next);
-        pkt.extract(hdr.ipv6_v1.next, (bit<32>)(64w8 * 64w16));
-        pkt.extract(hdr.ipv6_v2.next, (bit<32>)(64w8 * 64w16));
+        pkt.extract(hdr.ipv6_v1.next, (bit<32>)(64w16 * 64w8));
+        pkt.extract(hdr.ipv6_v2.next, (bit<32>)(64w16 * 64w8));
         transition select((bit<64>)hdr.ipv6_s0.last.next_hdr) {
             64w0: st_parse_ipv6_ext;
             64w1: st_parse_icmp;
@@ -408,8 +408,8 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_ipv6_rest {
         pkt.extract(hdr.ipv6_rest_s0);
-        pkt.extract(hdr.ipv6_rest_v1, (bit<32>)(64w8 * 64w16));
-        pkt.extract(hdr.ipv6_rest_v2, (bit<32>)(64w8 * 64w16));
+        pkt.extract(hdr.ipv6_rest_v1, (bit<32>)(64w16 * 64w8));
+        pkt.extract(hdr.ipv6_rest_v2, (bit<32>)(64w16 * 64w8));
         transition select((bit<64>)hdr.ipv6_rest_s0.next_hdr) {
             64w0: st_parse_ipv6_ext;
             64w1: st_parse_icmp;
@@ -423,7 +423,7 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_ipv6_ext {
         pkt.extract(hdr.ipv6_ext_hdr_s0);
-        pkt.extract(hdr.ipv6_ext_hdr_v1, (bit<32>)(64w8 * (((64w1 + (bit<64>)hdr.ipv6_ext_hdr_s0.hdr_ext_len) << (bit<8>)(64w3)) - 64w2)));
+        pkt.extract(hdr.ipv6_ext_hdr_v1, (bit<32>)((((64w1 + (bit<64>)hdr.ipv6_ext_hdr_s0.hdr_ext_len) << (bit<8>)(64w3)) - 64w2) * 64w8));
         transition select((bit<64>)hdr.ipv6_ext_hdr_s0.next_hdr) {
             64w6: st_parse_tcp;
             64w17: st_parse_udp;
@@ -434,7 +434,7 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_gre {
         pkt.extract(hdr.gre_s0);
-        pkt.extract(hdr.gre_v1, (bit<32>)(64w8 * ((((bit<64>)hdr.gre_s0.c * 64w4) + ((bit<64>)hdr.gre_s0.k * 64w4)) + ((bit<64>)hdr.gre_s0.s * 64w4))));
+        pkt.extract(hdr.gre_v1, (bit<32>)(((((bit<64>)hdr.gre_s0.c * 64w4) + ((bit<64>)hdr.gre_s0.k * 64w4)) + ((bit<64>)hdr.gre_s0.s * 64w4)) * 64w8));
         transition select((bit<64>)hdr.gre_s0.proto) {
             64w2048: st_parse_ipv4_inner;
             64w34525: st_parse_ipv6_inner;
@@ -443,7 +443,7 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_ipv4_inner {
         pkt.extract(hdr.ipv4_s0.next);
-        pkt.extract(hdr.ipv4_v1.next, (bit<32>)(64w8 * (((bit<64>)hdr.ipv4_s0.last.ihl * 64w4) - 64w20)));
+        pkt.extract(hdr.ipv4_v1.next, (bit<32>)((((bit<64>)hdr.ipv4_s0.last.ihl * 64w4) - 64w20) * 64w8));
         transition select((bit<64>)hdr.ipv4_s0.last.protocol) {
             64w1: st_parse_icmp;
             64w6: st_parse_tcp;
@@ -454,8 +454,8 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_ipv6_inner {
         pkt.extract(hdr.ipv6_s0.next);
-        pkt.extract(hdr.ipv6_v1.next, (bit<32>)(64w8 * 64w16));
-        pkt.extract(hdr.ipv6_v2.next, (bit<32>)(64w8 * 64w16));
+        pkt.extract(hdr.ipv6_v1.next, (bit<32>)(64w16 * 64w8));
+        pkt.extract(hdr.ipv6_v2.next, (bit<32>)(64w16 * 64w8));
         transition select((bit<64>)hdr.ipv6_s0.last.next_hdr) {
             64w1: st_parse_icmp;
             64w6: st_parse_tcp;
@@ -466,7 +466,7 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_tcp {
         pkt.extract(hdr.tcp_s0);
-        pkt.extract(hdr.tcp_v1, (bit<32>)(64w8 * (((bit<64>)hdr.tcp_s0.data_offset * 64w4) - 64w20)));
+        pkt.extract(hdr.tcp_v1, (bit<32>)((((bit<64>)hdr.tcp_s0.data_offset * 64w4) - 64w20) * 64w8));
         transition accept;
     }
     state st_parse_udp {

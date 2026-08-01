@@ -276,16 +276,16 @@ static int pk_gibb_simple_parse_core(const uint8_t *buf, uint64_t bit_len, pk_gi
       out->ipv4.dst_addr = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
       off += 32;
       {
-        uint64_t vlen = (((uint64_t)out->ipv4.ihl * 4ULL) - 20ULL);
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = ((((uint64_t)out->ipv4.ihl * 4ULL) - 20ULL) * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->ipv4.options_bit_off = off;
-        out->ipv4.options_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->ipv4.options_bit_len = vlen;
+        off += vlen;
       }
       uint64_t key0 = (uint64_t)out->ipv4.frag_offset;
       uint64_t key1 = (uint64_t)out->ipv4.protocol;
@@ -393,16 +393,16 @@ static int pk_gibb_simple_parse_core(const uint8_t *buf, uint64_t bit_len, pk_gi
       out->tcp.urgent_ptr = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       {
-        uint64_t vlen = (((uint64_t)out->tcp.data_offset * 4ULL) - 20ULL);
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = ((((uint64_t)out->tcp.data_offset * 4ULL) - 20ULL) * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->tcp.options_bit_off = off;
-        out->tcp.options_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->tcp.options_bit_len = vlen;
+        off += vlen;
       }
       out->outcome = 0;
       out->reason = PK_R_NONE;

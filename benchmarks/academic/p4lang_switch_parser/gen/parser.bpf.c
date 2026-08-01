@@ -1489,28 +1489,28 @@ static __attribute__((always_inline)) int pk_p4lang_switch_parser_parse_core(con
       out->inner_ipv6_rest.hop_limit = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->inner_ipv6_rest.src_addr_bit_off = off;
-        out->inner_ipv6_rest.src_addr_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->inner_ipv6_rest.src_addr_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->inner_ipv6_rest.dst_addr_bit_off = off;
-        out->inner_ipv6_rest.dst_addr_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->inner_ipv6_rest.dst_addr_bit_len = vlen;
+        off += vlen;
       }
       uint64_t key0 = (uint64_t)out->inner_ipv6_rest.next_hdr;
       if (key0 == 58ULL) {
@@ -1897,28 +1897,28 @@ static __attribute__((always_inline)) int pk_p4lang_switch_parser_parse_core(con
       out->ipv6.hop_limit = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->ipv6.src_addr_bit_off = off;
-        out->ipv6.src_addr_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->ipv6.src_addr_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->ipv6.dst_addr_bit_off = off;
-        out->ipv6.dst_addr_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->ipv6.dst_addr_bit_len = vlen;
+        off += vlen;
       }
       uint64_t key0 = (uint64_t)out->ipv6.next_hdr;
       if (key0 == 58ULL) {
@@ -3493,28 +3493,28 @@ static __attribute__((always_inline)) int pk_p4lang_switch_parser_parse_core(con
       out->inner_ipv6.hop_limit = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->inner_ipv6.src_addr_bit_off = off;
-        out->inner_ipv6.src_addr_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->inner_ipv6.src_addr_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->inner_ipv6.dst_addr_bit_off = off;
-        out->inner_ipv6.dst_addr_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->inner_ipv6.dst_addr_bit_len = vlen;
+        off += vlen;
       }
       uint64_t key0 = (uint64_t)out->inner_ipv6.next_hdr;
       if (key0 == 58ULL) {

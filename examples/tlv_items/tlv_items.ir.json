@@ -1,5 +1,5 @@
 {
-  "irVersion": "0.1.0",
+  "irVersion": "0.2.0",
   "parser": {
     "name": "tlv_items",
     "headerTypes": [
@@ -45,10 +45,18 @@
           {
             "name": "val",
             "width": {
-              "byteLen": {
-                "field": {
-                  "header": "item",
-                  "field": "ln"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "field": {
+                      "header": "item",
+                      "field": "ln"
+                    }
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
                 }
               }
             }
@@ -72,9 +80,17 @@
         "regionOps": [
           {
             "push": {
-              "field": {
-                "header": "total_len",
-                "field": "total"
+              "bin": {
+                "op": "BIN_OP_KIND_MUL",
+                "lhs": {
+                  "field": {
+                    "header": "total_len",
+                    "field": "total"
+                  }
+                },
+                "rhs": {
+                  "constant": "8"
+                }
               }
             }
           }
@@ -86,7 +102,15 @@
           "select": {
             "keys": [
               {
-                "remaining": {}
+                "bin": {
+                  "op": "BIN_OP_KIND_SHR",
+                  "lhs": {
+                    "remaining": {}
+                  },
+                  "rhs": {
+                    "constant": "3"
+                  }
+                }
               }
             ],
             "arms": [

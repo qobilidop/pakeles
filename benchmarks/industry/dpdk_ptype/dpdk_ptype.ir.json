@@ -1,5 +1,5 @@
 {
-  "irVersion": "0.1.0",
+  "irVersion": "0.2.0",
   "parser": {
     "name": "dpdk_ptype",
     "headerTypes": [
@@ -388,25 +388,33 @@
           {
             "name": "options",
             "width": {
-              "byteLen": {
+              "bitLen": {
                 "bin": {
-                  "op": "BIN_OP_KIND_SUB",
+                  "op": "BIN_OP_KIND_MUL",
                   "lhs": {
                     "bin": {
-                      "op": "BIN_OP_KIND_MUL",
+                      "op": "BIN_OP_KIND_SUB",
                       "lhs": {
-                        "field": {
-                          "header": "ipv4",
-                          "field": "ihl"
+                        "bin": {
+                          "op": "BIN_OP_KIND_MUL",
+                          "lhs": {
+                            "field": {
+                              "header": "ipv4",
+                              "field": "ihl"
+                            }
+                          },
+                          "rhs": {
+                            "constant": "4"
+                          }
                         }
                       },
                       "rhs": {
-                        "constant": "4"
+                        "constant": "20"
                       }
                     }
                   },
                   "rhs": {
-                    "constant": "20"
+                    "constant": "8"
                   }
                 }
               }
@@ -507,16 +515,32 @@
           {
             "name": "src",
             "width": {
-              "byteLen": {
-                "constant": "16"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "constant": "16"
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
+                }
               }
             }
           },
           {
             "name": "dst",
             "width": {
-              "byteLen": {
-                "constant": "16"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "constant": "16"
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
+                }
               }
             }
           }
@@ -549,33 +573,41 @@
           {
             "name": "body",
             "width": {
-              "byteLen": {
+              "bitLen": {
                 "bin": {
-                  "op": "BIN_OP_KIND_SUB",
+                  "op": "BIN_OP_KIND_MUL",
                   "lhs": {
                     "bin": {
-                      "op": "BIN_OP_KIND_SHL",
+                      "op": "BIN_OP_KIND_SUB",
                       "lhs": {
                         "bin": {
-                          "op": "BIN_OP_KIND_ADD",
+                          "op": "BIN_OP_KIND_SHL",
                           "lhs": {
-                            "constant": "1"
+                            "bin": {
+                              "op": "BIN_OP_KIND_ADD",
+                              "lhs": {
+                                "constant": "1"
+                              },
+                              "rhs": {
+                                "field": {
+                                  "header": "ipv6_ext_opt",
+                                  "field": "hdr_ext_len"
+                                }
+                              }
+                            }
                           },
                           "rhs": {
-                            "field": {
-                              "header": "ipv6_ext_opt",
-                              "field": "hdr_ext_len"
-                            }
+                            "constant": "3"
                           }
                         }
                       },
                       "rhs": {
-                        "constant": "3"
+                        "constant": "2"
                       }
                     }
                   },
                   "rhs": {
-                    "constant": "2"
+                    "constant": "8"
                   }
                 }
               }
@@ -750,23 +782,42 @@
           {
             "name": "body",
             "width": {
-              "byteLen": {
+              "bitLen": {
                 "bin": {
-                  "op": "BIN_OP_KIND_ADD",
+                  "op": "BIN_OP_KIND_MUL",
                   "lhs": {
                     "bin": {
                       "op": "BIN_OP_KIND_ADD",
                       "lhs": {
                         "bin": {
-                          "op": "BIN_OP_KIND_MUL",
+                          "op": "BIN_OP_KIND_ADD",
                           "lhs": {
-                            "field": {
-                              "header": "gre",
-                              "field": "c"
+                            "bin": {
+                              "op": "BIN_OP_KIND_MUL",
+                              "lhs": {
+                                "field": {
+                                  "header": "gre",
+                                  "field": "c"
+                                }
+                              },
+                              "rhs": {
+                                "constant": "4"
+                              }
                             }
                           },
                           "rhs": {
-                            "constant": "4"
+                            "bin": {
+                              "op": "BIN_OP_KIND_MUL",
+                              "lhs": {
+                                "field": {
+                                  "header": "gre",
+                                  "field": "k"
+                                }
+                              },
+                              "rhs": {
+                                "constant": "4"
+                              }
+                            }
                           }
                         }
                       },
@@ -776,7 +827,7 @@
                           "lhs": {
                             "field": {
                               "header": "gre",
-                              "field": "k"
+                              "field": "s"
                             }
                           },
                           "rhs": {
@@ -787,18 +838,7 @@
                     }
                   },
                   "rhs": {
-                    "bin": {
-                      "op": "BIN_OP_KIND_MUL",
-                      "lhs": {
-                        "field": {
-                          "header": "gre",
-                          "field": "s"
-                        }
-                      },
-                      "rhs": {
-                        "constant": "4"
-                      }
-                    }
+                    "constant": "8"
                   }
                 }
               }

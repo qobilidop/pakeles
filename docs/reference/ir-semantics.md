@@ -1,8 +1,14 @@
 # Pakeles IR: operational semantics
 
 **Status: normative.** This document and the reference interpreter
-(`rust/pakeles/src/interp`) are jointly normative for IR `v1alpha1` as
-defined in `proto/pakeles/ir/v1alpha1/ir.proto`. On any divergence,
+(`rust/pakeles/src/interp`) are jointly normative for IR `v1alpha1`
+(ir_version 0.2.0) as defined in `proto/pakeles/ir/v1alpha1/ir.proto`.
+The IR is **bit-uniform**: every length in the language — fixed
+widths, `bit_len` expressions, region push lengths, `remaining()` —
+is denominated in bits, and no operation carries an alignment
+precondition. (0.1.0 denominated variable lengths, pushes, and
+`remaining()` in bytes and made byte alignment a side condition;
+frontends still *speak* bytes where wire formats do, as ×8 sugar.) On any divergence,
 this document wins and the interpreter has a bug. The well-formedness
 conditions of §2 are implemented by `rust/pakeles/src/ir/validate.rs`;
 the dynamic semantics of §4 by `rust/pakeles/src/interp`. Every other
@@ -26,7 +32,7 @@ An IR program is a `Parser` message; we write
 - $D \in \mathbb{N}_{\ge 1}$ — `max_depth`,
 - $\mathrm{HT}$ — the header types; each type $h$ is an ordered list
   of fields, each field either fixed-width ($n$ bits, $1 \le n \le
-  64$) or variable-length (`byte_len` expression),
+  64$) or variable-length (`bit_len` expression, value in bits),
 - $M$ — the metadata declarations; each $m \in M$ has a width
   $w_m \in [1,64]$ and initial value $\mathit{init}_m < 2^{w_m}$.
 
@@ -99,7 +105,7 @@ dynamic semantics is defined only over well-formed programs.
   existing state.
 - **W3 (widths).** Fixed field widths and metadata widths lie in
   $[1, 64]$; each metadata `init` fits its width.
-- **W4 (byte_len purity).** A `byte_len` expression references only
+- **W4 (bit_len purity).** A `bit_len` expression references only
   header fields and constants: no metadata references, no
   `remaining()`.
 - **W5 (push purity).** A region-push length expression references
@@ -115,8 +121,9 @@ dynamic semantics is defined only over well-formed programs.
   assigns, push lengths, and select keys — names an instance that is
   extracted on *every* path from the start state to the use point
   (must-analysis over the state graph; an instance extracted earlier
-  in the same state, or earlier in the same header for `byte_len`
-  widths, counts).
+  in the same state, or earlier in the same header for `bit_len`
+  widths, counts). A lookahead extract is a definition exactly like a
+  consuming extract.
 - **W8 (region depth).** Every reachable state is entered at exactly
   one region-stack depth; no pop on an empty stack; `remaining()`
   appears only where a region is provably open — in assigns, the
@@ -128,15 +135,16 @@ Well-formedness is decidable (all conditions are finite checks or
 monotone fixpoints over the finite state graph) and is checked by
 `validate()` before any execution.
 
-**Alignment.** Variable-length extraction, region push, and
-`remaining()` additionally require a byte-aligned cursor ($8 \mid c$).
-This is *not* currently guaranteed by W1–W8: a well-formed program
-that reaches such an operation misaligned is in **specification
-fault** — the run is an error of the program, not an outcome for the
-packet (the interpreter raises an engine error, distinct from any
-reject). All shipped frontends only emit aligned programs; tightening
-this into a static check is a recorded candidate for a future
-validator revision.
+**Alignment: none required.** Every operation is defined at every
+cursor value — the bit-uniform denomination (0.2.0) removed the
+byte-aligned side conditions that 0.1.0 attached to variable-length
+extraction, region push, and `remaining()`, and with them the
+"specification fault" run class. Cursor alignment survives only as a
+*derived, advisory* property: backends whose host surface is
+byte-addressed (dissector tvb ranges, harness hex printing) prove
+byte alignment statically and refuse loudly where they cannot, and
+code generators use provable alignment to emit byte loads — but no
+rule below consults it, and soundness never depends on it.
 
 ## 3. Expression evaluation
 
@@ -173,17 +181,17 @@ $$
 Metadata reads zero-extend by construction: stores maintain $\mu(m) <
 2^{w_m}$ (§4.4), and a read returns the stored value unchanged.
 
-**`remaining()`** is *structural*: distance to the innermost region
-end, with no input clamp —
+**`remaining()`** is *structural*: the distance, in bits, to the
+innermost region end, with no input clamp —
 
 $$
-r \;=\; (\mathrm{top}(R) - c)/8
-\qquad \text{when } R \ne \epsilon \text{ and } 8 \mid c
+r \;=\; \mathrm{top}(R) - c
+\qquad \text{when } R \ne \epsilon
 $$
 
 (the subtraction cannot go negative: reads never cross the region
 end, so $c \le \mathrm{top}(R)$ is invariant). It may exceed the
-bytes actually present in $\pi$; a region that promises more than the
+bits actually present in $\pi$; a region that promises more than the
 input holds is discovered by the *reads* it licenses (truncation
 class), not by `remaining()` itself.
 
@@ -255,12 +263,12 @@ immediately: a later field of the *same* header may use $f$ in its
 
 ### 4.3 Extraction: variable-length fields
 
-For a variable-length field $f$ with length expression $e$ (bytes),
-requires $8 \mid c$ (else specification fault, §2):
+For a variable-length field $f$ with length expression $e$ (bits), at
+any cursor:
 
 $$
 \ell = [\![ e ]\!]_{\rho,\mu,\bot} \qquad
-\mathit{end} = c + 8\ell \ \text{(overflow-checked)}
+\mathit{end} = c + \ell \ \text{(overflow-checked)}
 $$
 
 $$
@@ -269,14 +277,14 @@ $$
 \quad \text{(E-Var)}
 $$
 
-with the byte run $\pi[c \,..\, \mathit{end})$ recorded as the
+with the bit run $\pi[c \,..\, \mathit{end})$ recorded as the
 field's value. On $\mathit{end} > B$ or arithmetic overflow, reject
 with the same two-class reason rule as E-Fixed-Region/-Trunc (an
 overflowed end counts as crossing every bound, hence structural when
 a region is open). Note $\ell$ is the *wrapped* $\mathbb{Z}_{2^{64}}$
-value of $e$ — a length expression that wraps (e.g. `ihl*4-20` with
-`ihl` < 5) produces a huge $\ell$ and rejects by this rule; it is
-never undefined behavior. Variable-length fields bind no numeric
+value of $e$ — a length expression that wraps (e.g. `(ihl*4-20)*8`
+with `ihl` < 5) produces a huge $\ell$ and rejects by this rule; it
+is never undefined behavior. Variable-length fields bind no numeric
 value in $\rho$; W4 keeps them out of every expression.
 
 ### 4.4 Metadata assignment
@@ -297,13 +305,13 @@ no failure mode, no effect on the cursor, the regions, or the budget.
 
 ### 4.5 Region push
 
-Region ops run after assigns, in declared order. A push of $e$ bytes
-at cursor $c$ (requires $8 \mid c$) checks *structurally only*
-against the enclosing region — not against the input:
+Region ops run after assigns, in declared order. A push of $e$ bits
+at cursor $c$ (any alignment) checks *structurally only* against the
+enclosing region — not against the input:
 
 $$
 \ell = [\![ e ]\!]_{\rho,\mu,\bot} \qquad
-\mathit{end} = c + 8\ell \ \text{(overflow-checked)}
+\mathit{end} = c + \ell \ \text{(overflow-checked)}
 $$
 
 $$
@@ -425,8 +433,8 @@ sketch:* each phase's rules case-split exhaustively on decidable
 conditions ($c + n$ vs. bounds, stack emptiness via W8, arm matching
 is total); expression evaluation is total by W4/W5/W8 (no $\bot$
 consulted) and W7 (no unbound reference); modular arithmetic has no
-error case. The one caveat is the alignment fault of §2, which is an
-error of the *program*, not of the run. ∎
+error case. Under the bit-uniform denomination there is no alignment
+side condition, so no run class falls outside these rules. ∎
 
 **Theorem (termination/decidability).** Every run terminates after at
 most $D$ state entries; consequently acceptance is decidable, and
@@ -452,9 +460,10 @@ every input, it produces the same outcome, reject reason, consumed
 length, final metadata, and extracted headers as this semantics. The
 repository's test-vector format (`proto/pakeles/testvec/v1alpha1`)
 serializes the core of these observables — on accept, the extracted
-headers and final metadata; on reject, the reason — and the golden
-suites under the benchmark and example galleries are the conformance
-corpus. Consumed length and reject-time forensics (stop state,
+headers (fixed fields as integers, variable-length runs as canonical
+`BitString`s with explicit bit lengths) and final metadata; on
+reject, the reason — and the golden suites under the benchmark and
+example galleries are the conformance corpus. Consumed length and reject-time forensics (stop state,
 instance, field, offset) are additional interpreter observables not
 currently vectorized. Datapath backends that cannot report all
 observables (e.g. an XDP program returning a verdict) conform on the

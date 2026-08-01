@@ -6,6 +6,10 @@ syntax = "proto3";
 package pakeles.ir.v1alpha1;
 
 message Ir {
+  // Schema revision (pre-1.0: consumers require an exact match and
+  // refuse anything else; there is no cross-version compat promise).
+  // 0.2.0: bit-uniform lengths — `bit_len` widths, region push
+  // lengths, and `remaining()` are all denominated in BITS.
   string ir_version = 1;
   Parser parser = 2;
 }
@@ -76,11 +80,19 @@ message ValueLabel {
 }
 
 message FieldWidth {
+  // 0.1.0 carried `Expr byte_len = 2` (length in bytes); 0.2.0
+  // re-denominated to bits under a fresh number so a stale binary IR
+  // fails loudly ("no width") instead of silently re-reading bytes
+  // as bits. The ir_version gate is the primary guard; this is the
+  // belt to that suspender.
+  reserved 2;
+  reserved "byte_len";
   oneof width {
     // Fixed width in bits; big-endian (network order), MSB-first; <= 64.
     uint32 bits = 1;
-    // Opaque byte run; length in bytes computed from prior fields.
-    Expr byte_len = 2;
+    // Opaque bit run; length in BITS computed from prior fields. May
+    // start and end at any bit offset — no alignment precondition.
+    Expr bit_len = 3;
   }
 }
 
@@ -90,9 +102,9 @@ message Expr {
     FieldRef field = 2;
     BinOp bin = 3;
     MetadataRef metadata = 4;
-    // Bytes between the cursor and the innermost sized region's end;
+    // BITS between the cursor and the innermost sized region's end;
     // structural (no buffer clamp), legal only with a region open.
-    // Legal as a select key and in assigns; NOT in byte_len widths or
+    // Legal as a select key and in assigns; NOT in bit_len widths or
     // push lengths (v1 — see docs/reference/ir-semantics.md, W4/W5).
     Remaining remaining = 5;
   }
@@ -142,7 +154,7 @@ message State {
 
 message RegionOp {
   oneof kind {
-    // Open a region of `push` BYTES at the (byte-aligned) cursor.
+    // Open a region of `push` BITS at the cursor (any alignment).
     // Structural check only: must fit the enclosing region, if any.
     Expr push = 1;
     // Close the innermost region; the cursor must sit exactly at its

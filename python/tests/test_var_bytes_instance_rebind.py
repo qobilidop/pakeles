@@ -11,11 +11,11 @@ class Opt(Header):
     body = var_bytes((hdr_ext_len + 1) * 8)
 
 
-def _find_byte_len_field(ht: ir_pb2.HeaderType) -> ir_pb2.Field:
+def _find_bit_len_field(ht: ir_pb2.HeaderType) -> ir_pb2.Field:
     for f in ht.fields:
-        if f.width.WhichOneof("width") == "byte_len":
+        if f.width.WhichOneof("width") == "bit_len":
             return f
-    raise AssertionError("no byte_len field found")
+    raise AssertionError("no bit_len field found")
 
 
 def _field_refs(expr: ir_pb2.Expr) -> list[str]:
@@ -45,9 +45,9 @@ def test_var_bytes_rebound_to_named_instance():
 
     assert [h.name for h in ir.parser.header_types] == ["opt"]
     ht = ir.parser.header_types[0]
-    byte_len_field = _find_byte_len_field(ht)
-    refs = _field_refs(byte_len_field.width.byte_len)
-    assert refs, "expected at least one field ref in the byte_len expression"
+    bit_len_field = _find_bit_len_field(ht)
+    refs = _field_refs(bit_len_field.width.bit_len)
+    assert refs, "expected at least one field ref in the bit_len expression"
     assert refs == ["custom_opt"] * len(refs)
 
     # Sanity: the extracting state's own extract record still names the
@@ -69,8 +69,8 @@ def test_var_bytes_default_instance_unchanged():
 
     ir = T.to_pb()
     ht = ir.parser.header_types[0]
-    byte_len_field = _find_byte_len_field(ht)
-    refs = _field_refs(byte_len_field.width.byte_len)
+    bit_len_field = _find_bit_len_field(ht)
+    refs = _field_refs(bit_len_field.width.bit_len)
     assert refs == ["opt"] * len(refs)
 
 
@@ -115,6 +115,6 @@ def test_var_bytes_cross_header_refs_not_rebound():
 
     ir = T.to_pb()
     ht = next(h for h in ir.parser.header_types if h.name == "sized")
-    byte_len_field = _find_byte_len_field(ht)
-    refs = _field_refs(byte_len_field.width.byte_len)
+    bit_len_field = _find_bit_len_field(ht)
+    refs = _field_refs(bit_len_field.width.bit_len)
     assert sorted(refs) == ["base", "custom_sized"]

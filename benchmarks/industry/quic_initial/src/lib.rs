@@ -127,7 +127,7 @@ fn hdr_bytes(res: &pakeles::interp::ParseResult, inst: &str, field: &str) -> Opt
                 .iter()
                 .find(|f| f.name == field)
                 .map(|f| match &f.value {
-                    pakeles::interp::FieldValue::Bytes(b) => b.clone(),
+                    pakeles::interp::FieldValue::Bits(b) => b.clone(),
                     pakeles::interp::FieldValue::Uint(u) => u.to_be_bytes().to_vec(),
                 })
         })
@@ -155,7 +155,7 @@ pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<OurClass> {
                 .and_then(|h| h.fields.iter().find(|f| f.name == "v"))
                 .and_then(|f| match f.value {
                     pakeles::interp::FieldValue::Uint(u) => Some(u as u32),
-                    pakeles::interp::FieldValue::Bytes(_) => None,
+                    pakeles::interp::FieldValue::Bits(_) => None,
                 });
             let dcid =
                 hdr_bytes(&res, "dcid", "cid").or_else(|| hdr_bytes(&res, "other_cids", "dcid"));

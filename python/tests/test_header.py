@@ -18,11 +18,14 @@ def test_fields_collected_in_order() -> None:
 
 
 def test_intra_class_expr_resolves_after_finalization() -> None:
-    expr = IPv4._fields[2].byte_len_expr
+    expr = IPv4._fields[2].bit_len_expr
     assert expr is not None
+    # MUL( SUB( MUL(ihl, 4), 20 ), 8 ) — authored bytes, ×8 sugar.
     e = expr.to_pb()
-    assert e.bin.lhs.bin.lhs.field.header == "ipv4"
-    assert e.bin.lhs.bin.lhs.field.field == "ihl"
+    assert e.bin.rhs.constant == 8
+    inner = e.bin.lhs
+    assert inner.bin.lhs.bin.lhs.field.header == "ipv4"
+    assert inner.bin.lhs.bin.lhs.field.field == "ihl"
 
 
 def test_class_attribute_access_returns_spec() -> None:
@@ -45,7 +48,8 @@ def test_to_pb_shape() -> None:
     ht = IPv4.to_pb()
     assert ht.name == "ipv4"
     assert ht.fields[0].width.bits == 4
-    assert ht.fields[2].width.byte_len.bin.rhs.constant == 20
+    assert ht.fields[2].width.bit_len.bin.rhs.constant == 8  # the ×8 sugar
+    assert ht.fields[2].width.bit_len.bin.lhs.bin.rhs.constant == 20
     assert ht.fields[1].display.doc == "in 32-bit words"
 
 

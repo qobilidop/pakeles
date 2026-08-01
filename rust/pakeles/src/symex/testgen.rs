@@ -65,8 +65,12 @@ fn vector_for(ir: &irpb::Ir, path: &Path) -> Result<pb::TestVector> {
                                 name: f.name.clone(),
                                 value: Some(match &f.value {
                                     FieldValue::Uint(u) => pb::expected_field::Value::Uint(*u),
-                                    FieldValue::Bytes(b) => pb::expected_field::Value::BytesHex(
-                                        crate::testvec::hex_encode(b),
+                                    FieldValue::Bits(b) => pb::expected_field::Value::Bits(
+                                        Bits {
+                                            bytes: b.clone(),
+                                            bit_len: f.bit_len,
+                                        }
+                                        .to_pb(),
                                     ),
                                 }),
                             })
@@ -142,8 +146,12 @@ pub fn replay(ir: &irpb::Ir, suite: &pb::TestSuite) -> Result<Vec<String>> {
                                 name: f.name.clone(),
                                 value: Some(match &f.value {
                                     FieldValue::Uint(u) => pb::expected_field::Value::Uint(*u),
-                                    FieldValue::Bytes(b) => pb::expected_field::Value::BytesHex(
-                                        crate::testvec::hex_encode(b),
+                                    FieldValue::Bits(b) => pb::expected_field::Value::Bits(
+                                        Bits {
+                                            bytes: b.clone(),
+                                            bit_len: f.bit_len,
+                                        }
+                                        .to_pb(),
                                     ),
                                 }),
                             })

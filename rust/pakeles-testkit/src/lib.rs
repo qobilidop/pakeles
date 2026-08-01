@@ -158,7 +158,7 @@ pub fn c_backend_conformance(ir: &pb::Ir, suite: Option<&tvpb::TestSuite>) {
                 let got = c_fields.get(key.as_str()).copied();
                 let want = match &f.value {
                     FieldValue::Uint(u) => u.to_string(),
-                    FieldValue::Bytes(b) => pakeles::testvec::hex_encode(b),
+                    FieldValue::Bits(b) => pakeles::testvec::hex_encode(b),
                 };
                 // The C parser records a var field's offsets only
                 // after the bounds check passes, so a field the
@@ -169,7 +169,7 @@ pub fn c_backend_conformance(ir: &pb::Ir, suite: Option<&tvpb::TestSuite>) {
                     if got != want {
                         mismatches.push(format!("{}: {key}={got} want {want}", vector.id));
                     }
-                } else if !matches!(&f.value, FieldValue::Bytes(b) if b.is_empty()) {
+                } else if !matches!(&f.value, FieldValue::Bits(b) if b.is_empty()) {
                     mismatches.push(format!("{}: {key} missing (want {want})", vector.id));
                 }
             }
@@ -331,9 +331,13 @@ fn headers_to_expected(headers: &[&ParsedHeader]) -> Vec<(String, ExpectedFields
                             FieldValue::Uint(u) => {
                                 Some(pakeles::testvec::pb::expected_field::Value::Uint(*u))
                             }
-                            FieldValue::Bytes(b) => {
-                                Some(pakeles::testvec::pb::expected_field::Value::BytesHex(
-                                    pakeles::testvec::hex_encode(b),
+                            FieldValue::Bits(b) => {
+                                Some(pakeles::testvec::pb::expected_field::Value::Bits(
+                                    pakeles::testvec::Bits {
+                                        bytes: b.clone(),
+                                        bit_len: f.bit_len,
+                                    }
+                                    .to_pb(),
                                 ))
                             }
                         };
@@ -478,10 +482,13 @@ pub fn lua_backend_conformance(ir: &pb::Ir, suite: &tvpb::TestSuite, min_compare
                                 .push(format!("{}: {key} ours={want} tshark={raw:?}", vector.id));
                         }
                     }
-                    Some(pakeles::testvec::pb::expected_field::Value::BytesHex(want)) => {
-                        if want.is_empty() {
+                    Some(pakeles::testvec::pb::expected_field::Value::Bits(want)) => {
+                        if want.bit_len == 0 {
                             continue; // zero-length fields aren't added
                         }
+                        // tshark renders byte ranges; the Lua backend
+                        // refuses non-whole-byte runs, so data_hex here
+                        // is exactly the run's bytes.
                         compared += 1;
                         let got: String = raw
                             .unwrap_or_default()
@@ -489,9 +496,11 @@ pub fn lua_backend_conformance(ir: &pb::Ir, suite: &tvpb::TestSuite, min_compare
                             .filter(|c| *c != ':')
                             .collect::<String>()
                             .to_lowercase();
-                        if got != *want {
-                            mismatches
-                                .push(format!("{}: {key} ours={want} tshark={got}", vector.id));
+                        if got != want.data_hex {
+                            mismatches.push(format!(
+                                "{}: {key} ours={} tshark={got}",
+                                vector.id, want.data_hex
+                            ));
                         }
                     }
                     None => {}

@@ -55,11 +55,48 @@ def bits(
     return spec
 
 
-def var_bytes(length: Expr | Operand | int) -> FieldSpec:
+def var_bytes(
+    length: Expr | Operand | int,
+    display: str = "",
+    format: ir_pb2.DisplayFormat = ir_pb2.DISPLAY_FORMAT_UNSPECIFIED,
+    *,
+    doc: str = "",
+) -> FieldSpec:
     """An opaque byte run whose length (in bytes) is computed from
-    previously extracted fields."""
-    expr = coerce_expr(length)
-    return FieldSpec(byte_len_expr=expr)
+    previously extracted fields — sugar for a bit-denominated IR
+    length of `length * 8`. Display metadata renders the run like any
+    other field (`var_bytes(16, "Source Address", IPV6)`)."""
+    expr = coerce_expr(length) * 8
+    return FieldSpec(bit_len_expr=expr, display_name=display, format=format, doc=doc)
+
+
+def var_bits(
+    length: Expr | Operand | int,
+    display: str = "",
+    format: ir_pb2.DisplayFormat = ir_pb2.DISPLAY_FORMAT_UNSPECIFIED,
+    *,
+    doc: str = "",
+) -> FieldSpec:
+    """An opaque bit run with its computed length in BITS — the raw IR
+    denomination; the run may start and end at any bit offset."""
+    return FieldSpec(
+        bit_len_expr=coerce_expr(length), display_name=display, format=format, doc=doc
+    )
+
+
+def fixed_bytes(
+    length: int,
+    display: str = "",
+    format: ir_pb2.DisplayFormat = ir_pb2.DISPLAY_FORMAT_UNSPECIFIED,
+    *,
+    doc: str = "",
+) -> FieldSpec:
+    """An opaque byte run of constant length — `var_bytes` with an int
+    and a name that doesn't read as "variable" (the IPv6-address case:
+    `src_addr = fixed_bytes(16, "Source Address", IPV6)`)."""
+    if length < 1:
+        raise ValueError(f"fixed_bytes length must be >= 1, got {length}")
+    return var_bytes(length, display, format, doc=doc)
 
 
 def header(name: str, /, **fields: FieldSpec) -> type[Header]:
@@ -130,8 +167,8 @@ class Header:
             if f.width_bits is not None:
                 pf.width.bits = f.width_bits
             else:
-                assert f.byte_len_expr is not None
-                pf.width.byte_len.CopyFrom(f.byte_len_expr.to_pb())
+                assert f.bit_len_expr is not None
+                pf.width.bit_len.CopyFrom(f.bit_len_expr.to_pb())
             if f.display_name or f.format or f.doc or f.labels:
                 pf.display.name = f.display_name
                 pf.display.format = f.format

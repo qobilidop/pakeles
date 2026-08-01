@@ -272,8 +272,8 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_flow_key {
         pkt.extract(hdr.flow_key_s0);
-        pkt.extract(hdr.flow_key_v1, (bit<32>)(64w8 * 64w16));
-        pkt.extract(hdr.flow_key_v2, (bit<32>)(64w8 * 64w16));
+        pkt.extract(hdr.flow_key_v1, (bit<32>)(64w16 * 64w8));
+        pkt.extract(hdr.flow_key_v2, (bit<32>)(64w16 * 64w8));
         pkt.extract(hdr.flow_key_s3);
         transition select((bit<64>)hdr.packet_meta_s0.packet_subtype) {
             64w3: st_parse_flow_data;
@@ -292,39 +292,39 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_flow_overlay_data {
         pkt.extract(hdr.flow_overlay_data_s0.next);
-        pkt.extract(hdr.flow_overlay_data_v1.next, (bit<32>)(64w8 * 64w16));
-        pkt.extract(hdr.flow_overlay_data_v2.next, (bit<32>)(64w8 * 64w16));
-        pkt.extract(hdr.flow_overlay_data_v3.next, (bit<32>)(64w8 * 64w16));
-        pkt.extract(hdr.flow_overlay_data_v4.next, (bit<32>)(64w8 * 64w16));
+        pkt.extract(hdr.flow_overlay_data_v1.next, (bit<32>)(64w16 * 64w8));
+        pkt.extract(hdr.flow_overlay_data_v2.next, (bit<32>)(64w16 * 64w8));
+        pkt.extract(hdr.flow_overlay_data_v3.next, (bit<32>)(64w16 * 64w8));
+        pkt.extract(hdr.flow_overlay_data_v4.next, (bit<32>)(64w16 * 64w8));
         pkt.extract(hdr.flow_overlay_data_s5.next);
         transition st_parse_customer_ethernet;
     }
     state st_parse_flow_encap_u0 {
         pkt.extract(hdr.flow_overlay_data_s0.next);
-        pkt.extract(hdr.flow_overlay_data_v1.next, (bit<32>)(64w8 * 64w16));
-        pkt.extract(hdr.flow_overlay_data_v2.next, (bit<32>)(64w8 * 64w16));
-        pkt.extract(hdr.flow_overlay_data_v3.next, (bit<32>)(64w8 * 64w16));
-        pkt.extract(hdr.flow_overlay_data_v4.next, (bit<32>)(64w8 * 64w16));
+        pkt.extract(hdr.flow_overlay_data_v1.next, (bit<32>)(64w16 * 64w8));
+        pkt.extract(hdr.flow_overlay_data_v2.next, (bit<32>)(64w16 * 64w8));
+        pkt.extract(hdr.flow_overlay_data_v3.next, (bit<32>)(64w16 * 64w8));
+        pkt.extract(hdr.flow_overlay_data_v4.next, (bit<32>)(64w16 * 64w8));
         pkt.extract(hdr.flow_overlay_data_s5.next);
         pkt.extract(hdr.flow_u0_encap_data_s0.next);
         transition st_parse_customer_ethernet;
     }
     state st_parse_flow_encap_u1 {
         pkt.extract(hdr.flow_overlay_data_s0.next);
-        pkt.extract(hdr.flow_overlay_data_v1.next, (bit<32>)(64w8 * 64w16));
-        pkt.extract(hdr.flow_overlay_data_v2.next, (bit<32>)(64w8 * 64w16));
-        pkt.extract(hdr.flow_overlay_data_v3.next, (bit<32>)(64w8 * 64w16));
-        pkt.extract(hdr.flow_overlay_data_v4.next, (bit<32>)(64w8 * 64w16));
+        pkt.extract(hdr.flow_overlay_data_v1.next, (bit<32>)(64w16 * 64w8));
+        pkt.extract(hdr.flow_overlay_data_v2.next, (bit<32>)(64w16 * 64w8));
+        pkt.extract(hdr.flow_overlay_data_v3.next, (bit<32>)(64w16 * 64w8));
+        pkt.extract(hdr.flow_overlay_data_v4.next, (bit<32>)(64w16 * 64w8));
         pkt.extract(hdr.flow_overlay_data_s5.next);
         pkt.extract(hdr.flow_u1_encap_data_s0.next);
         transition st_parse_customer_ethernet;
     }
     state st_parse_flow_encap_u0_u1 {
         pkt.extract(hdr.flow_overlay_data_s0.next);
-        pkt.extract(hdr.flow_overlay_data_v1.next, (bit<32>)(64w8 * 64w16));
-        pkt.extract(hdr.flow_overlay_data_v2.next, (bit<32>)(64w8 * 64w16));
-        pkt.extract(hdr.flow_overlay_data_v3.next, (bit<32>)(64w8 * 64w16));
-        pkt.extract(hdr.flow_overlay_data_v4.next, (bit<32>)(64w8 * 64w16));
+        pkt.extract(hdr.flow_overlay_data_v1.next, (bit<32>)(64w16 * 64w8));
+        pkt.extract(hdr.flow_overlay_data_v2.next, (bit<32>)(64w16 * 64w8));
+        pkt.extract(hdr.flow_overlay_data_v3.next, (bit<32>)(64w16 * 64w8));
+        pkt.extract(hdr.flow_overlay_data_v4.next, (bit<32>)(64w16 * 64w8));
         pkt.extract(hdr.flow_overlay_data_s5.next);
         pkt.extract(hdr.flow_u0_encap_data_s0.next);
         pkt.extract(hdr.flow_u1_encap_data_s0.next);
@@ -348,7 +348,7 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
         }
     }
     state st_parse_u0_ipv4options {
-        pkt.extract(hdr.u0_ipv4options_v0, (bit<32>)(64w8 * (((bit<64>)hdr.u0_ipv4_s0.ihl - 64w5) * 64w4)));
+        pkt.extract(hdr.u0_ipv4options_v0, (bit<32>)((((bit<64>)hdr.u0_ipv4_s0.ihl - 64w5) * 64w4) * 64w8));
         transition st_dispatch_on_u0_protocol;
     }
     state st_dispatch_on_u0_protocol {

@@ -105,12 +105,12 @@ class FieldRef(_message.Message):
     def __init__(self, header: _Optional[str] = ..., field: _Optional[str] = ...) -> None: ...
 
 class FieldWidth(_message.Message):
-    __slots__ = ["bits", "byte_len"]
+    __slots__ = ["bit_len", "bits"]
     BITS_FIELD_NUMBER: _ClassVar[int]
-    BYTE_LEN_FIELD_NUMBER: _ClassVar[int]
+    BIT_LEN_FIELD_NUMBER: _ClassVar[int]
+    bit_len: Expr
     bits: int
-    byte_len: Expr
-    def __init__(self, bits: _Optional[int] = ..., byte_len: _Optional[_Union[Expr, _Mapping]] = ...) -> None: ...
+    def __init__(self, bits: _Optional[int] = ..., bit_len: _Optional[_Union[Expr, _Mapping]] = ...) -> None: ...
 
 class HeaderType(_message.Message):
     __slots__ = ["annotations", "fields", "name"]

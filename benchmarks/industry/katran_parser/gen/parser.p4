@@ -137,8 +137,8 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_ipv6 {
         pkt.extract(hdr.ipv6_s0.next);
-        pkt.extract(hdr.ipv6_v1.next, (bit<32>)(64w8 * 64w16));
-        pkt.extract(hdr.ipv6_v2.next, (bit<32>)(64w8 * 64w16));
+        pkt.extract(hdr.ipv6_v1.next, (bit<32>)(64w16 * 64w8));
+        pkt.extract(hdr.ipv6_v2.next, (bit<32>)(64w16 * 64w8));
         transition select((bit<64>)hdr.ipv6_s0.last.next_header) {
             64w44: st__reject;
             64w58: st_parse_icmp6;
@@ -178,8 +178,8 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_inner_ipv6 {
         pkt.extract(hdr.ipv6_s0.next);
-        pkt.extract(hdr.ipv6_v1.next, (bit<32>)(64w8 * 64w16));
-        pkt.extract(hdr.ipv6_v2.next, (bit<32>)(64w8 * 64w16));
+        pkt.extract(hdr.ipv6_v1.next, (bit<32>)(64w16 * 64w8));
+        pkt.extract(hdr.ipv6_v2.next, (bit<32>)(64w16 * 64w8));
         meta.is_icmp = (bit<1>)(64w1);
         transition select((bit<64>)hdr.ipv6_s0.last.next_header) {
             64w6: st_parse_tcp;

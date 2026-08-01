@@ -83,15 +83,15 @@ static __attribute__((always_inline)) int pk_tlv_items_parse_core(const uint8_t 
       out->total_len.total = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
-        uint64_t rlen = (uint64_t)out->total_len.total;
+        uint64_t rlen = ((uint64_t)out->total_len.total * 8ULL);
         if (pk_rsp) {
-          if (rlen > (pk_region_end[(pk_rsp - 1u) & PK_RMASK] - off) / 8) {
+          if (rlen > pk_region_end[(pk_rsp - 1u) & PK_RMASK] - off) {
             out->outcome = 1;
             out->reason = PK_R_REGION_OUT_OF_BOUNDS;
             out->consumed_bits = off;
             return 1;
           }
-        } else if (rlen > (0xffffffffffffffffULL - off) / 8) {
+        } else if (rlen > 0xffffffffffffffffULL - off) {
           out->outcome = 1;
           out->reason = PK_R_REGION_OUT_OF_BOUNDS;
           out->consumed_bits = off;
@@ -103,14 +103,14 @@ static __attribute__((always_inline)) int pk_tlv_items_parse_core(const uint8_t 
           out->consumed_bits = off;
           return 1;
         }
-        pk_region_end[pk_rsp & PK_RMASK] = off + rlen * 8;
+        pk_region_end[pk_rsp & PK_RMASK] = off + rlen;
         pk_rsp++;
       }
       state = PK_S_TLV_LOOP;
       continue;
     }
     case PK_S_TLV_LOOP: {
-      uint64_t key0 = ((pk_region_end[(pk_rsp - 1u) & PK_RMASK] - off) >> 3);
+      uint64_t key0 = ((pk_region_end[(pk_rsp - 1u) & PK_RMASK] - off) >> 3ULL);
       if (key0 == 0ULL) {
         state = PK_S_CLOSE;
         continue;
@@ -150,22 +150,22 @@ static __attribute__((always_inline)) int pk_tlv_items_parse_core(const uint8_t 
       out->item.ln = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
-        uint64_t vlen = (uint64_t)out->item.ln;
-        if (pk_rsp && vlen > (pk_region_end[(pk_rsp - 1u) & PK_RMASK] - off) / 8) {
+        uint64_t vlen = ((uint64_t)out->item.ln * 8ULL);
+        if (pk_rsp && vlen > pk_region_end[(pk_rsp - 1u) & PK_RMASK] - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_REGION_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
-        if (vlen > (bit_len - off) / 8) {
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->item.val_bit_off = off;
-        out->item.val_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->item.val_bit_len = vlen;
+        off += vlen;
       }
       state = PK_S_TLV_LOOP;
       continue;

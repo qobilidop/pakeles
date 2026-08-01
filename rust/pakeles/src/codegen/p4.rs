@@ -1,6 +1,6 @@
 //! P4-16 (v1model) backend: emit a BMv2-runnable program from the IR.
 //!
-//! One P4 header per contiguous run of fixed fields; each var (`byte_len`)
+//! One P4 header per contiguous run of fixed fields; each var (`bit_len`)
 //! field becomes a companion `varbit` header extracted with a computed
 //! length (P4 requires a varbit to terminate its header). The program's
 //! ingress encodes the verdict — a header-validity bitmap (`bit<8>`, or
@@ -57,7 +57,7 @@ pub(crate) fn segments(ht: &pb::HeaderType) -> Vec<Seg<'_>> {
     for f in &ht.fields {
         match f.width.as_ref().and_then(|x| x.width.as_ref()) {
             Some(pb::field_width::Width::Bits(_)) => run.push(f),
-            Some(pb::field_width::Width::ByteLen(_)) => {
+            Some(pb::field_width::Width::BitLen(_)) => {
                 if !run.is_empty() {
                     out.push(Seg::Fixed(std::mem::take(&mut run)));
                 }
@@ -412,10 +412,10 @@ pub fn generate_p4(ir: &pb::Ir) -> Result<String> {
                 }
                 Seg::Var(f) => {
                     let expr = match f.width.as_ref().and_then(|x| x.width.as_ref()) {
-                        Some(pb::field_width::Width::ByteLen(e)) => e,
-                        _ => unreachable!("var segment holds a byte_len field"),
+                        Some(pb::field_width::Width::BitLen(e)) => e,
+                        _ => unreachable!("var segment holds a bit_len field"),
                     };
-                    let max_bits = expr_max(expr, parser)? * 8;
+                    let max_bits = expr_max(expr, parser)?;
                     if max_bits > 65535 {
                         // Same designed-refusal family as sized regions
                         // (the marker machinery keys on the phrase): a
@@ -507,12 +507,14 @@ pub fn generate_p4(ir: &pb::Ir) -> Result<String> {
                     Seg::Fixed(_) => writeln!(w, "        pkt.extract({tgt});")?,
                     Seg::Var(f) => {
                         let expr = match f.width.as_ref().and_then(|x| x.width.as_ref()) {
-                            Some(pb::field_width::Width::ByteLen(e)) => e,
+                            Some(pb::field_width::Width::BitLen(e)) => e,
                             _ => unreachable!(),
                         };
+                        // The bit-uniform length is P4's own unit for a
+                        // varbit extract — no ×8 conversion.
                         writeln!(
                             w,
-                            "        pkt.extract({tgt}, (bit<32>)(64w8 * {}));",
+                            "        pkt.extract({tgt}, (bit<32>){});",
                             expr_p4(expr, parser, &stacked)?
                         )?;
                     }
@@ -694,7 +696,7 @@ mod tests {
     }
 
     #[test]
-    fn ipv4_options_max_is_40_bytes() {
+    fn ipv4_options_max_is_320_bits() {
         let ir = crate::fixtures::eth_ipvx_l4();
         let parser = ir.parser.as_ref().unwrap();
         let ipv4 = parser
@@ -705,10 +707,11 @@ mod tests {
         let segs = segments(ipv4);
         let Seg::Var(f) = &segs[1] else { panic!() };
         let expr = match f.width.as_ref().unwrap().width.as_ref().unwrap() {
-            pb::field_width::Width::ByteLen(e) => e,
+            pb::field_width::Width::BitLen(e) => e,
             _ => panic!(),
         };
-        assert_eq!(expr_max(expr, parser).unwrap(), 40);
+        // 40 bytes of options, bit-denominated by the ×8 sugar.
+        assert_eq!(expr_max(expr, parser).unwrap(), 320);
     }
 
     #[test]
@@ -883,7 +886,7 @@ mod tests {
             })
             .collect();
         pb::Ir {
-            ir_version: "0.1.0".into(),
+            ir_version: crate::ir::IR_VERSION.into(),
             parser: Some(pb::Parser {
                 name: "synth".into(),
                 header_types: vec![ht],

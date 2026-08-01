@@ -6,8 +6,15 @@ as `self.<state>` references) that emit the normative Pakeles IR. The
 Rust CLI (`pakeles lint`) remains the validation authority.
 """
 
-from pakeles._expr import Expr, FieldSpec, const, remaining
-from pakeles._header import Header, bits, header, var_bytes
+from pakeles._expr import (
+    Expr,
+    FieldSpec,
+    const,
+    remaining,
+    remaining_bits,
+    remaining_bytes,
+)
+from pakeles._header import Header, bits, fixed_bytes, header, var_bits, var_bytes
 from pakeles._labels import LabeledEnum
 from pakeles._metadata import Metadata, MetadataFieldSpec, metadata_bits
 from pakeles._parser import Parser
@@ -43,6 +50,7 @@ __all__ = [
     "bits",
     "const",
     "extract",
+    "fixed_bytes",
     "goto",
     "header",
     "masked",
@@ -52,6 +60,9 @@ __all__ = [
     "push_region",
     "reject",
     "remaining",
+    "remaining_bits",
+    "remaining_bytes",
     "select",
+    "var_bits",
     "var_bytes",
 ]

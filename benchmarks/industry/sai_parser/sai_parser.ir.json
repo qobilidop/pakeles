@@ -1,5 +1,5 @@
 {
-  "irVersion": "0.1.0",
+  "irVersion": "0.2.0",
   "parser": {
     "name": "sai_parser",
     "headerTypes": [
@@ -356,16 +356,32 @@
           {
             "name": "src_addr",
             "width": {
-              "byteLen": {
-                "constant": "16"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "constant": "16"
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
+                }
               }
             }
           },
           {
             "name": "dst_addr",
             "width": {
-              "byteLen": {
-                "constant": "16"
+              "bitLen": {
+                "bin": {
+                  "op": "BIN_OP_KIND_MUL",
+                  "lhs": {
+                    "constant": "16"
+                  },
+                  "rhs": {
+                    "constant": "8"
+                  }
+                }
               }
             }
           }

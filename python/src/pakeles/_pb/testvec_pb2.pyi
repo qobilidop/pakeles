@@ -35,14 +35,14 @@ class Expected(_message.Message):
     def __init__(self, accept: _Optional[_Union[Accepted, _Mapping]] = ..., reject: _Optional[_Union[Rejected, _Mapping]] = ...) -> None: ...
 
 class ExpectedField(_message.Message):
-    __slots__ = ["bytes_hex", "name", "uint"]
-    BYTES_HEX_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ["bits", "name", "uint"]
+    BITS_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     UINT_FIELD_NUMBER: _ClassVar[int]
-    bytes_hex: str
+    bits: BitString
     name: str
     uint: int
-    def __init__(self, name: _Optional[str] = ..., uint: _Optional[int] = ..., bytes_hex: _Optional[str] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., uint: _Optional[int] = ..., bits: _Optional[_Union[BitString, _Mapping]] = ...) -> None: ...
 
 class ExpectedHeader(_message.Message):
     __slots__ = ["fields", "instance"]

@@ -172,16 +172,16 @@ static int pk_eth_ipvx_l4_parse_core(const uint8_t *buf, uint64_t bit_len, pk_et
       out->ipv4.dst = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
       off += 32;
       {
-        uint64_t vlen = (((uint64_t)out->ipv4.ihl * 4ULL) - 20ULL);
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = ((((uint64_t)out->ipv4.ihl * 4ULL) - 20ULL) * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->ipv4.options_bit_off = off;
-        out->ipv4.options_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->ipv4.options_bit_len = vlen;
+        off += vlen;
       }
       uint64_t key0 = (uint64_t)out->ipv4.protocol;
       if (key0 == 6ULL) {
@@ -248,28 +248,28 @@ static int pk_eth_ipvx_l4_parse_core(const uint8_t *buf, uint64_t bit_len, pk_et
       out->ipv6.hop_limit = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
       off += 8;
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->ipv6.src_bit_off = off;
-        out->ipv6.src_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->ipv6.src_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->ipv6.dst_bit_off = off;
-        out->ipv6.dst_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->ipv6.dst_bit_len = vlen;
+        off += vlen;
       }
       uint64_t key0 = (uint64_t)out->ipv6.next_header;
       if (key0 == 6ULL) {

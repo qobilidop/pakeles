@@ -390,28 +390,28 @@ static __attribute__((always_inline)) int pk_katran_parser_parse_core(const uint
       out->ipv6.hop_limit = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->ipv6.src_bit_off = off;
-        out->ipv6.src_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->ipv6.src_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->ipv6.dst_bit_off = off;
-        out->ipv6.dst_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->ipv6.dst_bit_len = vlen;
+        off += vlen;
       }
       uint64_t key0 = (uint64_t)out->ipv6.next_header;
       if (key0 == 44ULL) {
@@ -712,28 +712,28 @@ static __attribute__((always_inline)) int pk_katran_parser_parse_core(const uint
       out->ipv6.hop_limit = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->ipv6.src_bit_off = off;
-        out->ipv6.src_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->ipv6.src_bit_len = vlen;
+        off += vlen;
       }
       {
-        uint64_t vlen = 16ULL;
-        if (vlen > (bit_len - off) / 8) {
+        uint64_t vlen = (16ULL * 8ULL);
+        if (vlen > bit_len - off) {
           out->outcome = 1;
           out->reason = PK_R_OUT_OF_BOUNDS;
           out->consumed_bits = off;
           return 1;
         }
         out->ipv6.dst_bit_off = off;
-        out->ipv6.dst_bit_len = vlen * 8;
-        off += vlen * 8;
+        out->ipv6.dst_bit_len = vlen;
+        off += vlen;
       }
       out->m_is_icmp = (1ULL) & 0x1ULL;
       uint64_t key0 = (uint64_t)out->ipv6.next_header;

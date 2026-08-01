@@ -167,7 +167,7 @@ fn result_json(idx: usize, res: &pakeles::interp::ParseResult) -> serde_json::Va
                 .map(|f| {
                     let v = match &f.value {
                         FieldValue::Uint(u) => serde_json::json!(u),
-                        FieldValue::Bytes(b) => serde_json::json!(b
+                        FieldValue::Bits(b) => serde_json::json!(b
                             .iter()
                             .map(|x| format!("{x:02x}"))
                             .collect::<String>()),
@@ -258,12 +258,20 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
         }
         #[cfg(feature = "symex")]
         Command::Lint { ir } => {
-            let findings = pakeles::symex::lint::lint(&load_ir(&ir)?)?;
+            let ir = load_ir(&ir)?;
+            let findings = pakeles::symex::lint::lint(&ir)?;
             for f in &findings {
                 println!("{}: {}", f.location, f.message);
             }
             if findings.is_empty() {
                 println!("clean");
+            }
+            // Derived backend-envelope demands: informational, never
+            // findings — a demand is a fact about the program, not a
+            // defect, so it does not affect the exit code.
+            let parser = ir.parser.as_ref().expect("validated");
+            for d in pakeles::codegen::demand_report(parser) {
+                println!("demands: {d}");
             }
             Ok(if findings.is_empty() { 0 } else { 1 })
         }
