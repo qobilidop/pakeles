@@ -1,0 +1,6505 @@
+{
+  "irVersion": "0.1.0",
+  "parser": {
+    "name": "p4lang_switch_parser",
+    "headerTypes": [
+      {
+        "name": "ethernet",
+        "fields": [
+          {
+            "name": "dst_addr",
+            "width": {
+              "bits": 48
+            },
+            "display": {
+              "name": "Destination",
+              "format": "DISPLAY_FORMAT_ETHER"
+            }
+          },
+          {
+            "name": "src_addr",
+            "width": {
+              "bits": 48
+            },
+            "display": {
+              "name": "Source",
+              "format": "DISPLAY_FORMAT_ETHER"
+            }
+          },
+          {
+            "name": "ether_type",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "EtherType",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "2048",
+                  "label": "IPv4"
+                },
+                {
+                  "value": "2054",
+                  "label": "ARP"
+                },
+                {
+                  "value": "8939",
+                  "label": "ERSPAN type III"
+                },
+                {
+                  "value": "25944",
+                  "label": "Transparent Ethernet Bridging"
+                },
+                {
+                  "value": "33024",
+                  "label": "802.1Q"
+                },
+                {
+                  "value": "34525",
+                  "label": "IPv6"
+                },
+                {
+                  "value": "34825",
+                  "label": "Slow Protocols (source: LACP)"
+                },
+                {
+                  "value": "34887",
+                  "label": "MPLS (unicast)"
+                },
+                {
+                  "value": "35020",
+                  "label": "LLDP"
+                },
+                {
+                  "value": "36864",
+                  "label": "internal fabric header (source: BF_FABRIC)"
+                },
+                {
+                  "value": "37120",
+                  "label": "QinQ (legacy 0x9100)"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "llc_header",
+        "fields": [
+          {
+            "name": "dsap",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "DSAP",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "ssap",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "SSAP",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "control_",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Control",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
+      },
+      {
+        "name": "snap_header",
+        "fields": [
+          {
+            "name": "oui",
+            "width": {
+              "bits": 24
+            },
+            "display": {
+              "name": "OUI",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "type_",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Type",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "2048",
+                  "label": "IPv4"
+                },
+                {
+                  "value": "2054",
+                  "label": "ARP"
+                },
+                {
+                  "value": "8939",
+                  "label": "ERSPAN type III"
+                },
+                {
+                  "value": "25944",
+                  "label": "Transparent Ethernet Bridging"
+                },
+                {
+                  "value": "33024",
+                  "label": "802.1Q"
+                },
+                {
+                  "value": "34525",
+                  "label": "IPv6"
+                },
+                {
+                  "value": "34825",
+                  "label": "Slow Protocols (source: LACP)"
+                },
+                {
+                  "value": "34887",
+                  "label": "MPLS (unicast)"
+                },
+                {
+                  "value": "35020",
+                  "label": "LLDP"
+                },
+                {
+                  "value": "36864",
+                  "label": "internal fabric header (source: BF_FABRIC)"
+                },
+                {
+                  "value": "37120",
+                  "label": "QinQ (legacy 0x9100)"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "roce_header",
+        "fields": [
+          {
+            "name": "ib_grh_0",
+            "width": {
+              "bits": 64
+            },
+            "display": {
+              "name": "IB GRH (bits 0-63)",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "ib_grh_1",
+            "width": {
+              "bits": 64
+            },
+            "display": {
+              "name": "IB GRH (bits 64-127)",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "ib_grh_2",
+            "width": {
+              "bits": 64
+            },
+            "display": {
+              "name": "IB GRH (bits 128-191)",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "ib_grh_3",
+            "width": {
+              "bits": 64
+            },
+            "display": {
+              "name": "IB GRH (bits 192-255)",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "ib_grh_4",
+            "width": {
+              "bits": 64
+            },
+            "display": {
+              "name": "IB GRH (bits 256-319)",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "ib_bth_0",
+            "width": {
+              "bits": 64
+            },
+            "display": {
+              "name": "IB BTH (bits 0-63)",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "ib_bth_1",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "IB BTH (bits 64-95)",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
+      },
+      {
+        "name": "fcoe_header",
+        "fields": [
+          {
+            "name": "version",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Version"
+            }
+          },
+          {
+            "name": "type_",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Type"
+            }
+          },
+          {
+            "name": "sof",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "SOF",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "rsvd1",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Reserved"
+            }
+          },
+          {
+            "name": "ts_upper",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Timestamp (upper)",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ts_lower",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Timestamp (lower)",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "size_",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Size",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "eof",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "EOF",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "rsvd2",
+            "width": {
+              "bits": 24
+            },
+            "display": {
+              "name": "Reserved"
+            }
+          }
+        ]
+      },
+      {
+        "name": "vlan_tag",
+        "fields": [
+          {
+            "name": "pcp",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "PCP"
+            }
+          },
+          {
+            "name": "cfi",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "CFI"
+            }
+          },
+          {
+            "name": "vid",
+            "width": {
+              "bits": 12
+            },
+            "display": {
+              "name": "VLAN ID",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ether_type",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "EtherType",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "2048",
+                  "label": "IPv4"
+                },
+                {
+                  "value": "2054",
+                  "label": "ARP"
+                },
+                {
+                  "value": "8939",
+                  "label": "ERSPAN type III"
+                },
+                {
+                  "value": "25944",
+                  "label": "Transparent Ethernet Bridging"
+                },
+                {
+                  "value": "33024",
+                  "label": "802.1Q"
+                },
+                {
+                  "value": "34525",
+                  "label": "IPv6"
+                },
+                {
+                  "value": "34825",
+                  "label": "Slow Protocols (source: LACP)"
+                },
+                {
+                  "value": "34887",
+                  "label": "MPLS (unicast)"
+                },
+                {
+                  "value": "35020",
+                  "label": "LLDP"
+                },
+                {
+                  "value": "36864",
+                  "label": "internal fabric header (source: BF_FABRIC)"
+                },
+                {
+                  "value": "37120",
+                  "label": "QinQ (legacy 0x9100)"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "mpls",
+        "fields": [
+          {
+            "name": "label",
+            "width": {
+              "bits": 20
+            },
+            "display": {
+              "name": "Label",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "exp",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "EXP"
+            }
+          },
+          {
+            "name": "bos",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Bottom of Stack",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ttl",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "TTL",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "ip_version_nibble",
+        "fields": [
+          {
+            "name": "v",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Version Nibble",
+              "format": "DISPLAY_FORMAT_DEC",
+              "valueLabels": [
+                {
+                  "value": "4",
+                  "label": "IPv4"
+                },
+                {
+                  "value": "6",
+                  "label": "IPv6"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "inner_ipv4_rest",
+        "fields": [
+          {
+            "name": "ihl",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "IHL",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "diffserv",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "DiffServ",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "total_len",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Total Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "identification",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Identification",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "flags",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "Flags"
+            }
+          },
+          {
+            "name": "frag_offset",
+            "width": {
+              "bits": 13
+            },
+            "display": {
+              "name": "Fragment Offset",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ttl",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "TTL",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "protocol",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Protocol",
+              "format": "DISPLAY_FORMAT_DEC",
+              "valueLabels": [
+                {
+                  "value": "1",
+                  "label": "ICMP"
+                },
+                {
+                  "value": "2",
+                  "label": "IGMP"
+                },
+                {
+                  "value": "4",
+                  "label": "IPv4-in-IP"
+                },
+                {
+                  "value": "6",
+                  "label": "TCP"
+                },
+                {
+                  "value": "17",
+                  "label": "UDP"
+                },
+                {
+                  "value": "41",
+                  "label": "IPv6-in-IP"
+                },
+                {
+                  "value": "47",
+                  "label": "GRE"
+                },
+                {
+                  "value": "58",
+                  "label": "ICMPv6"
+                },
+                {
+                  "value": "88",
+                  "label": "EIGRP"
+                },
+                {
+                  "value": "89",
+                  "label": "OSPF"
+                },
+                {
+                  "value": "103",
+                  "label": "PIM"
+                },
+                {
+                  "value": "112",
+                  "label": "VRRP"
+                }
+              ]
+            }
+          },
+          {
+            "name": "hdr_checksum",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Header Checksum",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "src_addr",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Source",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "dst_addr",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Destination",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
+      },
+      {
+        "name": "inner_ipv6_rest",
+        "fields": [
+          {
+            "name": "traffic_class",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Traffic Class",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "flow_label",
+            "width": {
+              "bits": 20
+            },
+            "display": {
+              "name": "Flow Label",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "payload_len",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Payload Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "next_hdr",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Next Header",
+              "format": "DISPLAY_FORMAT_DEC",
+              "valueLabels": [
+                {
+                  "value": "1",
+                  "label": "ICMP"
+                },
+                {
+                  "value": "2",
+                  "label": "IGMP"
+                },
+                {
+                  "value": "4",
+                  "label": "IPv4-in-IP"
+                },
+                {
+                  "value": "6",
+                  "label": "TCP"
+                },
+                {
+                  "value": "17",
+                  "label": "UDP"
+                },
+                {
+                  "value": "41",
+                  "label": "IPv6-in-IP"
+                },
+                {
+                  "value": "47",
+                  "label": "GRE"
+                },
+                {
+                  "value": "58",
+                  "label": "ICMPv6"
+                },
+                {
+                  "value": "88",
+                  "label": "EIGRP"
+                },
+                {
+                  "value": "89",
+                  "label": "OSPF"
+                },
+                {
+                  "value": "103",
+                  "label": "PIM"
+                },
+                {
+                  "value": "112",
+                  "label": "VRRP"
+                }
+              ]
+            }
+          },
+          {
+            "name": "hop_limit",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Hop Limit",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "src_addr",
+            "width": {
+              "byteLen": {
+                "constant": "16"
+              }
+            }
+          },
+          {
+            "name": "dst_addr",
+            "width": {
+              "byteLen": {
+                "constant": "16"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "ipv4",
+        "fields": [
+          {
+            "name": "version",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Version"
+            }
+          },
+          {
+            "name": "ihl",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "IHL",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "diffserv",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "DiffServ",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "total_len",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Total Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "identification",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Identification",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "flags",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "Flags"
+            }
+          },
+          {
+            "name": "frag_offset",
+            "width": {
+              "bits": 13
+            },
+            "display": {
+              "name": "Fragment Offset",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ttl",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "TTL",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "protocol",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Protocol",
+              "format": "DISPLAY_FORMAT_DEC",
+              "valueLabels": [
+                {
+                  "value": "1",
+                  "label": "ICMP"
+                },
+                {
+                  "value": "2",
+                  "label": "IGMP"
+                },
+                {
+                  "value": "4",
+                  "label": "IPv4-in-IP"
+                },
+                {
+                  "value": "6",
+                  "label": "TCP"
+                },
+                {
+                  "value": "17",
+                  "label": "UDP"
+                },
+                {
+                  "value": "41",
+                  "label": "IPv6-in-IP"
+                },
+                {
+                  "value": "47",
+                  "label": "GRE"
+                },
+                {
+                  "value": "58",
+                  "label": "ICMPv6"
+                },
+                {
+                  "value": "88",
+                  "label": "EIGRP"
+                },
+                {
+                  "value": "89",
+                  "label": "OSPF"
+                },
+                {
+                  "value": "103",
+                  "label": "PIM"
+                },
+                {
+                  "value": "112",
+                  "label": "VRRP"
+                }
+              ]
+            }
+          },
+          {
+            "name": "hdr_checksum",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Header Checksum",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "src_addr",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Source",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "dst_addr",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Destination",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
+      },
+      {
+        "name": "udp",
+        "fields": [
+          {
+            "name": "src_port",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Source Port",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "dst_port",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Destination Port",
+              "format": "DISPLAY_FORMAT_DEC",
+              "valueLabels": [
+                {
+                  "value": "67",
+                  "label": "DHCP (server)"
+                },
+                {
+                  "value": "68",
+                  "label": "DHCP (client)"
+                },
+                {
+                  "value": "520",
+                  "label": "RIP"
+                },
+                {
+                  "value": "521",
+                  "label": "RIPng"
+                },
+                {
+                  "value": "546",
+                  "label": "DHCPv6 (client)"
+                },
+                {
+                  "value": "547",
+                  "label": "DHCPv6 (server)"
+                },
+                {
+                  "value": "1985",
+                  "label": "HSRP"
+                },
+                {
+                  "value": "4789",
+                  "label": "VXLAN"
+                },
+                {
+                  "value": "4790",
+                  "label": "VXLAN-GPE"
+                },
+                {
+                  "value": "6081",
+                  "label": "Geneve"
+                },
+                {
+                  "value": "6343",
+                  "label": "sFlow"
+                }
+              ]
+            }
+          },
+          {
+            "name": "length_",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "checksum",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Checksum",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
+      },
+      {
+        "name": "gre",
+        "fields": [
+          {
+            "name": "c",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "C (Checksum Present)"
+            }
+          },
+          {
+            "name": "r",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "R (Routing Present)"
+            }
+          },
+          {
+            "name": "k",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "K (Key Present)"
+            }
+          },
+          {
+            "name": "s",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "S (Sequence Present)"
+            }
+          },
+          {
+            "name": "strict",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "s (Strict Source Route)"
+            }
+          },
+          {
+            "name": "recurse",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "Recursion Control"
+            }
+          },
+          {
+            "name": "flags",
+            "width": {
+              "bits": 5
+            },
+            "display": {
+              "name": "Flags"
+            }
+          },
+          {
+            "name": "ver",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "Version"
+            }
+          },
+          {
+            "name": "proto",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Protocol Type",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "2048",
+                  "label": "IPv4"
+                },
+                {
+                  "value": "8939",
+                  "label": "ERSPAN type III"
+                },
+                {
+                  "value": "25944",
+                  "label": "Transparent Ethernet Bridging"
+                },
+                {
+                  "value": "34525",
+                  "label": "IPv6"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "ipv6",
+        "fields": [
+          {
+            "name": "version",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Version"
+            }
+          },
+          {
+            "name": "traffic_class",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Traffic Class",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "flow_label",
+            "width": {
+              "bits": 20
+            },
+            "display": {
+              "name": "Flow Label",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "payload_len",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Payload Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "next_hdr",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Next Header",
+              "format": "DISPLAY_FORMAT_DEC",
+              "valueLabels": [
+                {
+                  "value": "1",
+                  "label": "ICMP"
+                },
+                {
+                  "value": "2",
+                  "label": "IGMP"
+                },
+                {
+                  "value": "4",
+                  "label": "IPv4-in-IP"
+                },
+                {
+                  "value": "6",
+                  "label": "TCP"
+                },
+                {
+                  "value": "17",
+                  "label": "UDP"
+                },
+                {
+                  "value": "41",
+                  "label": "IPv6-in-IP"
+                },
+                {
+                  "value": "47",
+                  "label": "GRE"
+                },
+                {
+                  "value": "58",
+                  "label": "ICMPv6"
+                },
+                {
+                  "value": "88",
+                  "label": "EIGRP"
+                },
+                {
+                  "value": "89",
+                  "label": "OSPF"
+                },
+                {
+                  "value": "103",
+                  "label": "PIM"
+                },
+                {
+                  "value": "112",
+                  "label": "VRRP"
+                }
+              ]
+            }
+          },
+          {
+            "name": "hop_limit",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Hop Limit",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "src_addr",
+            "width": {
+              "byteLen": {
+                "constant": "16"
+              }
+            }
+          },
+          {
+            "name": "dst_addr",
+            "width": {
+              "byteLen": {
+                "constant": "16"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "icmp",
+        "fields": [
+          {
+            "name": "type_code",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Type/Code",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "hdr_checksum",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Checksum",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
+      },
+      {
+        "name": "tcp",
+        "fields": [
+          {
+            "name": "src_port",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Source Port",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "dst_port",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Destination Port",
+              "format": "DISPLAY_FORMAT_DEC",
+              "valueLabels": [
+                {
+                  "value": "179",
+                  "label": "BGP"
+                },
+                {
+                  "value": "639",
+                  "label": "MSDP"
+                }
+              ]
+            }
+          },
+          {
+            "name": "seq_no",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Sequence Number",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ack_no",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Ack Number",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "data_offset",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Data Offset",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "res",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Reserved"
+            }
+          },
+          {
+            "name": "flags",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Flags",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "window",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Window",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "checksum",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Checksum",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "urgent_ptr",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Urgent Pointer",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "roce_v2_header",
+        "fields": [
+          {
+            "name": "ib_bth_0",
+            "width": {
+              "bits": 64
+            },
+            "display": {
+              "name": "IB BTH (bits 0-63)",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "ib_bth_1",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "IB BTH (bits 64-95)",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
+      },
+      {
+        "name": "vxlan_gpe_int_header",
+        "fields": [
+          {
+            "name": "int_type",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "INT Type",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "rsvd",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Reserved"
+            }
+          },
+          {
+            "name": "len",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "next_proto",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Next Protocol",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
+      },
+      {
+        "name": "int_header",
+        "fields": [
+          {
+            "name": "ver",
+            "width": {
+              "bits": 2
+            },
+            "display": {
+              "name": "Version"
+            }
+          },
+          {
+            "name": "rep",
+            "width": {
+              "bits": 2
+            },
+            "display": {
+              "name": "Replication"
+            }
+          },
+          {
+            "name": "c",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Copy"
+            }
+          },
+          {
+            "name": "e",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Max Hop Count Exceeded"
+            }
+          },
+          {
+            "name": "rsvd1",
+            "width": {
+              "bits": 5
+            },
+            "display": {
+              "name": "Reserved"
+            }
+          },
+          {
+            "name": "ins_cnt",
+            "width": {
+              "bits": 5
+            },
+            "display": {
+              "name": "Instruction Count",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "max_hop_cnt",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Max Hop Count",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "total_hop_cnt",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Total Hop Count",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "instruction_mask_0003",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Instruction Mask 0-3"
+            }
+          },
+          {
+            "name": "instruction_mask_0407",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Instruction Mask 4-7"
+            }
+          },
+          {
+            "name": "instruction_mask_0811",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Instruction Mask 8-11"
+            }
+          },
+          {
+            "name": "instruction_mask_1215",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Instruction Mask 12-15"
+            }
+          },
+          {
+            "name": "rsvd2",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Reserved"
+            }
+          }
+        ]
+      },
+      {
+        "name": "int_value",
+        "fields": [
+          {
+            "name": "bos",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Bottom of Stack",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "val",
+            "width": {
+              "bits": 31
+            },
+            "display": {
+              "name": "Value",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
+      },
+      {
+        "name": "int_switch_id_header",
+        "fields": [
+          {
+            "name": "bos",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Bottom of Stack",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "switch_id",
+            "width": {
+              "bits": 31
+            },
+            "display": {
+              "name": "Switch ID",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "int_ingress_port_id_header",
+        "fields": [
+          {
+            "name": "bos",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Bottom of Stack",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ingress_port_id_1",
+            "width": {
+              "bits": 15
+            },
+            "display": {
+              "name": "Ingress Port ID (high)",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ingress_port_id_0",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Ingress Port ID (low)",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "int_hop_latency_header",
+        "fields": [
+          {
+            "name": "bos",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Bottom of Stack",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "hop_latency",
+            "width": {
+              "bits": 31
+            },
+            "display": {
+              "name": "Hop Latency",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "int_q_occupancy_header",
+        "fields": [
+          {
+            "name": "bos",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Bottom of Stack",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "q_occupancy1",
+            "width": {
+              "bits": 7
+            },
+            "display": {
+              "name": "Queue Occupancy (high)",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "q_occupancy0",
+            "width": {
+              "bits": 24
+            },
+            "display": {
+              "name": "Queue Occupancy (low)",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "int_ingress_tstamp_header",
+        "fields": [
+          {
+            "name": "bos",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Bottom of Stack",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ingress_tstamp",
+            "width": {
+              "bits": 31
+            },
+            "display": {
+              "name": "Ingress Timestamp",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "int_egress_port_id_header",
+        "fields": [
+          {
+            "name": "bos",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Bottom of Stack",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "egress_port_id",
+            "width": {
+              "bits": 31
+            },
+            "display": {
+              "name": "Egress Port ID",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "int_q_congestion_header",
+        "fields": [
+          {
+            "name": "bos",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Bottom of Stack",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "q_congestion",
+            "width": {
+              "bits": 31
+            },
+            "display": {
+              "name": "Queue Congestion",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "int_egress_port_tx_utilization_header",
+        "fields": [
+          {
+            "name": "bos",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Bottom of Stack",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "egress_port_tx_utilization",
+            "width": {
+              "bits": 31
+            },
+            "display": {
+              "name": "Egress Port TX Utilization",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "sctp",
+        "fields": [
+          {
+            "name": "src_port",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Source Port",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "dst_port",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Destination Port",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "verif_tag",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Verification Tag",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "checksum",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Checksum",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
+      },
+      {
+        "name": "nvgre",
+        "fields": [
+          {
+            "name": "tni",
+            "width": {
+              "bits": 24
+            },
+            "display": {
+              "name": "TNI",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "flow_id",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Flow ID",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
+      },
+      {
+        "name": "erspan_header_t3",
+        "fields": [
+          {
+            "name": "version",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Version"
+            }
+          },
+          {
+            "name": "vlan",
+            "width": {
+              "bits": 12
+            },
+            "display": {
+              "name": "VLAN",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "priority",
+            "width": {
+              "bits": 6
+            },
+            "display": {
+              "name": "Priority"
+            }
+          },
+          {
+            "name": "span_id",
+            "width": {
+              "bits": 10
+            },
+            "display": {
+              "name": "Span ID",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "timestamp",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Timestamp",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "sgt",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "SGT",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "ft_d_other",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Ft/D/Other",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
+      },
+      {
+        "name": "inner_ethernet_rest",
+        "fields": [
+          {
+            "name": "dst_addr_rest",
+            "width": {
+              "bits": 44
+            },
+            "display": {
+              "name": "Destination (low 44 bits)",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "src_addr",
+            "width": {
+              "bits": 48
+            },
+            "display": {
+              "name": "Source",
+              "format": "DISPLAY_FORMAT_ETHER"
+            }
+          },
+          {
+            "name": "ether_type",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "EtherType",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "2048",
+                  "label": "IPv4"
+                },
+                {
+                  "value": "2054",
+                  "label": "ARP"
+                },
+                {
+                  "value": "8939",
+                  "label": "ERSPAN type III"
+                },
+                {
+                  "value": "25944",
+                  "label": "Transparent Ethernet Bridging"
+                },
+                {
+                  "value": "33024",
+                  "label": "802.1Q"
+                },
+                {
+                  "value": "34525",
+                  "label": "IPv6"
+                },
+                {
+                  "value": "34825",
+                  "label": "Slow Protocols (source: LACP)"
+                },
+                {
+                  "value": "34887",
+                  "label": "MPLS (unicast)"
+                },
+                {
+                  "value": "35020",
+                  "label": "LLDP"
+                },
+                {
+                  "value": "36864",
+                  "label": "internal fabric header (source: BF_FABRIC)"
+                },
+                {
+                  "value": "37120",
+                  "label": "QinQ (legacy 0x9100)"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "vxlan",
+        "fields": [
+          {
+            "name": "flags",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Flags",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "reserved",
+            "width": {
+              "bits": 24
+            },
+            "display": {
+              "name": "Reserved"
+            }
+          },
+          {
+            "name": "vni",
+            "width": {
+              "bits": 24
+            },
+            "display": {
+              "name": "VNI",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "reserved2",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Reserved"
+            }
+          }
+        ]
+      },
+      {
+        "name": "vxlan_gpe",
+        "fields": [
+          {
+            "name": "flags",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Flags",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "reserved",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Reserved"
+            }
+          },
+          {
+            "name": "next_proto",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Next Protocol",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "vni",
+            "width": {
+              "bits": 24
+            },
+            "display": {
+              "name": "VNI",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "reserved2",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Reserved"
+            }
+          }
+        ]
+      },
+      {
+        "name": "genv",
+        "fields": [
+          {
+            "name": "ver",
+            "width": {
+              "bits": 2
+            },
+            "display": {
+              "name": "Version"
+            }
+          },
+          {
+            "name": "opt_len",
+            "width": {
+              "bits": 6
+            },
+            "display": {
+              "name": "Option Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "oam",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "OAM"
+            }
+          },
+          {
+            "name": "critical",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Critical"
+            }
+          },
+          {
+            "name": "reserved",
+            "width": {
+              "bits": 6
+            },
+            "display": {
+              "name": "Reserved"
+            }
+          },
+          {
+            "name": "proto_type",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Protocol Type",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "25944",
+                  "label": "Transparent Ethernet Bridging"
+                }
+              ]
+            }
+          },
+          {
+            "name": "vni",
+            "width": {
+              "bits": 24
+            },
+            "display": {
+              "name": "VNI",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "reserved2",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Reserved"
+            }
+          }
+        ]
+      },
+      {
+        "name": "nsh",
+        "fields": [
+          {
+            "name": "oam",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "OAM"
+            }
+          },
+          {
+            "name": "context",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Context"
+            }
+          },
+          {
+            "name": "flags",
+            "width": {
+              "bits": 6
+            },
+            "display": {
+              "name": "Flags"
+            }
+          },
+          {
+            "name": "reserved",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Reserved"
+            }
+          },
+          {
+            "name": "proto_type",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Protocol Type",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "2048",
+                  "label": "IPv4"
+                },
+                {
+                  "value": "25944",
+                  "label": "Transparent Ethernet Bridging"
+                },
+                {
+                  "value": "34525",
+                  "label": "IPv6"
+                }
+              ]
+            }
+          },
+          {
+            "name": "spath",
+            "width": {
+              "bits": 24
+            },
+            "display": {
+              "name": "Service Path",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "sindex",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Service Index",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "nsh_context",
+        "fields": [
+          {
+            "name": "network_platform",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Network Platform",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "network_shared",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Network Shared",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "service_platform",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Service Platform",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "service_shared",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Service Shared",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
+      },
+      {
+        "name": "lisp",
+        "fields": [
+          {
+            "name": "flags",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Flags",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "nonce",
+            "width": {
+              "bits": 24
+            },
+            "display": {
+              "name": "Nonce",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "lsbs_instance_id",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "LSBs/Instance ID",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          }
+        ]
+      },
+      {
+        "name": "inner_ipv6",
+        "fields": [
+          {
+            "name": "version",
+            "width": {
+              "bits": 4
+            },
+            "display": {
+              "name": "Version"
+            }
+          },
+          {
+            "name": "traffic_class",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Traffic Class",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "flow_label",
+            "width": {
+              "bits": 20
+            },
+            "display": {
+              "name": "Flow Label",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "payload_len",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Payload Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "next_hdr",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Next Header",
+              "format": "DISPLAY_FORMAT_DEC",
+              "valueLabels": [
+                {
+                  "value": "1",
+                  "label": "ICMP"
+                },
+                {
+                  "value": "2",
+                  "label": "IGMP"
+                },
+                {
+                  "value": "4",
+                  "label": "IPv4-in-IP"
+                },
+                {
+                  "value": "6",
+                  "label": "TCP"
+                },
+                {
+                  "value": "17",
+                  "label": "UDP"
+                },
+                {
+                  "value": "41",
+                  "label": "IPv6-in-IP"
+                },
+                {
+                  "value": "47",
+                  "label": "GRE"
+                },
+                {
+                  "value": "58",
+                  "label": "ICMPv6"
+                },
+                {
+                  "value": "88",
+                  "label": "EIGRP"
+                },
+                {
+                  "value": "89",
+                  "label": "OSPF"
+                },
+                {
+                  "value": "103",
+                  "label": "PIM"
+                },
+                {
+                  "value": "112",
+                  "label": "VRRP"
+                }
+              ]
+            }
+          },
+          {
+            "name": "hop_limit",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Hop Limit",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "src_addr",
+            "width": {
+              "byteLen": {
+                "constant": "16"
+              }
+            }
+          },
+          {
+            "name": "dst_addr",
+            "width": {
+              "byteLen": {
+                "constant": "16"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "trill",
+        "fields": [
+          {
+            "name": "version",
+            "width": {
+              "bits": 2
+            },
+            "display": {
+              "name": "Version"
+            }
+          },
+          {
+            "name": "reserved",
+            "width": {
+              "bits": 2
+            },
+            "display": {
+              "name": "Reserved"
+            }
+          },
+          {
+            "name": "multi_destination",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Multi-Destination"
+            }
+          },
+          {
+            "name": "opt_length",
+            "width": {
+              "bits": 5
+            },
+            "display": {
+              "name": "Option Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "hop_count",
+            "width": {
+              "bits": 6
+            },
+            "display": {
+              "name": "Hop Count",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "egress_rbridge",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Egress RBridge",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ingress_rbridge",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Ingress RBridge",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "vntag",
+        "fields": [
+          {
+            "name": "direction",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Direction"
+            }
+          },
+          {
+            "name": "pointer",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Pointer"
+            }
+          },
+          {
+            "name": "dest_vif",
+            "width": {
+              "bits": 14
+            },
+            "display": {
+              "name": "Destination VIF",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "looped",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Looped"
+            }
+          },
+          {
+            "name": "reserved",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Reserved"
+            }
+          },
+          {
+            "name": "version",
+            "width": {
+              "bits": 2
+            },
+            "display": {
+              "name": "Version"
+            }
+          },
+          {
+            "name": "src_vif",
+            "width": {
+              "bits": 12
+            },
+            "display": {
+              "name": "Source VIF",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "bfd",
+        "fields": [
+          {
+            "name": "version",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "Version"
+            }
+          },
+          {
+            "name": "diag",
+            "width": {
+              "bits": 5
+            },
+            "display": {
+              "name": "Diagnostic"
+            }
+          },
+          {
+            "name": "state",
+            "width": {
+              "bits": 2
+            },
+            "display": {
+              "name": "State"
+            }
+          },
+          {
+            "name": "p",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "P"
+            }
+          },
+          {
+            "name": "f",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "F"
+            }
+          },
+          {
+            "name": "c",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "C"
+            }
+          },
+          {
+            "name": "a",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "A"
+            }
+          },
+          {
+            "name": "d",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "D"
+            }
+          },
+          {
+            "name": "m",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "M"
+            }
+          },
+          {
+            "name": "detect_mult",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Detect Multiplier",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "len",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Length",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "my_discriminator",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "My Discriminator",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "your_discriminator",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Your Discriminator",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "desired_min_tx_interval",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Desired Min TX Interval",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "required_min_rx_interval",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Required Min RX Interval",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "required_min_echo_rx_interval",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Required Min Echo RX Interval",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "sflow_hdr",
+        "fields": [
+          {
+            "name": "version",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Version",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "addr_type",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Address Type",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ip_address",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "IP Address",
+              "format": "DISPLAY_FORMAT_HEX"
+            }
+          },
+          {
+            "name": "sub_agent_id",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Sub-Agent ID",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "seq_number",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Sequence Number",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "uptime",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Uptime",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "num_samples",
+            "width": {
+              "bits": 32
+            },
+            "display": {
+              "name": "Sample Count",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "fabric_header",
+        "fields": [
+          {
+            "name": "packet_type",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "Packet Type",
+              "format": "DISPLAY_FORMAT_DEC",
+              "valueLabels": [
+                {
+                  "value": "1",
+                  "label": "UNICAST"
+                },
+                {
+                  "value": "2",
+                  "label": "MULTICAST"
+                },
+                {
+                  "value": "3",
+                  "label": "MIRROR"
+                },
+                {
+                  "value": "5",
+                  "label": "CPU"
+                }
+              ]
+            }
+          },
+          {
+            "name": "header_version",
+            "width": {
+              "bits": 2
+            },
+            "display": {
+              "name": "Header Version"
+            }
+          },
+          {
+            "name": "packet_version",
+            "width": {
+              "bits": 2
+            },
+            "display": {
+              "name": "Packet Version"
+            }
+          },
+          {
+            "name": "pad1",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Pad"
+            }
+          },
+          {
+            "name": "fabric_color",
+            "width": {
+              "bits": 3
+            },
+            "display": {
+              "name": "Fabric Color"
+            }
+          },
+          {
+            "name": "fabric_qos",
+            "width": {
+              "bits": 5
+            },
+            "display": {
+              "name": "Fabric QoS"
+            }
+          },
+          {
+            "name": "dst_device",
+            "width": {
+              "bits": 8
+            },
+            "display": {
+              "name": "Destination Device",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "dst_port_or_group",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Destination Port/Group",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "fabric_header_unicast",
+        "fields": [
+          {
+            "name": "routed",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Routed"
+            }
+          },
+          {
+            "name": "outer_routed",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Outer Routed"
+            }
+          },
+          {
+            "name": "tunnel_terminate",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Tunnel Terminate"
+            }
+          },
+          {
+            "name": "ingress_tunnel_type",
+            "width": {
+              "bits": 5
+            },
+            "display": {
+              "name": "Ingress Tunnel Type",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "nexthop_index",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Nexthop Index",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "fabric_header_multicast",
+        "fields": [
+          {
+            "name": "routed",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Routed"
+            }
+          },
+          {
+            "name": "outer_routed",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Outer Routed"
+            }
+          },
+          {
+            "name": "tunnel_terminate",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Tunnel Terminate"
+            }
+          },
+          {
+            "name": "ingress_tunnel_type",
+            "width": {
+              "bits": 5
+            },
+            "display": {
+              "name": "Ingress Tunnel Type",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ingress_ifindex",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Ingress IfIndex",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ingress_bd",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Ingress BD",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "mcast_grp",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Multicast Group",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "fabric_header_mirror",
+        "fields": [
+          {
+            "name": "rewrite_index",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Rewrite Index",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "egress_port",
+            "width": {
+              "bits": 10
+            },
+            "display": {
+              "name": "Egress Port",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "egress_queue",
+            "width": {
+              "bits": 5
+            },
+            "display": {
+              "name": "Egress Queue",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "pad",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "Pad"
+            }
+          }
+        ]
+      },
+      {
+        "name": "fabric_header_cpu",
+        "fields": [
+          {
+            "name": "egress_queue",
+            "width": {
+              "bits": 5
+            },
+            "display": {
+              "name": "Egress Queue",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "tx_bypass",
+            "width": {
+              "bits": 1
+            },
+            "display": {
+              "name": "TX Bypass"
+            }
+          },
+          {
+            "name": "reserved",
+            "width": {
+              "bits": 2
+            },
+            "display": {
+              "name": "Reserved"
+            }
+          },
+          {
+            "name": "ingress_port",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Ingress Port",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ingress_ifindex",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Ingress IfIndex",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "ingress_bd",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Ingress BD",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "reason_code",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Reason Code",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "4",
+                  "label": "sFlow sample"
+                }
+              ]
+            }
+          },
+          {
+            "name": "mcast_grp",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "Multicast Group",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "fabric_header_sflow",
+        "fields": [
+          {
+            "name": "sflow_session_id",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "sFlow Session ID",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          },
+          {
+            "name": "sflow_egress_ifindex",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "sFlow Egress IfIndex",
+              "format": "DISPLAY_FORMAT_DEC"
+            }
+          }
+        ]
+      },
+      {
+        "name": "fabric_payload_header",
+        "fields": [
+          {
+            "name": "ether_type",
+            "width": {
+              "bits": 16
+            },
+            "display": {
+              "name": "EtherType",
+              "format": "DISPLAY_FORMAT_HEX",
+              "valueLabels": [
+                {
+                  "value": "2048",
+                  "label": "IPv4"
+                },
+                {
+                  "value": "2054",
+                  "label": "ARP"
+                },
+                {
+                  "value": "8939",
+                  "label": "ERSPAN type III"
+                },
+                {
+                  "value": "25944",
+                  "label": "Transparent Ethernet Bridging"
+                },
+                {
+                  "value": "33024",
+                  "label": "802.1Q"
+                },
+                {
+                  "value": "34525",
+                  "label": "IPv6"
+                },
+                {
+                  "value": "34825",
+                  "label": "Slow Protocols (source: LACP)"
+                },
+                {
+                  "value": "34887",
+                  "label": "MPLS (unicast)"
+                },
+                {
+                  "value": "35020",
+                  "label": "LLDP"
+                },
+                {
+                  "value": "36864",
+                  "label": "internal fabric header (source: BF_FABRIC)"
+                },
+                {
+                  "value": "37120",
+                  "label": "QinQ (legacy 0x9100)"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "states": [
+      {
+        "name": "parse_ethernet",
+        "extracts": [
+          {
+            "headerType": "ethernet"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ethernet",
+                  "field": "ether_type"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "masked": {
+                      "mask": "65024"
+                    }
+                  }
+                ],
+                "next": {
+                  "state": "parse_llc_header"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "masked": {
+                      "mask": "64000"
+                    }
+                  }
+                ],
+                "next": {
+                  "state": "parse_llc_header"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "36864"
+                  }
+                ],
+                "next": {
+                  "state": "parse_fabric_header"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "33024"
+                  }
+                ],
+                "next": {
+                  "state": "parse_vlan"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "37120"
+                  }
+                ],
+                "next": {
+                  "state": "parse_qinq"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34887"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2054"
+                  }
+                ],
+                "next": {
+                  "state": "parse_arp_rarp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "35020"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_high"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34825"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_high"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "The entry state. The source's `start` is a bare `return\nparse_ethernet`; `start` is a reserved eDSL attribute, so the\nentry lands here directly."
+        }
+      },
+      {
+        "name": "parse_llc_header",
+        "extracts": [
+          {
+            "headerType": "llc_header"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "llc_header",
+                  "field": "dsap"
+                }
+              },
+              {
+                "field": {
+                  "header": "llc_header",
+                  "field": "ssap"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "170"
+                  },
+                  {
+                    "value": "170"
+                  }
+                ],
+                "next": {
+                  "state": "parse_snap_header"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "254"
+                  },
+                  {
+                    "value": "254"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "The source selects on (dsap, ssap) with the concatenated\nliterals 0xAAAA (SNAP) and 0xFEFE (CLNS/IS-IS), split here\nper 8-bit key."
+        }
+      },
+      {
+        "name": "parse_snap_header",
+        "extracts": [
+          {
+            "headerType": "snap_header"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "snap_header",
+                  "field": "type_"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "33024"
+                  }
+                ],
+                "next": {
+                  "state": "parse_vlan"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "37120"
+                  }
+                ],
+                "next": {
+                  "state": "parse_qinq"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34887"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2054"
+                  }
+                ],
+                "next": {
+                  "state": "parse_arp_rarp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "35020"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_high"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34825"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_high"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_roce",
+        "extracts": [
+          {
+            "headerType": "roce_header",
+            "instance": "roce"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "annotations": {
+          "doc": "Unreachable under shipped defaults (its EtherType arm is\ncompiled out); transcribed as the source keeps it."
+        }
+      },
+      {
+        "name": "parse_fcoe",
+        "extracts": [
+          {
+            "headerType": "fcoe_header",
+            "instance": "fcoe"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "annotations": {
+          "doc": "Unreachable under shipped defaults (see parse_roce)."
+        }
+      },
+      {
+        "name": "parse_vlan",
+        "extracts": [
+          {
+            "headerType": "vlan_tag",
+            "instance": "vlan_tag_"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "vlan_tag_",
+                  "field": "ether_type"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "34887"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2054"
+                  }
+                ],
+                "next": {
+                  "state": "parse_arp_rarp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "35020"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_high"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34825"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_high"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "First 802.1Q tag: extracts vlan_tag_[0]. All three VLAN\nstates share one `vlan_tag_` instance (the gibb stack\npattern: a later extract overwrites)."
+        }
+      },
+      {
+        "name": "parse_qinq",
+        "extracts": [
+          {
+            "headerType": "vlan_tag",
+            "instance": "vlan_tag_"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "vlan_tag_",
+                  "field": "ether_type"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "33024"
+                  }
+                ],
+                "next": {
+                  "state": "parse_qinq_vlan"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_qinq_vlan",
+        "extracts": [
+          {
+            "headerType": "vlan_tag",
+            "instance": "vlan_tag_"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "vlan_tag_",
+                  "field": "ether_type"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "34887"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2054"
+                  }
+                ],
+                "next": {
+                  "state": "parse_arp_rarp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "35020"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_high"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34825"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_high"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "The inner 0x8100 tag of a QinQ pair: vlan_tag_[1] in the\nsource, the shared `vlan_tag_` instance here."
+        }
+      },
+      {
+        "name": "parse_mpls",
+        "extracts": [
+          {
+            "headerType": "mpls"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "mpls",
+                  "field": "bos"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls_2"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls_bos"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "First label of the source's `mpls[3]` stack. The source is\none self-looping state extracting `mpls[next]`; the 3-entry\nstack bound is transcribed by unrolling (parse_mpls_2 and\nparse_mpls_3 are unroll-invented names)."
+        }
+      },
+      {
+        "name": "parse_mpls_2",
+        "extracts": [
+          {
+            "headerType": "mpls"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "mpls",
+                  "field": "bos"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls_3"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls_bos"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_mpls_3",
+        "extracts": [
+          {
+            "headerType": "mpls"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "mpls",
+                  "field": "bos"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "reject": {
+                    "reason": "a fourth MPLS label overflows the source's mpls[3] stack"
+                  }
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls_bos"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "Third label: the stack is full. A fourth label (bos=0)\nwould overflow `mpls[3]` — a P4_14 parse exception,\ntranscribed as an explicit reject."
+        }
+      },
+      {
+        "name": "parse_mpls_bos",
+        "extracts": [
+          {
+            "headerType": "ip_version_nibble"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ip_version_nibble",
+                  "field": "v"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls_inner_ipv6"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "state": "parse_eompls"
+            }
+          }
+        },
+        "annotations": {
+          "doc": "Bottom of stack: the source peeks `current(0, 4)`;\ntranscribed as a real 4-bit nibble extract whose\ncontinuations are defined minus their leading nibble."
+        }
+      },
+      {
+        "name": "parse_mpls_inner_ipv4",
+        "extracts": [
+          {
+            "headerType": "inner_ipv4_rest"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "inner_ipv4_rest",
+                  "field": "frag_offset"
+                }
+              },
+              {
+                "field": {
+                  "header": "inner_ipv4_rest",
+                  "field": "ihl"
+                }
+              },
+              {
+                "field": {
+                  "header": "inner_ipv4_rest",
+                  "field": "protocol"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "5"
+                  },
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_icmp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "5"
+                  },
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "5"
+                  },
+                  {
+                    "value": "17"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_udp"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "Metadata-only in the source (tunnel type 9 = MPLS L3VPN),\nthen parse_inner_ipv4; here it extracts the nibble-less\n`InnerIpv4Rest` and carries parse_inner_ipv4's dispatch."
+        }
+      },
+      {
+        "name": "parse_mpls_inner_ipv6",
+        "extracts": [
+          {
+            "headerType": "inner_ipv6_rest"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "inner_ipv6_rest",
+                  "field": "next_hdr"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "58"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_icmp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "17"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_udp"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_vpls",
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "annotations": {
+          "doc": "Unreachable, extract-less `return ingress` in the source."
+        }
+      },
+      {
+        "name": "parse_pw",
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "annotations": {
+          "doc": "Unreachable, extract-less `return ingress` in the source."
+        }
+      },
+      {
+        "name": "parse_ipv4",
+        "extracts": [
+          {
+            "headerType": "ipv4"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv4",
+                  "field": "frag_offset"
+                }
+              },
+              {
+                "field": {
+                  "header": "ipv4",
+                  "field": "ihl"
+                }
+              },
+              {
+                "field": {
+                  "header": "ipv4",
+                  "field": "protocol"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "5"
+                  },
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_icmp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "5"
+                  },
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "5"
+                  },
+                  {
+                    "value": "17"
+                  }
+                ],
+                "next": {
+                  "state": "parse_udp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "5"
+                  },
+                  {
+                    "value": "47"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "5"
+                  },
+                  {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4_in_ip"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "5"
+                  },
+                  {
+                    "value": "41"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6_in_ip"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "2"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "88"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "89"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "103"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "112"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "The source keys on (fragOffset, ihl, protocol) with\nconcatenated literals (0x501 = frag 0 ++ ihl 5 ++ proto 1),\nsplit here per key width. The bare literals 2/88/89/103/112\ndecompose to ihl=0 — the routing-protocol arms match only\nihl==0 packets (a known switch.p4 quirk, kept). IPv4 is a\nfixed 20-byte extract: options are never consumed."
+        }
+      },
+      {
+        "name": "parse_ipv4_in_ip",
+        "transition": {
+          "direct": {
+            "state": "parse_inner_ipv4"
+          }
+        },
+        "annotations": {
+          "doc": "Metadata-only in the source (tunnel type 3 = IP-in-IP)."
+        }
+      },
+      {
+        "name": "parse_ipv6_in_ip",
+        "transition": {
+          "direct": {
+            "state": "parse_inner_ipv6"
+          }
+        }
+      },
+      {
+        "name": "parse_udp_v6",
+        "extracts": [
+          {
+            "headerType": "udp"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "udp",
+                  "field": "dst_port"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "67"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "68"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "546"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "547"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "520"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "521"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1985"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "Unreachable under shipped defaults (parse_ipv6 dispatches\nUDP to parse_udp); extracts into the shared `udp` instance,\nas the source does."
+        }
+      },
+      {
+        "name": "parse_gre_v6",
+        "extracts": [
+          {
+            "headerType": "gre"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "c"
+                }
+              },
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "r"
+                }
+              },
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "k"
+                }
+              },
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "s"
+                }
+              },
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "strict"
+                }
+              },
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "recurse"
+                }
+              },
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "flags"
+                }
+              },
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "ver"
+                }
+              },
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "proto"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre_ipv4"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "Unreachable twin of parse_gre with a single IPv4 arm."
+        }
+      },
+      {
+        "name": "parse_ipv6",
+        "extracts": [
+          {
+            "headerType": "ipv6"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ipv6",
+                  "field": "next_hdr"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "58"
+                  }
+                ],
+                "next": {
+                  "state": "parse_icmp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4_in_ip"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "17"
+                  }
+                ],
+                "next": {
+                  "state": "parse_udp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "47"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "41"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6_in_ip"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "88"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "89"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "103"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "112"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_icmp",
+        "extracts": [
+          {
+            "headerType": "icmp"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "icmp",
+                  "field": "type_code"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "masked": {
+                      "value": "33280",
+                      "mask": "65024"
+                    }
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "masked": {
+                      "value": "33792",
+                      "mask": "64512"
+                    }
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "masked": {
+                      "value": "34816",
+                      "mask": "65280"
+                    }
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "Shared by IPv4 (proto 1) and IPv6 (proto 58). The masked\ntypeCode arms raise priority for ICMPv6 MLD and neighbor\ndiscovery."
+        }
+      },
+      {
+        "name": "parse_tcp",
+        "extracts": [
+          {
+            "headerType": "tcp"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "tcp",
+                  "field": "dst_port"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "179"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "639"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "A fixed 20-byte extract: dataOffset is read but no options\nare consumed (source behavior)."
+        }
+      },
+      {
+        "name": "parse_roce_v2",
+        "extracts": [
+          {
+            "headerType": "roce_v2_header",
+            "instance": "roce_v2"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "annotations": {
+          "doc": "Unreachable under shipped defaults (no 4791 arm in\nparse_udp)."
+        }
+      },
+      {
+        "name": "parse_udp",
+        "extracts": [
+          {
+            "headerType": "udp"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "udp",
+                  "field": "dst_port"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "4789"
+                  }
+                ],
+                "next": {
+                  "state": "parse_vxlan"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6081"
+                  }
+                ],
+                "next": {
+                  "state": "parse_geneve"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "4790"
+                  }
+                ],
+                "next": {
+                  "state": "parse_vxlan_gpe"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "67"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "68"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "546"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "547"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "520"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "521"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1985"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_med"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6343"
+                  }
+                ],
+                "next": {
+                  "state": "parse_sflow"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_gpe_int_header",
+        "extracts": [
+          {
+            "headerType": "vxlan_gpe_int_header"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "parse_int_header"
+          }
+        }
+      },
+      {
+        "name": "parse_int_header",
+        "extracts": [
+          {
+            "headerType": "int_header"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "int_header",
+                  "field": "rsvd1"
+                }
+              },
+              {
+                "field": {
+                  "header": "int_header",
+                  "field": "total_hop_cnt"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "accept": {}
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "masked": {
+                      "mask": "15"
+                    }
+                  },
+                  {
+                    "masked": {}
+                  }
+                ],
+                "next": {
+                  "state": "parse_int_val"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "masked": {}
+                  },
+                  {
+                    "masked": {}
+                  }
+                ],
+                "next": {
+                  "accept": {}
+                }
+              }
+            ],
+            "defaultTarget": {
+              "state": "parse_all_int_meta_value_heders"
+            }
+          }
+        },
+        "annotations": {
+          "doc": "The source keys on (rsvd1, total_hop_cnt): exact 0x000\naccepts (no hops added yet), `0x000 mask 0xf00` (= rsvd1's\nlow four bits zero) enters the value stack, and a `0 mask 0`\ncatch-all accepts — deliberately shadowing the default, whose\ntarget parse_all_int_meta_value_heders the source keeps as a\ndeparser-graph aid (\"never transition to the following\nstate\")."
+        }
+      },
+      {
+        "name": "parse_int_val",
+        "extracts": [
+          {
+            "headerType": "int_value",
+            "instance": "int_val"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "int_val",
+                  "field": "bos"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  }
+                ],
+                "next": {
+                  "state": "parse_int_val"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ethernet"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "The source's `int_val[24]` stack loop, kept as one cyclic\nstate: `max_depth` (not the stack size) bounds it here, so\nthe 24-entry cap is a depth budget, not a hard count."
+        }
+      },
+      {
+        "name": "parse_all_int_meta_value_heders",
+        "extracts": [
+          {
+            "headerType": "int_switch_id_header"
+          },
+          {
+            "headerType": "int_ingress_port_id_header"
+          },
+          {
+            "headerType": "int_hop_latency_header"
+          },
+          {
+            "headerType": "int_q_occupancy_header"
+          },
+          {
+            "headerType": "int_ingress_tstamp_header"
+          },
+          {
+            "headerType": "int_egress_port_id_header"
+          },
+          {
+            "headerType": "int_q_congestion_header"
+          },
+          {
+            "headerType": "int_egress_port_tx_utilization_header"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "parse_int_val"
+          }
+        },
+        "annotations": {
+          "doc": "Semantically unreachable (see parse_int_header); the state\nname keeps the source's spelling, typo included."
+        }
+      },
+      {
+        "name": "parse_sctp",
+        "extracts": [
+          {
+            "headerType": "sctp"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "annotations": {
+          "doc": "Unreachable under shipped defaults (no proto-132 arm)."
+        }
+      },
+      {
+        "name": "parse_gre",
+        "extracts": [
+          {
+            "headerType": "gre"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "c"
+                }
+              },
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "r"
+                }
+              },
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "k"
+                }
+              },
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "s"
+                }
+              },
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "strict"
+                }
+              },
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "recurse"
+                }
+              },
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "flags"
+                }
+              },
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "ver"
+                }
+              },
+              {
+                "field": {
+                  "header": "gre",
+                  "field": "proto"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "1"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "25944"
+                  }
+                ],
+                "next": {
+                  "state": "parse_nvgre"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_gre_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "8939"
+                  }
+                ],
+                "next": {
+                  "state": "parse_erspan_t3"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "The source selects on all nine GRE fields concatenated\n(32 bits); 0x20006558 splits to K=1 ++ proto 0x6558 (NVGRE),\nthe other arms are flagless proto values."
+        }
+      },
+      {
+        "name": "parse_gre_ipv4",
+        "transition": {
+          "direct": {
+            "state": "parse_inner_ipv4"
+          }
+        },
+        "annotations": {
+          "doc": "Metadata-only in the source (tunnel type 2 = GRE)."
+        }
+      },
+      {
+        "name": "parse_gre_ipv6",
+        "transition": {
+          "direct": {
+            "state": "parse_inner_ipv6"
+          }
+        }
+      },
+      {
+        "name": "parse_nvgre",
+        "extracts": [
+          {
+            "headerType": "nvgre"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "parse_inner_ethernet"
+          }
+        }
+      },
+      {
+        "name": "parse_erspan_t3",
+        "extracts": [
+          {
+            "headerType": "erspan_header_t3",
+            "instance": "erspan_t3_header"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "parse_inner_ethernet"
+          }
+        }
+      },
+      {
+        "name": "parse_arp_rarp",
+        "transition": {
+          "direct": {
+            "state": "parse_set_prio_med"
+          }
+        },
+        "annotations": {
+          "doc": "Extract-less in this configuration: ARP raises priority\nand parsing ends (the ARP header extract is compiled out)."
+        }
+      },
+      {
+        "name": "parse_eompls",
+        "extracts": [
+          {
+            "headerType": "inner_ethernet_rest"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "inner_ethernet_rest",
+                  "field": "ether_type"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv6"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "The source's eompls extract is commented out; the state\njumps straight to parse_inner_ethernet. Since the transcribed\nnibble is already consumed, this state extracts the\nnibble-less `InnerEthernetRest` and carries\nparse_inner_ethernet's dispatch."
+        }
+      },
+      {
+        "name": "parse_vxlan",
+        "extracts": [
+          {
+            "headerType": "vxlan"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "parse_inner_ethernet"
+          }
+        }
+      },
+      {
+        "name": "parse_vxlan_gpe",
+        "extracts": [
+          {
+            "headerType": "vxlan_gpe"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "vxlan_gpe",
+                  "field": "next_proto"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "masked": {
+                      "value": "5",
+                      "mask": "255"
+                    }
+                  }
+                ],
+                "next": {
+                  "state": "parse_gpe_int_header"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "state": "parse_inner_ethernet"
+            }
+          }
+        },
+        "annotations": {
+          "doc": "next_proto 5 (INT shim) is written `0x05 mask 0xff` in the\nsource; kept as a masked arm."
+        }
+      },
+      {
+        "name": "parse_geneve",
+        "extracts": [
+          {
+            "headerType": "genv"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "genv",
+                  "field": "ver"
+                }
+              },
+              {
+                "field": {
+                  "header": "genv",
+                  "field": "opt_len"
+                }
+              },
+              {
+                "field": {
+                  "header": "genv",
+                  "field": "proto_type"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "25944"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ethernet"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "reject": {
+                "reason": "genv: only ver=0, optLen=0, protoType=TEB is parseable"
+              }
+            }
+          }
+        },
+        "annotations": {
+          "doc": "The source keys on (ver, optLen, protoType) with the single\nconcatenated arm 0x6558 (= 0 ++ 0 ++ TEB) and NO default: any\nother value is a P4_14 parse exception, transcribed as an\nexplicit reject."
+        }
+      },
+      {
+        "name": "parse_nsh",
+        "extracts": [
+          {
+            "headerType": "nsh"
+          },
+          {
+            "headerType": "nsh_context"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "nsh",
+                  "field": "proto_type"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "25944"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ethernet"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "Unreachable under shipped defaults; extracts the NSH base\nand context headers back to back, as the source does."
+        }
+      },
+      {
+        "name": "parse_lisp",
+        "extracts": [
+          {
+            "headerType": "lisp"
+          },
+          {
+            "headerType": "ip_version_nibble"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "ip_version_nibble",
+                  "field": "v"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls_inner_ipv6"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "Unreachable under shipped defaults. The source's second\n`current(0, 4)` site: here the nibble arms route through\nparse_mpls_inner_ipv4/6, which own the nibble-less inner-IP\ncontinuations both lookahead sites share."
+        }
+      },
+      {
+        "name": "parse_inner_ipv4",
+        "extracts": [
+          {
+            "headerType": "ipv4",
+            "instance": "inner_ipv4"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "inner_ipv4",
+                  "field": "frag_offset"
+                }
+              },
+              {
+                "field": {
+                  "header": "inner_ipv4",
+                  "field": "ihl"
+                }
+              },
+              {
+                "field": {
+                  "header": "inner_ipv4",
+                  "field": "protocol"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "5"
+                  },
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_icmp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "5"
+                  },
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "0"
+                  },
+                  {
+                    "value": "5"
+                  },
+                  {
+                    "value": "17"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_udp"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_inner_icmp",
+        "extracts": [
+          {
+            "headerType": "icmp",
+            "instance": "inner_icmp"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        }
+      },
+      {
+        "name": "parse_inner_tcp",
+        "extracts": [
+          {
+            "headerType": "tcp",
+            "instance": "inner_tcp"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        }
+      },
+      {
+        "name": "parse_inner_udp",
+        "extracts": [
+          {
+            "headerType": "udp",
+            "instance": "inner_udp"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        }
+      },
+      {
+        "name": "parse_inner_sctp",
+        "extracts": [
+          {
+            "headerType": "sctp",
+            "instance": "inner_sctp"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "annotations": {
+          "doc": "Unreachable under shipped defaults (see parse_sctp)."
+        }
+      },
+      {
+        "name": "parse_inner_ipv6",
+        "extracts": [
+          {
+            "headerType": "inner_ipv6"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "inner_ipv6",
+                  "field": "next_hdr"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "58"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_icmp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "6"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_tcp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "17"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_udp"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_inner_ethernet",
+        "extracts": [
+          {
+            "headerType": "ethernet",
+            "instance": "inner_ethernet"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "inner_ethernet",
+                  "field": "ether_type"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_inner_ipv6"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_trill",
+        "extracts": [
+          {
+            "headerType": "trill"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "parse_inner_ethernet"
+          }
+        },
+        "annotations": {
+          "doc": "Unreachable under shipped defaults."
+        }
+      },
+      {
+        "name": "parse_vntag",
+        "extracts": [
+          {
+            "headerType": "vntag"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "parse_inner_ethernet"
+          }
+        },
+        "annotations": {
+          "doc": "Unreachable under shipped defaults."
+        }
+      },
+      {
+        "name": "parse_bfd",
+        "extracts": [
+          {
+            "headerType": "bfd"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "parse_set_prio_max"
+          }
+        },
+        "annotations": {
+          "doc": "Unreachable under shipped defaults."
+        }
+      },
+      {
+        "name": "parse_sflow",
+        "extracts": [
+          {
+            "headerType": "sflow_hdr",
+            "instance": "sflow"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        }
+      },
+      {
+        "name": "parse_fabric_header",
+        "extracts": [
+          {
+            "headerType": "fabric_header"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "fabric_header",
+                  "field": "packet_type"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "1"
+                  }
+                ],
+                "next": {
+                  "state": "parse_fabric_header_unicast"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2"
+                  }
+                ],
+                "next": {
+                  "state": "parse_fabric_header_multicast"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "3"
+                  }
+                ],
+                "next": {
+                  "state": "parse_fabric_header_mirror"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "5"
+                  }
+                ],
+                "next": {
+                  "state": "parse_fabric_header_cpu"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_fabric_header_unicast",
+        "extracts": [
+          {
+            "headerType": "fabric_header_unicast"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "parse_fabric_payload_header"
+          }
+        }
+      },
+      {
+        "name": "parse_fabric_header_multicast",
+        "extracts": [
+          {
+            "headerType": "fabric_header_multicast"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "parse_fabric_payload_header"
+          }
+        }
+      },
+      {
+        "name": "parse_fabric_header_mirror",
+        "extracts": [
+          {
+            "headerType": "fabric_header_mirror"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "parse_fabric_payload_header"
+          }
+        }
+      },
+      {
+        "name": "parse_fabric_header_cpu",
+        "extracts": [
+          {
+            "headerType": "fabric_header_cpu"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "fabric_header_cpu",
+                  "field": "reason_code"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "value": "4"
+                  }
+                ],
+                "next": {
+                  "state": "parse_fabric_sflow_header"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "state": "parse_fabric_payload_header"
+            }
+          }
+        }
+      },
+      {
+        "name": "parse_fabric_sflow_header",
+        "extracts": [
+          {
+            "headerType": "fabric_header_sflow"
+          }
+        ],
+        "transition": {
+          "direct": {
+            "state": "parse_fabric_payload_header"
+          }
+        }
+      },
+      {
+        "name": "parse_fabric_payload_header",
+        "extracts": [
+          {
+            "headerType": "fabric_payload_header"
+          }
+        ],
+        "transition": {
+          "select": {
+            "keys": [
+              {
+                "field": {
+                  "header": "fabric_payload_header",
+                  "field": "ether_type"
+                }
+              }
+            ],
+            "arms": [
+              {
+                "entries": [
+                  {
+                    "masked": {
+                      "mask": "65024"
+                    }
+                  }
+                ],
+                "next": {
+                  "state": "parse_llc_header"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "masked": {
+                      "mask": "64000"
+                    }
+                  }
+                ],
+                "next": {
+                  "state": "parse_llc_header"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "33024"
+                  }
+                ],
+                "next": {
+                  "state": "parse_vlan"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "37120"
+                  }
+                ],
+                "next": {
+                  "state": "parse_qinq"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34887"
+                  }
+                ],
+                "next": {
+                  "state": "parse_mpls"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2048"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv4"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34525"
+                  }
+                ],
+                "next": {
+                  "state": "parse_ipv6"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "2054"
+                  }
+                ],
+                "next": {
+                  "state": "parse_arp_rarp"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "35020"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_high"
+                }
+              },
+              {
+                "entries": [
+                  {
+                    "value": "34825"
+                  }
+                ],
+                "next": {
+                  "state": "parse_set_prio_high"
+                }
+              }
+            ],
+            "defaultTarget": {
+              "accept": {}
+            }
+          }
+        },
+        "annotations": {
+          "doc": "The fabric payload re-enters the L2 dispatch — the same\nmap as parse_ethernet minus the fabric arm (no nesting)."
+        }
+      },
+      {
+        "name": "parse_set_prio_med",
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "annotations": {
+          "doc": "`intrinsic_metadata.priority = 3` in the source, then\ningress: parsing ends."
+        }
+      },
+      {
+        "name": "parse_set_prio_high",
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "annotations": {
+          "doc": "`intrinsic_metadata.priority = 5` in the source."
+        }
+      },
+      {
+        "name": "parse_set_prio_max",
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "annotations": {
+          "doc": "`intrinsic_metadata.priority = 7` in the source."
+        }
+      }
+    ],
+    "startState": "parse_ethernet",
+    "maxDepth": 43,
+    "annotations": {
+      "doc": "The parser of classic switch.p4: `p4lang/switch` @ 7874f565,\nas-shipped feature defaults (p4features.h) + __TARGET_BMV2__.\nTwo layers (outer + inner_* twins after tunnel decap), the\nfabric-header family, INT over VXLAN-GPE, and sFlow."
+    }
+  }
+}

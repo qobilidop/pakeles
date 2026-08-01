@@ -32,6 +32,7 @@ ACADEMIC = [
     "gibb_service_provider",
     "gibb_big_union",
     "kangaroo_parse_tree",
+    "p4lang_switch_parser",
 ]
 ALL_EXAMPLES = SYNTHETIC + REAL_WORLD + ACADEMIC
 

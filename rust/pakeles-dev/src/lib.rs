@@ -28,7 +28,7 @@ pub const REAL_WORLD: [&str; 6] = [
 /// The academic gallery examples: descriptions reproduced from
 /// published evaluations (see examples/academic/README.md for the
 /// naming and licensing rules). Same keep-in-step rule as REAL_WORLD.
-pub const ACADEMIC: [&str; 7] = [
+pub const ACADEMIC: [&str; 8] = [
     "gibb_simple",
     "gibb_enterprise",
     "gibb_datacenter",
@@ -36,6 +36,7 @@ pub const ACADEMIC: [&str; 7] = [
     "gibb_service_provider",
     "gibb_big_union",
     "kangaroo_parse_tree",
+    "p4lang_switch_parser",
 ];
 
 /// Every gallery example and its directory.

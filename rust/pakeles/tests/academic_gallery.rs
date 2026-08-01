@@ -8,7 +8,7 @@
 
 use std::path::{Path, PathBuf};
 
-const NAMES: [&str; 7] = [
+const NAMES: [&str; 8] = [
     "gibb_simple",
     "gibb_enterprise",
     "gibb_datacenter",
@@ -16,6 +16,7 @@ const NAMES: [&str; 7] = [
     "gibb_service_provider",
     "gibb_big_union",
     "kangaroo_parse_tree",
+    "p4lang_switch_parser",
 ];
 
 fn dir(name: &str) -> PathBuf {

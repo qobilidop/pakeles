@@ -22,6 +22,7 @@ Current members:
 | `gibb_service_provider/` | Gibb et al., ANCS 2013, Fig. 3d | "Service provider" |
 | `gibb_big_union/` | Gibb et al., ANCS 2013, Fig. 3e | "big-union" (28 nodes, 677 paths) |
 | `kangaroo_parse_tree/` | Kozanitis et al., INFOCOM 2010, §VII | the (unnamed) Cisco parse tree |
+| `p4lang_switch_parser/` | p4lang/switch @ 7874f565, shipped defaults | the parser of switch.p4 |
 
 The four `gibb_*` scenario graphs are also the "Applicability"
 benchmarks of **Leapfrog** (Doenges et al., PLDI 2022, §7.2), which
@@ -37,6 +38,9 @@ that README first):
   `leapfrog`, `everparse`), **else the first author's surname**
   (`gibb` — "parser-gen" is generic, and the literature attributes
   the graphs to Gibb et al.; Leapfrog's citation does exactly this).
+  **Org-qualify a brand name when the brand is a generic word**: the
+  brand "switch" (switch.p4) would collide with the common noun, so
+  it becomes `p4lang_switch_parser`.
 - **Component: the item's name in the work's primary figure or
   table**, snake-cased ("big-union" → `big_union`). When the work
   itself spells a multi-word name both ways, prefer its compact
