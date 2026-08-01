@@ -26,10 +26,9 @@ digraph "quic_initial" {
   "parse_scid__handshake" [shape=box, label="parse_scid__handshake"];
   "parse_scid__retry" [shape=box, label="parse_scid__retry"];
   "accept" [shape=doublecircle];
-  "reject_0" [shape=diamond, label="reject:\nunreachable: 1-bit key"];
+  "reject_0" [shape=diamond, label="reject:\nunreachable"];
   "reject_1" [shape=diamond, label="reject:\ndcid too long for v1"];
   "reject_2" [shape=diamond, label="reject:\nscid too long for v1"];
-  "reject_3" [shape=diamond, label="reject:\nunreachable: 2-bit key"];
   "parse_first" -> "parse_first__short" [label="first_byte.form == 0x0"];
   "parse_first" -> "parse_version" [label="first_byte.form == 0x1"];
   "parse_first" -> "reject_0" [label="default", style=dashed];
@@ -86,12 +85,12 @@ digraph "quic_initial" {
   "parse_scid" -> "parse_scid__zero_rtt" [label="first_byte.ty == 0x1"];
   "parse_scid" -> "parse_scid__handshake" [label="first_byte.ty == 0x2"];
   "parse_scid" -> "parse_scid__retry" [label="first_byte.ty == 0x3"];
-  "parse_scid" -> "reject_3" [label="default", style=dashed];
+  "parse_scid" -> "reject_0" [label="default", style=dashed];
   "parse_tok_lead" -> "tok_w1" [label="tok_lead.prefix == 0x0"];
   "parse_tok_lead" -> "tok_w2" [label="tok_lead.prefix == 0x1"];
   "parse_tok_lead" -> "tok_w4" [label="tok_lead.prefix == 0x2"];
   "parse_tok_lead" -> "tok_w8" [label="tok_lead.prefix == 0x3"];
-  "parse_tok_lead" -> "reject_3" [label="default", style=dashed];
+  "parse_tok_lead" -> "reject_0" [label="default", style=dashed];
   "tok_w1" -> "parse_len_lead";
   "tok_w2" -> "parse_len_lead";
   "tok_w4" -> "parse_len_lead";
@@ -100,7 +99,7 @@ digraph "quic_initial" {
   "parse_len_lead" -> "len_w2" [label="len_lead.prefix == 0x1"];
   "parse_len_lead" -> "len_w4" [label="len_lead.prefix == 0x2"];
   "parse_len_lead" -> "len_w8" [label="len_lead.prefix == 0x3"];
-  "parse_len_lead" -> "reject_3" [label="default", style=dashed];
+  "parse_len_lead" -> "reject_0" [label="default", style=dashed];
   "len_w1" -> "accept";
   "len_w2" -> "accept";
   "len_w4" -> "accept";

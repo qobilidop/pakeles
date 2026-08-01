@@ -191,7 +191,6 @@ class QuicInitial(Parser):
                 .accept(),
                 HeaderForm.LONG: self.parse_version,
             },
-            default=reject("unreachable: 1-bit key"),
         )
 
     def parse_version(self) -> State:
@@ -264,7 +263,6 @@ class QuicInitial(Parser):
                 ),
                 LongType.RETRY: assign(QuicMeta.kind, PacketKind.RETRY).accept(),
             },
-            default=reject("unreachable: 2-bit key"),
         )
 
     def parse_tok_lead(self) -> State:
@@ -280,7 +278,6 @@ class QuicInitial(Parser):
                 VarintWidth.W4: self.tok_w4,
                 VarintWidth.W8: self.tok_w8,
             },
-            default=reject("unreachable: 2-bit key"),
         )
 
     def tok_w1(self) -> State:
@@ -324,7 +321,6 @@ class QuicInitial(Parser):
                 VarintWidth.W4: self.len_w4,
                 VarintWidth.W8: self.len_w8,
             },
-            default=reject("unreachable: 2-bit key"),
         )
 
     def len_w1(self) -> State:

@@ -147,8 +147,7 @@ typedef enum {
   PK_R_REGION_NOT_EXHAUSTED = 6,
   PK_R_DCID_TOO_LONG_FOR_V1 = 16,
   PK_R_SCID_TOO_LONG_FOR_V1 = 17,
-  PK_R_UNREACHABLE__1_BIT_KEY = 18,
-  PK_R_UNREACHABLE__2_BIT_KEY = 19,
+  PK_R_UNREACHABLE = 18,
 } pk_quic_initial_reason_t;
 
 /* Buffer contract: `buf` must hold at least PK_BUF_MASK + 1 bytes.
@@ -247,7 +246,7 @@ static __attribute__((always_inline)) int pk_quic_initial_parse_core(const uint8
         continue;
       } else {
         out->outcome = 1;
-        out->reason = PK_R_UNREACHABLE__1_BIT_KEY;
+        out->reason = PK_R_UNREACHABLE;
         out->consumed_bits = off;
         return 1;
       }
@@ -529,7 +528,7 @@ static __attribute__((always_inline)) int pk_quic_initial_parse_core(const uint8
         continue;
       } else {
         out->outcome = 1;
-        out->reason = PK_R_UNREACHABLE__2_BIT_KEY;
+        out->reason = PK_R_UNREACHABLE;
         out->consumed_bits = off;
         return 1;
       }
@@ -567,7 +566,7 @@ static __attribute__((always_inline)) int pk_quic_initial_parse_core(const uint8
         continue;
       } else {
         out->outcome = 1;
-        out->reason = PK_R_UNREACHABLE__2_BIT_KEY;
+        out->reason = PK_R_UNREACHABLE;
         out->consumed_bits = off;
         return 1;
       }
@@ -701,7 +700,7 @@ static __attribute__((always_inline)) int pk_quic_initial_parse_core(const uint8
         continue;
       } else {
         out->outcome = 1;
-        out->reason = PK_R_UNREACHABLE__2_BIT_KEY;
+        out->reason = PK_R_UNREACHABLE;
         out->consumed_bits = off;
         return 1;
       }

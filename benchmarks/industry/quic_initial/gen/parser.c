@@ -90,7 +90,7 @@ static int pk_quic_initial_parse_core(const uint8_t *buf, uint64_t bit_len, pk_q
         continue;
       } else {
         out->outcome = 1;
-        out->reason = PK_R_UNREACHABLE__1_BIT_KEY;
+        out->reason = PK_R_UNREACHABLE;
         out->consumed_bits = off;
         return 1;
       }
@@ -372,7 +372,7 @@ static int pk_quic_initial_parse_core(const uint8_t *buf, uint64_t bit_len, pk_q
         continue;
       } else {
         out->outcome = 1;
-        out->reason = PK_R_UNREACHABLE__2_BIT_KEY;
+        out->reason = PK_R_UNREACHABLE;
         out->consumed_bits = off;
         return 1;
       }
@@ -410,7 +410,7 @@ static int pk_quic_initial_parse_core(const uint8_t *buf, uint64_t bit_len, pk_q
         continue;
       } else {
         out->outcome = 1;
-        out->reason = PK_R_UNREACHABLE__2_BIT_KEY;
+        out->reason = PK_R_UNREACHABLE;
         out->consumed_bits = off;
         return 1;
       }
@@ -544,7 +544,7 @@ static int pk_quic_initial_parse_core(const uint8_t *buf, uint64_t bit_len, pk_q
         continue;
       } else {
         out->outcome = 1;
-        out->reason = PK_R_UNREACHABLE__2_BIT_KEY;
+        out->reason = PK_R_UNREACHABLE;
         out->consumed_bits = off;
         return 1;
       }
@@ -667,8 +667,7 @@ const char *pk_quic_initial_reason_str(uint16_t reason) {
   case 6: return "region not exhausted";
   case 16: return "dcid too long for v1";
   case 17: return "scid too long for v1";
-  case 18: return "unreachable: 1-bit key";
-  case 19: return "unreachable: 2-bit key";
+  case 18: return "unreachable";
   default: return "";
   }
 }

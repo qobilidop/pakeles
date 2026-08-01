@@ -521,7 +521,7 @@
             ],
             "defaultTarget": {
               "reject": {
-                "reason": "unreachable: 1-bit key"
+                "reason": "unreachable"
               }
             }
           }
@@ -1145,7 +1145,7 @@
             ],
             "defaultTarget": {
               "reject": {
-                "reason": "unreachable: 2-bit key"
+                "reason": "unreachable"
               }
             }
           }
@@ -1215,7 +1215,7 @@
             ],
             "defaultTarget": {
               "reject": {
-                "reason": "unreachable: 2-bit key"
+                "reason": "unreachable"
               }
             }
           }
@@ -1438,7 +1438,7 @@
             ],
             "defaultTarget": {
               "reject": {
-                "reason": "unreachable: 2-bit key"
+                "reason": "unreachable"
               }
             }
           }

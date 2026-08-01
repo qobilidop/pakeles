@@ -18,8 +18,7 @@ typedef enum {
   PK_R_REGION_NOT_EXHAUSTED = 6, /* "region not exhausted" */
   PK_R_DCID_TOO_LONG_FOR_V1 = 16, /* "dcid too long for v1" */
   PK_R_SCID_TOO_LONG_FOR_V1 = 17, /* "scid too long for v1" */
-  PK_R_UNREACHABLE__1_BIT_KEY = 18, /* "unreachable: 1-bit key" */
-  PK_R_UNREACHABLE__2_BIT_KEY = 19, /* "unreachable: 2-bit key" */
+  PK_R_UNREACHABLE = 18, /* "unreachable" */
 } pk_quic_initial_reason_t;
 
 typedef struct {

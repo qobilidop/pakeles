@@ -108,6 +108,67 @@ SelectKey = FieldSpec | BoundField | MetadataFieldSpec | RemainingSpec
 RegionOp = tuple[str, Expr | None]  # ("push", len_expr) | ("pop", None)
 
 
+def _key_labels(key: SelectKey) -> dict[int, str]:
+    if isinstance(key, BoundField):
+        return key.spec.labels
+    return getattr(key, "labels", None) or {}
+
+
+def _first_missing(covered: set[int], total: int, want: int) -> list[int]:
+    """The `want` smallest values in [0, total) not in `covered`,
+    without iterating the (possibly 2^64-sized) range."""
+    out: list[int] = []
+    prev = -1
+    for v in sorted(covered) + [total]:
+        for m in range(prev + 1, v):
+            out.append(m)
+            if len(out) == want:
+                return out
+        prev = v
+    return out
+
+
+def _exhaustive_default(keys: tuple[SelectKey, ...], arms: dict[ArmValue, Target]) -> Reject:
+    """Prove the arms cover every representable value of the key,
+    licensing an omitted `default=`; the synthesized IR default is a
+    machine-written unreachable reject. Conservative by design: a
+    single fixed-width key with exact-value arms only — masked arms
+    and multi-key selects always need an explicit default."""
+    no_default = "select has no default= and "
+    if len(keys) != 1:
+        raise ValueError(
+            no_default + "exhaustiveness is only provable for a "
+            "single key; pass an explicit default"
+        )
+    key = keys[0]
+    width = key.width_bits
+    if width is None:
+        raise ValueError(
+            no_default + f"key {key.header}.{key.name} is not a "
+            "fixed-width field; pass an explicit default"
+        )
+    if any(not isinstance(v, int) for v in arms):
+        raise ValueError(
+            no_default + "masked arms cannot prove exhaustiveness; "
+            "pass an explicit default"
+        )
+    total = 1 << width
+    covered = {v for v in arms if isinstance(v, int) and 0 <= v < total}
+    if len(covered) == total:
+        return Reject(reason="unreachable")
+    labels = _key_labels(key)
+    shown = [
+        f"{m} ({labels[m]})" if m in labels else str(m)
+        for m in _first_missing(covered, total, 8)
+    ]
+    listed = ", ".join(shown) + (", ..." if total - len(covered) > 8 else "")
+    raise ValueError(
+        f"select on {key.header}.{key.name} ({width} bits) is not "
+        f"exhaustive: arms cover {len(covered)} of {total} values, "
+        f"missing {listed}; add arms or pass default="
+    )
+
+
 def _expand_arm(key: ArmKey) -> list[ArmValue]:
     """One authored arm key -> its exact arm values, in authored order."""
     if isinstance(key, OneOf):
@@ -198,8 +259,13 @@ class State:
         key: SelectKey | tuple[SelectKey, ...],
         arms: dict[ArmKey, Target],
         *,
-        default: Target,
+        default: Target | None = None,
     ) -> State:
+        """`default=` may be omitted when the arms provably cover every
+        representable key value (single fixed-width key, exact values):
+        the IR's mandatory default becomes a synthesized unreachable
+        reject, and a coverage gap is an error naming the missing
+        values instead of a silent fall-through."""
         self._need_open()
         keys = key if isinstance(key, tuple) else (key,)
         expanded: dict[ArmValue, Target] = {}
@@ -208,6 +274,8 @@ class State:
                 if value in expanded:
                     raise ValueError(f"duplicate select arm value {value!r}")
                 expanded[value] = target
+        if default is None:
+            default = _exhaustive_default(keys, expanded)
         self.transition = SelectSpec(keys=keys, arms=expanded, default=default)
         return self
 
@@ -249,7 +317,7 @@ def select(
     key: SelectKey | tuple[SelectKey, ...],
     arms: dict[ArmKey, Target],
     *,
-    default: Target,
+    default: Target | None = None,
 ) -> State:
     """A state that only dispatches (no extract)."""
     return State().select(key, arms, default=default)

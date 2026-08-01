@@ -124,7 +124,7 @@ Start state: `parse_first`.
 - **`parse_first`** — extracts first_byte; selects on `first_byte.form`:
   - first_byte.form == 0x0 → `parse_first__short`
   - first_byte.form == 0x1 → `parse_version`
-  - otherwise → **reject** (*unreachable: 1-bit key*)
+  - otherwise → **reject** (*unreachable*)
   > Header form bit routes short vs long; the rest of the first
   > byte rides along (type bits meaningful only for long headers).
 - **`parse_version`** — extracts version; selects on `version.v`:
@@ -190,7 +190,7 @@ Start state: `parse_first`.
   - first_byte.ty == 0x1 → `parse_scid__zero_rtt`
   - first_byte.ty == 0x2 → `parse_scid__handshake`
   - first_byte.ty == 0x3 → `parse_scid__retry`
-  - otherwise → **reject** (*unreachable: 2-bit key*)
+  - otherwise → **reject** (*unreachable*)
   > CIDs done; the long-type bits pick the tail grammar: all
   > four types record a kind; Retry stops there (classify-only:
   > its token is 'rest minus 16-byte tag', needing remaining()-16
@@ -203,7 +203,7 @@ Start state: `parse_first`.
   - tok_lead.prefix == 0x1 → `tok_w2`
   - tok_lead.prefix == 0x2 → `tok_w4`
   - tok_lead.prefix == 0x3 → `tok_w8`
-  - otherwise → **reject** (*unreachable: 2-bit key*)
+  - otherwise → **reject** (*unreachable*)
   > The self-sizing varint, arm 1 of 2: token length. The 2-bit
   > prefix is an ordinary fixed field; each width arm re-composes
   > the value inline because var-width fields cannot cross the
@@ -217,7 +217,7 @@ Start state: `parse_first`.
   - len_lead.prefix == 0x1 → `len_w2`
   - len_lead.prefix == 0x2 → `len_w4`
   - len_lead.prefix == 0x3 → `len_w8`
-  - otherwise → **reject** (*unreachable: 2-bit key*)
+  - otherwise → **reject** (*unreachable*)
   > The self-sizing varint, arm 2 of 2: payload length. Shared
   > by Initial, 0-RTT, and Handshake (kind already in metadata);
   > the value is observed, not consumed - parsing stops before the
