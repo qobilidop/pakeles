@@ -164,6 +164,39 @@ some future target demands exact-count on a big stack).
 a stacks entry that reads "different encoding, same observables; P4
 wins only on post-join last-access, which nothing uses."
 
+### Idea 3b — per-instance extraction caps (specified; build on trigger)
+
+User proposal (2026-08-01): a declared cap on repeated extraction,
+replacing unrolls for exact-count semantics. **Philosophically
+admitted** where stacks were not — the sharpened principle is
+"counters may BOUND, never BIND": P4's `next` binds (slots,
+addressing — rejected); a cap only converts the (N+1)th extract into
+a reject, exactly max_depth's shape (a budget nothing can extend;
+termination authority untouched). Design points:
+
+- **Per-INSTANCE, not per-type** (user's per-type framing has a
+  switch.p4 counterexample: `Icmp` type is shared by `icmp` +
+  `inner_icmp` — a type cap of 1 would wrongly reject the inner).
+  Proto: parser-level `map<string, uint32> instance_caps`. Spec: one
+  premise on E-Extract + a new normative reject reason + per-capped-
+  instance counters in the configuration (~5 lines).
+- **Cheap everywhere**: interp = counter map; C/eBPF/Lua = counter +
+  compare; symex = path-space PRUNING (counts are path-prefix-
+  determined — no solver work, unlike lookahead). Open question:
+  `gen p4` fidelity = recognizing capped cyclic loops as `header[N]`
+  stacks (or an initial refusal marker).
+- **Use-case survey is thin**: TLV loops → sized regions (right
+  tool); layered encaps → structural states; global bounds →
+  max_depth. The only residents are P4-stack-style same-instance
+  loops: `mpls[3]` + `int_val[24]`. Payoff there is real: int_val's
+  documented cap deviation disappears, parse_mpls collapses to ONE
+  cyclic source-named state, transcription = 62 states (source's 63
+  minus folded start), no bitmap blowup.
+- **DECISION: specified now, built only on a trigger** — (i) a
+  real_world target with an incumbent oracle exhibiting per-count
+  rejects (a proper MPLS/tunnel target), or (ii) the publication
+  pass valuing full-fidelity switch.p4 as an exhibit.
+
 ## Idea 4 — the wide-value boundary: match vs compute, not width tiers
 
 From the follow-on discussion (2026-08-01). Three options were weighed
