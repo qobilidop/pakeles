@@ -42,7 +42,10 @@ pipeline's numbers sit next to the literature's.
 The only host requirement is Docker; `./dev.sh` runs everything inside
 the pinned dev image (Ubuntu 24.04 + Rust, protoc, buf, tshark 4.2,
 graphviz, clang/llvm, and prebuilt p4c + BMv2 grafted from
-[p4lang-builds](https://github.com/qobilidop/p4lang-builds)):
+[p4lang-builds](https://github.com/qobilidop/p4lang-builds)). A
+prebuilt copy (amd64+arm64) is published as
+`ghcr.io/qobilidop/pakeles/dev` by `.github/workflows/dev-image.yml`;
+CI pulls it instead of rebuilding:
 
 ```sh
 ./dev.sh cargo test                    # the whole gate: core + every example crate

@@ -1,0 +1,104 @@
+name: Dev image
+
+# Prebuilds the dev container — the same image dev.sh builds and the
+# ci.yml gate runs in — and publishes it to GHCR as
+# ghcr.io/<owner>/pakeles/dev so consumers pull instead of rebuild.
+#
+# Tags:
+#   env-<hash>        content-addressed: <hash> = hashFiles(.devcontainer/**).
+#                     ci.yml pulls exactly the tag matching its checkout, so
+#                     a stale image can never be used against an edited
+#                     Dockerfile (no published tag -> ci.yml builds locally).
+#   env-<hash>-<arch> single-arch tags the matrix jobs push; the merge job
+#                     stitches them into the multi-arch tags above.
+#   latest            convenience pointer for humans (docker pull + poke).
+#
+# The monthly cron re-pushes the same env-<hash> tag with refreshed
+# unpinned apt layers — deliberate: the gate's environment already
+# drifts today whenever the Actions cache evicts and a fresh build
+# picks up new packages; publishing makes that drift observable in the
+# package's digest history instead of silent. dev.sh is unaffected: it
+# keeps building locally (authoritative for uncommitted .devcontainer
+# edits, and layer-cached after the first run).
+#
+# One-time setup after the first publish: flip the package to public
+# (github.com/qobilidop -> Packages -> pakeles/dev -> settings) so
+# anonymous and fork-PR pulls work. Until then ci.yml's pull step just
+# misses and falls back to building — still green, just slower.
+
+on:
+  push:
+    branches: [main]
+    paths: [".devcontainer/**"]
+  workflow_dispatch: {}
+  schedule:
+    # Monthly, 03:00 UTC on the 1st: refresh unpinned apt layers.
+    - cron: "0 3 1 * *"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: dev-image
+  cancel-in-progress: true
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}/dev
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          # Native runners for both arches (ubuntu-24.04-arm is free for
+          # public repos) — no QEMU, so the arm64 build is minutes, not
+          # an hour of emulated dpkg.
+          - { platform: linux/amd64, arch: amd64, runner: ubuntu-latest }
+          - { platform: linux/arm64, arch: arm64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .devcontainer
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: ${{ env.IMAGE }}:env-${{ hashFiles('.devcontainer/**') }}-${{ matrix.arch }}
+          # Separate cache scope per arch — the default scope is shared
+          # across the matrix and the two arches would evict each other.
+          cache-from: type=gha,scope=dev-image-${{ matrix.arch }}
+          cache-to: type=gha,scope=dev-image-${{ matrix.arch }},mode=max
+
+  merge:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Checkout only so hashFiles() sees .devcontainer.
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Stitch multi-arch manifest
+        run: |
+          hash="${{ hashFiles('.devcontainer/**') }}"
+          docker buildx imagetools create \
+            -t "$IMAGE:env-$hash" \
+            -t "$IMAGE:latest" \
+            "$IMAGE:env-$hash-amd64" \
+            "$IMAGE:env-$hash-arm64"

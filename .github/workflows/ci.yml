@@ -12,10 +12,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: docker/setup-buildx-action@v3
+      # Same image dev.sh builds. Fast path: pull the prebuilt copy
+      # dev-image.yml publishes, keyed by the content hash of
+      # .devcontainer/** — so this checkout's exact environment, or
+      # nothing. A miss (a PR editing .devcontainer, or the package not
+      # public yet) falls through to building locally, same as before.
+      - name: Pull prebuilt dev image
+        id: prebuilt
+        run: |
+          ref="ghcr.io/${{ github.repository }}/dev:env-${{ hashFiles('.devcontainer/**') }}"
+          if docker pull "$ref"; then
+            docker tag "$ref" pakeles-dev
+            echo "hit=true" >>"$GITHUB_OUTPUT"
+          else
+            echo "hit=false" >>"$GITHUB_OUTPUT"
+          fi
 
-      # Same image dev.sh builds; layers cached in the Actions cache.
-      - name: Build dev image
+      - uses: docker/setup-buildx-action@v3
+        if: steps.prebuilt.outputs.hit != 'true'
+
+      - name: Build dev image (prebuilt miss)
+        if: steps.prebuilt.outputs.hit != 'true'
         uses: docker/build-push-action@v6
         with:
           context: .devcontainer
