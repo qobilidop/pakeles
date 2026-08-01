@@ -104,7 +104,7 @@ message MetadataRef {
 }
 
 message FieldRef {
-  string header = 1;  // header *instance* name
+  string header = 1; // header *instance* name
   string field = 2;
 }
 
@@ -153,13 +153,13 @@ message RegionOp {
 message Pop {}
 
 message Assign {
-  string metadata = 1;  // must name a declared MetadataField
+  string metadata = 1; // must name a declared MetadataField
   Expr value = 2;
 }
 
 message Extract {
   string header_type = 1;
-  string instance = 2;  // defaults to header_type when empty
+  string instance = 2; // defaults to header_type when empty
 }
 
 message Transition {
@@ -194,7 +194,7 @@ message Select {
 }
 
 message SelectArm {
-  repeated KeysetEntry entries = 1;  // one per key
+  repeated KeysetEntry entries = 1; // one per key
   Target next = 2;
 }
 

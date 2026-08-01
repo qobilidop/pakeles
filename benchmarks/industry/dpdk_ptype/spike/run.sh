@@ -9,7 +9,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 gen=../gen
 mkdir -p build
-gcc -O2 -I"$gen" -o build/spike spike.c "$gen/parser.c" $(pkg-config --cflags --libs libdpdk)
+read -ra dpdk_flags <<<"$(pkg-config --cflags --libs libdpdk)"
+gcc -O2 -I"$gen" -o build/spike spike.c "$gen/parser.c" "${dpdk_flags[@]}"
 python3 - <<'PY'
 import json
 s = json.load(open("../conformance/vectors.json"))

@@ -89,9 +89,7 @@ class Masked:
 
 def masked(value: int, mask: int) -> Masked:
     if value & ~mask:
-        raise ValueError(
-            f"masked value {value:#x} has bits outside its mask {mask:#x}"
-        )
+        raise ValueError(f"masked value {value:#x} has bits outside its mask {mask:#x}")
     return Masked(value=value, mask=mask)
 
 
@@ -111,14 +109,20 @@ def _expand_arm(key: ArmKey) -> list[ArmValue]:
         return list(key)
     if isinstance(key, tuple):
         pools: list[list[int | Masked]] = [
-            list(k.values) if isinstance(k, OneOf) else list(k) if isinstance(k, range) else [k]
+            list(k.values)
+            if isinstance(k, OneOf)
+            else list(k)
+            if isinstance(k, range)
+            else [k]
             for k in key
         ]
         return [tuple(combo) for combo in itertools.product(*pools)]
     return [key]
 
 
-def _resolve(header: type[Header] | Instance, instance: str | None) -> tuple[type[Header], str | None]:
+def _resolve(
+    header: type[Header] | Instance, instance: str | None
+) -> tuple[type[Header], str | None]:
     if isinstance(header, Instance):
         if instance is not None:
             raise ValueError("pass either Header['name'] or instance=, not both")

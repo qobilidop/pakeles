@@ -7,16 +7,11 @@
 # python/tests/conftest.py.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-tutorials="eth_ipvx_l4 counted_items tlv_items"
-industry="linux_flow_dissector dpdk_ptype katran_parser sai_parser tls_clienthello quic_initial dash_parser"
-academic="gibb_simple gibb_enterprise gibb_datacenter gibb_edge gibb_service_provider gibb_big_union kangaroo_parse_tree p4lang_switch_parser"
-base_tutorials="examples"
-base_industry="benchmarks/industry"
-base_academic="benchmarks/academic"
-for group in tutorials industry academic; do
-  eval "names=\$$group"
-  eval "base=\$base_$group"
-  for name in $names; do
+regen() {
+  local base="$1"
+  shift
+  local name dir tmp
+  for name in "$@"; do
     dir="$base/$name"
     mkdir -p "$dir"
     tmp="$(mktemp)"
@@ -24,7 +19,10 @@ for group in tutorials industry academic; do
     cargo run --quiet --bin pakeles -- fmt-ir --ir "$tmp" --out "$dir/$name.ir.json"
     rm -f "$tmp"
   done
-done
+}
+regen examples eth_ipvx_l4 counted_items tlv_items
+regen benchmarks/industry linux_flow_dissector dpdk_ptype katran_parser sai_parser tls_clienthello quic_initial dash_parser
+regen benchmarks/academic gibb_simple gibb_enterprise gibb_datacenter gibb_edge gibb_service_provider gibb_big_union kangaroo_parse_tree p4lang_switch_parser
 cargo run --quiet --bin gen_fixtures
 cargo run --quiet --bin gen_examples
 echo "gallery regenerated from the committed eDSL descriptions"

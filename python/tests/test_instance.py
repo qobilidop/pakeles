@@ -23,7 +23,9 @@ class TwoTags(Parser):
     max_depth = 3
 
     def s0(self) -> State:
-        return extract(Eth).select(Eth.ethertype, {0x8100: self.s1}, default=reject("no"))
+        return extract(Eth).select(
+            Eth.ethertype, {0x8100: self.s1}, default=reject("no")
+        )
 
     def s1(self) -> State:
         return extract(Tag["outer"]).select(

@@ -12,6 +12,14 @@ extend-exclude = [
     "target",
 ]
 
+[format]
+# Formatting is enforced only on the library (python/). The gallery
+# descriptions (examples/, benchmarks/) keep deliberate vertical
+# alignment in header classes — they are documents as much as code —
+# and *.md keeps ruff away from fenced code blocks in README and the
+# historical design docs. Lint (below) still covers all of them.
+exclude = ["*.md", "examples/**", "benchmarks/**"]
+
 [lint]
 extend-select = ["I"]
 

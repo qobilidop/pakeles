@@ -251,5 +251,3 @@ def _fill_target(pb_target: ir_pb2.Target, target: Target) -> None:
             pb_target.reject.annotations["severity"] = "info"
     else:  # unresolved StateRef; _check rejects these first
         raise TypeError(f"unresolved state reference {target!r}")
-
-

@@ -50,15 +50,11 @@ jobs:
           key: cargo-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: cargo-
 
-      # Mirrors dev.sh mounts, with host dirs standing in for its volumes.
-      # gen_vectors regenerates the gitignored conformance suites from
-      # the committed IRs before testing — without it, every
-      # backend-conformance test would silently skip on a fresh
-      # checkout. It writes ONLY conformance/vectors.*; the committed
-      # gen/ artifacts stay untouched so their equality guards keep
-      # comparing committed against fresh. Release profile: the big
-      # suites (linux_flow_dissector, dpdk_ptype) are symex-bound and
-      # several times slower in debug.
+      # Mirrors dev.sh mounts, with host dirs standing in for its
+      # volumes. The gate itself is defined in scripts/gate.sh (=
+      # lint.sh + test.sh) — the single source for "what green means";
+      # contributors run the identical thing via ./dev.sh
+      # scripts/gate.sh.
       - name: Gate
         run: |
           mkdir -p .ci/cargo-registry .ci/target
@@ -67,4 +63,4 @@ jobs:
             -v "$PWD/.ci/target":/target \
             -v "$PWD/.ci/cargo-registry":/usr/local/cargo/registry \
             pakeles-dev \
-            sh -c 'cargo fmt --check && cargo clippy --workspace --all-targets -- -D warnings && cargo run --release --quiet --bin gen_vectors && cargo test --workspace && buf lint && ruff check . && pyright && cd python && pytest'
+            scripts/gate.sh

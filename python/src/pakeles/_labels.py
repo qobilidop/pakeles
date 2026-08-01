@@ -54,6 +54,4 @@ def coerce_labels(labels: LabelsArg) -> dict[int, str]:
     if isinstance(labels, Mapping):
         mapping = cast(Mapping[int, str], labels)
         return {int(v): s for v, s in mapping.items()}
-    return {
-        int(m): m.label if isinstance(m, LabeledEnum) else m.name for m in labels
-    }
+    return {int(m): m.label if isinstance(m, LabeledEnum) else m.name for m in labels}
