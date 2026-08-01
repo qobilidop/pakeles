@@ -132,9 +132,10 @@ pub mod expr {
         Bin(::prost::alloc::boxed::Box<super::BinOp>),
         #[prost(message, tag = "4")]
         Metadata(super::MetadataRef),
-        /// Bytes between the cursor and the innermost sized region's end
-        /// (packet end when no region is open). Legal as a select key and
-        /// in assigns/push lengths; NOT in byte_len widths (v1).
+        /// Bytes between the cursor and the innermost sized region's end;
+        /// structural (no buffer clamp), legal only with a region open.
+        /// Legal as a select key and in assigns; NOT in byte_len widths or
+        /// push lengths (v1 — see docs/reference/ir-semantics.md, W4/W5).
         #[prost(message, tag = "5")]
         Remaining(super::Remaining),
     }
