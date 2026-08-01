@@ -26,14 +26,13 @@ suite), an eBPF program (`gen bpf`, clang-compiled and verified under
 the rbpf VM), and a P4-16 program (`gen p4`, p4c-compiled and
 verdict-verified on BMv2's `simple_switch`).
 
-The gallery (`examples/`) exercises all of it: three synthetic
-descriptions that each isolate one IR capability; seven models of
+The corpus exercises all of it. `benchmarks/industry/` holds seven models of
 parsers that already run in the world — the Linux flow dissector,
 DPDK's `rte_net_get_ptype()`, Meta's Katran, SONiC PINS `sai_p4`, TLS
 ClientHello / SNI, the QUIC v1 Initial long header, and the DASH
 (Azure SmartNIC) BMv2 pipeline parser — each verified
 to agree with the real implementation, packet for packet, at a pinned
-version; and seven descriptions reproduced from published academic
+version. `benchmarks/academic/` holds eight descriptions reproduced from published academic
 evaluations (the parse-graph suite of Gibb et al. ANCS 2013 — also
 Leapfrog's benchmark set — and Kangaroo's Cisco parse tree), so the
 pipeline's numbers sit next to the literature's.
@@ -47,21 +46,20 @@ graphviz, clang/llvm, and prebuilt p4c + BMv2 grafted from
 
 ```sh
 ./dev.sh cargo test                    # the whole gate: core + every example crate
-./dev.sh cargo run --bin pakeles -- diff tshark --pcap testdata/basic.pcap
-./dev.sh cargo run --bin pakeles -- run --pcap testdata/basic.pcap    # JSON per packet
-./dev.sh cargo run --bin pakeles -- viz | dot -Tsvg -o graph.svg      # parse graph
-./dev.sh cargo run --bin pakeles -- export-ir                         # the IR itself
-./dev.sh cargo run --bin pakeles -- testgen --out vectors.json        # conformance suite
-./dev.sh cargo run --bin pakeles -- lint                              # unreachable/shadowed
-./dev.sh cargo run --bin pakeles -- cov --pcap testdata/basic.pcap    # path coverage
-./dev.sh cargo run --bin pakeles -- gen lua --out dissector.lua       # Wireshark dissector
-./dev.sh cargo run --bin pakeles -- doc                               # markdown docs
+./dev.sh cargo run --bin pakeles -- diff tshark --ir examples/eth_ipvx_l4/eth_ipvx_l4.ir.json --pcap testdata/basic.pcap
+./dev.sh cargo run --bin pakeles -- run --ir examples/eth_ipvx_l4/eth_ipvx_l4.ir.json --pcap testdata/basic.pcap    # JSON per packet
+./dev.sh cargo run --bin pakeles -- viz --ir examples/eth_ipvx_l4/eth_ipvx_l4.ir.json | dot -Tsvg -o graph.svg      # parse graph
+./dev.sh cargo run --bin pakeles -- testgen --ir examples/eth_ipvx_l4/eth_ipvx_l4.ir.json --out vectors.json        # conformance suite
+./dev.sh cargo run --bin pakeles -- lint --ir examples/eth_ipvx_l4/eth_ipvx_l4.ir.json                              # unreachable/shadowed
+./dev.sh cargo run --bin pakeles -- cov --ir examples/eth_ipvx_l4/eth_ipvx_l4.ir.json --pcap testdata/basic.pcap    # path coverage
+./dev.sh cargo run --bin pakeles -- gen lua --ir examples/eth_ipvx_l4/eth_ipvx_l4.ir.json --out dissector.lua       # Wireshark dissector
+./dev.sh cargo run --bin pakeles -- doc --ir examples/eth_ipvx_l4/eth_ipvx_l4.ir.json                               # markdown docs
 ./dev.sh cargo run --bin pakeles -- gen c --out-dir .                 # portable C99 parser
 ./dev.sh cargo run --bin pakeles -- gen bpf --out parser.bpf.c        # eBPF variant
 ./dev.sh cargo run --bin pakeles -- gen p4 --out parser.p4            # P4-16 (v1model)
 ./dev.sh cargo run --bin pakeles -- diff bmv2                         # vectors vs BMv2
-./dev.sh cargo run -p pakeles-example-linux-flow-dissector            # vs the kernel golden
-./dev.sh cargo test -p pakeles-example-tls-clienthello                # one example's gate
+./dev.sh cargo run -p pakeles-benchmark-linux-flow-dissector            # vs the kernel golden
+./dev.sh cargo test -p pakeles-benchmark-tls-clienthello                # one example's gate
 ```
 
 Try the generated dissector in your own Wireshark:
@@ -79,7 +77,7 @@ termination authority. A P4-16 parser can extract a length-computed
 varbit blob but cannot parse *inside* it, so `gen p4` refuses
 region-bearing descriptions and commits the refusal as
 `gen/P4-UNSUPPORTED.txt`; the C, eBPF, and Wireshark backends lower them.
-See [`examples/real_world/tls_clienthello/`](examples/real_world/tls_clienthello/) and
+See [`benchmarks/industry/tls_clienthello/`](benchmarks/industry/tls_clienthello/) and
 `docs/superpowers/specs/2026-07-29-sized-region-tlv-ir-design.md`.
 
 ## The Python eDSL
@@ -146,7 +144,7 @@ everything about one real-world incumbent lives in one directory.
     engine: testgen/lint/cov, z3 behind a solver trait), `codegen`
     (backends: Wireshark Lua, C99/eBPF, P4-16), `docgen`, `viz`,
     `oracle` (tshark + BMv2 diffs). Vendors its generated protobuf
-    code (`src/gen/`) and the embedded synthetic IRs (`src/examples/`),
+    code (`src/gen/`),
     both equality-guarded — packaged crates are self-contained;
     consumers never need protoc.
   - `pakeles-testkit/` — the shared conformance harnesses every
@@ -157,21 +155,27 @@ everything about one real-world incumbent lives in one directory.
     `gen_fixtures`, `gen_examples`, `symex_bench`
 - `python/` — the Python eDSL (`pakeles` on PyPI, eventually);
   vendors its generated `_pb` modules the same way
-- `testdata/` — language-neutral fixtures (regenerate: `cargo run --bin gen_fixtures`)
-- `examples/` — the gallery: each `<name>.py` description (the single
-  authoritative source — no in-package copy) beside every artifact it
-  yields, equality-guarded by tests, in two groups:
-  - `synthetic/` — formats constructed to isolate one capability.
-    `eth_ipvx_l4/` is the hello-world (branching demux), `counted_items/`
-    exercises parse metadata, `tlv_items/` exercises sized regions.
-  - `real_world/` — one workspace member per incumbent: the
-    description, committed IR, generated artifacts, goldens, golden
-    factory, and the projection + gate tests (`src/lib.rs`) all in one
-    directory; `cargo test -p pakeles-example-<x>` runs one gate and
-    `cargo run -p pakeles-example-<x>` runs its golden diff.
+- `testdata/` — the core's language-neutral test fixtures: packets
+  (`basic.pcap`, regenerate with `cargo run --bin gen_fixtures`) and
+  frozen fixture parsers (`parsers/*.ir.json`), independent of the
+  trees below
+- `examples/` — educational: one tutorial per directory, where a
+  Pakeles user learns the Python eDSL. `eth_ipvx_l4/` is the
+  hello-world (branching demux), `counted_items/` covers parse
+  metadata, `tlv_items/` covers sized regions. Every tutorial passes
+  the full gate (see `rust/pakeles-dev/tests/tutorials.rs`)
+- `benchmarks/` — the measured corpus, in two provenance groups:
+  - `industry/` — one workspace member per incumbent-agreement claim:
+    the description, committed IR, generated artifacts, goldens,
+    golden factory, and the projection + gate tests all in one
+    directory; `cargo test -p pakeles-benchmark-<x>` runs one gate and
+    `cargo run -p pakeles-benchmark-<x>` runs its golden diff.
     `linux_flow_dissector/` is the kernel-agreement north-star (see
     below); `tls_clienthello/` is the TLV flagship (agrees with rustls
     0.23.43).
+  - `academic/` — descriptions reproduced from published evaluations,
+    cited to source (the Gibb ANCS'13 parse graphs, Kangaroo's Cisco
+    parse tree, classic switch.p4's parser).
 - `third_party/` — the ONLY tree holding third-party code (vendored
   sonic-pins sources; see its README for the licensing rule)
 - `docs/superpowers/specs/` — design docs; start with
@@ -182,7 +186,7 @@ Regenerate the gallery from its single source (the eDSL):
 
 ## Kernel agreement: the flow-dissector golden factory
 
-[`examples/real_world/linux_flow_dissector/`](examples/real_world/linux_flow_dissector/) is a
+[`benchmarks/industry/linux_flow_dissector/`](benchmarks/industry/linux_flow_dissector/) is a
 north-star example: its golden-diff oracle checks that Pakeles's
 extracted flow keys agree with the kernel's own flow dissector (upstream
 `bpf_flow.c`, Linux 6.8), via golden `flow_keys` captured by
@@ -194,10 +198,10 @@ out-of-gate**, run through a separate `dev-priv.sh` (`docker run
 --privileged`) instead:
 
 ```sh
-./dev-priv.sh examples/real_world/linux_flow_dissector/factory/capture.sh
+./dev-priv.sh benchmarks/industry/linux_flow_dissector/factory/capture.sh
 ```
 
 The everyday gate only diffs the committed, version-tagged golden file —
 no privilege, no BPF, in the normal loop. See
-[`examples/real_world/linux_flow_dissector/README.md`](examples/real_world/linux_flow_dissector/README.md)
+[`benchmarks/industry/linux_flow_dissector/README.md`](benchmarks/industry/linux_flow_dissector/README.md)
 for the full oracle architecture.

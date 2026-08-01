@@ -364,7 +364,7 @@ mod tests {
             eprintln!("skipping: p4 toolchain not available");
             return;
         }
-        let ir = crate::examples::eth_ipvx_l4();
+        let ir = crate::fixtures::eth_ipvx_l4();
         let p4 = crate::codegen::p4::generate_p4(&ir).unwrap();
         let dir = std::env::temp_dir().join("pakeles_bmv2_unit");
         let json = compile(&p4, &dir).unwrap();

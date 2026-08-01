@@ -174,7 +174,7 @@ pub fn replay(ir: &irpb::Ir, suite: &pb::TestSuite) -> Result<Vec<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::examples::eth_ipvx_l4;
+    use crate::fixtures::eth_ipvx_l4;
 
     #[test]
     fn example_suite_shape_and_replay() {
@@ -274,7 +274,7 @@ mod tests {
         for name in ["eth_ipvx_l4", "counted_items"] {
             let ir = match name {
                 "eth_ipvx_l4" => eth_ipvx_l4(),
-                "counted_items" => crate::examples::counted_items(),
+                "counted_items" => crate::fixtures::counted_items(),
                 _ => unreachable!(),
             };
             let Some(suite) = crate::testvec::committed_suite_or_skip(name) else {

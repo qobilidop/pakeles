@@ -1,7 +1,7 @@
 //! Regenerates the examples/ gallery: every artifact one description
 //! yields, committed for browsing and equality-guarded by tests.
 
-use pakeles_dev::{gallery, repo_root};
+use pakeles_dev::gallery;
 
 fn regenerate(name: &str, dir: &std::path::Path) -> anyhow::Result<()> {
     let gen = dir.join("gen");
@@ -48,14 +48,6 @@ fn regenerate(name: &str, dir: &std::path::Path) -> anyhow::Result<()> {
         Err(e) => return Err(e),
     }
     pakeles_dev::write_vector_suite(name, dir)?;
-    // Synthetic examples are embedded by the core crate from in-crate
-    // mirrors (self-contained packaging); keep the mirror current.
-    if pakeles::examples::SYNTHETIC.contains(&name) {
-        std::fs::copy(
-            dir.join(format!("{name}.ir.json")),
-            repo_root().join(format!("rust/pakeles/src/examples/{name}.ir.json")),
-        )?;
-    }
     let _ = std::process::Command::new("dot")
         .arg("-Tsvg")
         .arg("-o")

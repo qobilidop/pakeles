@@ -9,9 +9,8 @@ readme = "../../README.md"
 keywords = ["parser", "packet", "network", "ir", "wireshark"]
 categories = ["parsing", "network-programming"]
 # src/** is self-contained for packaging: the generated-protobuf code
-# is vendored (src/gen/, so consumers never need protoc) and the
-# synthetic gallery IRs are embedded from committed mirrors
-# (src/examples/, equality-guarded against examples/synthetic/).
+# is vendored (src/gen/, so consumers never need protoc). Test-only
+# fixtures load by path from the repo-root testdata/ tree.
 include = ["src/**", "Cargo.toml"]
 
 # The incumbent-agnostic CLI ships with the crate (its commands know

@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use clap::{Parser as ClapParser, Subcommand};
 use pakeles::interp::{FieldValue, Outcome};
 use pakeles::ir::pb;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(ClapParser)]
 #[command(
@@ -23,14 +23,14 @@ enum Command {
     Run {
         #[arg(long)]
         pcap: PathBuf,
-        /// IR file (protojson). Defaults to the built-in example.
+        /// IR file (protojson).
         #[arg(long)]
-        ir: Option<PathBuf>,
+        ir: PathBuf,
     },
     /// Emit the parse graph as Graphviz dot.
     Viz {
         #[arg(long)]
-        ir: Option<PathBuf>,
+        ir: PathBuf,
     },
     /// Diff our parse against a toolchain-generic oracle (tshark,
     /// BMv2); exit 1 on mismatch. Incumbent diffs live with their
@@ -43,7 +43,7 @@ enum Command {
     #[cfg(feature = "symex")]
     Testgen {
         #[arg(long)]
-        ir: Option<PathBuf>,
+        ir: PathBuf,
         /// Output path; `-` for stdout.
         #[arg(long, default_value = "-")]
         out: PathBuf,
@@ -55,7 +55,7 @@ enum Command {
     #[cfg(feature = "symex")]
     Lint {
         #[arg(long)]
-        ir: Option<PathBuf>,
+        ir: PathBuf,
     },
     /// Report which parse paths a pcap corpus exercises.
     #[cfg(feature = "symex")]
@@ -63,12 +63,12 @@ enum Command {
         #[arg(long)]
         pcap: PathBuf,
         #[arg(long)]
-        ir: Option<PathBuf>,
+        ir: PathBuf,
     },
     /// Generate markdown documentation from the IR + annotations.
     Doc {
         #[arg(long)]
-        ir: Option<PathBuf>,
+        ir: PathBuf,
         /// Output path; `-` for stdout.
         #[arg(long, default_value = "-")]
         out: PathBuf,
@@ -89,14 +89,6 @@ enum Command {
         #[arg(long, default_value = "-")]
         out: PathBuf,
     },
-    /// Write the built-in example IR (the file other tools consume).
-    ExportIr {
-        /// Output path; `-` for stdout (JSON only).
-        #[arg(long, default_value = "-")]
-        out: PathBuf,
-        #[arg(long)]
-        binary: bool,
-    },
 }
 
 #[derive(Subcommand)]
@@ -104,7 +96,7 @@ enum GenTarget {
     /// Wireshark Lua dissector (direct translation, Lua 5.2).
     Lua {
         #[arg(long)]
-        ir: Option<PathBuf>,
+        ir: PathBuf,
         /// Output path; `-` for stdout.
         #[arg(long, default_value = "-")]
         out: PathBuf,
@@ -112,7 +104,7 @@ enum GenTarget {
     /// Portable C99 parser (<name>.h + <name>.c).
     C {
         #[arg(long)]
-        ir: Option<PathBuf>,
+        ir: PathBuf,
         /// Directory to write parser.h and parser.c into.
         #[arg(long, default_value = ".")]
         out_dir: PathBuf,
@@ -120,7 +112,7 @@ enum GenTarget {
     /// Self-contained eBPF C variant.
     Bpf {
         #[arg(long)]
-        ir: Option<PathBuf>,
+        ir: PathBuf,
         /// Output path; `-` for stdout.
         #[arg(long, default_value = "-")]
         out: PathBuf,
@@ -128,7 +120,7 @@ enum GenTarget {
     /// P4-16 program for the v1model architecture (BMv2-runnable).
     P4 {
         #[arg(long)]
-        ir: Option<PathBuf>,
+        ir: PathBuf,
         /// Output path; `-` for stdout.
         #[arg(long, default_value = "-")]
         out: PathBuf,
@@ -142,29 +134,26 @@ enum Oracle {
         #[arg(long)]
         pcap: PathBuf,
         #[arg(long)]
-        ir: Option<PathBuf>,
+        ir: PathBuf,
     },
     /// Verdict-compare the byte-aligned vectors against BMv2 simple_switch.
     Bmv2 {
         #[arg(long)]
-        ir: Option<PathBuf>,
+        ir: PathBuf,
         /// Vector suite (testvec JSON). Defaults to the gallery suite.
         #[arg(
             long,
             default_value = concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/../../examples/synthetic/eth_ipvx_l4/conformance/vectors.json"
+                "/../../examples/eth_ipvx_l4/conformance/vectors.json"
             )
         )]
         vectors: PathBuf,
     },
 }
 
-fn load_ir(path: &Option<PathBuf>) -> Result<pb::Ir> {
-    match path {
-        None => Ok(pakeles::examples::eth_ipvx_l4()),
-        Some(p) => pakeles::ir::load(p),
-    }
+fn load_ir(path: &Path) -> Result<pb::Ir> {
+    pakeles::ir::load(path)
 }
 
 fn result_json(idx: usize, res: &pakeles::interp::ParseResult) -> serde_json::Value {
@@ -380,17 +369,6 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             }
             Ok(0)
         }
-        Command::ExportIr { out, binary } => {
-            let ir = pakeles::examples::eth_ipvx_l4();
-            if out.as_os_str() == "-" {
-                print!("{}", pakeles::ir::to_json(&ir)?);
-            } else if binary {
-                std::fs::write(&out, pakeles::ir::to_bytes(&ir))?;
-            } else {
-                std::fs::write(&out, pakeles::ir::to_json(&ir)?)?;
-            }
-            Ok(0)
-        }
     }
 }
 
@@ -408,6 +386,8 @@ mod tests {
         let code = main_with(&[
             "pakeles",
             "run",
+            "--ir",
+            &from_root("testdata/parsers/eth_ipvx_l4.ir.json"),
             "--pcap",
             &from_root("testdata/basic.pcap"),
         ])
@@ -429,6 +409,8 @@ mod tests {
             "pakeles",
             "diff",
             "tshark",
+            "--ir",
+            &from_root("testdata/parsers/eth_ipvx_l4.ir.json"),
             "--pcap",
             &from_root("testdata/basic.pcap"),
         ])
@@ -438,12 +420,16 @@ mod tests {
 
     #[test]
     fn viz_ok() {
-        assert_eq!(main_with(&["pakeles", "viz"]).unwrap(), 0);
+        let ir = from_root("testdata/parsers/eth_ipvx_l4.ir.json");
+        assert_eq!(main_with(&["pakeles", "viz", "--ir", &ir]).unwrap(), 0);
     }
 
     #[test]
     fn fmt_ir_canonicalizes_mangled_json() {
-        let ir = pakeles::examples::eth_ipvx_l4();
+        let ir = pakeles::ir::load(std::path::Path::new(&from_root(
+            "testdata/parsers/eth_ipvx_l4.ir.json",
+        )))
+        .unwrap();
         let canonical = pakeles::ir::to_json(&ir).unwrap();
         // Same document, hostile formatting: compact everything.
         let mangled =
@@ -465,14 +451,5 @@ mod tests {
         .unwrap();
         assert_eq!(code, 0);
         assert_eq!(std::fs::read_to_string(&outp).unwrap(), canonical);
-    }
-
-    #[test]
-    fn exported_ir_loads_back() {
-        let path = std::env::temp_dir().join("pakeles_export.json");
-        let code = main_with(&["pakeles", "export-ir", "--out", path.to_str().unwrap()]).unwrap();
-        assert_eq!(code, 0);
-        let ir = pakeles::ir::from_json(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(ir, pakeles::examples::eth_ipvx_l4());
     }
 }

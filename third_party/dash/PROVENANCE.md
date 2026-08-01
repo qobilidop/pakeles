@@ -31,7 +31,7 @@ fetched at capture time and never committed).
 
 ## Derivation
 
-`examples/real_world/dash_parser/factory/instrument.py` does not modify
+`benchmarks/industry/dash_parser/factory/instrument.py` does not modify
 these files at all: it generates a minimal v1model wrapper program
 (`factory/build/main.p4`) that `#include`s the vendored parser
 unchanged, runs it as a sub-parser, and adds a verdict header (a

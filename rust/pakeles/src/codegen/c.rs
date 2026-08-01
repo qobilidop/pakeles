@@ -913,7 +913,7 @@ pub fn generate_bpf(ir: &pb::Ir) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::examples::eth_ipvx_l4;
+    use crate::fixtures::eth_ipvx_l4;
 
     #[test]
     fn metadata_c_emission_and_semantics() {
@@ -923,7 +923,7 @@ mod tests {
         assert!(art.header.contains("uint64_t m_acc;"));
         assert!(art.source.contains("out->m_acc = "));
         // and the zero-metadata guarantee:
-        let plain = generate_c(&crate::examples::eth_ipvx_l4()).unwrap();
+        let plain = generate_c(&crate::fixtures::eth_ipvx_l4()).unwrap();
         assert!(!plain.header.contains("m_"));
     }
 

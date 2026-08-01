@@ -33,3 +33,10 @@ pakeles = { path = "../pakeles", default-features = false }
 prost-build = "0.13"
 pbjson-build = "0.7"
 anyhow = "1"
+
+[[bin]]
+name = "gen_fixtures"
+path = "src/bin/gen_fixtures.rs"
+
+[dev-dependencies]
+pakeles-testkit = { path = "../pakeles-testkit" }

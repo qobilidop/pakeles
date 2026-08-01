@@ -99,3 +99,30 @@ pub fn basic_pcap_packets() -> Vec<Vec<u8>> {
         truncated_packet(),
     ]
 }
+
+// --- Parser fixtures (test-only) ---
+//
+// The core's own test parsers, loaded by path from the repo-root
+// `testdata/parsers/` tree (independent frozen files — NOT the
+// tutorial gallery; see the 2026-07-31 layout decision record).
+
+#[cfg(test)]
+fn parser_fixture(name: &str) -> crate::ir::pb::Ir {
+    let path = crate::test_repo_path(&format!("testdata/parsers/{name}.ir.json"));
+    crate::ir::load(&path).expect("committed fixture IR must parse")
+}
+
+#[cfg(test)]
+pub(crate) fn eth_ipvx_l4() -> crate::ir::pb::Ir {
+    parser_fixture("eth_ipvx_l4")
+}
+
+#[cfg(test)]
+pub(crate) fn counted_items() -> crate::ir::pb::Ir {
+    parser_fixture("counted_items")
+}
+
+#[cfg(test)]
+pub(crate) fn tlv_items() -> crate::ir::pb::Ir {
+    parser_fixture("tlv_items")
+}

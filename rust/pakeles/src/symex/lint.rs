@@ -51,7 +51,7 @@ mod tests {
 
     #[test]
     fn clean_example_lints_clean() {
-        assert!(lint(&crate::examples::eth_ipvx_l4()).unwrap().is_empty());
+        assert!(lint(&crate::fixtures::eth_ipvx_l4()).unwrap().is_empty());
     }
 
     #[test]

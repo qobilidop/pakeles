@@ -665,7 +665,7 @@ mod tests {
     /// `eth_ipvx_l4` with `parse_tcp` looped back to `parse_ethernet`, so
     /// `ethernet`/`ipv4`/`ipv6`/`tcp` all lie on a cycle (are stacked).
     fn cyclic_ir() -> pb::Ir {
-        let mut ir = crate::examples::eth_ipvx_l4();
+        let mut ir = crate::fixtures::eth_ipvx_l4();
         let p = ir.parser.as_mut().unwrap();
         let tcp = p.states.iter_mut().find(|s| s.name == "parse_tcp").unwrap();
         tcp.transition = Some(pb::Transition {
@@ -678,7 +678,7 @@ mod tests {
 
     #[test]
     fn ipv4_splits_into_fixed_then_var() {
-        let ir = crate::examples::eth_ipvx_l4();
+        let ir = crate::fixtures::eth_ipvx_l4();
         let ipv4 = ir
             .parser
             .as_ref()
@@ -695,7 +695,7 @@ mod tests {
 
     #[test]
     fn ipv4_options_max_is_40_bytes() {
-        let ir = crate::examples::eth_ipvx_l4();
+        let ir = crate::fixtures::eth_ipvx_l4();
         let parser = ir.parser.as_ref().unwrap();
         let ipv4 = parser
             .header_types
@@ -713,7 +713,7 @@ mod tests {
 
     #[test]
     fn instance_order_is_extraction_order() {
-        let ir = crate::examples::eth_ipvx_l4();
+        let ir = crate::fixtures::eth_ipvx_l4();
         let order = instance_order(ir.parser.as_ref().unwrap());
         let names: Vec<&str> = order.iter().map(|(i, _)| i.as_str()).collect();
         assert_eq!(names, ["ethernet", "ipv4", "ipv6", "tcp", "udp"]);
@@ -721,7 +721,7 @@ mod tests {
 
     #[test]
     fn generated_p4_contains_expected_decls() {
-        let p4 = generate_p4(&crate::examples::eth_ipvx_l4()).unwrap();
+        let p4 = generate_p4(&crate::fixtures::eth_ipvx_l4()).unwrap();
         for needle in [
             "#include <v1model.p4>",
             "header ethernet_s0_t",
@@ -776,10 +776,10 @@ mod tests {
         // The parity-plus boundary: a P4-16 parser cannot parse inside
         // a length-bounded window, so gen p4 refuses region IR loudly
         // (the gallery commits gen/P4-UNSUPPORTED.txt instead).
-        let err = generate_p4(&crate::examples::tlv_items()).unwrap_err();
+        let err = generate_p4(&crate::fixtures::tlv_items()).unwrap_err();
         assert!(err.to_string().contains("P4-16 parser expressiveness"));
         assert!(
-            crate::test_repo_path("examples/synthetic/tlv_items/gen/P4-UNSUPPORTED.txt").exists(),
+            crate::test_repo_path("examples/tlv_items/gen/P4-UNSUPPORTED.txt").exists(),
             "marker artifact missing; regenerate: ./dev.sh scripts/gen-examples.sh"
         );
     }
@@ -821,13 +821,13 @@ mod tests {
 
     #[test]
     fn generated_p4_compiles_with_p4test() {
-        let p4 = generate_p4(&crate::examples::eth_ipvx_l4()).unwrap();
+        let p4 = generate_p4(&crate::fixtures::eth_ipvx_l4()).unwrap();
         run_p4test(&p4, "pakeles_p4test", true);
     }
 
     #[test]
     fn counted_items_p4_compiles_with_p4test() {
-        let p4 = generate_p4(&crate::examples::counted_items()).unwrap();
+        let p4 = generate_p4(&crate::fixtures::counted_items()).unwrap();
         assert!(p4.contains("bit<8> remaining;"), "{p4}");
         assert!(p4.contains("meta.remaining = "), "{p4}");
         run_p4test(&p4, "pakeles_p4test_counted_items", true);
@@ -933,7 +933,7 @@ mod tests {
         // eth_ipvx_l4 has 5 instances and exercises the same path
         // end-to-end; `committed_p4_artifact_current` pins its exact
         // byte-identical output, guarding the "unchanged for <=8" claim.
-        let p4_example = generate_p4(&crate::examples::eth_ipvx_l4()).unwrap();
+        let p4_example = generate_p4(&crate::fixtures::eth_ipvx_l4()).unwrap();
         assert!(p4_example.contains("bit<8> bitmap;"), "{p4_example}");
     }
 

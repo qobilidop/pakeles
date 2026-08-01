@@ -1,7 +1,6 @@
 pub mod builder;
 pub mod codegen;
 pub mod docgen;
-pub mod examples;
 pub mod fixtures;
 pub mod interp;
 pub mod ir;

@@ -23,7 +23,7 @@ fetched at capture time and never committed).
 
 ## Derivation
 
-`examples/real_world/sai_parser/factory/instrument.py` applies a small, clearly-marked
+`benchmarks/industry/sai_parser/factory/instrument.py` applies a small, clearly-marked
 observation patch (a validity-bitmap verdict header, forwarding, and a
 verdict-only deparser) to a *copy* of `parser/sai_parser.p4` at capture
 time — the vendored copy here stays pristine. The patch is Pakeles's

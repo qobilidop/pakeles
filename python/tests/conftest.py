@@ -15,8 +15,8 @@ from pakeles import Parser
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC = Path(__file__).resolve().parents[1] / "src"
 
-SYNTHETIC = ["eth_ipvx_l4", "counted_items", "tlv_items"]
-REAL_WORLD = [
+TUTORIALS = ["eth_ipvx_l4", "counted_items", "tlv_items"]
+INDUSTRY = [
     "linux_flow_dissector",
     "dpdk_ptype",
     "katran_parser",
@@ -35,17 +35,14 @@ ACADEMIC = [
     "kangaroo_parse_tree",
     "p4lang_switch_parser",
 ]
-ALL_EXAMPLES = SYNTHETIC + REAL_WORLD + ACADEMIC
+ALL_EXAMPLES = TUTORIALS + INDUSTRY + ACADEMIC
 
 
 def gallery_dir(name: str) -> Path:
-    if name in SYNTHETIC:
-        group = "synthetic"
-    elif name in REAL_WORLD:
-        group = "real_world"
-    else:
-        group = "academic"
-    return REPO_ROOT / "examples" / group / name
+    if name in TUTORIALS:
+        return REPO_ROOT / "examples" / name
+    group = "industry" if name in INDUSTRY else "academic"
+    return REPO_ROOT / "benchmarks" / group / name
 
 
 def load_example(name: str) -> ModuleType:

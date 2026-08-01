@@ -12,11 +12,15 @@ pub fn repo_root() -> PathBuf {
         .expect("repo root")
 }
 
-/// The real-world gallery examples. The dev tools address them by
-/// path (keep in step with the workspace members and
-/// scripts/gen-examples.sh) so that they — like the CLI — carry no
-/// dependency on the example crates.
-pub const REAL_WORLD: [&str; 7] = [
+/// The educational tutorials (examples/<name>, flat). Keep in step
+/// with scripts/gen-examples.sh and python/tests/conftest.py.
+pub const TUTORIALS: [&str; 3] = ["eth_ipvx_l4", "counted_items", "tlv_items"];
+
+/// The industry benchmarks (incumbent-agreement claims). The dev
+/// tools address all trees by path (keep in step with the workspace
+/// members and scripts/gen-examples.sh) so that they — like the CLI —
+/// carry no dependency on the benchmark crates.
+pub const INDUSTRY: [&str; 7] = [
     "linux_flow_dissector",
     "dpdk_ptype",
     "katran_parser",
@@ -28,7 +32,7 @@ pub const REAL_WORLD: [&str; 7] = [
 
 /// The academic gallery examples: descriptions reproduced from
 /// published evaluations (see examples/academic/README.md for the
-/// naming and licensing rules). Same keep-in-step rule as REAL_WORLD.
+/// naming and licensing rules). Same keep-in-step rule as INDUSTRY.
 pub const ACADEMIC: [&str; 8] = [
     "gibb_simple",
     "gibb_enterprise",
@@ -43,18 +47,18 @@ pub const ACADEMIC: [&str; 8] = [
 /// Every gallery example and its directory.
 pub fn gallery() -> Vec<(&'static str, PathBuf)> {
     let root = repo_root();
-    pakeles::examples::SYNTHETIC
+    TUTORIALS
         .iter()
-        .map(|n| (*n, root.join("examples/synthetic").join(n)))
+        .map(|n| (*n, root.join("examples").join(n)))
         .chain(
-            REAL_WORLD
+            INDUSTRY
                 .iter()
-                .map(|n| (*n, root.join("examples/real_world").join(n))),
+                .map(|n| (*n, root.join("benchmarks/industry").join(n))),
         )
         .chain(
             ACADEMIC
                 .iter()
-                .map(|n| (*n, root.join("examples/academic").join(n))),
+                .map(|n| (*n, root.join("benchmarks/academic").join(n))),
         )
         .collect()
 }

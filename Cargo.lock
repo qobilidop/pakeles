@@ -454,97 +454,98 @@ dependencies = [
 ]
 
 [[package]]
+name = "pakeles-benchmark-dash-parser"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "pakeles",
+ "pakeles-testkit",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "pakeles-benchmark-dpdk-ptype"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "pakeles",
+ "pakeles-testkit",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "pakeles-benchmark-katran-parser"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "pakeles",
+ "pakeles-testkit",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "pakeles-benchmark-linux-flow-dissector"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "pakeles",
+ "pakeles-testkit",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "pakeles-benchmark-quic-initial"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "pakeles",
+ "pakeles-testkit",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "pakeles-benchmark-sai-parser"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "pakeles",
+ "pakeles-testkit",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "pakeles-benchmark-tls-clienthello"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "pakeles",
+ "pakeles-testkit",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "pakeles-dev"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "pakeles",
+ "pakeles-testkit",
  "pbjson-build",
  "prost-build",
-]
-
-[[package]]
-name = "pakeles-example-dash-parser"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "pakeles",
- "pakeles-testkit",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "pakeles-example-dpdk-ptype"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "pakeles",
- "pakeles-testkit",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "pakeles-example-katran-parser"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "pakeles",
- "pakeles-testkit",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "pakeles-example-linux-flow-dissector"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "pakeles",
- "pakeles-testkit",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "pakeles-example-quic-initial"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "pakeles",
- "pakeles-testkit",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "pakeles-example-sai-parser"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "pakeles",
- "pakeles-testkit",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "pakeles-example-tls-clienthello"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "pakeles",
- "pakeles-testkit",
- "serde",
- "serde_json",
 ]
 
 [[package]]

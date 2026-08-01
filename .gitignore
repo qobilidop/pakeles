@@ -9,18 +9,20 @@ __pycache__/
 # ./dev.sh scripts/gen-examples.sh (or just `cargo run --bin
 # gen_vectors`); CI regenerates them before testing, so their absence
 # never weakens the gate.
-examples/*/*/conformance/vectors.json
-examples/*/*/conformance/vectors.pcap
+examples/*/conformance/vectors.json
+examples/*/conformance/vectors.pcap
+benchmarks/*/*/conformance/vectors.json
+benchmarks/*/*/conformance/vectors.pcap
 
 # symex perf bench outputs (baselines, inventories)
 /.bench/
 
 # Factory/spike build outputs (never committed; see the third_party/
 # licensing rule for why katran sources are fetch-only)
-examples/real_world/*/factory/build/
-examples/real_world/*/spike/build/
-examples/real_world/*/factory/witnesses.txt
-/examples/real_world/tls_clienthello/factory/target/
-examples/real_world/tls_clienthello/factory/witnesses.golden.json
-/examples/real_world/quic_initial/factory/target/
-examples/real_world/quic_initial/factory/witnesses.golden.json
+benchmarks/industry/*/factory/build/
+benchmarks/industry/*/spike/build/
+benchmarks/industry/*/factory/witnesses.txt
+/benchmarks/industry/tls_clienthello/factory/target/
+benchmarks/industry/tls_clienthello/factory/witnesses.golden.json
+/benchmarks/industry/quic_initial/factory/target/
+benchmarks/industry/quic_initial/factory/witnesses.golden.json

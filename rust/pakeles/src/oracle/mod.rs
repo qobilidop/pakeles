@@ -240,7 +240,7 @@ mod tests {
             return;
         }
         let report = diff_pcap(
-            &crate::examples::eth_ipvx_l4(),
+            &crate::fixtures::eth_ipvx_l4(),
             &crate::test_repo_path("testdata/basic.pcap"),
         )
         .unwrap();

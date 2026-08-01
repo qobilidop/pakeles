@@ -187,7 +187,7 @@ mod tests {
     // (pakeles-testkit's committed_artifacts_current); this checks shape.
     #[test]
     fn doc_has_field_tables_and_payload_note() {
-        let md = super::generate_markdown(&crate::examples::eth_ipvx_l4()).unwrap();
+        let md = super::generate_markdown(&crate::fixtures::eth_ipvx_l4()).unwrap();
         assert!(md.contains("| `ttl` | 8 | dec | Time to Live |"));
         assert!(md.contains("payload boundary"));
     }

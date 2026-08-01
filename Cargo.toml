@@ -10,17 +10,17 @@ members = [
     "rust/pakeles",
     "rust/pakeles-testkit",
     "rust/pakeles-dev",
-    "examples/real_world/linux_flow_dissector",
-    "examples/real_world/dpdk_ptype",
-    "examples/real_world/katran_parser",
-    "examples/real_world/sai_parser",
-    "examples/real_world/tls_clienthello",
-    "examples/real_world/quic_initial",
-    "examples/real_world/dash_parser",
+    "benchmarks/industry/linux_flow_dissector",
+    "benchmarks/industry/dpdk_ptype",
+    "benchmarks/industry/katran_parser",
+    "benchmarks/industry/sai_parser",
+    "benchmarks/industry/tls_clienthello",
+    "benchmarks/industry/quic_initial",
+    "benchmarks/industry/dash_parser",
 ]
 # Golden factories are their own pinned-lockfile crates (the incumbent
 # pin IS the agreement claim) — never part of this workspace.
 exclude = [
-    "examples/real_world/tls_clienthello/factory",
-    "examples/real_world/quic_initial/factory",
+    "benchmarks/industry/tls_clienthello/factory",
+    "benchmarks/industry/quic_initial/factory",
 ]

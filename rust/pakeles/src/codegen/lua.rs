@@ -749,7 +749,7 @@ fn key_bit_width(parser: &pb::Parser, key: &pb::Expr) -> Option<u32> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::examples::eth_ipvx_l4;
+    use crate::fixtures::eth_ipvx_l4;
 
     #[test]
     fn metadata_lua_emission() {
@@ -762,7 +762,7 @@ mod tests {
         // number — see the comment in target_lua's Accept arm.
         assert!(lua.contains("tree:add(pf.f_meta_acc, UInt64(meta.acc))"));
         assert!(lua.contains("tree:add(pf.f_meta_flag, UInt64(meta.flag))"));
-        let plain = generate_lua(&crate::examples::eth_ipvx_l4()).unwrap();
+        let plain = generate_lua(&crate::fixtures::eth_ipvx_l4()).unwrap();
         assert!(!plain.contains("meta"));
     }
 

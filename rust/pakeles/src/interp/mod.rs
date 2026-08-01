@@ -512,7 +512,7 @@ mod tests {
     use crate::builder::{
         arm, c, f, reject_info, to, v, HeaderTypeBuilder, ParserBuilder, StateBuilder,
     };
-    use crate::examples::eth_ipvx_l4;
+    use crate::fixtures::eth_ipvx_l4;
     use crate::fixtures::*;
 
     /// Minimal two-header IR for exercising engine mechanics without the

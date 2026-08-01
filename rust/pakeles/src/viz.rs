@@ -179,7 +179,7 @@ pub fn to_dot(ir: &pb::Ir) -> String {
 #[cfg(test)]
 mod tests {
     use super::to_dot;
-    use crate::examples::eth_ipvx_l4;
+    use crate::fixtures::eth_ipvx_l4;
 
     // The committed-dot equality guard lives in tests/synthetic_gallery.rs
     // (pakeles-testkit's committed_artifacts_current); this checks shape.
