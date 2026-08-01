@@ -60,15 +60,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && python3 -m pip install --break-system-packages --no-cache-dir \
       "protobuf>=5" "pytest>=8" "ruff>=0.5" "pyright>=1.1.380"
 
-# Shell/C/workflow linters for scripts/lint.sh: shellcheck and
-# clang-format from apt (clang-format shares the LLVM libs the bpf
-# backend already pulls in), actionlint pinned the same way as buf.
-ARG ACTIONLINT_VERSION=1.7.7
-RUN apt-get update && apt-get install -y --no-install-recommends shellcheck clang-format \
- && rm -rf /var/lib/apt/lists/* \
- && curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_$(dpkg --print-architecture).tar.gz" \
-      | tar -xz -C /usr/local/bin actionlint
-
 # Rust via rustup, default profile (includes rustfmt + clippy).
 # System-wide homes so dev.sh cache volumes can mount over them.
 ENV RUSTUP_HOME=/usr/local/rustup \
@@ -78,3 +69,14 @@ ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_TARGET_DIR=/target
 RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile default \
       --default-toolchain stable --no-modify-path
+
+# Shell/C/workflow linters for scripts/lint.sh: shellcheck and
+# clang-format from apt (clang-format shares the LLVM libs the bpf
+# backend already pulls in), actionlint pinned the same way as buf.
+# Last layer on purpose: bumping a linter pin must not invalidate the
+# Rust layer above.
+ARG ACTIONLINT_VERSION=1.7.7
+RUN apt-get update && apt-get install -y --no-install-recommends shellcheck clang-format \
+ && rm -rf /var/lib/apt/lists/* \
+ && curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_$(dpkg --print-architecture).tar.gz" \
+      | tar -xz -C /usr/local/bin actionlint

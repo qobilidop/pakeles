@@ -3,8 +3,11 @@
   "build": { "dockerfile": "Dockerfile" },
   "workspaceFolder": "/work",
   "workspaceMount": "source=${localWorkspaceFolder},target=/work,type=bind",
+  // Keep these mounts in step with dev.sh / dev-priv.sh (and the .ci/
+  // host-dir stand-ins in ci.yml's gate job).
   "mounts": [
     "source=pakeles-target,target=/target,type=volume",
-    "source=pakeles-cargo,target=/usr/local/cargo/registry,type=volume"
+    "source=pakeles-cargo,target=/usr/local/cargo/registry,type=volume",
+    "source=pakeles-rustup,target=/usr/local/rustup,type=volume"
   ]
 }
