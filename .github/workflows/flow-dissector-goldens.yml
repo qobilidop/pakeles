@@ -41,9 +41,14 @@ jobs:
 
       - name: Install clang/llvm + libbpf + kernel UAPI headers
         run: |
+          # libc6-dev-i386: clang -target bpf defines neither __x86_64__
+          # nor __i386__, so glibc's header dispatch on the x86_64 runner
+          # falls into its 32-bit branch and needs gnu/stubs-32.h
+          # (first bit the 2026-08-01 cron; fix verified in a clean
+          # amd64 ubuntu:24.04 container).
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            clang llvm libc6-dev linux-libc-dev libbpf-dev
+            clang llvm libc6-dev linux-libc-dev libbpf-dev libc6-dev-i386
 
       - name: Run the golden factory (needs CAP_BPF/CAP_SYS_ADMIN)
         run: |
