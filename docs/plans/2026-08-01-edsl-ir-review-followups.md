@@ -252,30 +252,58 @@ Suggested early tasks inside that arc: the W9 alignment analysis
 (below) — it touches the same validator/spec files and E-Peek's
 fixed-width restriction composes with it.
 
-## Idea 5 — W9: close the alignment gap (decided approach, one empirical question)
+## Idea 5 — SUPERSEDED by Idea 6: the alignment gap dissolves under bit-uniformity
 
-The spec's §2 "specification fault" class means well-formed programs
-can reach NO outcome (engine error, neither accept nor reject) at a
-misaligned `var_bytes`/push/`remaining()` — an asterisk on the
-totality theorem ("decidable by construction" with a runtime hole).
-Fixable statically because **alignment is data-independent**: fixed
-widths are constants, `var_bytes` moves whole bytes
-(alignment-preserving), region ops don't move the cursor — so cursor
-mod 8 is determined by the state path alone, same structural luck as
-W8's region depth.
+(Original W9 plan, kept for the record: a W8-shaped static analysis
+over cursor mod 8 — data-independent because fixed widths are
+constants and `var_bytes` moves whole bytes — with a strict
+one-alignment-per-state variant vs a demand-driven set variant,
+decided empirically over the gallery.) **Superseded 2026-08-01 by the
+user's bit-uniform IR proposal (Idea 6): closing the fault class by
+GENERALIZATION (every op defined at every cursor) beats closing it by
+RESTRICTION (rejecting programs that could misalign) — definitional
+totality needs no analysis at all.** The alignment analysis survives
+DEMOTED to where it belonged: a codegen optimization (provably-
+aligned sites emit byte loads — the eBPF verifier's preference) and a
+derived capability ("requires misaligned runs") for backend
+envelopes. Soundness never depends on it.
 
-Fork: (A) strict, W8-style — every reachable state entered at exactly
-ONE alignment; ≡0 required at byte-denominated sites; simpler
-invariant, Lean-friendlier, and a codegen hook (static per-state
-alignment → byte loads, what the eBPF verifier wants); may reject
-legal never-realigned-but-harmless programs. (B) demand-driven — set
-of possible alignments per state (⊆ {0..7}), error only when an
-alignment-sensitive op is reachable at ≠0; never rejects legal
-programs. **Plan: build the set-based analysis (B's machinery, ~95%
-shared), run over the gallery; if every state is singleton-alignment
-(expected), adopt A as normative W9 and bank the stronger invariant;
-else examine the tripping program and choose. Either way the totality
-proviso disappears.**
+## Idea 6 — bit-uniform IR (user proposal, ADOPTED; first item of the refinement arc)
+
+**Decision (2026-08-01): re-denominate the three byte-typed
+constructs — `byte_len` widths, region push lengths, `remaining()` —
+to BITS.** Pakeles is already bit-addressed everywhere else (cursor,
+fixed fields at any offset, BitString inputs, consumed_bits); this
+removes the last byte-denominated island and with it the entire
+alignment-fault class, the `8 | c` premises on three spec rules, and
+the never-built W9. Precedent: this is the P4_14→P4_16 move (P4_14
+header lengths were BYTES; P4_16 went bits for varbit/advance/
+lookahead) — the direction the careful second system chose.
+
+- **Frontend stays unit-explicit, NOT unit-uniform** (the one
+  refinement to "all-in"): wire formats speak bytes, and P4-16's
+  bit-uniform surface has a known forgot-the-×8 papercut class. Keep
+  `var_bytes(n)` as sugar for `bit_len = n*8`, add `var_bits(n)`;
+  `push_region(bytes=…)`/`(bits=…)`; `remaining_bytes()`
+  (= `rem >> 3`, exact for byte-multiple regions) /
+  `remaining_bits()`. Gallery .py files unchanged → goldens
+  regenerate mechanically.
+- **Costs, staged**: backends handle-or-refuse misaligned runs via
+  the capability envelope (no existing program misaligns; aligned
+  programs codegen identically, guarded by the demoted analysis);
+  opaque values become bit strings (testvec's BitString is already
+  the canonical form; FieldValue/ExpectedField gain bit lengths);
+  proto `byte_len`→`bit_len` + ir_version bump + full regen
+  (pre-1.0, no compat promise); symex cursor arithmetic ×1 —
+  mechanical, field-variable encoding untouched (opaque runs bind no
+  key values).
+- **Demand**: BGP NLRI is the recorded bit-granular-lengths case
+  (length-in-BITS then ceil(len/8)) — this pre-unblocks the standing
+  second-pick target; also closes the denominational parity nit vs
+  P4-16 and lets E-Peek be specified once, alignment-condition-free,
+  on the new base.
+- **Sequencing**: FIRST item of the lookahead-first arc (churn-heavy,
+  design-light — land it before layering lookahead's rules on top).
 
 ## Parked / optional
 
