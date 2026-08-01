@@ -133,6 +133,38 @@ stacks (exact-count semantics, `int_val[24]`'s true cap) are a much
 bigger decision — all backends + the semantics doc — deferred until a
 target actually needs exact-count, which none has yet.
 
+## Idea 4 — the wide-value boundary: match vs compute, not width tiers
+
+From the follow-on discussion (2026-08-01). Three options were weighed
+for >64-bit fields:
+
+- **Width-tiered IR versions (PakelesIR32/64/128): rejected.** Width
+  is a per-field derived property here, not a machine-global
+  parameter (the RV32/RV64 analogy fails); a declared tier can drift
+  while a derived profile cannot; tiers fork the one-spec/one-
+  mechanization story and walk the ONNX-opset road. The instinct's
+  mature form: **formalize the derived capability report** —
+  `pakeles lint` emits per-program demands (max computed-value width,
+  max select-key width, sized regions, instance-count tier), backends
+  declare envelopes, refusals become mechanical mismatches (the
+  existing LUA-/P4-UNSUPPORTED culture, systematized).
+- **"Smart" >64 compilation: half-realistic, and the half is the
+  point.** Comparisons decompose cheaply everywhere (eBPF: u64-pair
+  masked compares, exactly hand-written XDP's IPv6 idiom; Lua: byte-
+  string compares work at ANY width even though numerics die at 2^32
+  — byte matching is MORE portable than wide numerics; Z3: native
+  BV128; testvec: bytes_hex exists). Arithmetic does not (carry
+  chains, Lua-impossible, spec value-domain rewrite) and has zero
+  demand in the whole corpus.
+- **Adopted boundary: "wide bytes may be matched, never computed."**
+  (a) Now: `fixed_bytes` + display (Idea 2) plus one committed spec
+  sentence — the value domain is Z_2^64 by design; wider fields are
+  opaque byte runs. (b) Parked with a ready shape: bytes-valued
+  keyset entries (equality + masked) for selects only, per-backend
+  lowering as above, expression grammar untouched — only if a target
+  ever dispatches on a wide field (realistic candidate: parser-level
+  IPv6 prefix routing). (c) Wide arithmetic: committed refusal.
+
 ## Non-goals decided in review
 
 - **Do not structurally modernize `p4lang_switch_parser.py`.** The
