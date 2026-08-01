@@ -172,8 +172,8 @@ class Assembly:
         for sname, chain in self._states.items():
             st = p.states.add()
             st.name = sname
-            if chain.doc:
-                st.annotations["doc"] = chain.doc
+            if chain.doc_text:
+                st.annotations["doc"] = chain.doc_text
             for header, instance in chain.extracts:
                 ex = st.extracts.add()
                 ex.header_type = header.ir_name()

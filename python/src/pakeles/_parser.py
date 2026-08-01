@@ -18,6 +18,11 @@ error in the editor and jump-to-def/rename work. Bodies run only at
 assembly time (`to_pb()`/`to_json()`/`save()`/`check()`), so forward
 references, back edges, and self-loops cost nothing.
 
+A target may also be an inline `State` chain; assembly hoists it into
+a real state named `<parent>__<arm label>` (see the `_states` module
+doc). Single-use one-or-two-op continuations read best inline; keep a
+named method for anything shared or carrying paragraph-length prose.
+
 The first-defined state is the start unless a `start = <method>`
 attribute says otherwise (mixin states precede the class body's own in
 definition order — set `start` explicitly when mixing in). Underscore
@@ -32,11 +37,21 @@ from __future__ import annotations
 import inspect
 from typing import Any, ClassVar, Protocol
 
+from enum import IntEnum
+
 from pakeles._build import Assembly
 from pakeles._header import snake
 from pakeles._metadata import Metadata
 from pakeles._pb import ir_pb2
-from pakeles._states import Accept, Reject, SelectSpec, State, Target
+from pakeles._states import (
+    Accept,
+    ArmValue,
+    Masked,
+    Reject,
+    SelectSpec,
+    State,
+    Target,
+)
 
 _RESERVED = frozenset(
     {"name", "max_depth", "metadata", "start", "check", "to_pb", "to_json", "save"}
@@ -52,21 +67,60 @@ class StateFunc(Protocol):
     def __call__(self, _instance: Any, /) -> State: ...
 
 
-def _target_name(target: Target) -> Target:
-    if isinstance(target, (str, Accept, Reject)):
-        return target
-    return target.__name__
+def _label_part(value: int | Masked) -> str:
+    if isinstance(value, Masked):
+        return f"m{value.value:x}_{value.mask:x}"
+    if isinstance(value, IntEnum):
+        return value.name.lower()
+    return f"v{value}"
 
 
-def _resolve_refs(state: State) -> State:
-    """Swap state-method references for their state-name strings."""
-    tr = state.transition
-    if isinstance(tr, SelectSpec):
-        tr.arms = {k: _target_name(t) for k, t in tr.arms.items()}
-        tr.default = _target_name(tr.default)
-    elif tr is not None:
-        state.transition = _target_name(tr)
-    return state
+def _arm_label(arm_key: ArmValue) -> str:
+    parts = arm_key if isinstance(arm_key, tuple) else (arm_key,)
+    return "_".join(_label_part(p) for p in parts)
+
+
+def _resolve_all(states: dict[str, State]) -> None:
+    """Swap state-method references for their state-name strings and
+    hoist inline `State` targets into named entries of `states`.
+
+    Deterministic order: method states in definition order; within a
+    state, select arms in authored order, then the default, then a
+    direct target; nested inline states depth-first. Hoisted names are
+    `<parent>__<label>` unless `.named(...)` overrides; one inline
+    object reached twice (oneof/range expansion, or author reuse via a
+    variable) hoists once, under its first-encountered name."""
+    hoisted: dict[int, str] = {}
+
+    def resolve(target: Target, parent: str, label: str) -> str | Accept | Reject:
+        if isinstance(target, (str, Accept, Reject)):
+            return target
+        if isinstance(target, State):
+            if (name := hoisted.get(id(target))) is not None:
+                return name
+            name = target.name_override or f"{parent}__{label}"
+            if name in states:
+                raise ValueError(
+                    f"inline state name {name!r} (target of {parent!r}) "
+                    f"collides with an existing state; use .named() to "
+                    f"disambiguate"
+                )
+            states[name] = target
+            hoisted[id(target)] = name
+            resolve_state(name, target)
+            return name
+        return target.__name__
+
+    def resolve_state(name: str, state: State) -> None:
+        tr = state.transition
+        if isinstance(tr, SelectSpec):
+            tr.arms = {k: resolve(t, name, _arm_label(k)) for k, t in tr.arms.items()}
+            tr.default = resolve(tr.default, name, "default")
+        elif tr is not None:
+            state.transition = resolve(tr, name, "then")
+
+    for name, state in list(states.items()):
+        resolve_state(name, state)
 
 
 class Parser:
@@ -117,8 +171,10 @@ class Parser:
                     f"{type(state).__name__}, expected a State "
                     f"(underscore-prefix helper methods)"
                 )
-            state.doc = inspect.getdoc(func)
-            states[sname] = _resolve_refs(state)
+            if method_doc := inspect.getdoc(func):
+                state.doc_text = method_doc
+            states[sname] = state
+        _resolve_all(states)
         start = cls.start
         start_name = start.__name__ if start is not None else next(iter(funcs))
         # cls.__doc__ (not inspect.getdoc): every class body defines its

@@ -171,29 +171,29 @@ static __attribute__((always_inline)) uint64_t pk_read_bits(const uint8_t *buf, 
 }
 
 #define PK_S_PARSE_FIRST 0
-#define PK_S_SHORT_ACCEPT 1
-#define PK_S_PARSE_VERSION 2
-#define PK_S_VN_MARK 3
-#define PK_S_UNKNOWN_MARK 4
-#define PK_S_PARSE_OTHER_CIDS 5
-#define PK_S_PARSE_DCID_LEN 6
-#define PK_S_PARSE_DCID 7
-#define PK_S_PARSE_SCID_LEN 8
-#define PK_S_PARSE_SCID 9
-#define PK_S_INITIAL_MARK 10
-#define PK_S_ZERO_RTT_MARK 11
-#define PK_S_HANDSHAKE_MARK 12
-#define PK_S_RETRY_ACCEPT 13
-#define PK_S_PARSE_TOK_LEAD 14
-#define PK_S_TOK_W1 15
-#define PK_S_TOK_W2 16
-#define PK_S_TOK_W4 17
-#define PK_S_TOK_W8 18
-#define PK_S_PARSE_LEN_LEAD 19
-#define PK_S_LEN_W1 20
-#define PK_S_LEN_W2 21
-#define PK_S_LEN_W4 22
-#define PK_S_LEN_W8 23
+#define PK_S_PARSE_VERSION 1
+#define PK_S_PARSE_OTHER_CIDS 2
+#define PK_S_PARSE_DCID_LEN 3
+#define PK_S_PARSE_DCID 4
+#define PK_S_PARSE_SCID_LEN 5
+#define PK_S_PARSE_SCID 6
+#define PK_S_PARSE_TOK_LEAD 7
+#define PK_S_TOK_W1 8
+#define PK_S_TOK_W2 9
+#define PK_S_TOK_W4 10
+#define PK_S_TOK_W8 11
+#define PK_S_PARSE_LEN_LEAD 12
+#define PK_S_LEN_W1 13
+#define PK_S_LEN_W2 14
+#define PK_S_LEN_W4 15
+#define PK_S_LEN_W8 16
+#define PK_S_PARSE_FIRST__SHORT 17
+#define PK_S_PARSE_VERSION__NEGOTIATION 18
+#define PK_S_PARSE_VERSION__DEFAULT 19
+#define PK_S_PARSE_SCID__INITIAL 20
+#define PK_S_PARSE_SCID__ZERO_RTT 21
+#define PK_S_PARSE_SCID__HANDSHAKE 22
+#define PK_S_PARSE_SCID__RETRY 23
 
 static __attribute__((always_inline)) int pk_quic_initial_parse_core(const uint8_t *buf, uint64_t bit_len, pk_quic_initial_result_t *out) {
   uint64_t off = 0;
@@ -240,7 +240,7 @@ static __attribute__((always_inline)) int pk_quic_initial_parse_core(const uint8
       off += 4;
       uint64_t key0 = (uint64_t)out->first_byte.form;
       if (key0 == 0ULL) {
-        state = PK_S_SHORT_ACCEPT;
+        state = PK_S_PARSE_FIRST__SHORT;
         continue;
       } else if (key0 == 1ULL) {
         state = PK_S_PARSE_VERSION;
@@ -251,13 +251,6 @@ static __attribute__((always_inline)) int pk_quic_initial_parse_core(const uint8
         out->consumed_bits = off;
         return 1;
       }
-    }
-    case PK_S_SHORT_ACCEPT: {
-      out->m_kind = (7ULL) & 0x7ULL;
-      out->outcome = 0;
-      out->reason = PK_R_NONE;
-      out->consumed_bits = off;
-      return 0;
     }
     case PK_S_PARSE_VERSION: {
       out->version_present = 1;
@@ -274,22 +267,12 @@ static __attribute__((always_inline)) int pk_quic_initial_parse_core(const uint8
         state = PK_S_PARSE_DCID_LEN;
         continue;
       } else if (key0 == 0ULL) {
-        state = PK_S_VN_MARK;
+        state = PK_S_PARSE_VERSION__NEGOTIATION;
         continue;
       } else {
-        state = PK_S_UNKNOWN_MARK;
+        state = PK_S_PARSE_VERSION__DEFAULT;
         continue;
       }
-    }
-    case PK_S_VN_MARK: {
-      out->m_kind = (5ULL) & 0x7ULL;
-      state = PK_S_PARSE_OTHER_CIDS;
-      continue;
-    }
-    case PK_S_UNKNOWN_MARK: {
-      out->m_kind = (6ULL) & 0x7ULL;
-      state = PK_S_PARSE_OTHER_CIDS;
-      continue;
     }
     case PK_S_PARSE_OTHER_CIDS: {
       out->other_cids_present = 1;
@@ -533,16 +516,16 @@ static __attribute__((always_inline)) int pk_quic_initial_parse_core(const uint8
       }
       uint64_t key0 = (uint64_t)out->first_byte.ty;
       if (key0 == 0ULL) {
-        state = PK_S_INITIAL_MARK;
+        state = PK_S_PARSE_SCID__INITIAL;
         continue;
       } else if (key0 == 1ULL) {
-        state = PK_S_ZERO_RTT_MARK;
+        state = PK_S_PARSE_SCID__ZERO_RTT;
         continue;
       } else if (key0 == 2ULL) {
-        state = PK_S_HANDSHAKE_MARK;
+        state = PK_S_PARSE_SCID__HANDSHAKE;
         continue;
       } else if (key0 == 3ULL) {
-        state = PK_S_RETRY_ACCEPT;
+        state = PK_S_PARSE_SCID__RETRY;
         continue;
       } else {
         out->outcome = 1;
@@ -550,28 +533,6 @@ static __attribute__((always_inline)) int pk_quic_initial_parse_core(const uint8
         out->consumed_bits = off;
         return 1;
       }
-    }
-    case PK_S_INITIAL_MARK: {
-      out->m_kind = (1ULL) & 0x7ULL;
-      state = PK_S_PARSE_TOK_LEAD;
-      continue;
-    }
-    case PK_S_ZERO_RTT_MARK: {
-      out->m_kind = (2ULL) & 0x7ULL;
-      state = PK_S_PARSE_LEN_LEAD;
-      continue;
-    }
-    case PK_S_HANDSHAKE_MARK: {
-      out->m_kind = (3ULL) & 0x7ULL;
-      state = PK_S_PARSE_LEN_LEAD;
-      continue;
-    }
-    case PK_S_RETRY_ACCEPT: {
-      out->m_kind = (4ULL) & 0x7ULL;
-      out->outcome = 0;
-      out->reason = PK_R_NONE;
-      out->consumed_bits = off;
-      return 0;
     }
     case PK_S_PARSE_TOK_LEAD: {
       out->tok_lead_present = 1;
@@ -795,6 +756,45 @@ static __attribute__((always_inline)) int pk_quic_initial_parse_core(const uint8
       out->len3.t = (uint64_t)(((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK] << 48) | ((uint64_t)buf[((off >> 3) + 1) & PK_BUF_MASK] << 40) | ((uint64_t)buf[((off >> 3) + 2) & PK_BUF_MASK] << 32) | ((uint64_t)buf[((off >> 3) + 3) & PK_BUF_MASK] << 24) | ((uint64_t)buf[((off >> 3) + 4) & PK_BUF_MASK] << 16) | ((uint64_t)buf[((off >> 3) + 5) & PK_BUF_MASK] << 8) | (uint64_t)buf[((off >> 3) + 6) & PK_BUF_MASK]);
       off += 56;
       out->m_length = (((uint64_t)out->len_lead.v6 << 56ULL) | (uint64_t)out->len3.t);
+      out->outcome = 0;
+      out->reason = PK_R_NONE;
+      out->consumed_bits = off;
+      return 0;
+    }
+    case PK_S_PARSE_FIRST__SHORT: {
+      out->m_kind = (7ULL) & 0x7ULL;
+      out->outcome = 0;
+      out->reason = PK_R_NONE;
+      out->consumed_bits = off;
+      return 0;
+    }
+    case PK_S_PARSE_VERSION__NEGOTIATION: {
+      out->m_kind = (5ULL) & 0x7ULL;
+      state = PK_S_PARSE_OTHER_CIDS;
+      continue;
+    }
+    case PK_S_PARSE_VERSION__DEFAULT: {
+      out->m_kind = (6ULL) & 0x7ULL;
+      state = PK_S_PARSE_OTHER_CIDS;
+      continue;
+    }
+    case PK_S_PARSE_SCID__INITIAL: {
+      out->m_kind = (1ULL) & 0x7ULL;
+      state = PK_S_PARSE_TOK_LEAD;
+      continue;
+    }
+    case PK_S_PARSE_SCID__ZERO_RTT: {
+      out->m_kind = (2ULL) & 0x7ULL;
+      state = PK_S_PARSE_LEN_LEAD;
+      continue;
+    }
+    case PK_S_PARSE_SCID__HANDSHAKE: {
+      out->m_kind = (3ULL) & 0x7ULL;
+      state = PK_S_PARSE_LEN_LEAD;
+      continue;
+    }
+    case PK_S_PARSE_SCID__RETRY: {
+      out->m_kind = (4ULL) & 0x7ULL;
       out->outcome = 0;
       out->reason = PK_R_NONE;
       out->consumed_bits = off;

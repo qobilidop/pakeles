@@ -7,6 +7,14 @@ assembly time. Plain string names remain valid targets. States with no
 leading extract start from the other free builders: `assign(...)`,
 `select(...)`, `goto(...)`, `push_region(...)`, `pop_region()`.
 
+A target may also be an inline `State` chain (an anonymous
+continuation, e.g. `{V.RETRY: assign(M.kind, K.RETRY).accept()}`):
+assembly hoists it into a real state named `<parent>__<arm label>`
+(`__default` for the default, `__then` for a direct transition), with
+`.named(...)` overriding the generated name and `.doc(...)` supplying
+the prose a method docstring would. One inline `State` object reused
+across several arms (or shared via a variable) hoists once.
+
 Arm keys may be single values, `oneof(...)` value sets, `range`s, or —
 for multi-key selects — tuples of any of those; sets and ranges expand
 to exact per-value arms at `select()` time, in order.
@@ -93,7 +101,6 @@ def masked(value: int, mask: int) -> Masked:
     return Masked(value=value, mask=mask)
 
 
-Target = str | StateRef | Accept | Reject
 # One arm's value(s), post-expansion: exact ints and/or ternary Masked.
 ArmValue = int | Masked | tuple["int | Masked", ...]
 ArmKey = int | OneOf | range | Masked | tuple["int | OneOf | range | Masked", ...]
@@ -149,9 +156,12 @@ class State:
     )
     region_ops: list[RegionOp] = dc_field(default_factory=list[RegionOp])
     transition: SelectSpec | Target | None = None
-    doc: str | None = None
-    """State prose for `annotations["doc"]`; set from the state
-    method's docstring at assembly, not by the chain API."""
+    doc_text: str | None = None
+    """State prose for `annotations["doc"]`: a state method's
+    docstring (which wins when both are present), else `.doc(...)`."""
+    name_override: str | None = None
+    """Explicit state name for an inline target (`.named(...)`);
+    ignored on a method state, whose def name is its name."""
 
     def _need_open(self) -> None:
         if self.transition is not None:
@@ -208,6 +218,23 @@ class State:
 
     def accept(self) -> State:
         return self.then(Accept())
+
+    def doc(self, text: str) -> State:
+        """Attach state prose, the inline-target counterpart of a
+        method docstring (callable anywhere in the chain)."""
+        self.doc_text = text
+        return self
+
+    def named(self, name: str) -> State:
+        """Override the auto-generated name when this chain is an
+        inline target (callable anywhere in the chain)."""
+        self.name_override = name
+        return self
+
+
+Target = str | StateRef | Accept | Reject | State
+"""A transition target: a state name, a state-method reference, a
+terminal, or an inline `State` chain hoisted at assembly time."""
 
 
 def extract(header: type[Header] | Instance, instance: str | None = None) -> State:

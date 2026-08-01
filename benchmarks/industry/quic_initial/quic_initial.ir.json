@@ -505,7 +505,7 @@
                   }
                 ],
                 "next": {
-                  "state": "short_accept"
+                  "state": "parse_first__short"
                 }
               },
               {
@@ -528,25 +528,6 @@
         },
         "annotations": {
           "doc": "Header form bit routes short vs long; the rest of the first\nbyte rides along (type bits meaningful only for long headers)."
-        }
-      },
-      {
-        "name": "short_accept",
-        "transition": {
-          "direct": {
-            "accept": {}
-          }
-        },
-        "assigns": [
-          {
-            "metadata": "kind",
-            "value": {
-              "constant": "7"
-            }
-          }
-        ],
-        "annotations": {
-          "doc": "Classify-only: the short-header DCID length is out-of-band\nLB configuration (the katran-config-gate analog)."
         }
       },
       {
@@ -584,55 +565,17 @@
                   }
                 ],
                 "next": {
-                  "state": "vn_mark"
+                  "state": "parse_version__negotiation"
                 }
               }
             ],
             "defaultTarget": {
-              "state": "unknown_mark"
+              "state": "parse_version__default"
             }
           }
         },
         "annotations": {
           "doc": "Version routes v1 (deep parse) vs VN vs unknown; RFC 8999\ninvariants guarantee CIDs follow in every case."
-        }
-      },
-      {
-        "name": "vn_mark",
-        "transition": {
-          "direct": {
-            "state": "parse_other_cids"
-          }
-        },
-        "assigns": [
-          {
-            "metadata": "kind",
-            "value": {
-              "constant": "5"
-            }
-          }
-        ],
-        "annotations": {
-          "doc": "Version list deliberately not walked (quinn's stance; quiche\nwalks it - documented divergence)."
-        }
-      },
-      {
-        "name": "unknown_mark",
-        "transition": {
-          "direct": {
-            "state": "parse_other_cids"
-          }
-        },
-        "assigns": [
-          {
-            "metadata": "kind",
-            "value": {
-              "constant": "6"
-            }
-          }
-        ],
-        "annotations": {
-          "doc": "Unknown versions parse through (quiche's stance; quinn\nrejects with UnsupportedVersion after the CIDs)."
         }
       },
       {
@@ -1166,7 +1109,7 @@
                   }
                 ],
                 "next": {
-                  "state": "initial_mark"
+                  "state": "parse_scid__initial"
                 }
               },
               {
@@ -1176,7 +1119,7 @@
                   }
                 ],
                 "next": {
-                  "state": "zero_rtt_mark"
+                  "state": "parse_scid__zero_rtt"
                 }
               },
               {
@@ -1186,7 +1129,7 @@
                   }
                 ],
                 "next": {
-                  "state": "handshake_mark"
+                  "state": "parse_scid__handshake"
                 }
               },
               {
@@ -1196,7 +1139,7 @@
                   }
                 ],
                 "next": {
-                  "state": "retry_accept"
+                  "state": "parse_scid__retry"
                 }
               }
             ],
@@ -1208,77 +1151,7 @@
           }
         },
         "annotations": {
-          "doc": "CIDs done; the long-type bits pick the tail grammar."
-        }
-      },
-      {
-        "name": "initial_mark",
-        "transition": {
-          "direct": {
-            "state": "parse_tok_lead"
-          }
-        },
-        "assigns": [
-          {
-            "metadata": "kind",
-            "value": {
-              "constant": "1"
-            }
-          }
-        ]
-      },
-      {
-        "name": "zero_rtt_mark",
-        "transition": {
-          "direct": {
-            "state": "parse_len_lead"
-          }
-        },
-        "assigns": [
-          {
-            "metadata": "kind",
-            "value": {
-              "constant": "2"
-            }
-          }
-        ],
-        "annotations": {
-          "doc": "No token by grammar; straight to the length varint (quinn's\nparse extent - quiche stops after the SCID here)."
-        }
-      },
-      {
-        "name": "handshake_mark",
-        "transition": {
-          "direct": {
-            "state": "parse_len_lead"
-          }
-        },
-        "assigns": [
-          {
-            "metadata": "kind",
-            "value": {
-              "constant": "3"
-            }
-          }
-        ]
-      },
-      {
-        "name": "retry_accept",
-        "transition": {
-          "direct": {
-            "accept": {}
-          }
-        },
-        "assigns": [
-          {
-            "metadata": "kind",
-            "value": {
-              "constant": "4"
-            }
-          }
-        ],
-        "annotations": {
-          "doc": "Classify-only: the Retry token is 'rest minus 16-byte tag',\nwhich needs remaining()-16 as a byte length - banned in v1\n(named boundary, see the charter)."
+          "doc": "CIDs done; the long-type bits pick the tail grammar: all\nfour types record a kind; Retry stops there (classify-only:\nits token is 'rest minus 16-byte tag', needing remaining()-16\nas a byte length - banned in v1; named boundary, see the\ncharter); 0-RTT and Handshake have no token by grammar and go\nstraight to the length varint (quinn's parse extent - quiche\nstops after the SCID)."
         }
       },
       {
@@ -1718,6 +1591,127 @@
                   }
                 }
               }
+            }
+          }
+        ]
+      },
+      {
+        "name": "parse_first__short",
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "7"
+            }
+          }
+        ],
+        "annotations": {
+          "doc": "Classify-only: the short-header DCID length is out-of-band LB configuration (the katran-config-gate analog)."
+        }
+      },
+      {
+        "name": "parse_version__negotiation",
+        "transition": {
+          "direct": {
+            "state": "parse_other_cids"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "5"
+            }
+          }
+        ],
+        "annotations": {
+          "doc": "Version list deliberately not walked (quinn's stance; quiche walks it - documented divergence)."
+        }
+      },
+      {
+        "name": "parse_version__default",
+        "transition": {
+          "direct": {
+            "state": "parse_other_cids"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "6"
+            }
+          }
+        ],
+        "annotations": {
+          "doc": "Unknown versions parse through (quiche's stance; quinn rejects with UnsupportedVersion after the CIDs)."
+        }
+      },
+      {
+        "name": "parse_scid__initial",
+        "transition": {
+          "direct": {
+            "state": "parse_tok_lead"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "1"
+            }
+          }
+        ]
+      },
+      {
+        "name": "parse_scid__zero_rtt",
+        "transition": {
+          "direct": {
+            "state": "parse_len_lead"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "2"
+            }
+          }
+        ]
+      },
+      {
+        "name": "parse_scid__handshake",
+        "transition": {
+          "direct": {
+            "state": "parse_len_lead"
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "3"
+            }
+          }
+        ]
+      },
+      {
+        "name": "parse_scid__retry",
+        "transition": {
+          "direct": {
+            "accept": {}
+          }
+        },
+        "assigns": [
+          {
+            "metadata": "kind",
+            "value": {
+              "constant": "4"
             }
           }
         ]

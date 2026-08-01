@@ -182,16 +182,17 @@ class QuicInitial(Parser):
         return extract(FirstByte).select(
             FirstByte.form,
             {
-                HeaderForm.SHORT: self.short_accept,
+                HeaderForm.SHORT: assign(QuicMeta.kind, PacketKind.SHORT)
+                .doc(
+                    "Classify-only: the short-header DCID length is "
+                    "out-of-band LB configuration (the katran-config-gate "
+                    "analog)."
+                )
+                .accept(),
                 HeaderForm.LONG: self.parse_version,
             },
             default=reject("unreachable: 1-bit key"),
         )
-
-    def short_accept(self) -> State:
-        """Classify-only: the short-header DCID length is out-of-band
-        LB configuration (the katran-config-gate analog)."""
-        return assign(QuicMeta.kind, PacketKind.SHORT).accept()
 
     def parse_version(self) -> State:
         """Version routes v1 (deep parse) vs VN vs unknown; RFC 8999
@@ -200,23 +201,21 @@ class QuicInitial(Parser):
             Version.v,
             {
                 QuicVersion.V1: self.parse_dcid_len,
-                QuicVersion.NEGOTIATION: self.vn_mark,
+                QuicVersion.NEGOTIATION: assign(
+                    QuicMeta.kind, PacketKind.VERSION_NEGOTIATION
+                )
+                .doc(
+                    "Version list deliberately not walked (quinn's stance; "
+                    "quiche walks it - documented divergence)."
+                )
+                .then(self.parse_other_cids),
             },
-            default=self.unknown_mark,
-        )
-
-    def vn_mark(self) -> State:
-        """Version list deliberately not walked (quinn's stance; quiche
-        walks it - documented divergence)."""
-        return assign(QuicMeta.kind, PacketKind.VERSION_NEGOTIATION).then(
-            self.parse_other_cids
-        )
-
-    def unknown_mark(self) -> State:
-        """Unknown versions parse through (quiche's stance; quinn
-        rejects with UnsupportedVersion after the CIDs)."""
-        return assign(QuicMeta.kind, PacketKind.UNKNOWN_VERSION).then(
-            self.parse_other_cids
+            default=assign(QuicMeta.kind, PacketKind.UNKNOWN_VERSION)
+            .doc(
+                "Unknown versions parse through (quiche's stance; quinn "
+                "rejects with UnsupportedVersion after the CIDs)."
+            )
+            .then(self.parse_other_cids),
         )
 
     def parse_other_cids(self) -> State:
@@ -244,34 +243,29 @@ class QuicInitial(Parser):
         )
 
     def parse_scid(self) -> State:
-        """CIDs done; the long-type bits pick the tail grammar."""
+        """CIDs done; the long-type bits pick the tail grammar: all
+        four types record a kind; Retry stops there (classify-only:
+        its token is 'rest minus 16-byte tag', needing remaining()-16
+        as a byte length - banned in v1; named boundary, see the
+        charter); 0-RTT and Handshake have no token by grammar and go
+        straight to the length varint (quinn's parse extent - quiche
+        stops after the SCID)."""
         return extract(Scid).select(
             FirstByte.ty,
             {
-                LongType.INITIAL: self.initial_mark,
-                LongType.ZERO_RTT: self.zero_rtt_mark,
-                LongType.HANDSHAKE: self.handshake_mark,
-                LongType.RETRY: self.retry_accept,
+                LongType.INITIAL: assign(QuicMeta.kind, PacketKind.INITIAL).then(
+                    self.parse_tok_lead
+                ),
+                LongType.ZERO_RTT: assign(QuicMeta.kind, PacketKind.ZERO_RTT).then(
+                    self.parse_len_lead
+                ),
+                LongType.HANDSHAKE: assign(QuicMeta.kind, PacketKind.HANDSHAKE).then(
+                    self.parse_len_lead
+                ),
+                LongType.RETRY: assign(QuicMeta.kind, PacketKind.RETRY).accept(),
             },
             default=reject("unreachable: 2-bit key"),
         )
-
-    def initial_mark(self) -> State:
-        return assign(QuicMeta.kind, PacketKind.INITIAL).then(self.parse_tok_lead)
-
-    def zero_rtt_mark(self) -> State:
-        """No token by grammar; straight to the length varint (quinn's
-        parse extent - quiche stops after the SCID here)."""
-        return assign(QuicMeta.kind, PacketKind.ZERO_RTT).then(self.parse_len_lead)
-
-    def handshake_mark(self) -> State:
-        return assign(QuicMeta.kind, PacketKind.HANDSHAKE).then(self.parse_len_lead)
-
-    def retry_accept(self) -> State:
-        """Classify-only: the Retry token is 'rest minus 16-byte tag',
-        which needs remaining()-16 as a byte length - banned in v1
-        (named boundary, see the charter)."""
-        return assign(QuicMeta.kind, PacketKind.RETRY).accept()
 
     def parse_tok_lead(self) -> State:
         """The self-sizing varint, arm 1 of 2: token length. The 2-bit
