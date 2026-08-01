@@ -123,46 +123,46 @@ name/format/doc parameters, plus a `fixed_bytes(n, ...)` alias for
 constant lengths (`var_bytes(16)` reading as "variable" is itself a
 wart). eDSL + docgen only; trivial; independent of everything else.
 
-## Idea 3 — header stacks: eDSL `Stack` + `unroll`; IR stacks rejected on principle
+## Idea 3 — header stacks: WITHDRAWN as a feature (documentation item only)
 
-**Worked design (2026-08-01 discussion).** IR-level stacks are
-REJECTED, not deferred: P4's `extract(stack[next])` rests on a hidden
-runtime counter, and the pakeles discipline is precisely that
-counters become state-graph structure (max_depth is the structural
-loop counter; W8 makes region depth a static per-state property — an
-IR `next` would need the analogous consistency rule, which is exactly
-what unrolling encodes for free). The two things IR stacks buy in P4
-— deparser order, match-action slot addressing — have no pakeles
-counterpart. Zero IR / zero spec / zero backend changes.
+**Revised 2026-08-01 after user challenge ("our output already shows
+the header sequence — why do we need stacks?"), which was correct.**
+An earlier draft of this section proposed `StackSpec` + `unroll`
+machinery; decomposing what P4 stacks actually provide dissolved it:
 
-eDSL surface:
+- (a) *Repeated headers in output*: ALREADY FULLY HAVE — the header
+  list records every extraction in order (QinQ yields both tags'
+  values under the shared instance; int_val appears up to 24 times;
+  testvec compares the whole sequence). The pressure-test claim
+  "slot identity lost" overstated an addressability nit into an
+  output gap.
+- (b) *Bounded looping*: already have (cyclic states + max_depth) —
+  the more honest encoding than P4's hidden `next` counter
+  (counters-become-states; the W8/max_depth precedent).
+- (c) *Exact-count caps* (mpls[3] rejects a 4th label): expressible
+  by unrolling, which post-Phase-4 is a ~6-line plain-Python family
+  loop with `.named()` — no new machinery warranted.
+- (d) *Post-join `last`/earlier-slot access*: not directly
+  expressible and W7 is RIGHT to forbid it (path-dependent at the
+  join); the metadata-copy idiom in the loop body covers it visibly.
+  No target has ever needed it.
+- (e) *Deparser order / match-action slot addressing*: the reason
+  stacks are IR objects in P4; no pakeles counterpart exists to
+  serve.
 
-- `VlanTag.stack(2)` → `StackSpec`; `VLAN[i]` is a bounds-checked
-  `Instance` named `vlan_tag_0`/`vlan_tag_1` (restores the switch.p4
-  slot identity; barely more than sugar over `Header["name"]`).
-- `stack.unroll(body, *, overflow, names=)` — the self-loop written
-  once: `body(slot, again)` is instantiated per slot with `again`
-  wired to slot i+1's inline state (Phase-2 hoisting, `.named()` from
-  the `names` pattern) and to `overflow` past the end. `overflow=` is
-  REQUIRED and explicit (P4_14's silent parse exception becomes a
-  named decision). Generated IR identical in shape to today's
-  hand-unroll.
-- **The `stack.last` idiom**: after the loop join, "last slot's
-  field" is path-dependent and W7 rightly forbids it; the visible
-  pakeles answer is a metadata copy in the loop body
-  (`.assign(Meta.last_x, slot.x)`) — carries "last" across the join,
-  observable in testvecs. switch.p4 never needs it (its `latest` uses
-  are all in-loop).
+**What survives**: a documentation item — record the three canonical
+patterns (shared-instance repetition; exact-count via family-loop
+unroll; last-via-metadata) so future transcriptions don't re-derive
+them. Do NOT rename `vlan_tag_` to slot instances (IR/vector churn
+for near-zero gain). Keep `int_val` cyclic regardless: exact-count
+unrolling would take switch.p4 from 56 to 79 instances, past the
+64-bit verdict-bitmap tier (a 128-bit tier is the recorded cost if
+some future target demands exact-count on a big stack).
 
-**Gotcha found**: exact-count unrolling of `int_val[24]` would take
-switch.p4 from 56 to 79 instances — PAST the 64-bit verdict-bitmap
-tier (the tier this example itself forced at 32→64); exact-count for
-big stacks costs a 128-bit bitmap tier in testkit + eBPF verdicts.
-Transcription recommendation therefore: vlan → slot instances (do),
-mpls → `unroll` with preserved names (do), `int_val` → KEEP the
-cyclic state with the documented cap deviation, now an explicitly
-costed choice. Effort: Phase-2-sized eDSL change; docgen groups
-slots by the `_i` naming convention, no proto change.
+**Scorecard correction**: the P4-vs-pakeles construct gaps are TWO
+(lookahead — primitive decided; wide values — boundary decided), plus
+a stacks entry that reads "different encoding, same observables; P4
+wins only on post-join last-access, which nothing uses."
 
 ## Idea 4 — the wide-value boundary: match vs compute, not width tiers
 
