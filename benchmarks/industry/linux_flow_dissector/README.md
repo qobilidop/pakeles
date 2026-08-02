@@ -163,8 +163,12 @@ Refreshing the goldens (privileged; never part of the normal gate):
 ./dev-priv.sh benchmarks/industry/linux_flow_dissector/factory/capture.sh
 ```
 
-CI can also refresh them via `.github/workflows/flow-dissector-goldens.yml`
-(manual dispatch / schedule, `ubuntu-latest`, out of the required gate).
+That is the only mint path, and it needs no CI: the dev container runs a
+real Linux kernel (`6.8.0-100-generic`), so the capture re-mints the
+committed golden **byte-for-byte** — verified 2026-08-01, from macOS.
+Goldens are kernel *behavior* over a packet corpus, so they do not
+depend on the host architecture. The everyday gate never mints; it only
+diffs what is committed here.
 
 ## Output contract
 
