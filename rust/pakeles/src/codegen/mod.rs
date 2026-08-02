@@ -24,6 +24,54 @@ pub fn demand_report(parser: &pb::Parser) -> Vec<String> {
     if has_region_ops(parser) {
         out.push("sized regions / remaining() — gen p4 refuses (no P4-16 lowering)".to_string());
     }
+    // BMv2 refuses header types that are not a byte multiple. A
+    // peek-only instance is padded (never extracted, so padding is
+    // free); an extracted one cannot be, so its `gen p4` output is
+    // valid P4-16 that `p4c-bm2-ss` will reject. Report it rather
+    // than silently emitting an uncompilable program.
+    let mut peeked_only: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    let mut consumed: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    for s in &parser.states {
+        for ex in &s.extracts {
+            let inst = if ex.instance.is_empty() {
+                ex.header_type.as_str()
+            } else {
+                ex.instance.as_str()
+            };
+            if ex.lookahead {
+                peeked_only.insert(inst);
+            } else {
+                consumed.insert(inst);
+            }
+        }
+    }
+    let mut odd: Vec<String> = Vec::new();
+    for ht in &parser.header_types {
+        let fixed: u32 = ht
+            .fields
+            .iter()
+            .filter_map(|f| match f.width.as_ref().and_then(|w| w.width.as_ref()) {
+                Some(pb::field_width::Width::Bits(n)) => Some(*n),
+                _ => None,
+            })
+            .sum();
+        let all_fixed = ht.fields.iter().all(|f| {
+            matches!(
+                f.width.as_ref().and_then(|w| w.width.as_ref()),
+                Some(pb::field_width::Width::Bits(_))
+            )
+        });
+        if all_fixed && !fixed.is_multiple_of(8) && consumed.contains(ht.name.as_str()) {
+            odd.push(format!("{} ({fixed} bits)", ht.name));
+        }
+    }
+    if !odd.is_empty() {
+        out.push(format!(
+            "extracted header types that are not a byte multiple ({}) — valid P4-16, \
+             but p4c-bm2-ss refuses them; a peeked type would be padded instead",
+            odd.join(", ")
+        ));
+    }
     let misaligned = misaligned_var_runs(parser);
     if !misaligned.is_empty() {
         out.push(format!(

@@ -57,7 +57,42 @@ structure.
 All backends generate: C, eBPF C, Lua dissector, and P4-16 (no
 sized regions, so no `P4-UNSUPPORTED` marker; no >32-bit select
 material, so no `LUA-UNSUPPORTED` marker). C and eBPF (rbpf)
-conformance pass over the full suite.
+conformance pass over the full suite, and **BMv2 (P4-vs-P4) agrees
+over all 13,599 byte-aligned vectors** — the bit-granular
+truncations are pcap-uncarryable and skipped.
+
+That BMv2 claim is new as of 2026-08-01 and was worth what it cost:
+until then the emitted P4 had **never been compiled**, because this
+was the only gallery member without a BMv2 conformance test, and
+generation is not compilation. Running it for the first time found
+two real defects in the P4 backend, both of which only this program
+reaches:
+
+1. **A peeked header type BMv2 rejects.** BMv2 requires every header
+   type to total a multiple of 8 bits, and `ip_version_nibble` is 4.
+   (The pre-lookahead transcription had the same 4-bit header as a
+   *consuming* extract, so its P4 didn't compile either — the defect
+   predates the `lookahead` work.) A peek-only instance never reaches
+   `extract`, so its declaration is now padded to a byte multiple:
+   nothing is consumed and no observable changes, since the fields
+   are sliced out of a `lookahead<bit<W>>()` value and only validity
+   feeds the verdict bitmap. A non-byte-multiple header that *is*
+   extracted cannot be padded (that would change what `extract`
+   consumes), so it is reported by `pakeles lint` as a derived demand
+   instead — four other academic members still carry a 4-bit
+   `mpls_payload_nibble` from the pre-`lookahead` nibble-split
+   emulation, and their emitted P4 is likewise BMv2-uncompilable.
+   Converting them to the primitive (as this member now is) would fix
+   that, and is recorded as follow-up work.
+2. **A zero-mask catch-all arm BMv2 never matches.** `parse_int_header`
+   carries the source's `0 mask 0` catch-all, which by the IR's
+   semantics matches every key (`k & 0 == v & 0`). BMv2 does not
+   match such a ternary entry and fell through to the `default`,
+   entering the INT value loop on packets the reference interpreter
+   accepts outright. Since an always-matching arm shadows every later
+   arm *and* the default under first-match ordering, it **is** the
+   default — and is now lowered as one. No other gallery member emits
+   a zero-mask keyset.
 
 **Known scale finding (Lua):** the generated `dissector.lua`
 declares one top-level `local` per ProtoField — 360 here, and

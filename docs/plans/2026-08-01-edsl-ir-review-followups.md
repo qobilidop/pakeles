@@ -316,6 +316,31 @@ lookahead) — the direction the careful second system chose.
 - **Sequencing**: FIRST item of the lookahead-first arc (churn-heavy,
   design-light — land it before layering lookahead's rules on top).
 
+## Follow-up opened 2026-08-01: convert the gibb nibble-splits to `lookahead`
+
+The first-ever BMv2 run of `p4lang_switch_parser` (see its README)
+showed that a 4-bit header type makes `gen p4` output uncompilable by
+`p4c-bm2-ss`, whatever else is true of it. Four academic members still
+carry the pre-`lookahead` nibble-split emulation and so emit
+BMv2-uncompilable P4: **gibb_big_union, gibb_edge,
+gibb_service_provider, kangaroo_parse_tree** (all `mpls_payload_nibble`,
+4 bits; gibb_big_union also has `eompls_rest`, 28 bits). None has a
+BMv2 conformance test, which is why it was never noticed.
+
+`pakeles lint` now reports this as a derived demand rather than
+refusing (a codegen refusal would break four members' committed
+artifacts over what is really a transcription choice). Converting them
+to the primitive — the same mechanical edit switch.p4 just had — would
+delete their invented `*Rest` types AND make their P4 BMv2-compilable,
+after which each should gain a BMv2 conformance test. Deferred because
+re-transcribing published-benchmark members changes their README
+comparison numbers and deserves its own audit pass.
+
+**General rule this exposed:** a committed `gen/parser.p4` with no BMv2
+conformance test is unverified — "generates" is not "compiles". The
+cost of the test is small (13,599 vectors in ~14 s, one
+`simple_switch` spawn).
+
 ## Parked / optional
 
 - **Testvec design revisit** (user-flagged 2026-08-01, "not now"): a

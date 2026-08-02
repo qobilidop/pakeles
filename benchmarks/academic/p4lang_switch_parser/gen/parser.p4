@@ -58,6 +58,7 @@ header mpls_s0_t {
 
 header ip_version_nibble_s0_t {
     bit<4> v;
+    bit<4> _pk_pad;
 }
 
 header ipv4_s0_t {
@@ -464,7 +465,7 @@ struct headers {
     fcoe_s0_t fcoe_s0;
     vlan_tag__s0_t[43] vlan_tag__s0;
     mpls_s0_t[43] mpls_s0;
-    ip_version_nibble_s0_t[43] ip_version_nibble_s0;
+    ip_version_nibble_s0_t ip_version_nibble_s0;
     ipv4_s0_t ipv4_s0;
     udp_s0_t[43] udp_s0;
     gre_s0_t[43] gre_s0;
@@ -627,8 +628,11 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
         }
     }
     state st_parse_mpls_bos {
-        hdr.ip_version_nibble_s0.next = pkt.lookahead<ip_version_nibble_s0_t>();
-        transition select((bit<64>)hdr.ip_version_nibble_s0.last.v) {
+        bit<4> pk_la_ip_version_nibble = pkt.lookahead<bit<4>>();
+        hdr.ip_version_nibble_s0.setValid();
+        hdr.ip_version_nibble_s0.v = pk_la_ip_version_nibble[3:0];
+        hdr.ip_version_nibble_s0._pk_pad = 0;
+        transition select((bit<64>)hdr.ip_version_nibble_s0.v) {
             64w4: st_parse_mpls_inner_ipv4;
             64w6: st_parse_mpls_inner_ipv6;
             default: st_parse_eompls;
@@ -754,8 +758,7 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
         transition select((bit<64>)hdr.int_header_s0.rsvd1, (bit<64>)hdr.int_header_s0.total_hop_cnt) {
             (64w0, 64w0): accept;
             (64w0 &&& 64w15, 64w0 &&& 64w0): st_parse_int_val;
-            (64w0 &&& 64w0, 64w0 &&& 64w0): accept;
-            default: st_parse_all_int_meta_value_heders;
+            default: accept;
         }
     }
     state st_parse_int_val {
@@ -840,8 +843,11 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_lisp {
         pkt.extract(hdr.lisp_s0);
-        hdr.ip_version_nibble_s0.next = pkt.lookahead<ip_version_nibble_s0_t>();
-        transition select((bit<64>)hdr.ip_version_nibble_s0.last.v) {
+        bit<4> pk_la_ip_version_nibble = pkt.lookahead<bit<4>>();
+        hdr.ip_version_nibble_s0.setValid();
+        hdr.ip_version_nibble_s0.v = pk_la_ip_version_nibble[3:0];
+        hdr.ip_version_nibble_s0._pk_pad = 0;
+        transition select((bit<64>)hdr.ip_version_nibble_s0.v) {
             64w4: st_parse_inner_ipv4;
             64w6: st_parse_inner_ipv6;
             default: accept;
@@ -987,7 +993,7 @@ control PkIngress(inout headers hdr, inout metadata meta,
         if (hdr.fcoe_s0.isValid()) { bm = bm | 64w16; }
         if (hdr.vlan_tag__s0[0].isValid()) { bm = bm | 64w32; }
         if (hdr.mpls_s0[0].isValid()) { bm = bm | 64w64; }
-        if (hdr.ip_version_nibble_s0[0].isValid()) { bm = bm | 64w128; }
+        if (hdr.ip_version_nibble_s0.isValid()) { bm = bm | 64w128; }
         if (hdr.ipv4_s0.isValid()) { bm = bm | 64w256; }
         if (hdr.udp_s0[0].isValid()) { bm = bm | 64w512; }
         if (hdr.gre_s0[0].isValid()) { bm = bm | 64w1024; }

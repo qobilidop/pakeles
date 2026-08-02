@@ -166,6 +166,40 @@ pub(crate) fn expr_max(e: &pb::Expr, parser: &pb::Parser) -> Result<u128> {
     Ok(expr_range(e, parser)?.1)
 }
 
+/// Total width of a fixed segment's fields.
+fn seg_bits(fs: &[&pb::Field]) -> u32 {
+    fs.iter()
+        .map(|f| match f.width.as_ref().and_then(|x| x.width.as_ref()) {
+            Some(pb::field_width::Width::Bits(n)) => *n,
+            _ => unreachable!("fixed segment holds only fixed fields"),
+        })
+        .sum()
+}
+
+/// Instances that are only ever peeked (never consumed by an extract).
+/// Their P4 headers are populated by slicing a `lookahead` value, so
+/// their declarations may be padded to BMv2's byte-multiple rule.
+fn peek_only_instances(parser: &pb::Parser) -> std::collections::HashSet<String> {
+    let mut peeked = std::collections::HashSet::new();
+    let mut consumed = std::collections::HashSet::new();
+    for s in &parser.states {
+        for ex in &s.extracts {
+            let inst = if ex.instance.is_empty() {
+                ex.header_type.clone()
+            } else {
+                ex.instance.clone()
+            };
+            if ex.lookahead {
+                peeked.insert(inst);
+            } else {
+                consumed.insert(inst);
+            }
+        }
+    }
+    peeked.retain(|i| !consumed.contains(i));
+    peeked
+}
+
 fn seg_member(inst: &str, i: usize, seg: &Seg) -> String {
     match seg {
         Seg::Fixed(_) => format!("{inst}_s{i}"),
@@ -342,8 +376,13 @@ pub(crate) fn stacked_instances(parser: &pb::Parser) -> std::collections::HashSe
     // stack realization even in an acyclic graph: re-extracting a plain
     // P4 header cannot represent both extractions (first exercised by
     // dpdk_ptype's outer/inner section mirror, where `ipv4` is extracted
-    // by parse_ipv4 AND parse_inner_ipv4).
-    let mut sites: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    // by parse_ipv4 AND parse_inner_ipv4). EXCEPT pure-lookahead
+    // instances: `stack.next = pkt.lookahead<T>()` is not valid P4 (p4c
+    // rejects the `.next` read), and for alternative peek sites the
+    // plain header's last-wins is exactly the conformance surface
+    // (switch.p4's `ip_version_nibble` at parse_mpls_bos + parse_lisp).
+    let mut sites: std::collections::HashMap<String, (usize, bool)> =
+        std::collections::HashMap::new();
     for s in &parser.states {
         for ex in &s.extracts {
             let inst = if ex.instance.is_empty() {
@@ -351,11 +390,13 @@ pub(crate) fn stacked_instances(parser: &pb::Parser) -> std::collections::HashSe
             } else {
                 ex.instance.clone()
             };
-            *sites.entry(inst).or_default() += 1;
+            let e = sites.entry(inst).or_insert((0, true));
+            e.0 += 1;
+            e.1 &= ex.lookahead;
         }
     }
-    for (inst, n) in sites {
-        if n > 1 {
+    for (inst, (n, all_peeks)) in sites {
+        if n > 1 && !all_peeks {
             out.insert(inst);
         }
     }
@@ -372,6 +413,7 @@ pub fn generate_p4(ir: &pb::Ir) -> Result<String> {
     }
     let insts = instance_order(parser);
     let stacked = stacked_instances(parser);
+    let peek_only = peek_only_instances(parser);
     if insts.len() > 64 {
         bail!(
             "verdict bitmap supports at most 64 header instances, got {}",
@@ -407,6 +449,28 @@ pub fn generate_p4(ir: &pb::Ir) -> Result<String> {
                             _ => unreachable!("fixed segment holds only fixed fields"),
                         };
                         writeln!(w, "    bit<{bits}> {};", f.name)?;
+                    }
+                    // BMv2 requires every header type to total a
+                    // multiple of 8 bits. A peek-only instance never
+                    // reaches `extract`, so padding its DECLARATION
+                    // consumes nothing and changes no observable (the
+                    // fields are sliced out of a lookahead value, and
+                    // only validity feeds the verdict bitmap).
+                    //
+                    // An *extracted* header cannot be padded — that
+                    // would change what `extract` consumes. Such a
+                    // program is valid P4-16 (p4test accepts it) but
+                    // `p4c-bm2-ss` rejects it, so it is reported as a
+                    // derived demand (`codegen::demand_report`,
+                    // surfaced by `pakeles lint`) rather than refused
+                    // here: four gallery members carry a 4-bit
+                    // `mpls_payload_nibble` from the pre-`lookahead`
+                    // nibble-split emulation, and converting them to
+                    // the primitive is a transcription decision, not a
+                    // codegen one.
+                    let total: u32 = seg_bits(fs);
+                    if !total.is_multiple_of(8) && peek_only.contains(inst.as_str()) {
+                        writeln!(w, "    bit<{}> _pk_pad;", 8 - total % 8)?;
                     }
                     writeln!(w, "}}")?;
                 }
@@ -505,9 +569,56 @@ pub fn generate_p4(ir: &pb::Ir) -> Result<String> {
                 };
                 if ex.lookahead {
                     // Native P4-16 lookahead: bind without advancing.
-                    // W9 guarantees a single all-fixed segment.
-                    let tname = format!("{inst}_s{i}_t");
-                    writeln!(w, "        {tgt} = pkt.lookahead<{tname}>();")?;
+                    // W9 guarantees a single all-fixed segment. A
+                    // stacked (cyclic) target has no valid P4 form
+                    // (`.next` is extract-only) — loud cap, no use case.
+                    if is_stacked {
+                        bail!(
+                            "lookahead of `{inst}` on a state cycle has no P4 header-stack \
+                             lowering; exceeds this backend's lookahead support"
+                        );
+                    }
+                    // lookahead<bit<W>>() then slice — the idiom the
+                    // official switch.p4 P4-16 translation uses.
+                    // (`lookahead<H>()` of a header type trips BMv2's
+                    // byte-multiple header-total rule for peeks like a
+                    // lone version nibble; a bit<W> value does not.)
+                    let Seg::Fixed(fs) = seg else {
+                        bail!("validated IR: peeked types are all-fixed-width (W9)")
+                    };
+                    let total: u32 = fs
+                        .iter()
+                        .map(|f| match f.width.as_ref().and_then(|x| x.width.as_ref()) {
+                            Some(pb::field_width::Width::Bits(n)) => *n,
+                            _ => unreachable!("fixed segment holds only fixed fields"),
+                        })
+                        .sum();
+                    writeln!(
+                        w,
+                        "        bit<{total}> pk_la_{inst} = pkt.lookahead<bit<{total}>>();"
+                    )?;
+                    writeln!(w, "        {tgt}.setValid();")?;
+                    let mut off = 0u32;
+                    for f in fs {
+                        let n = match f.width.as_ref().and_then(|x| x.width.as_ref()) {
+                            Some(pb::field_width::Width::Bits(n)) => *n,
+                            _ => unreachable!(),
+                        };
+                        // MSB-first: the first field owns the top bits.
+                        writeln!(
+                            w,
+                            "        {tgt}.{} = pk_la_{inst}[{}:{}];",
+                            f.name,
+                            total - 1 - off,
+                            total - off - n
+                        )?;
+                        off += n;
+                    }
+                    // The declaration's BMv2 byte-multiple padding is
+                    // never read; initialize it so p4c stays quiet.
+                    if !total.is_multiple_of(8) {
+                        writeln!(w, "        {tgt}._pk_pad = 0;")?;
+                    }
                     continue;
                 }
                 match seg {
@@ -550,7 +661,24 @@ pub fn generate_p4(ir: &pb::Ir) -> Result<String> {
                     .map(|k| expr_p4(k, parser, &stacked))
                     .collect::<Result<Vec<_>>>()?;
                 writeln!(w, "        transition select({}) {{", keys.join(", "))?;
-                for arm in &sel.arms {
+                // An arm whose every entry masks to nothing matches
+                // EVERY key (§3: k ⊨ masked(v,m) ⟺ k&m == v&m, so m=0
+                // is vacuously true), so under first-match ordering it
+                // shadows every later arm AND the select's default —
+                // i.e. it *is* the default. It must be emitted as one:
+                // BMv2 does not match a zero-mask ternary entry, so
+                // emitting it as `0 &&& 0` silently falls through to
+                // the default instead (confirmed against
+                // simple_switch; the construct comes from switch.p4's
+                // `0 mask 0` catch-all).
+                let always = |arm: &pb::SelectArm| {
+                    !arm.entries.is_empty()
+                        && arm.entries.iter().all(|e| {
+                            matches!(e.kind.as_ref(), Some(pb::keyset_entry::Kind::Masked(m)) if m.mask == 0)
+                        })
+                };
+                let catch_all = sel.arms.iter().position(always);
+                for arm in sel.arms.iter().take(catch_all.unwrap_or(sel.arms.len())) {
                     let entries: Vec<String> = arm.entries.iter().map(entry_p4).collect();
                     let pat = if entries.len() == 1 {
                         entries[0].clone()
@@ -560,10 +688,19 @@ pub fn generate_p4(ir: &pb::Ir) -> Result<String> {
                     let next = arm.next.as_ref().context("select arm has no target")?;
                     writeln!(w, "            {pat}: {};", target_p4(next)?)?;
                 }
-                let dt = sel
-                    .default_target
-                    .as_ref()
-                    .context("select has no default")?;
+                // The effective default: the catch-all arm's target if
+                // one exists (later arms and the authored default are
+                // then unreachable), else the authored default.
+                let dt = match catch_all {
+                    Some(i) => sel.arms[i]
+                        .next
+                        .as_ref()
+                        .context("select arm has no target")?,
+                    None => sel
+                        .default_target
+                        .as_ref()
+                        .context("select has no default")?,
+                };
                 if !is_reject(dt) {
                     writeln!(w, "            default: {};", target_p4(dt)?)?;
                 }
@@ -753,6 +890,38 @@ mod tests {
     }
 
     #[test]
+    fn zero_mask_catch_all_arm_becomes_the_p4_default() {
+        use crate::builder::*;
+        // `masked(_, 0)` matches every key, so it shadows the authored
+        // default; BMv2 does not match a zero-mask ternary entry, so it
+        // must be lowered AS the default (regression guard for the
+        // switch.p4 INT divergence found 2026-08-01).
+        let ir = ParserBuilder::new("zmask", 3)
+            .header(HeaderTypeBuilder::new("h").bits("tag", 8))
+            .header(HeaderTypeBuilder::new("g").bits("x", 8))
+            .state(StateBuilder::new("s0").extract("h").select(
+                vec![f("h", "tag")],
+                vec![
+                    arm(vec![masked(0, 0x0F)], to("s1")),
+                    arm(vec![masked(0, 0x00)], accept()),
+                ],
+                to("s1"),
+            ))
+            .state(StateBuilder::new("s1").extract("g").accept())
+            .start("s0")
+            .build()
+            .unwrap();
+        let p4 = generate_p4(&ir).unwrap();
+        // The zero-mask entry is never emitted as a keyset...
+        assert!(!p4.contains("&&& 64w0;"), "{p4}");
+        // ...its target becomes the default, and the shadowed authored
+        // default (st_s1) is not emitted as one.
+        assert!(p4.contains("            default: accept;"), "{p4}");
+        assert!(!p4.contains("default: st_s1;"), "{p4}");
+        run_p4test(&p4, "pakeles_p4test_zeromask", true);
+    }
+
+    #[test]
     fn cyclic_graph_emits_header_stack() {
         // Make parse_tcp loop back to parse_ethernet: `ethernet` is now
         // extracted on a cycle => stacked.
@@ -853,7 +1022,12 @@ mod tests {
             .build()
             .unwrap();
         let p4 = generate_p4(&ir).unwrap();
-        assert!(p4.contains("hdr.h_s0 = pkt.lookahead<h_s0_t>();"), "{p4}");
+        assert!(
+            p4.contains("bit<8> pk_la_h = pkt.lookahead<bit<8>>();"),
+            "{p4}"
+        );
+        assert!(p4.contains("hdr.h_s0.setValid();"), "{p4}");
+        assert!(p4.contains("hdr.h_s0.tag = pk_la_h[7:0];"), "{p4}");
         run_p4test(&p4, "pakeles_p4test_lookahead", true);
     }
 

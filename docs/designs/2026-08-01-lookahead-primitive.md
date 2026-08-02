@@ -115,6 +115,28 @@ Fallback if the aliasing lands badly: ship the eDSL surface as
 desugaring to nibble-split, flip the desugar target to the IR op when
 symex is ready; refusal markers per backend until then.
 
+## What the P4 lowering actually needed (found by running it)
+
+`gen p4` emits the peek natively, but two BMv2 target rules only
+surfaced when the switch.p4 differential was run for the first time
+(2026-08-01) — see that benchmark's README for the full account:
+
+- **`lookahead<T>()` of a header type is not the right lowering.**
+  BMv2 requires every header type to total a multiple of 8 bits, and
+  the canonical peek here is a 4-bit version nibble. We emit
+  `lookahead<bit<W>>()` and slice the fields out of it (the idiom the
+  official P4-16 translation of switch.p4 uses), and pad the *peek-only*
+  header's declaration to a byte multiple — safe precisely because a
+  peek never reaches `extract`, so padding consumes nothing and only
+  validity feeds the verdict bitmap. A peek on a state cycle (which
+  would need `stack.next`, an extract-only lvalue) refuses loudly; no
+  target needs it.
+- **Peek-only instances must not be stacked.** The multi-site rule that
+  forces a header stack (an instance extracted at >1 site) does not
+  apply when every site is a peek: last-wins on a plain header is
+  exactly the conformance surface, and `stack.next = lookahead<...>()`
+  is not valid P4.
+
 ## Cheap everywhere else
 
 - interpreter: read fields, don't advance the cursor;

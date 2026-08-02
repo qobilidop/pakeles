@@ -111,3 +111,17 @@ fn bmv2_backend_conformance_gibb_enterprise() {
     };
     pakeles_testkit::bmv2_backend_conformance(&ir("gibb_enterprise"), &suite, 4);
 }
+
+/// The flagship: P4-vs-P4 over switch.p4's own parser, all 13,599
+/// byte-aligned vectors in one `simple_switch` run (~14 s). Worth its
+/// cost in the gate — this is the member that exercised BOTH P4-backend
+/// defects found 2026-08-01 (a peeked header type BMv2 rejects for not
+/// being a byte multiple, and a zero-mask catch-all arm BMv2 never
+/// matches), neither of which any smaller member reaches.
+#[test]
+fn bmv2_backend_conformance_p4lang_switch_parser() {
+    let Some(suite) = suite("p4lang_switch_parser") else {
+        return;
+    };
+    pakeles_testkit::bmv2_backend_conformance(&ir("p4lang_switch_parser"), &suite, 13_000);
+}
