@@ -37,9 +37,10 @@ pf.f_mpls_bos = ProtoField.uint8("pakeles_gibb_big_union.mpls.bos", "Bottom of S
 pf.f_mpls_ttl = ProtoField.uint8("pakeles_gibb_big_union.mpls.ttl", "TTL", base.DEC)
 pf.f_hdr_mpls_payload_nibble = ProtoField.none("pakeles_gibb_big_union.mpls_payload_nibble", "mpls_payload_nibble")
 pf.f_mpls_payload_nibble_v = ProtoField.uint8("pakeles_gibb_big_union.mpls_payload_nibble.v", "Version Nibble", base.DEC, { [0] = "EoMPLS", [4] = "IPv4", [6] = "IPv6" })
-pf.f_hdr_eompls_rest = ProtoField.none("pakeles_gibb_big_union.eompls_rest", "eompls_rest")
-pf.f_eompls_rest_reserved = ProtoField.uint16("pakeles_gibb_big_union.eompls_rest.reserved", "Reserved", base.HEX)
-pf.f_eompls_rest_seq_no = ProtoField.uint16("pakeles_gibb_big_union.eompls_rest.seq_no", "Sequence Number", base.DEC)
+pf.f_hdr_eompls = ProtoField.none("pakeles_gibb_big_union.eompls", "eompls")
+pf.f_eompls_zero = ProtoField.uint8("pakeles_gibb_big_union.eompls.zero", "Zero", base.HEX)
+pf.f_eompls_reserved = ProtoField.uint16("pakeles_gibb_big_union.eompls.reserved", "Reserved", base.HEX)
+pf.f_eompls_seq_no = ProtoField.uint16("pakeles_gibb_big_union.eompls.seq_no", "Sequence Number", base.DEC)
 pf.f_hdr_ipv4 = ProtoField.none("pakeles_gibb_big_union.ipv4", "ipv4")
 pf.f_ipv4_version = ProtoField.uint8("pakeles_gibb_big_union.ipv4.version", "Version", base.HEX)
 pf.f_ipv4_ihl = ProtoField.uint8("pakeles_gibb_big_union.ipv4.ihl", "IHL", base.DEC)
@@ -54,19 +55,6 @@ pf.f_ipv4_hdr_checksum = ProtoField.uint16("pakeles_gibb_big_union.ipv4.hdr_chec
 pf.f_ipv4_src_addr = ProtoField.uint32("pakeles_gibb_big_union.ipv4.src_addr", "Source", base.HEX)
 pf.f_ipv4_dst_addr = ProtoField.uint32("pakeles_gibb_big_union.ipv4.dst_addr", "Destination", base.HEX)
 pf.f_ipv4_options = ProtoField.bytes("pakeles_gibb_big_union.ipv4.options", "options")
-pf.f_hdr_ipv4_rest = ProtoField.none("pakeles_gibb_big_union.ipv4_rest", "ipv4_rest")
-pf.f_ipv4_rest_ihl = ProtoField.uint8("pakeles_gibb_big_union.ipv4_rest.ihl", "IHL", base.DEC)
-pf.f_ipv4_rest_diffserv = ProtoField.uint8("pakeles_gibb_big_union.ipv4_rest.diffserv", "DiffServ", base.HEX)
-pf.f_ipv4_rest_total_len = ProtoField.uint16("pakeles_gibb_big_union.ipv4_rest.total_len", "Total Length", base.DEC)
-pf.f_ipv4_rest_identification = ProtoField.uint16("pakeles_gibb_big_union.ipv4_rest.identification", "Identification", base.HEX)
-pf.f_ipv4_rest_flags = ProtoField.uint8("pakeles_gibb_big_union.ipv4_rest.flags", "Flags", base.HEX)
-pf.f_ipv4_rest_frag_offset = ProtoField.uint16("pakeles_gibb_big_union.ipv4_rest.frag_offset", "Fragment Offset", base.DEC)
-pf.f_ipv4_rest_ttl = ProtoField.uint8("pakeles_gibb_big_union.ipv4_rest.ttl", "TTL", base.DEC)
-pf.f_ipv4_rest_protocol = ProtoField.uint8("pakeles_gibb_big_union.ipv4_rest.protocol", "Protocol", base.DEC, { [1] = "ICMP", [6] = "TCP", [17] = "UDP", [47] = "GRE", [50] = "IPsec ESP", [51] = "IPsec AH", [58] = "ICMPv6", [132] = "SCTP" })
-pf.f_ipv4_rest_hdr_checksum = ProtoField.uint16("pakeles_gibb_big_union.ipv4_rest.hdr_checksum", "Header Checksum", base.HEX)
-pf.f_ipv4_rest_src_addr = ProtoField.uint32("pakeles_gibb_big_union.ipv4_rest.src_addr", "Source", base.HEX)
-pf.f_ipv4_rest_dst_addr = ProtoField.uint32("pakeles_gibb_big_union.ipv4_rest.dst_addr", "Destination", base.HEX)
-pf.f_ipv4_rest_options = ProtoField.bytes("pakeles_gibb_big_union.ipv4_rest.options", "options")
 pf.f_hdr_ipv6 = ProtoField.none("pakeles_gibb_big_union.ipv6", "ipv6")
 pf.f_ipv6_version = ProtoField.uint8("pakeles_gibb_big_union.ipv6.version", "Version", base.HEX)
 pf.f_ipv6_traffic_class = ProtoField.uint8("pakeles_gibb_big_union.ipv6.traffic_class", "Traffic Class", base.HEX)
@@ -76,14 +64,6 @@ pf.f_ipv6_next_hdr = ProtoField.uint8("pakeles_gibb_big_union.ipv6.next_hdr", "N
 pf.f_ipv6_hop_limit = ProtoField.uint8("pakeles_gibb_big_union.ipv6.hop_limit", "Hop Limit", base.DEC)
 pf.f_ipv6_src_addr = ProtoField.bytes("pakeles_gibb_big_union.ipv6.src_addr", "src_addr")
 pf.f_ipv6_dst_addr = ProtoField.bytes("pakeles_gibb_big_union.ipv6.dst_addr", "dst_addr")
-pf.f_hdr_ipv6_rest = ProtoField.none("pakeles_gibb_big_union.ipv6_rest", "ipv6_rest")
-pf.f_ipv6_rest_traffic_class = ProtoField.uint8("pakeles_gibb_big_union.ipv6_rest.traffic_class", "Traffic Class", base.HEX)
-pf.f_ipv6_rest_flow_label = ProtoField.uint24("pakeles_gibb_big_union.ipv6_rest.flow_label", "Flow Label", base.HEX)
-pf.f_ipv6_rest_payload_len = ProtoField.uint16("pakeles_gibb_big_union.ipv6_rest.payload_len", "Payload Length", base.DEC)
-pf.f_ipv6_rest_next_hdr = ProtoField.uint8("pakeles_gibb_big_union.ipv6_rest.next_hdr", "Next Header", base.DEC, { [1] = "ICMP", [6] = "TCP", [17] = "UDP", [47] = "GRE", [50] = "IPsec ESP", [51] = "IPsec AH", [58] = "ICMPv6", [132] = "SCTP" })
-pf.f_ipv6_rest_hop_limit = ProtoField.uint8("pakeles_gibb_big_union.ipv6_rest.hop_limit", "Hop Limit", base.DEC)
-pf.f_ipv6_rest_src_addr = ProtoField.bytes("pakeles_gibb_big_union.ipv6_rest.src_addr", "src_addr")
-pf.f_ipv6_rest_dst_addr = ProtoField.bytes("pakeles_gibb_big_union.ipv6_rest.dst_addr", "dst_addr")
 pf.f_hdr_icmp = ProtoField.none("pakeles_gibb_big_union.icmp", "icmp")
 pf.f_icmp_type = ProtoField.uint8("pakeles_gibb_big_union.icmp.type", "Type", base.DEC)
 pf.f_icmp_code = ProtoField.uint8("pakeles_gibb_big_union.icmp.code", "Code", base.DEC)
@@ -158,7 +138,7 @@ pf.f_ethernet2_dst_addr = ProtoField.ether("pakeles_gibb_big_union.ethernet2.dst
 pf.f_ethernet2_src_addr = ProtoField.ether("pakeles_gibb_big_union.ethernet2.src_addr", "Source")
 pf.f_ethernet2_ether_type = ProtoField.uint16("pakeles_gibb_big_union.ethernet2.ether_type", "EtherType", base.HEX, { [2048] = "IPv4", [2054] = "ARP", [32821] = "RARP", [33024] = "802.1Q", [34525] = "IPv6", [34887] = "MPLS (unicast)", [34888] = "MPLS (multicast)", [34984] = "802.1ad", [35047] = "802.1ah (PBB)", [37120] = "802.1Q (legacy 0x9100)", [37376] = "802.1Q (legacy 0x9200)", [37632] = "802.1Q (legacy 0x9300)" })
 pf.f_payload = ProtoField.bytes("pakeles_gibb_big_union.payload", "Payload")
-p.fields = { pf.f_hdr_ethernet, pf.f_ethernet_dst_addr, pf.f_ethernet_src_addr, pf.f_ethernet_ether_type, pf.f_hdr_vlan, pf.f_vlan_pcp, pf.f_vlan_cfi, pf.f_vlan_vid, pf.f_vlan_ether_type, pf.f_hdr_ieee8021_ad, pf.f_ieee8021_ad_pcp, pf.f_ieee8021_ad_cfi, pf.f_ieee8021_ad_vid, pf.f_ieee8021_ad_ether_type, pf.f_hdr_ieee8021_ah, pf.f_ieee8021_ah_pcp, pf.f_ieee8021_ah_dei, pf.f_ieee8021_ah_uca, pf.f_ieee8021_ah_reserved, pf.f_ieee8021_ah_i_sid, pf.f_hdr_mpls, pf.f_mpls_label, pf.f_mpls_tc, pf.f_mpls_bos, pf.f_mpls_ttl, pf.f_hdr_mpls_payload_nibble, pf.f_mpls_payload_nibble_v, pf.f_hdr_eompls_rest, pf.f_eompls_rest_reserved, pf.f_eompls_rest_seq_no, pf.f_hdr_ipv4, pf.f_ipv4_version, pf.f_ipv4_ihl, pf.f_ipv4_diffserv, pf.f_ipv4_total_len, pf.f_ipv4_identification, pf.f_ipv4_flags, pf.f_ipv4_frag_offset, pf.f_ipv4_ttl, pf.f_ipv4_protocol, pf.f_ipv4_hdr_checksum, pf.f_ipv4_src_addr, pf.f_ipv4_dst_addr, pf.f_ipv4_options, pf.f_hdr_ipv4_rest, pf.f_ipv4_rest_ihl, pf.f_ipv4_rest_diffserv, pf.f_ipv4_rest_total_len, pf.f_ipv4_rest_identification, pf.f_ipv4_rest_flags, pf.f_ipv4_rest_frag_offset, pf.f_ipv4_rest_ttl, pf.f_ipv4_rest_protocol, pf.f_ipv4_rest_hdr_checksum, pf.f_ipv4_rest_src_addr, pf.f_ipv4_rest_dst_addr, pf.f_ipv4_rest_options, pf.f_hdr_ipv6, pf.f_ipv6_version, pf.f_ipv6_traffic_class, pf.f_ipv6_flow_label, pf.f_ipv6_payload_len, pf.f_ipv6_next_hdr, pf.f_ipv6_hop_limit, pf.f_ipv6_src_addr, pf.f_ipv6_dst_addr, pf.f_hdr_ipv6_rest, pf.f_ipv6_rest_traffic_class, pf.f_ipv6_rest_flow_label, pf.f_ipv6_rest_payload_len, pf.f_ipv6_rest_next_hdr, pf.f_ipv6_rest_hop_limit, pf.f_ipv6_rest_src_addr, pf.f_ipv6_rest_dst_addr, pf.f_hdr_icmp, pf.f_icmp_type, pf.f_icmp_code, pf.f_icmp_hdr_checksum, pf.f_hdr_icmpv6, pf.f_icmpv6_type, pf.f_icmpv6_code, pf.f_icmpv6_hdr_checksum, pf.f_hdr_tcp, pf.f_tcp_src_port, pf.f_tcp_dst_port, pf.f_tcp_seq_no, pf.f_tcp_ack_no, pf.f_tcp_data_offset, pf.f_tcp_res, pf.f_tcp_ecn, pf.f_tcp_ctrl, pf.f_tcp_window, pf.f_tcp_checksum, pf.f_tcp_urgent_ptr, pf.f_tcp_options, pf.f_hdr_udp, pf.f_udp_src_port, pf.f_udp_dst_port, pf.f_udp_length, pf.f_udp_checksum, pf.f_hdr_vxlan, pf.f_vxlan_flags, pf.f_vxlan_reserved, pf.f_vxlan_vni, pf.f_vxlan_reserved2, pf.f_hdr_sctp, pf.f_sctp_src_port, pf.f_sctp_dst_port, pf.f_sctp_verif_tag, pf.f_sctp_checksum, pf.f_hdr_gre, pf.f_gre_c, pf.f_gre_r, pf.f_gre_k, pf.f_gre_s, pf.f_gre_strict, pf.f_gre_recurse, pf.f_gre_flags, pf.f_gre_ver, pf.f_gre_proto, pf.f_hdr_nv_gre_inner, pf.f_nv_gre_inner_tni, pf.f_nv_gre_inner_reserved, pf.f_hdr_ipsec_esp, pf.f_ipsec_esp_spi, pf.f_ipsec_esp_seq_no, pf.f_hdr_ipsec_ah, pf.f_ipsec_ah_next_hdr, pf.f_ipsec_ah_length, pf.f_ipsec_ah_zero, pf.f_ipsec_ah_spi, pf.f_ipsec_ah_seq_no, pf.f_hdr_arp_rarp, pf.f_arp_rarp_hw_type, pf.f_arp_rarp_proto_type, pf.f_arp_rarp_hw_addr_len, pf.f_arp_rarp_proto_addr_len, pf.f_arp_rarp_opcode, pf.f_hdr_arp_rarp_ipv4, pf.f_arp_rarp_ipv4_src_hw_addr, pf.f_arp_rarp_ipv4_src_proto_addr, pf.f_arp_rarp_ipv4_dst_hw_addr, pf.f_arp_rarp_ipv4_dst_proto_addr, pf.f_hdr_ethernet2, pf.f_ethernet2_dst_addr, pf.f_ethernet2_src_addr, pf.f_ethernet2_ether_type, pf.f_payload }
+p.fields = { pf.f_hdr_ethernet, pf.f_ethernet_dst_addr, pf.f_ethernet_src_addr, pf.f_ethernet_ether_type, pf.f_hdr_vlan, pf.f_vlan_pcp, pf.f_vlan_cfi, pf.f_vlan_vid, pf.f_vlan_ether_type, pf.f_hdr_ieee8021_ad, pf.f_ieee8021_ad_pcp, pf.f_ieee8021_ad_cfi, pf.f_ieee8021_ad_vid, pf.f_ieee8021_ad_ether_type, pf.f_hdr_ieee8021_ah, pf.f_ieee8021_ah_pcp, pf.f_ieee8021_ah_dei, pf.f_ieee8021_ah_uca, pf.f_ieee8021_ah_reserved, pf.f_ieee8021_ah_i_sid, pf.f_hdr_mpls, pf.f_mpls_label, pf.f_mpls_tc, pf.f_mpls_bos, pf.f_mpls_ttl, pf.f_hdr_mpls_payload_nibble, pf.f_mpls_payload_nibble_v, pf.f_hdr_eompls, pf.f_eompls_zero, pf.f_eompls_reserved, pf.f_eompls_seq_no, pf.f_hdr_ipv4, pf.f_ipv4_version, pf.f_ipv4_ihl, pf.f_ipv4_diffserv, pf.f_ipv4_total_len, pf.f_ipv4_identification, pf.f_ipv4_flags, pf.f_ipv4_frag_offset, pf.f_ipv4_ttl, pf.f_ipv4_protocol, pf.f_ipv4_hdr_checksum, pf.f_ipv4_src_addr, pf.f_ipv4_dst_addr, pf.f_ipv4_options, pf.f_hdr_ipv6, pf.f_ipv6_version, pf.f_ipv6_traffic_class, pf.f_ipv6_flow_label, pf.f_ipv6_payload_len, pf.f_ipv6_next_hdr, pf.f_ipv6_hop_limit, pf.f_ipv6_src_addr, pf.f_ipv6_dst_addr, pf.f_hdr_icmp, pf.f_icmp_type, pf.f_icmp_code, pf.f_icmp_hdr_checksum, pf.f_hdr_icmpv6, pf.f_icmpv6_type, pf.f_icmpv6_code, pf.f_icmpv6_hdr_checksum, pf.f_hdr_tcp, pf.f_tcp_src_port, pf.f_tcp_dst_port, pf.f_tcp_seq_no, pf.f_tcp_ack_no, pf.f_tcp_data_offset, pf.f_tcp_res, pf.f_tcp_ecn, pf.f_tcp_ctrl, pf.f_tcp_window, pf.f_tcp_checksum, pf.f_tcp_urgent_ptr, pf.f_tcp_options, pf.f_hdr_udp, pf.f_udp_src_port, pf.f_udp_dst_port, pf.f_udp_length, pf.f_udp_checksum, pf.f_hdr_vxlan, pf.f_vxlan_flags, pf.f_vxlan_reserved, pf.f_vxlan_vni, pf.f_vxlan_reserved2, pf.f_hdr_sctp, pf.f_sctp_src_port, pf.f_sctp_dst_port, pf.f_sctp_verif_tag, pf.f_sctp_checksum, pf.f_hdr_gre, pf.f_gre_c, pf.f_gre_r, pf.f_gre_k, pf.f_gre_s, pf.f_gre_strict, pf.f_gre_recurse, pf.f_gre_flags, pf.f_gre_ver, pf.f_gre_proto, pf.f_hdr_nv_gre_inner, pf.f_nv_gre_inner_tni, pf.f_nv_gre_inner_reserved, pf.f_hdr_ipsec_esp, pf.f_ipsec_esp_spi, pf.f_ipsec_esp_seq_no, pf.f_hdr_ipsec_ah, pf.f_ipsec_ah_next_hdr, pf.f_ipsec_ah_length, pf.f_ipsec_ah_zero, pf.f_ipsec_ah_spi, pf.f_ipsec_ah_seq_no, pf.f_hdr_arp_rarp, pf.f_arp_rarp_hw_type, pf.f_arp_rarp_proto_type, pf.f_arp_rarp_hw_addr_len, pf.f_arp_rarp_proto_addr_len, pf.f_arp_rarp_opcode, pf.f_hdr_arp_rarp_ipv4, pf.f_arp_rarp_ipv4_src_hw_addr, pf.f_arp_rarp_ipv4_src_proto_addr, pf.f_arp_rarp_ipv4_dst_hw_addr, pf.f_arp_rarp_ipv4_dst_proto_addr, pf.f_hdr_ethernet2, pf.f_ethernet2_dst_addr, pf.f_ethernet2_src_addr, pf.f_ethernet2_ether_type, pf.f_payload }
 
 local states = {}
 
@@ -645,20 +625,23 @@ function states.parse_mpls_payload(buf, pinfo, tree, off, depth)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_mpls_payload_nibble = tree:add(pf.f_hdr_mpls_payload_nibble, buf(math.floor(off / 8)))
-  if off + 4 > avail then
+  do -- lookahead: cursor does not advance
+  local poff = off
+  local hdr_mpls_payload_nibble = tree:add(pf.f_hdr_mpls_payload_nibble, buf(math.floor(poff / 8)))
+  if poff + 4 > avail then
     hdr_mpls_payload_nibble:add_proto_expert_info(ef_error, "out of bounds in mpls_payload_nibble.v")
     return off
   end
-  v.v_mpls_payload_nibble_v = buf():bitfield(off, 4)
-  hdr_mpls_payload_nibble:add(pf.f_mpls_payload_nibble_v, buf(math.floor(off / 8), math.floor((off % 8 + 4 + 7) / 8)), v.v_mpls_payload_nibble_v)
-  off = off + 4
+  v.v_mpls_payload_nibble_v = buf():bitfield(poff, 4)
+  hdr_mpls_payload_nibble:add(pf.f_mpls_payload_nibble_v, buf(math.floor(poff / 8), math.floor((poff % 8 + 4 + 7) / 8)), v.v_mpls_payload_nibble_v)
+  poff = poff + 4
+  end
   if v.v_mpls_payload_nibble_v == 0 then
     return states.parse_eompls(buf, pinfo, tree, off, depth)
   elseif v.v_mpls_payload_nibble_v == 4 then
-    return states.parse_ipv4_rest(buf, pinfo, tree, off, depth)
+    return states.parse_ipv4(buf, pinfo, tree, off, depth)
   elseif v.v_mpls_payload_nibble_v == 6 then
-    return states.parse_ipv6_rest(buf, pinfo, tree, off, depth)
+    return states.parse_ipv6(buf, pinfo, tree, off, depth)
   else
     add_payload(buf, tree, off)
     return off
@@ -672,18 +655,24 @@ function states.parse_eompls(buf, pinfo, tree, off, depth)
     return off
   end
   local avail = buf:len() * 8
-  local hdr_eompls_rest = tree:add(pf.f_hdr_eompls_rest, buf(math.floor(off / 8)))
-  if off + 12 > avail then
-    hdr_eompls_rest:add_proto_expert_info(ef_error, "out of bounds in eompls_rest.reserved")
+  local hdr_eompls = tree:add(pf.f_hdr_eompls, buf(math.floor(off / 8)))
+  if off + 4 > avail then
+    hdr_eompls:add_proto_expert_info(ef_error, "out of bounds in eompls.zero")
     return off
   end
-  hdr_eompls_rest:add(pf.f_eompls_rest_reserved, buf(math.floor(off / 8), math.floor((off % 8 + 12 + 7) / 8)), buf():bitfield(off, 12))
+  hdr_eompls:add(pf.f_eompls_zero, buf(math.floor(off / 8), math.floor((off % 8 + 4 + 7) / 8)), buf():bitfield(off, 4))
+  off = off + 4
+  if off + 12 > avail then
+    hdr_eompls:add_proto_expert_info(ef_error, "out of bounds in eompls.reserved")
+    return off
+  end
+  hdr_eompls:add(pf.f_eompls_reserved, buf(math.floor(off / 8), math.floor((off % 8 + 12 + 7) / 8)), buf():bitfield(off, 12))
   off = off + 12
   if off + 16 > avail then
-    hdr_eompls_rest:add_proto_expert_info(ef_error, "out of bounds in eompls_rest.seq_no")
+    hdr_eompls:add_proto_expert_info(ef_error, "out of bounds in eompls.seq_no")
     return off
   end
-  hdr_eompls_rest:add(pf.f_eompls_rest_seq_no, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), buf():bitfield(off, 16))
+  hdr_eompls:add(pf.f_eompls_seq_no, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), buf():bitfield(off, 16))
   off = off + 16
   return states.parse_ethernet2(buf, pinfo, tree, off, depth)
 end
@@ -800,112 +789,6 @@ function states.parse_ipv4(buf, pinfo, tree, off, depth)
   end
 end
 
-function states.parse_ipv4_rest(buf, pinfo, tree, off, depth)
-  depth = depth + 1
-  if depth > 17 then
-    tree:add_proto_expert_info(ef_error, "max depth exceeded")
-    return off
-  end
-  local avail = buf:len() * 8
-  local hdr_ipv4_rest = tree:add(pf.f_hdr_ipv4_rest, buf(math.floor(off / 8)))
-  if off + 4 > avail then
-    hdr_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in ipv4_rest.ihl")
-    return off
-  end
-  v.v_ipv4_rest_ihl = buf():bitfield(off, 4)
-  hdr_ipv4_rest:add(pf.f_ipv4_rest_ihl, buf(math.floor(off / 8), math.floor((off % 8 + 4 + 7) / 8)), v.v_ipv4_rest_ihl)
-  off = off + 4
-  if off + 8 > avail then
-    hdr_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in ipv4_rest.diffserv")
-    return off
-  end
-  hdr_ipv4_rest:add(pf.f_ipv4_rest_diffserv, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), buf():bitfield(off, 8))
-  off = off + 8
-  if off + 16 > avail then
-    hdr_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in ipv4_rest.total_len")
-    return off
-  end
-  hdr_ipv4_rest:add(pf.f_ipv4_rest_total_len, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), buf():bitfield(off, 16))
-  off = off + 16
-  if off + 16 > avail then
-    hdr_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in ipv4_rest.identification")
-    return off
-  end
-  hdr_ipv4_rest:add(pf.f_ipv4_rest_identification, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), buf():bitfield(off, 16))
-  off = off + 16
-  if off + 3 > avail then
-    hdr_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in ipv4_rest.flags")
-    return off
-  end
-  hdr_ipv4_rest:add(pf.f_ipv4_rest_flags, buf(math.floor(off / 8), math.floor((off % 8 + 3 + 7) / 8)), buf():bitfield(off, 3))
-  off = off + 3
-  if off + 13 > avail then
-    hdr_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in ipv4_rest.frag_offset")
-    return off
-  end
-  v.v_ipv4_rest_frag_offset = buf():bitfield(off, 13)
-  hdr_ipv4_rest:add(pf.f_ipv4_rest_frag_offset, buf(math.floor(off / 8), math.floor((off % 8 + 13 + 7) / 8)), v.v_ipv4_rest_frag_offset)
-  off = off + 13
-  if off + 8 > avail then
-    hdr_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in ipv4_rest.ttl")
-    return off
-  end
-  hdr_ipv4_rest:add(pf.f_ipv4_rest_ttl, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), buf():bitfield(off, 8))
-  off = off + 8
-  if off + 8 > avail then
-    hdr_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in ipv4_rest.protocol")
-    return off
-  end
-  v.v_ipv4_rest_protocol = buf():bitfield(off, 8)
-  hdr_ipv4_rest:add(pf.f_ipv4_rest_protocol, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v.v_ipv4_rest_protocol)
-  off = off + 8
-  if off + 16 > avail then
-    hdr_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in ipv4_rest.hdr_checksum")
-    return off
-  end
-  hdr_ipv4_rest:add(pf.f_ipv4_rest_hdr_checksum, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), buf():bitfield(off, 16))
-  off = off + 16
-  if off + 32 > avail then
-    hdr_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in ipv4_rest.src_addr")
-    return off
-  end
-  hdr_ipv4_rest:add(pf.f_ipv4_rest_src_addr, buf(math.floor(off / 8), math.floor((off % 8 + 32 + 7) / 8)), buf():bitfield(off, 32))
-  off = off + 32
-  if off + 32 > avail then
-    hdr_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in ipv4_rest.dst_addr")
-    return off
-  end
-  hdr_ipv4_rest:add(pf.f_ipv4_rest_dst_addr, buf(math.floor(off / 8), math.floor((off % 8 + 32 + 7) / 8)), buf():bitfield(off, 32))
-  off = off + 32
-  local len_ipv4_rest_options = (((v.v_ipv4_rest_ihl * 4) - 20) * 8)
-  if len_ipv4_rest_options < 0 or off + len_ipv4_rest_options > avail then
-    hdr_ipv4_rest:add_proto_expert_info(ef_error, "out of bounds in ipv4_rest.options")
-    return off
-  end
-  if len_ipv4_rest_options > 0 then
-    hdr_ipv4_rest:add(pf.f_ipv4_rest_options, buf(math.floor(off / 8), math.floor(len_ipv4_rest_options / 8)))
-  end
-  off = off + len_ipv4_rest_options
-  if v.v_ipv4_rest_frag_offset == 0 and v.v_ipv4_rest_protocol == 1 then
-    return states.parse_icmp(buf, pinfo, tree, off, depth)
-  elseif v.v_ipv4_rest_frag_offset == 0 and v.v_ipv4_rest_protocol == 6 then
-    return states.parse_tcp(buf, pinfo, tree, off, depth)
-  elseif v.v_ipv4_rest_frag_offset == 0 and v.v_ipv4_rest_protocol == 17 then
-    return states.parse_udp(buf, pinfo, tree, off, depth)
-  elseif v.v_ipv4_rest_frag_offset == 0 and v.v_ipv4_rest_protocol == 47 then
-    return states.parse_gre1(buf, pinfo, tree, off, depth)
-  elseif v.v_ipv4_rest_frag_offset == 0 and v.v_ipv4_rest_protocol == 50 then
-    return states.parse_ipsec_esp(buf, pinfo, tree, off, depth)
-  elseif v.v_ipv4_rest_frag_offset == 0 and v.v_ipv4_rest_protocol == 51 then
-    return states.parse_ipsec_ah(buf, pinfo, tree, off, depth)
-  elseif v.v_ipv4_rest_frag_offset == 0 and v.v_ipv4_rest_protocol == 132 then
-    return states.parse_sctp(buf, pinfo, tree, off, depth)
-  else
-    add_payload(buf, tree, off)
-    return off
-  end
-end
-
 function states.parse_ipv6(buf, pinfo, tree, off, depth)
   depth = depth + 1
   if depth > 17 then
@@ -982,83 +865,6 @@ function states.parse_ipv6(buf, pinfo, tree, off, depth)
   elseif v.v_ipv6_next_hdr == 51 then
     return states.parse_ipsec_ah(buf, pinfo, tree, off, depth)
   elseif v.v_ipv6_next_hdr == 132 then
-    return states.parse_sctp(buf, pinfo, tree, off, depth)
-  else
-    add_payload(buf, tree, off)
-    return off
-  end
-end
-
-function states.parse_ipv6_rest(buf, pinfo, tree, off, depth)
-  depth = depth + 1
-  if depth > 17 then
-    tree:add_proto_expert_info(ef_error, "max depth exceeded")
-    return off
-  end
-  local avail = buf:len() * 8
-  local hdr_ipv6_rest = tree:add(pf.f_hdr_ipv6_rest, buf(math.floor(off / 8)))
-  if off + 8 > avail then
-    hdr_ipv6_rest:add_proto_expert_info(ef_error, "out of bounds in ipv6_rest.traffic_class")
-    return off
-  end
-  hdr_ipv6_rest:add(pf.f_ipv6_rest_traffic_class, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), buf():bitfield(off, 8))
-  off = off + 8
-  if off + 20 > avail then
-    hdr_ipv6_rest:add_proto_expert_info(ef_error, "out of bounds in ipv6_rest.flow_label")
-    return off
-  end
-  hdr_ipv6_rest:add(pf.f_ipv6_rest_flow_label, buf(math.floor(off / 8), math.floor((off % 8 + 20 + 7) / 8)), buf():bitfield(off, 20))
-  off = off + 20
-  if off + 16 > avail then
-    hdr_ipv6_rest:add_proto_expert_info(ef_error, "out of bounds in ipv6_rest.payload_len")
-    return off
-  end
-  hdr_ipv6_rest:add(pf.f_ipv6_rest_payload_len, buf(math.floor(off / 8), math.floor((off % 8 + 16 + 7) / 8)), buf():bitfield(off, 16))
-  off = off + 16
-  if off + 8 > avail then
-    hdr_ipv6_rest:add_proto_expert_info(ef_error, "out of bounds in ipv6_rest.next_hdr")
-    return off
-  end
-  v.v_ipv6_rest_next_hdr = buf():bitfield(off, 8)
-  hdr_ipv6_rest:add(pf.f_ipv6_rest_next_hdr, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v.v_ipv6_rest_next_hdr)
-  off = off + 8
-  if off + 8 > avail then
-    hdr_ipv6_rest:add_proto_expert_info(ef_error, "out of bounds in ipv6_rest.hop_limit")
-    return off
-  end
-  hdr_ipv6_rest:add(pf.f_ipv6_rest_hop_limit, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), buf():bitfield(off, 8))
-  off = off + 8
-  local len_ipv6_rest_src_addr = (16 * 8)
-  if len_ipv6_rest_src_addr < 0 or off + len_ipv6_rest_src_addr > avail then
-    hdr_ipv6_rest:add_proto_expert_info(ef_error, "out of bounds in ipv6_rest.src_addr")
-    return off
-  end
-  if len_ipv6_rest_src_addr > 0 then
-    hdr_ipv6_rest:add(pf.f_ipv6_rest_src_addr, buf(math.floor(off / 8), math.floor(len_ipv6_rest_src_addr / 8)))
-  end
-  off = off + len_ipv6_rest_src_addr
-  local len_ipv6_rest_dst_addr = (16 * 8)
-  if len_ipv6_rest_dst_addr < 0 or off + len_ipv6_rest_dst_addr > avail then
-    hdr_ipv6_rest:add_proto_expert_info(ef_error, "out of bounds in ipv6_rest.dst_addr")
-    return off
-  end
-  if len_ipv6_rest_dst_addr > 0 then
-    hdr_ipv6_rest:add(pf.f_ipv6_rest_dst_addr, buf(math.floor(off / 8), math.floor(len_ipv6_rest_dst_addr / 8)))
-  end
-  off = off + len_ipv6_rest_dst_addr
-  if v.v_ipv6_rest_next_hdr == 58 then
-    return states.parse_icmpv6(buf, pinfo, tree, off, depth)
-  elseif v.v_ipv6_rest_next_hdr == 6 then
-    return states.parse_tcp(buf, pinfo, tree, off, depth)
-  elseif v.v_ipv6_rest_next_hdr == 17 then
-    return states.parse_udp(buf, pinfo, tree, off, depth)
-  elseif v.v_ipv6_rest_next_hdr == 47 then
-    return states.parse_gre1(buf, pinfo, tree, off, depth)
-  elseif v.v_ipv6_rest_next_hdr == 50 then
-    return states.parse_ipsec_esp(buf, pinfo, tree, off, depth)
-  elseif v.v_ipv6_rest_next_hdr == 51 then
-    return states.parse_ipsec_ah(buf, pinfo, tree, off, depth)
-  elseif v.v_ipv6_rest_next_hdr == 132 then
     return states.parse_sctp(buf, pinfo, tree, off, depth)
   else
     add_payload(buf, tree, off)

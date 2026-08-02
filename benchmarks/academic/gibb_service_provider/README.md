@@ -39,10 +39,17 @@ transcribed here; the twin is recorded, not a member.
   `map(bos, next-header)` where `next-header` is a 4-bit
   *pseudo-field*: the next header's first nibble, used in decision
   only, never consumed. Transcribed by splitting the decision — each
-  MPLS state selects on `bos` alone, and on bos=1 the nibble is
-  extracted as its own 4-bit header (`MplsPayloadNibble`), with the
-  IP continuations defined minus their leading 4 bits (`Ipv4Rest`,
-  `Ipv6Rest`). Bit-for-bit the same language, no lookahead construct.
+  MPLS state selects on `bos` alone, and on bos=1 a
+  `lookahead(MplsPayloadNibble)` binds the nibble for its select
+  **without consuming it**, so the continuations extract the real
+  full `Ipv4`/`Ipv6` headers over those same four bits. "Used in
+  decision only" is now literal rather than emulated.
+
+  *Until 2026-08-01 the IR had no lookahead, so the nibble was a
+  consumed 4-bit extract and the continuations were invented headers
+  defined minus their leading nibble (`Ipv4Rest`, `Ipv6Rest`) — the
+  same language, but two header types and two states the source does
+  not have. The `lookahead` primitive removed all four.*
 - **No EoMPLS in this graph.** The source's nibble map has only
   `b10100` (IPv4) and `b10110` (IPv6) — unlike big-union there is no
   EoMPLS arm; any other nibble falls to the default. The source's
@@ -61,15 +68,18 @@ transcribed here; the twin is recorded, not a member.
   — same bits consumed, value-opaque), the house idiom from
   `linux_flow_dissector`.
 - **`max_depth = 9`**: the deepest unrolled path is 8 headers
-  (Ethernet, five MPLS labels, the payload nibble, `Ipv4Rest`), plus
-  one.
+  (Ethernet, five MPLS labels, the peeked payload nibble, `Ipv4`),
+  plus one. The peek costs a state but consumes no bits.
 
 ## Cross-checked against Leapfrog
 
 Cross-checked against Leapfrog's `lib/Benchmarks/ServiceProvider.v`
-(Plain module, 11 states; Table 2: 22 for the pair). Both encodings use
-the same extract-then-branch treatment of the MPLS payload nibble and
-identical ethertype arms; the equal state counts are coincidental,
+(Plain module, 11 states; Table 2: 22 for the pair). Leapfrog, whose
+formalism also lacks a lookahead construct, arrived independently at
+the same extract-then-branch emulation of the MPLS payload nibble that
+this transcription used until 2026-08-01 — two tools converging on the
+same workaround is the clearest evidence the primitive earns its
+place. Ethertype arms are identical; the state counts are coincidental,
 since the compositions differ: Leapfrog encodes the MPLS stack as one
 self-looping state (unbounded, where parser-gen bounds it at `max = 5`;
 we unroll five states), branches on bit 24 of the MPLS header for

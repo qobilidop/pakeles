@@ -7,11 +7,9 @@ digraph "gibb_service_provider" {
   "parse_mpls3" [shape=box, label="parse_mpls3\nextract mpls"];
   "parse_mpls4" [shape=box, label="parse_mpls4\nextract mpls"];
   "parse_mpls5" [shape=box, label="parse_mpls5\nextract mpls", tooltip="Fifth label: the bound is exhausted, so bos=0 (a sixth\nlabel) falls to the default - not a recognized sequence.", href="#"];
-  "parse_mpls_payload" [shape=box, label="parse_mpls_payload\nextract mpls_payload_nibble", tooltip="Bottom of stack: the source's 4-bit pseudo-field, extracted\nhere as a real header. This graph maps only 4/6 (no EoMPLS arm,\nunlike big-union); other nibbles end the sequence.", href="#"];
+  "parse_mpls_payload" [shape=box, label="parse_mpls_payload\nlookahead mpls_payload_nibble", tooltip="Bottom of stack: the source's 4-bit pseudo-field, extracted\nhere as a real header. This graph maps only 4/6 (no EoMPLS arm,\nunlike big-union); other nibbles end the sequence.", href="#"];
   "parse_ipv4" [shape=box, label="parse_ipv4\nextract ipv4", tooltip="Terminal - this graph has no L4 dispatch.", href="#"];
   "parse_ipv6" [shape=box, label="parse_ipv6\nextract ipv6"];
-  "parse_ipv4_rest" [shape=box, label="parse_ipv4_rest\nextract ipv4_rest"];
-  "parse_ipv6_rest" [shape=box, label="parse_ipv6_rest\nextract ipv6_rest"];
   "accept" [shape=doublecircle];
   "parse_ethernet" -> "parse_mpls1" [label="ethernet.ether_type == 0x8847"];
   "parse_ethernet" -> "parse_mpls1" [label="ethernet.ether_type == 0x8848"];
@@ -32,11 +30,9 @@ digraph "gibb_service_provider" {
   "parse_mpls4" -> "accept" [label="default", style=dashed];
   "parse_mpls5" -> "parse_mpls_payload" [label="mpls.bos == 0x1"];
   "parse_mpls5" -> "accept" [label="default", style=dashed];
-  "parse_mpls_payload" -> "parse_ipv4_rest" [label="mpls_payload_nibble.v == 0x4"];
-  "parse_mpls_payload" -> "parse_ipv6_rest" [label="mpls_payload_nibble.v == 0x6"];
+  "parse_mpls_payload" -> "parse_ipv4" [label="mpls_payload_nibble.v == 0x4"];
+  "parse_mpls_payload" -> "parse_ipv6" [label="mpls_payload_nibble.v == 0x6"];
   "parse_mpls_payload" -> "accept" [label="default", style=dashed];
   "parse_ipv4" -> "accept";
   "parse_ipv6" -> "accept";
-  "parse_ipv4_rest" -> "accept";
-  "parse_ipv6_rest" -> "accept";
 }

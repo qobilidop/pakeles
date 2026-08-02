@@ -14,7 +14,7 @@ these graphs classify, they do not validate); bounded repetition
 (VLAN <= 2 combined, MPLS <= 5, GRE <= 3) is unrolled into states;
 IPv4/TCP options are `var_bytes(len*4 - 20)`; the source's MPLS
 (bos, pseudo-field) lookahead becomes a bos select plus a 4-bit
-nibble header with `*Rest` continuations (see gibb_service_provider).
+nibble peeked with `lookahead()` (see gibb_service_provider).
 """
 
 from pakeles import (
@@ -27,6 +27,7 @@ from pakeles import (
     accept,
     bits,
     extract,
+    lookahead,
     oneof,
     var_bytes,
 )
@@ -144,10 +145,12 @@ class MplsPayloadNibble(Header):
     v = bits(4, "Version Nibble", DEC, labels=PayloadNibble)
 
 
-class EomplsRest(Header):
-    """The source's `eompls` control word minus its leading zero
-    nibble (already consumed as `MplsPayloadNibble`)."""
+class Eompls(Header):
+    """The source's `eompls` control word. Its leading zero nibble is
+    what the lookahead peeked (peeks consume nothing), so it is
+    extracted here in full."""
 
+    zero = bits(4, "Zero")
     reserved = bits(12, "Reserved")
     seq_no = bits(16, "Sequence Number", DEC)
 
@@ -168,39 +171,8 @@ class Ipv4(Header):
     options = var_bytes(ihl * 4 - 20)
 
 
-class Ipv4Rest(Header):
-    """IPv4 minus its leading version nibble (already consumed as
-    `MplsPayloadNibble` on the MPLS path)."""
-
-    ihl = bits(4, "IHL", DEC)
-    diffserv = bits(8, "DiffServ", HEX)
-    total_len = bits(16, "Total Length", DEC)
-    identification = bits(16, "Identification", HEX)
-    flags = bits(3, "Flags")
-    frag_offset = bits(13, "Fragment Offset", DEC)
-    ttl = bits(8, "TTL", DEC)
-    protocol = bits(8, "Protocol", DEC, labels=IpProto)
-    hdr_checksum = bits(16, "Header Checksum", HEX)
-    src_addr = bits(32, "Source", HEX)
-    dst_addr = bits(32, "Destination", HEX)
-    options = var_bytes(ihl * 4 - 20)
-
-
 class Ipv6(Header):
     version = bits(4, "Version")
-    traffic_class = bits(8, "Traffic Class", HEX)
-    flow_label = bits(20, "Flow Label", HEX)
-    payload_len = bits(16, "Payload Length", DEC)
-    next_hdr = bits(8, "Next Header", DEC, labels=IpProto)
-    hop_limit = bits(8, "Hop Limit", DEC)
-    # 128-bit addresses exceed the fixed-`bits` ceiling: opaque 16-byte runs.
-    src_addr = var_bytes(16)
-    dst_addr = var_bytes(16)
-
-
-class Ipv6Rest(Header):
-    """IPv6 minus its leading version nibble (see `Ipv4Rest`)."""
-
     traffic_class = bits(8, "Traffic Class", HEX)
     flow_label = bits(20, "Flow Label", HEX)
     payload_len = bits(16, "Payload Length", DEC)
@@ -435,18 +407,18 @@ class GibbBigUnion(Parser):
     def parse_mpls_payload(self) -> State:
         """Bottom of stack: the source's 4-bit pseudo-field, extracted
         here as a real header (see the module docstring)."""
-        return extract(MplsPayloadNibble).select(
+        return lookahead(MplsPayloadNibble).select(
             MplsPayloadNibble.v,
             {
                 PayloadNibble.EOMPLS: self.parse_eompls,
-                PayloadNibble.IPV4: self.parse_ipv4_rest,
-                PayloadNibble.IPV6: self.parse_ipv6_rest,
+                PayloadNibble.IPV4: self.parse_ipv4,
+                PayloadNibble.IPV6: self.parse_ipv6,
             },
             default=accept(),
         )
 
     def parse_eompls(self) -> State:
-        return extract(EomplsRest).then(self.parse_ethernet2)
+        return extract(Eompls).then(self.parse_ethernet2)
 
     def parse_ipv4(self) -> State:
         return extract(Ipv4).select(
@@ -455,23 +427,9 @@ class GibbBigUnion(Parser):
             default=accept(),
         )
 
-    def parse_ipv4_rest(self) -> State:
-        return extract(Ipv4Rest).select(
-            (Ipv4Rest.frag_offset, Ipv4Rest.protocol),
-            self._ipv4_arms(),
-            default=accept(),
-        )
-
     def parse_ipv6(self) -> State:
         return extract(Ipv6).select(
             Ipv6.next_hdr,
-            self._ipv6_arms(),
-            default=accept(),
-        )
-
-    def parse_ipv6_rest(self) -> State:
-        return extract(Ipv6Rest).select(
-            Ipv6Rest.next_hdr,
             self._ipv6_arms(),
             default=accept(),
         )

@@ -286,155 +286,6 @@
         ]
       },
       {
-        "name": "ipv4_rest",
-        "fields": [
-          {
-            "name": "ihl",
-            "width": {
-              "bits": 4
-            },
-            "display": {
-              "name": "IHL",
-              "format": "DISPLAY_FORMAT_DEC"
-            }
-          },
-          {
-            "name": "diffserv",
-            "width": {
-              "bits": 8
-            },
-            "display": {
-              "name": "DiffServ",
-              "format": "DISPLAY_FORMAT_HEX"
-            }
-          },
-          {
-            "name": "total_len",
-            "width": {
-              "bits": 16
-            },
-            "display": {
-              "name": "Total Length",
-              "format": "DISPLAY_FORMAT_DEC"
-            }
-          },
-          {
-            "name": "identification",
-            "width": {
-              "bits": 16
-            },
-            "display": {
-              "name": "Identification",
-              "format": "DISPLAY_FORMAT_HEX"
-            }
-          },
-          {
-            "name": "flags",
-            "width": {
-              "bits": 3
-            },
-            "display": {
-              "name": "Flags"
-            }
-          },
-          {
-            "name": "frag_offset",
-            "width": {
-              "bits": 13
-            },
-            "display": {
-              "name": "Fragment Offset",
-              "format": "DISPLAY_FORMAT_DEC"
-            }
-          },
-          {
-            "name": "ttl",
-            "width": {
-              "bits": 8
-            },
-            "display": {
-              "name": "TTL",
-              "format": "DISPLAY_FORMAT_DEC"
-            }
-          },
-          {
-            "name": "protocol",
-            "width": {
-              "bits": 8
-            },
-            "display": {
-              "name": "Protocol",
-              "format": "DISPLAY_FORMAT_DEC"
-            }
-          },
-          {
-            "name": "hdr_checksum",
-            "width": {
-              "bits": 16
-            },
-            "display": {
-              "name": "Header Checksum",
-              "format": "DISPLAY_FORMAT_HEX"
-            }
-          },
-          {
-            "name": "src_addr",
-            "width": {
-              "bits": 32
-            },
-            "display": {
-              "name": "Source",
-              "format": "DISPLAY_FORMAT_HEX"
-            }
-          },
-          {
-            "name": "dst_addr",
-            "width": {
-              "bits": 32
-            },
-            "display": {
-              "name": "Destination",
-              "format": "DISPLAY_FORMAT_HEX"
-            }
-          },
-          {
-            "name": "options",
-            "width": {
-              "bitLen": {
-                "bin": {
-                  "op": "BIN_OP_KIND_MUL",
-                  "lhs": {
-                    "bin": {
-                      "op": "BIN_OP_KIND_SUB",
-                      "lhs": {
-                        "bin": {
-                          "op": "BIN_OP_KIND_MUL",
-                          "lhs": {
-                            "field": {
-                              "header": "ipv4_rest",
-                              "field": "ihl"
-                            }
-                          },
-                          "rhs": {
-                            "constant": "4"
-                          }
-                        }
-                      },
-                      "rhs": {
-                        "constant": "20"
-                      }
-                    }
-                  },
-                  "rhs": {
-                    "constant": "8"
-                  }
-                }
-              }
-            }
-          }
-        ]
-      },
-      {
         "name": "ipv6",
         "fields": [
           {
@@ -531,95 +382,17 @@
         ]
       },
       {
-        "name": "ipv6_rest",
+        "name": "eompls",
         "fields": [
           {
-            "name": "traffic_class",
+            "name": "zero",
             "width": {
-              "bits": 8
+              "bits": 4
             },
             "display": {
-              "name": "Traffic Class",
-              "format": "DISPLAY_FORMAT_HEX"
+              "name": "Zero"
             }
           },
-          {
-            "name": "flow_label",
-            "width": {
-              "bits": 20
-            },
-            "display": {
-              "name": "Flow Label",
-              "format": "DISPLAY_FORMAT_HEX"
-            }
-          },
-          {
-            "name": "payload_len",
-            "width": {
-              "bits": 16
-            },
-            "display": {
-              "name": "Payload Length",
-              "format": "DISPLAY_FORMAT_DEC"
-            }
-          },
-          {
-            "name": "next_hdr",
-            "width": {
-              "bits": 8
-            },
-            "display": {
-              "name": "Next Header",
-              "format": "DISPLAY_FORMAT_DEC"
-            }
-          },
-          {
-            "name": "hop_limit",
-            "width": {
-              "bits": 8
-            },
-            "display": {
-              "name": "Hop Limit",
-              "format": "DISPLAY_FORMAT_DEC"
-            }
-          },
-          {
-            "name": "src_addr",
-            "width": {
-              "bitLen": {
-                "bin": {
-                  "op": "BIN_OP_KIND_MUL",
-                  "lhs": {
-                    "constant": "16"
-                  },
-                  "rhs": {
-                    "constant": "8"
-                  }
-                }
-              }
-            }
-          },
-          {
-            "name": "dst_addr",
-            "width": {
-              "bitLen": {
-                "bin": {
-                  "op": "BIN_OP_KIND_MUL",
-                  "lhs": {
-                    "constant": "16"
-                  },
-                  "rhs": {
-                    "constant": "8"
-                  }
-                }
-              }
-            }
-          }
-        ]
-      },
-      {
-        "name": "eompls_rest",
-        "fields": [
           {
             "name": "reserved",
             "width": {
@@ -798,7 +571,8 @@
         "name": "parse_payload_nibble",
         "extracts": [
           {
-            "headerType": "mpls_payload_nibble"
+            "headerType": "mpls_payload_nibble",
+            "lookahead": true
           }
         ],
         "transition": {
@@ -819,7 +593,7 @@
                   }
                 ],
                 "next": {
-                  "state": "parse_eompls_rest"
+                  "state": "parse_eompls"
                 }
               },
               {
@@ -829,7 +603,7 @@
                   }
                 ],
                 "next": {
-                  "state": "parse_ipv4_rest"
+                  "state": "parse_ipv4"
                 }
               },
               {
@@ -839,7 +613,7 @@
                   }
                 ],
                 "next": {
-                  "state": "parse_ipv6_rest"
+                  "state": "parse_ipv6"
                 }
               }
             ],
@@ -849,7 +623,7 @@
           }
         },
         "annotations": {
-          "doc": "One shared state for both MPLS depths: extract the first\nnibble of the payload, then continue with the matching\n`*Rest` header (b10000/b10100/b10110 in the source's map)."
+          "doc": "One shared state for both MPLS depths: peek the payload's\nfirst nibble, then continue with the matching full header\n(b10000/b10100/b10110 in the source's map)."
         }
       },
       {
@@ -857,19 +631,6 @@
         "extracts": [
           {
             "headerType": "ipv4"
-          }
-        ],
-        "transition": {
-          "direct": {
-            "accept": {}
-          }
-        }
-      },
-      {
-        "name": "parse_ipv4_rest",
-        "extracts": [
-          {
-            "headerType": "ipv4_rest"
           }
         ],
         "transition": {
@@ -892,23 +653,10 @@
         }
       },
       {
-        "name": "parse_ipv6_rest",
+        "name": "parse_eompls",
         "extracts": [
           {
-            "headerType": "ipv6_rest"
-          }
-        ],
-        "transition": {
-          "direct": {
-            "accept": {}
-          }
-        }
-      },
-      {
-        "name": "parse_eompls_rest",
-        "extracts": [
-          {
-            "headerType": "eompls_rest"
+            "headerType": "eompls"
           }
         ],
         "transition": {

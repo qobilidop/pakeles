@@ -60,14 +60,16 @@ successor sets.
 - **MPLS mechanism borrowed from the Gibb suite.** The prose gives
   no mechanism for MPLS's successor, only the set {Ethernet, IPv4,
   IPv6}. Borrowed: each label state selects on `bos`; at bottom of
-  stack a 4-bit `MplsPayloadNibble` header dispatches 0 → inner
-  Ethernet, 4 → `Ipv4Rest`, 6 → `Ipv6Rest` (IP continuations minus
-  their leading nibble). Unlike Gibb there is no EoMPLS control word
-  in this tree: the nibble-0 arm proceeds directly to a full inner
-  Ethernet after the 4-bit discriminator, so the discriminator
-  occupies the four bits ahead of the inner frame — an artifact of
-  the borrowed mechanism, recorded here. The inner Ethernet is
-  terminal (the prose gives it no successors).
+  stack a `lookahead(MplsPayloadNibble)` peeks the discriminator and
+  dispatches 0 → inner Ethernet, 4 → `Ipv4`, 6 → `Ipv6`. Unlike Gibb
+  there is no EoMPLS control word in this tree, and since 2026-08-01
+  that costs nothing: the peek consumes no bits, so the inner
+  Ethernet begins exactly at the payload. *The previous encoding
+  consumed the nibble, which meant the discriminator occupied the
+  four bits ahead of the inner frame — a recorded artifact of the
+  borrowed mechanism that the `lookahead` primitive removed outright,
+  along with the `Ipv4Rest`/`Ipv6Rest` continuations.* The inner
+  Ethernet is terminal (the prose gives it no successors).
 - **IPv4 dispatches on protocol alone.** The prose never mentions
   fragments, so no `(fragOffset, protocol)` concatenation (differs
   from the Gibb graphs). The "second IPv4 header" is IP-in-IP,
@@ -98,5 +100,6 @@ successor sets.
   consumed, value-opaque), the house idiom from
   `linux_flow_dissector`.
 - **`max_depth = 13`**: the deepest path is 12 headers — Ethernet,
-  two 802.1Q tags, four MPLS labels, the payload nibble, `Ipv4Rest`,
-  GRE, an inner IP header, one L4 header — plus one.
+  two 802.1Q tags, four MPLS labels, the peeked payload nibble,
+  `Ipv4`, GRE, an inner IP header, one L4 header — plus one. The peek
+  costs a state but consumes no bits.

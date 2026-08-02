@@ -40,9 +40,11 @@ header mpls_s0_t {
 
 header mpls_payload_nibble_s0_t {
     bit<4> v;
+    bit<4> _pk_pad;
 }
 
-header eompls_rest_s0_t {
+header eompls_s0_t {
+    bit<4> zero;
     bit<12> reserved;
     bit<16> seq_no;
 }
@@ -66,24 +68,6 @@ header ipv4_v1_t {
     varbit<320> options;
 }
 
-header ipv4_rest_s0_t {
-    bit<4> ihl;
-    bit<8> diffserv;
-    bit<16> total_len;
-    bit<16> identification;
-    bit<3> flags;
-    bit<13> frag_offset;
-    bit<8> ttl;
-    bit<8> protocol;
-    bit<16> hdr_checksum;
-    bit<32> src_addr;
-    bit<32> dst_addr;
-}
-
-header ipv4_rest_v1_t {
-    varbit<320> options;
-}
-
 header ipv6_s0_t {
     bit<4> version;
     bit<8> traffic_class;
@@ -98,22 +82,6 @@ header ipv6_v1_t {
 }
 
 header ipv6_v2_t {
-    varbit<128> dst_addr;
-}
-
-header ipv6_rest_s0_t {
-    bit<8> traffic_class;
-    bit<20> flow_label;
-    bit<16> payload_len;
-    bit<8> next_hdr;
-    bit<8> hop_limit;
-}
-
-header ipv6_rest_v1_t {
-    varbit<128> src_addr;
-}
-
-header ipv6_rest_v2_t {
     varbit<128> dst_addr;
 }
 
@@ -232,17 +200,12 @@ struct headers {
     ieee8021_ah_s0_t ieee8021_ah_s0;
     mpls_s0_t[17] mpls_s0;
     mpls_payload_nibble_s0_t mpls_payload_nibble_s0;
-    eompls_rest_s0_t eompls_rest_s0;
+    eompls_s0_t eompls_s0;
     ipv4_s0_t ipv4_s0;
     ipv4_v1_t ipv4_v1;
-    ipv4_rest_s0_t ipv4_rest_s0;
-    ipv4_rest_v1_t ipv4_rest_v1;
     ipv6_s0_t ipv6_s0;
     ipv6_v1_t ipv6_v1;
     ipv6_v2_t ipv6_v2;
-    ipv6_rest_s0_t ipv6_rest_s0;
-    ipv6_rest_v1_t ipv6_rest_v1;
-    ipv6_rest_v2_t ipv6_rest_v2;
     icmp_s0_t icmp_s0;
     icmpv6_s0_t icmpv6_s0;
     tcp_s0_t tcp_s0;
@@ -367,16 +330,19 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
         }
     }
     state st_parse_mpls_payload {
-        pkt.extract(hdr.mpls_payload_nibble_s0);
+        bit<4> pk_la_mpls_payload_nibble = pkt.lookahead<bit<4>>();
+        hdr.mpls_payload_nibble_s0.setValid();
+        hdr.mpls_payload_nibble_s0.v = pk_la_mpls_payload_nibble[3:0];
+        hdr.mpls_payload_nibble_s0._pk_pad = 0;
         transition select((bit<64>)hdr.mpls_payload_nibble_s0.v) {
             64w0: st_parse_eompls;
-            64w4: st_parse_ipv4_rest;
-            64w6: st_parse_ipv6_rest;
+            64w4: st_parse_ipv4;
+            64w6: st_parse_ipv6;
             default: accept;
         }
     }
     state st_parse_eompls {
-        pkt.extract(hdr.eompls_rest_s0);
+        pkt.extract(hdr.eompls_s0);
         transition st_parse_ethernet2;
     }
     state st_parse_ipv4 {
@@ -393,40 +359,11 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
             default: accept;
         }
     }
-    state st_parse_ipv4_rest {
-        pkt.extract(hdr.ipv4_rest_s0);
-        pkt.extract(hdr.ipv4_rest_v1, (bit<32>)((((bit<64>)hdr.ipv4_rest_s0.ihl * 64w4) - 64w20) * 64w8));
-        transition select((bit<64>)hdr.ipv4_rest_s0.frag_offset, (bit<64>)hdr.ipv4_rest_s0.protocol) {
-            (64w0, 64w1): st_parse_icmp;
-            (64w0, 64w6): st_parse_tcp;
-            (64w0, 64w17): st_parse_udp;
-            (64w0, 64w47): st_parse_gre1;
-            (64w0, 64w50): st_parse_ipsec_esp;
-            (64w0, 64w51): st_parse_ipsec_ah;
-            (64w0, 64w132): st_parse_sctp;
-            default: accept;
-        }
-    }
     state st_parse_ipv6 {
         pkt.extract(hdr.ipv6_s0);
         pkt.extract(hdr.ipv6_v1, (bit<32>)(64w16 * 64w8));
         pkt.extract(hdr.ipv6_v2, (bit<32>)(64w16 * 64w8));
         transition select((bit<64>)hdr.ipv6_s0.next_hdr) {
-            64w58: st_parse_icmpv6;
-            64w6: st_parse_tcp;
-            64w17: st_parse_udp;
-            64w47: st_parse_gre1;
-            64w50: st_parse_ipsec_esp;
-            64w51: st_parse_ipsec_ah;
-            64w132: st_parse_sctp;
-            default: accept;
-        }
-    }
-    state st_parse_ipv6_rest {
-        pkt.extract(hdr.ipv6_rest_s0);
-        pkt.extract(hdr.ipv6_rest_v1, (bit<32>)(64w16 * 64w8));
-        pkt.extract(hdr.ipv6_rest_v2, (bit<32>)(64w16 * 64w8));
-        transition select((bit<64>)hdr.ipv6_rest_s0.next_hdr) {
             64w58: st_parse_icmpv6;
             64w6: st_parse_tcp;
             64w17: st_parse_udp;
@@ -540,24 +477,22 @@ control PkIngress(inout headers hdr, inout metadata meta,
         if (hdr.ieee8021_ah_s0.isValid()) { bm = bm | 32w8; }
         if (hdr.mpls_s0[0].isValid()) { bm = bm | 32w16; }
         if (hdr.mpls_payload_nibble_s0.isValid()) { bm = bm | 32w32; }
-        if (hdr.eompls_rest_s0.isValid()) { bm = bm | 32w64; }
+        if (hdr.eompls_s0.isValid()) { bm = bm | 32w64; }
         if (hdr.ipv4_v1.isValid()) { bm = bm | 32w128; }
-        if (hdr.ipv4_rest_v1.isValid()) { bm = bm | 32w256; }
-        if (hdr.ipv6_v2.isValid()) { bm = bm | 32w512; }
-        if (hdr.ipv6_rest_v2.isValid()) { bm = bm | 32w1024; }
-        if (hdr.icmp_s0.isValid()) { bm = bm | 32w2048; }
-        if (hdr.icmpv6_s0.isValid()) { bm = bm | 32w4096; }
-        if (hdr.tcp_v1.isValid()) { bm = bm | 32w8192; }
-        if (hdr.udp_s0.isValid()) { bm = bm | 32w16384; }
-        if (hdr.vxlan_s0.isValid()) { bm = bm | 32w32768; }
-        if (hdr.sctp_s0.isValid()) { bm = bm | 32w65536; }
-        if (hdr.gre_s0[0].isValid()) { bm = bm | 32w131072; }
-        if (hdr.nv_gre_inner_s0.isValid()) { bm = bm | 32w262144; }
-        if (hdr.ipsec_esp_s0.isValid()) { bm = bm | 32w524288; }
-        if (hdr.ipsec_ah_s0.isValid()) { bm = bm | 32w1048576; }
-        if (hdr.arp_rarp_s0.isValid()) { bm = bm | 32w2097152; }
-        if (hdr.arp_rarp_ipv4_s0.isValid()) { bm = bm | 32w4194304; }
-        if (hdr.ethernet2_s0.isValid()) { bm = bm | 32w8388608; }
+        if (hdr.ipv6_v2.isValid()) { bm = bm | 32w256; }
+        if (hdr.icmp_s0.isValid()) { bm = bm | 32w512; }
+        if (hdr.icmpv6_s0.isValid()) { bm = bm | 32w1024; }
+        if (hdr.tcp_v1.isValid()) { bm = bm | 32w2048; }
+        if (hdr.udp_s0.isValid()) { bm = bm | 32w4096; }
+        if (hdr.vxlan_s0.isValid()) { bm = bm | 32w8192; }
+        if (hdr.sctp_s0.isValid()) { bm = bm | 32w16384; }
+        if (hdr.gre_s0[0].isValid()) { bm = bm | 32w32768; }
+        if (hdr.nv_gre_inner_s0.isValid()) { bm = bm | 32w65536; }
+        if (hdr.ipsec_esp_s0.isValid()) { bm = bm | 32w131072; }
+        if (hdr.ipsec_ah_s0.isValid()) { bm = bm | 32w262144; }
+        if (hdr.arp_rarp_s0.isValid()) { bm = bm | 32w524288; }
+        if (hdr.arp_rarp_ipv4_s0.isValid()) { bm = bm | 32w1048576; }
+        if (hdr.ethernet2_s0.isValid()) { bm = bm | 32w2097152; }
         hdr.verdict.bitmap = bm;
         bit<8> err = 8w255;
         if (smeta.parser_error == error.NoError) { err = 8w0; }

@@ -25,6 +25,7 @@ from pakeles import (
     accept,
     bits,
     extract,
+    lookahead,
     oneof,
     var_bytes,
 )
@@ -64,9 +65,10 @@ class Mpls(Header):
 
 
 class MplsPayloadNibble(Header):
-    """The source's decision-only pseudo-field, carried as a real
-    4-bit header; the `*Rest` continuations below are defined minus
-    these four bits, so the split is bit-for-bit faithful."""
+    """The source's decision-only pseudo-field, peeked with
+    `lookahead()`: bound for the select without being consumed, so
+    the continuations extract their real full headers over the same
+    four bits — "decision only" verbatim."""
 
     v = bits(4, "First Nibble", DEC, labels=PayloadNibble)
 
@@ -76,24 +78,6 @@ class Ipv4(Header):
     Terminal: this graph has no IP `next_header` map at all."""
 
     version = bits(4, "Version")
-    ihl = bits(4, "IHL", DEC)
-    diffserv = bits(8, "DiffServ", HEX)
-    total_len = bits(16, "Total Length", DEC)
-    identification = bits(16, "Identification", HEX)
-    flags = bits(3, "Flags")
-    frag_offset = bits(13, "Fragment Offset", DEC)
-    ttl = bits(8, "TTL", DEC)
-    protocol = bits(8, "Protocol", DEC)
-    hdr_checksum = bits(16, "Header Checksum", HEX)
-    src_addr = bits(32, "Source", HEX)
-    dst_addr = bits(32, "Destination", HEX)
-    options = var_bytes(ihl * 4 - 20)
-
-
-class Ipv4Rest(Header):
-    """`Ipv4` minus its leading 4-bit version field, which the
-    nibble state has already consumed."""
-
     ihl = bits(4, "IHL", DEC)
     diffserv = bits(8, "DiffServ", HEX)
     total_len = bits(16, "Total Length", DEC)
@@ -123,24 +107,12 @@ class Ipv6(Header):
     dst_addr = var_bytes(16)
 
 
-class Ipv6Rest(Header):
-    """`Ipv6` minus its leading 4-bit version field, which the
-    nibble state has already consumed."""
+class Eompls(Header):
+    """The source's `eompls` control word. Its leading `zero` nibble
+    is what the lookahead peeked (peeks consume nothing), so it is
+    extracted here in full."""
 
-    traffic_class = bits(8, "Traffic Class", HEX)
-    flow_label = bits(20, "Flow Label", HEX)
-    payload_len = bits(16, "Payload Length", DEC)
-    next_hdr = bits(8, "Next Header", DEC)
-    hop_limit = bits(8, "Hop Limit", DEC)
-    # 128-bit addresses exceed the fixed-`bits` ceiling: opaque 16-byte runs.
-    src_addr = var_bytes(16)
-    dst_addr = var_bytes(16)
-
-
-class EomplsRest(Header):
-    """The source's `eompls` control word minus its leading `zero`
-    nibble, which the nibble state has already consumed."""
-
+    zero = bits(4, "Zero")
     reserved = bits(12, "Reserved")
     seq_no = bits(16, "Sequence Number", DEC)
 
@@ -185,15 +157,15 @@ class GibbEdge(Parser):
         )
 
     def parse_payload_nibble(self) -> State:
-        """One shared state for both MPLS depths: extract the first
-        nibble of the payload, then continue with the matching
-        `*Rest` header (b10000/b10100/b10110 in the source's map)."""
-        return extract(MplsPayloadNibble).select(
+        """One shared state for both MPLS depths: peek the payload's
+        first nibble, then continue with the matching full header
+        (b10000/b10100/b10110 in the source's map)."""
+        return lookahead(MplsPayloadNibble).select(
             MplsPayloadNibble.v,
             {
-                PayloadNibble.EOMPLS: self.parse_eompls_rest,
-                PayloadNibble.IPV4: self.parse_ipv4_rest,
-                PayloadNibble.IPV6: self.parse_ipv6_rest,
+                PayloadNibble.EOMPLS: self.parse_eompls,
+                PayloadNibble.IPV4: self.parse_ipv4,
+                PayloadNibble.IPV6: self.parse_ipv6,
             },
             default=accept(),
         )
@@ -201,17 +173,11 @@ class GibbEdge(Parser):
     def parse_ipv4(self) -> State:
         return extract(Ipv4).accept()
 
-    def parse_ipv4_rest(self) -> State:
-        return extract(Ipv4Rest).accept()
-
     def parse_ipv6(self) -> State:
         return extract(Ipv6).accept()
 
-    def parse_ipv6_rest(self) -> State:
-        return extract(Ipv6Rest).accept()
-
-    def parse_eompls_rest(self) -> State:
-        return extract(EomplsRest).then(self.parse_ethernet2)
+    def parse_eompls(self) -> State:
+        return extract(Eompls).then(self.parse_ethernet2)
 
     def parse_ethernet2(self) -> State:
         """The source's `ethernet2`: the inner (pseudo-wire) Ethernet

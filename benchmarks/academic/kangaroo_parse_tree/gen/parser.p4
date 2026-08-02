@@ -34,6 +34,7 @@ header mpls_s0_t {
 
 header mpls_payload_nibble_s0_t {
     bit<4> v;
+    bit<4> _pk_pad;
 }
 
 header ethernet2_s0_t {
@@ -61,24 +62,6 @@ header ipv4_v1_t {
     varbit<320> options;
 }
 
-header ipv4_rest_s0_t {
-    bit<4> ihl;
-    bit<8> diffserv;
-    bit<16> total_len;
-    bit<16> identification;
-    bit<3> flags;
-    bit<13> frag_offset;
-    bit<8> ttl;
-    bit<8> protocol;
-    bit<16> hdr_checksum;
-    bit<32> src_addr;
-    bit<32> dst_addr;
-}
-
-header ipv4_rest_v1_t {
-    varbit<320> options;
-}
-
 header ipv6_s0_t {
     bit<4> version;
     bit<8> traffic_class;
@@ -93,22 +76,6 @@ header ipv6_v1_t {
 }
 
 header ipv6_v2_t {
-    varbit<128> dst_addr;
-}
-
-header ipv6_rest_s0_t {
-    bit<8> traffic_class;
-    bit<20> flow_label;
-    bit<16> payload_len;
-    bit<8> next_hdr;
-    bit<8> hop_limit;
-}
-
-header ipv6_rest_v1_t {
-    varbit<128> src_addr;
-}
-
-header ipv6_rest_v2_t {
     varbit<128> dst_addr;
 }
 
@@ -188,7 +155,7 @@ header arp_rarp_s0_t {
 }
 
 header verdict_t {
-    bit<32> bitmap;
+    bit<16> bitmap;
     bit<8> err;
 }
 
@@ -202,14 +169,9 @@ struct headers {
     ethernet2_s0_t ethernet2_s0;
     ipv4_s0_t[13] ipv4_s0;
     ipv4_v1_t[13] ipv4_v1;
-    ipv4_rest_s0_t ipv4_rest_s0;
-    ipv4_rest_v1_t ipv4_rest_v1;
     ipv6_s0_t[13] ipv6_s0;
     ipv6_v1_t[13] ipv6_v1;
     ipv6_v2_t[13] ipv6_v2;
-    ipv6_rest_s0_t ipv6_rest_s0;
-    ipv6_rest_v1_t ipv6_rest_v1;
-    ipv6_rest_v2_t ipv6_rest_v2;
     ipv6_ext_hdr_s0_t ipv6_ext_hdr_s0;
     ipv6_ext_hdr_v1_t ipv6_ext_hdr_v1;
     gre_s0_t gre_s0;
@@ -353,11 +315,14 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
         }
     }
     state st_parse_mpls_payload {
-        pkt.extract(hdr.mpls_payload_nibble_s0);
+        bit<4> pk_la_mpls_payload_nibble = pkt.lookahead<bit<4>>();
+        hdr.mpls_payload_nibble_s0.setValid();
+        hdr.mpls_payload_nibble_s0.v = pk_la_mpls_payload_nibble[3:0];
+        hdr.mpls_payload_nibble_s0._pk_pad = 0;
         transition select((bit<64>)hdr.mpls_payload_nibble_s0.v) {
             64w0: st_parse_ethernet2;
-            64w4: st_parse_ipv4_rest;
-            64w6: st_parse_ipv6_rest;
+            64w4: st_parse_ipv4;
+            64w6: st_parse_ipv6;
             default: accept;
         }
     }
@@ -378,39 +343,11 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
             default: accept;
         }
     }
-    state st_parse_ipv4_rest {
-        pkt.extract(hdr.ipv4_rest_s0);
-        pkt.extract(hdr.ipv4_rest_v1, (bit<32>)((((bit<64>)hdr.ipv4_rest_s0.ihl * 64w4) - 64w20) * 64w8));
-        transition select((bit<64>)hdr.ipv4_rest_s0.protocol) {
-            64w1: st_parse_icmp;
-            64w4: st_parse_ipv4_inner;
-            64w6: st_parse_tcp;
-            64w17: st_parse_udp;
-            64w47: st_parse_gre;
-            64w50: st_parse_ipsec_esp;
-            default: accept;
-        }
-    }
     state st_parse_ipv6 {
         pkt.extract(hdr.ipv6_s0.next);
         pkt.extract(hdr.ipv6_v1.next, (bit<32>)(64w16 * 64w8));
         pkt.extract(hdr.ipv6_v2.next, (bit<32>)(64w16 * 64w8));
         transition select((bit<64>)hdr.ipv6_s0.last.next_hdr) {
-            64w0: st_parse_ipv6_ext;
-            64w1: st_parse_icmp;
-            64w4: st_parse_ipv4_inner;
-            64w6: st_parse_tcp;
-            64w17: st_parse_udp;
-            64w47: st_parse_gre;
-            64w50: st_parse_ipsec_esp;
-            default: accept;
-        }
-    }
-    state st_parse_ipv6_rest {
-        pkt.extract(hdr.ipv6_rest_s0);
-        pkt.extract(hdr.ipv6_rest_v1, (bit<32>)(64w16 * 64w8));
-        pkt.extract(hdr.ipv6_rest_v2, (bit<32>)(64w16 * 64w8));
-        transition select((bit<64>)hdr.ipv6_rest_s0.next_hdr) {
             64w0: st_parse_ipv6_ext;
             64w1: st_parse_icmp;
             64w4: st_parse_ipv4_inner;
@@ -499,25 +436,23 @@ control PkIngress(inout headers hdr, inout metadata meta,
                   inout standard_metadata_t smeta) {
     apply {
         hdr.verdict.setValid();
-        bit<32> bm = 32w0;
-        if (hdr.ethernet_s0.isValid()) { bm = bm | 32w1; }
-        if (hdr.shim_tag_s0[0].isValid()) { bm = bm | 32w2; }
-        if (hdr.ieee8021_ah_s0.isValid()) { bm = bm | 32w4; }
-        if (hdr.mpls_s0[0].isValid()) { bm = bm | 32w8; }
-        if (hdr.mpls_payload_nibble_s0.isValid()) { bm = bm | 32w16; }
-        if (hdr.ethernet2_s0.isValid()) { bm = bm | 32w32; }
-        if (hdr.ipv4_v1[0].isValid()) { bm = bm | 32w64; }
-        if (hdr.ipv4_rest_v1.isValid()) { bm = bm | 32w128; }
-        if (hdr.ipv6_v2[0].isValid()) { bm = bm | 32w256; }
-        if (hdr.ipv6_rest_v2.isValid()) { bm = bm | 32w512; }
-        if (hdr.ipv6_ext_hdr_v1.isValid()) { bm = bm | 32w1024; }
-        if (hdr.gre_v1.isValid()) { bm = bm | 32w2048; }
-        if (hdr.tcp_v1.isValid()) { bm = bm | 32w4096; }
-        if (hdr.udp_s0.isValid()) { bm = bm | 32w8192; }
-        if (hdr.icmp_s0.isValid()) { bm = bm | 32w16384; }
-        if (hdr.icmpv6_s0.isValid()) { bm = bm | 32w32768; }
-        if (hdr.ipsec_esp_s0.isValid()) { bm = bm | 32w65536; }
-        if (hdr.arp_rarp_s0.isValid()) { bm = bm | 32w131072; }
+        bit<16> bm = 16w0;
+        if (hdr.ethernet_s0.isValid()) { bm = bm | 16w1; }
+        if (hdr.shim_tag_s0[0].isValid()) { bm = bm | 16w2; }
+        if (hdr.ieee8021_ah_s0.isValid()) { bm = bm | 16w4; }
+        if (hdr.mpls_s0[0].isValid()) { bm = bm | 16w8; }
+        if (hdr.mpls_payload_nibble_s0.isValid()) { bm = bm | 16w16; }
+        if (hdr.ethernet2_s0.isValid()) { bm = bm | 16w32; }
+        if (hdr.ipv4_v1[0].isValid()) { bm = bm | 16w64; }
+        if (hdr.ipv6_v2[0].isValid()) { bm = bm | 16w128; }
+        if (hdr.ipv6_ext_hdr_v1.isValid()) { bm = bm | 16w256; }
+        if (hdr.gre_v1.isValid()) { bm = bm | 16w512; }
+        if (hdr.tcp_v1.isValid()) { bm = bm | 16w1024; }
+        if (hdr.udp_s0.isValid()) { bm = bm | 16w2048; }
+        if (hdr.icmp_s0.isValid()) { bm = bm | 16w4096; }
+        if (hdr.icmpv6_s0.isValid()) { bm = bm | 16w8192; }
+        if (hdr.ipsec_esp_s0.isValid()) { bm = bm | 16w16384; }
+        if (hdr.arp_rarp_s0.isValid()) { bm = bm | 16w32768; }
         hdr.verdict.bitmap = bm;
         bit<8> err = 8w255;
         if (smeta.parser_error == error.NoError) { err = 8w0; }

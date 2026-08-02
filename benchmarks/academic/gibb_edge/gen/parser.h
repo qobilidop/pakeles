@@ -53,22 +53,6 @@ typedef struct {
 } pk_gibb_edge_ipv4_t;
 
 typedef struct {
-  uint8_t ihl;
-  uint8_t diffserv;
-  uint16_t total_len;
-  uint16_t identification;
-  uint8_t flags;
-  uint16_t frag_offset;
-  uint8_t ttl;
-  uint8_t protocol;
-  uint16_t hdr_checksum;
-  uint32_t src_addr;
-  uint32_t dst_addr;
-  uint64_t options_bit_off;
-  uint64_t options_bit_len;
-} pk_gibb_edge_ipv4_rest_t;
-
-typedef struct {
   uint8_t version;
   uint8_t traffic_class;
   uint32_t flow_label;
@@ -82,21 +66,10 @@ typedef struct {
 } pk_gibb_edge_ipv6_t;
 
 typedef struct {
-  uint8_t traffic_class;
-  uint32_t flow_label;
-  uint16_t payload_len;
-  uint8_t next_hdr;
-  uint8_t hop_limit;
-  uint64_t src_addr_bit_off;
-  uint64_t src_addr_bit_len;
-  uint64_t dst_addr_bit_off;
-  uint64_t dst_addr_bit_len;
-} pk_gibb_edge_ipv6_rest_t;
-
-typedef struct {
+  uint8_t zero;
   uint16_t reserved;
   uint16_t seq_no;
-} pk_gibb_edge_eompls_rest_t;
+} pk_gibb_edge_eompls_t;
 
 typedef struct {
   uint64_t dst_addr;
@@ -116,14 +89,10 @@ typedef struct {
   pk_gibb_edge_mpls_payload_nibble_t mpls_payload_nibble;
   uint8_t ipv4_present;
   pk_gibb_edge_ipv4_t ipv4;
-  uint8_t ipv4_rest_present;
-  pk_gibb_edge_ipv4_rest_t ipv4_rest;
   uint8_t ipv6_present;
   pk_gibb_edge_ipv6_t ipv6;
-  uint8_t ipv6_rest_present;
-  pk_gibb_edge_ipv6_rest_t ipv6_rest;
-  uint8_t eompls_rest_present;
-  pk_gibb_edge_eompls_rest_t eompls_rest;
+  uint8_t eompls_present;
+  pk_gibb_edge_eompls_t eompls;
   uint8_t ethernet2_present;
   pk_gibb_edge_ethernet2_t ethernet2;
 } pk_gibb_edge_result_t;

@@ -26,10 +26,13 @@ thesis charts label this graph "Composite."
 ## Comparison numbers
 
 The paper's 28 nodes are the unrolled graph — directly comparable to
-our state map. This transcription has **31 states**: the source's 28
-nodes plus 3 mechanical states introduced by the pseudo-field
-transcription (the `MplsPayloadNibble` state and the `Ipv4Rest` /
-`Ipv6Rest` variants alongside the full IP headers; see below). Our
+our state map. This transcription has **29 states**: the source's 28
+nodes plus 1 mechanical state — the `MplsPayloadNibble` peek, which
+dispatches the pseudo-field the source folds into its MPLS map (see
+below). It was 31 until 2026-08-01: without a lookahead construct the
+nibble had to be *consumed*, which forced `Ipv4Rest` / `Ipv6Rest`
+duplicate-continuation states alongside the full IP headers. The
+`lookahead` primitive deleted both. Our
 path enumeration reports 1,306 accepting parse paths (the committed
 symex suite carries 9,545 vectors once truncation/reject probes are
 added); the paper's 677 uses a counting convention it does not spell
@@ -50,15 +53,17 @@ out, so the numbers sit side by side rather than being an identity.
   unconditionally into the inner Ethernet.
 - **MPLS ≤5, with the pseudo-field lookahead** transcribed as in
   `gibb_service_provider` (bos select per label state; on bos=1 a
-  4-bit `MplsPayloadNibble` header dispatches to continuations
-  defined minus their leading nibble). This graph has the EoMPLS arm:
-  nibble 0 → `EomplsRest` (the source's `eompls` control word minus
-  its leading zero nibble) → inner Ethernet.
+  `lookahead(MplsPayloadNibble)` dispatches without consuming, so
+  continuations extract their real full headers). This graph has the
+  EoMPLS arm: nibble 0 → `Eompls` (the source's full control word,
+  its leading `zero` nibble included — the peek consumed nothing) →
+  inner Ethernet.
 - **`map(fragOffset, protocol)` concatenates its keys** (per the
   artifact's format documentation): every IPv4 L4 arm is `(0, proto)`
-  — only first fragments dispatch. The full `Ipv4` and `Ipv4Rest`
-  variants carry the same map, built once in `_ipv4_arms()` (same
-  for IPv6 in `_ipv6_arms()`).
+  — only first fragments dispatch. The map is built once in
+  `_ipv4_arms()` and shared by every entry into `Ipv4` (same for IPv6
+  in `_ipv6_arms()`); before the `lookahead` conversion it also had
+  to be shared with a duplicate `Ipv4Rest` state.
 - **GRE ≤3, keyed on `(K, proto)` concatenated** (the source's
   `0x16558`/`0x16559` values = K=1 ++ proto): K=1 + 0x6558 → NVGRE →
   inner Ethernet; K=1 + 0x6559 → nested GRE. At the third GRE the
@@ -83,6 +88,6 @@ out, so the numbers sit side by side rather than being an identity.
   becomes fields `s`/`strict` (display names keep the source's
   letters).
 - **`max_depth = 17`**: the deepest unrolled path is 16 headers —
-  Ethernet, 802.1ad, second VLAN tag, five MPLS labels, the payload
-  nibble, `Ipv4Rest`, IPsec AH, three GREs, NVGRE, inner Ethernet
+  Ethernet, 802.1ad, second VLAN tag, five MPLS labels, the peeked
+  payload nibble, `Ipv4`, IPsec AH, three GREs, NVGRE, inner Ethernet
   (AH's GRE arm is what makes this the deepest) — plus one.

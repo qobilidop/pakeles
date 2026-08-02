@@ -4,12 +4,10 @@ digraph "gibb_edge" {
   "parse_ethernet" [shape=box, label="parse_ethernet\nextract ethernet"];
   "parse_mpls1" [shape=box, label="parse_mpls1\nextract mpls", tooltip="First of the two bounded MPLS labels (`max = 2` in the\nsource). The source's `map(bos, next-header)` peeks a 4-bit\npseudo-field from the NEXT header; transcribed by dispatching\non `bos` alone - bos=0 continues the stack with nothing else\nconsumed, bos=1 hands off to the nibble state.", href="#"];
   "parse_mpls2" [shape=box, label="parse_mpls2\nextract mpls", tooltip="Second MPLS label; a third (bos=0) falls to the default -\nbeyond the graph's bound is simply not a recognized\nsequence.", href="#"];
-  "parse_payload_nibble" [shape=box, label="parse_payload_nibble\nextract mpls_payload_nibble", tooltip="One shared state for both MPLS depths: extract the first\nnibble of the payload, then continue with the matching\n`*Rest` header (b10000/b10100/b10110 in the source's map).", href="#"];
+  "parse_payload_nibble" [shape=box, label="parse_payload_nibble\nlookahead mpls_payload_nibble", tooltip="One shared state for both MPLS depths: peek the payload's\nfirst nibble, then continue with the matching full header\n(b10000/b10100/b10110 in the source's map).", href="#"];
   "parse_ipv4" [shape=box, label="parse_ipv4\nextract ipv4"];
-  "parse_ipv4_rest" [shape=box, label="parse_ipv4_rest\nextract ipv4_rest"];
   "parse_ipv6" [shape=box, label="parse_ipv6\nextract ipv6"];
-  "parse_ipv6_rest" [shape=box, label="parse_ipv6_rest\nextract ipv6_rest"];
-  "parse_eompls_rest" [shape=box, label="parse_eompls_rest\nextract eompls_rest"];
+  "parse_eompls" [shape=box, label="parse_eompls\nextract eompls"];
   "parse_ethernet2" [shape=box, label="parse_ethernet2\nextract ethernet2", tooltip="The source's `ethernet2`: the inner (pseudo-wire) Ethernet\nheader, terminal. Same layout as `Ethernet` - reused as a\nsecond instance.", href="#"];
   "accept" [shape=doublecircle];
   "parse_ethernet" -> "parse_mpls1" [label="ethernet.ether_type == 0x8847"];
@@ -22,14 +20,12 @@ digraph "gibb_edge" {
   "parse_mpls1" -> "accept" [label="default", style=dashed];
   "parse_mpls2" -> "parse_payload_nibble" [label="mpls.bos == 0x1"];
   "parse_mpls2" -> "accept" [label="default", style=dashed];
-  "parse_payload_nibble" -> "parse_eompls_rest" [label="mpls_payload_nibble.v == 0x0"];
-  "parse_payload_nibble" -> "parse_ipv4_rest" [label="mpls_payload_nibble.v == 0x4"];
-  "parse_payload_nibble" -> "parse_ipv6_rest" [label="mpls_payload_nibble.v == 0x6"];
+  "parse_payload_nibble" -> "parse_eompls" [label="mpls_payload_nibble.v == 0x0"];
+  "parse_payload_nibble" -> "parse_ipv4" [label="mpls_payload_nibble.v == 0x4"];
+  "parse_payload_nibble" -> "parse_ipv6" [label="mpls_payload_nibble.v == 0x6"];
   "parse_payload_nibble" -> "accept" [label="default", style=dashed];
   "parse_ipv4" -> "accept";
-  "parse_ipv4_rest" -> "accept";
   "parse_ipv6" -> "accept";
-  "parse_ipv6_rest" -> "accept";
-  "parse_eompls_rest" -> "parse_ethernet2";
+  "parse_eompls" -> "parse_ethernet2";
   "parse_ethernet2" -> "accept";
 }

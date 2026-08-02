@@ -91,10 +91,13 @@ fn lua_backend_conformance_all() {
     }
 }
 
-// --- BMv2 simple_switch (P4 backend) — bounded to two members to
-// --- keep the gate's BMv2 cost flat; gibb_big_union additionally
-// --- exercises the 32-bit verdict-bitmap tier at generation time
-// --- via committed_gen_artifacts_current above.
+// --- BMv2 simple_switch (P4 backend). Every academic member with a
+// --- committed gen/parser.p4 now has one: the 2026-08-01 lesson was
+// --- that "generates" is not "compiles" — the four `lookahead`
+// --- members below emitted P4 that p4c-bm2-ss had ALWAYS rejected
+// --- (a 4-bit nibble header) and nobody knew, because none of them
+// --- had this test. The oracle batches a suite into one
+// --- simple_switch run, so the added cost is seconds.
 
 #[test]
 fn bmv2_backend_conformance_gibb_simple() {
@@ -110,6 +113,42 @@ fn bmv2_backend_conformance_gibb_enterprise() {
         return;
     };
     pakeles_testkit::bmv2_backend_conformance(&ir("gibb_enterprise"), &suite, 4);
+}
+
+// The four `lookahead` members: their P4 became BMv2-compilable only
+// when the pseudo-field stopped being a consumed 4-bit header
+// (2026-08-01), so these tests could not have existed before.
+
+#[test]
+fn bmv2_backend_conformance_gibb_service_provider() {
+    let Some(suite) = suite("gibb_service_provider") else {
+        return;
+    };
+    pakeles_testkit::bmv2_backend_conformance(&ir("gibb_service_provider"), &suite, 15);
+}
+
+#[test]
+fn bmv2_backend_conformance_gibb_edge() {
+    let Some(suite) = suite("gibb_edge") else {
+        return;
+    };
+    pakeles_testkit::bmv2_backend_conformance(&ir("gibb_edge"), &suite, 10);
+}
+
+#[test]
+fn bmv2_backend_conformance_gibb_big_union() {
+    let Some(suite) = suite("gibb_big_union") else {
+        return;
+    };
+    pakeles_testkit::bmv2_backend_conformance(&ir("gibb_big_union"), &suite, 1_500);
+}
+
+#[test]
+fn bmv2_backend_conformance_kangaroo_parse_tree() {
+    let Some(suite) = suite("kangaroo_parse_tree") else {
+        return;
+    };
+    pakeles_testkit::bmv2_backend_conformance(&ir("kangaroo_parse_tree"), &suite, 2_000);
 }
 
 /// The flagship: P4-vs-P4 over switch.p4's own parser, all 13,599

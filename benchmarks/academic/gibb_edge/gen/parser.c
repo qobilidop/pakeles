@@ -18,11 +18,9 @@ static uint64_t pk_read_bits(const uint8_t *buf, uint64_t avail, uint64_t off, u
 #define PK_S_PARSE_MPLS2 2
 #define PK_S_PARSE_PAYLOAD_NIBBLE 3
 #define PK_S_PARSE_IPV4 4
-#define PK_S_PARSE_IPV4_REST 5
-#define PK_S_PARSE_IPV6 6
-#define PK_S_PARSE_IPV6_REST 7
-#define PK_S_PARSE_EOMPLS_REST 8
-#define PK_S_PARSE_ETHERNET2 9
+#define PK_S_PARSE_IPV6 5
+#define PK_S_PARSE_EOMPLS 6
+#define PK_S_PARSE_ETHERNET2 7
 
 static int pk_gibb_edge_parse_core(const uint8_t *buf, uint64_t bit_len, pk_gibb_edge_result_t *out) {
   uint64_t off = 0;
@@ -171,23 +169,26 @@ static int pk_gibb_edge_parse_core(const uint8_t *buf, uint64_t bit_len, pk_gibb
     }
     case PK_S_PARSE_PAYLOAD_NIBBLE: {
       out->mpls_payload_nibble_present = 1;
-      if (off + 4 > bit_len) {
+      { /* lookahead: cursor does not advance */
+      uint64_t poff = off;
+      if (poff + 4 > bit_len) {
         out->outcome = 1;
         out->reason = PK_R_OUT_OF_BOUNDS;
         out->consumed_bits = off;
         return 1;
       }
-      out->mpls_payload_nibble.v = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
-      off += 4;
+      out->mpls_payload_nibble.v = (uint8_t)pk_read_bits(buf, bit_len, poff, 4);
+      poff += 4;
+      }
       uint64_t key0 = (uint64_t)out->mpls_payload_nibble.v;
       if (key0 == 0ULL) {
-        state = PK_S_PARSE_EOMPLS_REST;
+        state = PK_S_PARSE_EOMPLS;
         continue;
       } else if (key0 == 4ULL) {
-        state = PK_S_PARSE_IPV4_REST;
+        state = PK_S_PARSE_IPV4;
         continue;
       } else if (key0 == 6ULL) {
-        state = PK_S_PARSE_IPV6_REST;
+        state = PK_S_PARSE_IPV6;
         continue;
       } else {
         out->outcome = 0;
@@ -311,113 +312,6 @@ static int pk_gibb_edge_parse_core(const uint8_t *buf, uint64_t bit_len, pk_gibb
       out->consumed_bits = off;
       return 0;
     }
-    case PK_S_PARSE_IPV4_REST: {
-      out->ipv4_rest_present = 1;
-      if (off + 4 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->ipv4_rest.ihl = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
-      off += 4;
-      if (off + 8 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->ipv4_rest.diffserv = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
-      off += 8;
-      if (off + 16 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->ipv4_rest.total_len = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
-      off += 16;
-      if (off + 16 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->ipv4_rest.identification = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
-      off += 16;
-      if (off + 3 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->ipv4_rest.flags = (uint8_t)pk_read_bits(buf, bit_len, off, 3);
-      off += 3;
-      if (off + 13 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->ipv4_rest.frag_offset = (uint16_t)pk_read_bits(buf, bit_len, off, 13);
-      off += 13;
-      if (off + 8 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->ipv4_rest.ttl = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
-      off += 8;
-      if (off + 8 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->ipv4_rest.protocol = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
-      off += 8;
-      if (off + 16 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->ipv4_rest.hdr_checksum = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
-      off += 16;
-      if (off + 32 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->ipv4_rest.src_addr = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
-      off += 32;
-      if (off + 32 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->ipv4_rest.dst_addr = (uint32_t)(((uint64_t)buf[(off >> 3) + 0] << 24) | ((uint64_t)buf[(off >> 3) + 1] << 16) | ((uint64_t)buf[(off >> 3) + 2] << 8) | (uint64_t)buf[(off >> 3) + 3]);
-      off += 32;
-      {
-        uint64_t vlen = ((((uint64_t)out->ipv4_rest.ihl * 4ULL) - 20ULL) * 8ULL);
-        if (vlen > bit_len - off) {
-          out->outcome = 1;
-          out->reason = PK_R_OUT_OF_BOUNDS;
-          out->consumed_bits = off;
-          return 1;
-        }
-        out->ipv4_rest.options_bit_off = off;
-        out->ipv4_rest.options_bit_len = vlen;
-        off += vlen;
-      }
-      out->outcome = 0;
-      out->reason = PK_R_NONE;
-      out->consumed_bits = off;
-      return 0;
-    }
     case PK_S_PARSE_IPV6: {
       out->ipv6_present = 1;
       if (off + 4 > bit_len) {
@@ -497,86 +391,23 @@ static int pk_gibb_edge_parse_core(const uint8_t *buf, uint64_t bit_len, pk_gibb
       out->consumed_bits = off;
       return 0;
     }
-    case PK_S_PARSE_IPV6_REST: {
-      out->ipv6_rest_present = 1;
-      if (off + 8 > bit_len) {
+    case PK_S_PARSE_EOMPLS: {
+      out->eompls_present = 1;
+      if (off + 4 > bit_len) {
         out->outcome = 1;
         out->reason = PK_R_OUT_OF_BOUNDS;
         out->consumed_bits = off;
         return 1;
       }
-      out->ipv6_rest.traffic_class = (uint8_t)pk_read_bits(buf, bit_len, off, 8);
-      off += 8;
-      if (off + 20 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->ipv6_rest.flow_label = (uint32_t)pk_read_bits(buf, bit_len, off, 20);
-      off += 20;
-      if (off + 16 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->ipv6_rest.payload_len = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
-      off += 16;
-      if (off + 8 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->ipv6_rest.next_hdr = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
-      off += 8;
-      if (off + 8 > bit_len) {
-        out->outcome = 1;
-        out->reason = PK_R_OUT_OF_BOUNDS;
-        out->consumed_bits = off;
-        return 1;
-      }
-      out->ipv6_rest.hop_limit = (uint8_t)((uint64_t)buf[(off >> 3) + 0]);
-      off += 8;
-      {
-        uint64_t vlen = (16ULL * 8ULL);
-        if (vlen > bit_len - off) {
-          out->outcome = 1;
-          out->reason = PK_R_OUT_OF_BOUNDS;
-          out->consumed_bits = off;
-          return 1;
-        }
-        out->ipv6_rest.src_addr_bit_off = off;
-        out->ipv6_rest.src_addr_bit_len = vlen;
-        off += vlen;
-      }
-      {
-        uint64_t vlen = (16ULL * 8ULL);
-        if (vlen > bit_len - off) {
-          out->outcome = 1;
-          out->reason = PK_R_OUT_OF_BOUNDS;
-          out->consumed_bits = off;
-          return 1;
-        }
-        out->ipv6_rest.dst_addr_bit_off = off;
-        out->ipv6_rest.dst_addr_bit_len = vlen;
-        off += vlen;
-      }
-      out->outcome = 0;
-      out->reason = PK_R_NONE;
-      out->consumed_bits = off;
-      return 0;
-    }
-    case PK_S_PARSE_EOMPLS_REST: {
-      out->eompls_rest_present = 1;
+      out->eompls.zero = (uint8_t)pk_read_bits(buf, bit_len, off, 4);
+      off += 4;
       if (off + 12 > bit_len) {
         out->outcome = 1;
         out->reason = PK_R_OUT_OF_BOUNDS;
         out->consumed_bits = off;
         return 1;
       }
-      out->eompls_rest.reserved = (uint16_t)pk_read_bits(buf, bit_len, off, 12);
+      out->eompls.reserved = (uint16_t)pk_read_bits(buf, bit_len, off, 12);
       off += 12;
       if (off + 16 > bit_len) {
         out->outcome = 1;
@@ -584,7 +415,7 @@ static int pk_gibb_edge_parse_core(const uint8_t *buf, uint64_t bit_len, pk_gibb
         out->consumed_bits = off;
         return 1;
       }
-      out->eompls_rest.seq_no = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
+      out->eompls.seq_no = (uint16_t)(((uint64_t)buf[(off >> 3) + 0] << 8) | (uint64_t)buf[(off >> 3) + 1]);
       off += 16;
       state = PK_S_PARSE_ETHERNET2;
       continue;

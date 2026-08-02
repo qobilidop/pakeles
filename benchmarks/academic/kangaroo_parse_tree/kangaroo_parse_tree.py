@@ -30,6 +30,7 @@ from pakeles import (
     accept,
     bits,
     extract,
+    lookahead,
     oneof,
     var_bytes,
 )
@@ -145,39 +146,8 @@ class Ipv4(Header):
     options = var_bytes(ihl * 4 - 20)
 
 
-class Ipv4Rest(Header):
-    """IPv4 minus its leading version nibble (already consumed as
-    `MplsPayloadNibble` on the MPLS path)."""
-
-    ihl = bits(4, "IHL", DEC)
-    diffserv = bits(8, "DiffServ", HEX)
-    total_len = bits(16, "Total Length", DEC)
-    identification = bits(16, "Identification", HEX)
-    flags = bits(3, "Flags")
-    frag_offset = bits(13, "Fragment Offset", DEC)
-    ttl = bits(8, "TTL", DEC)
-    protocol = bits(8, "Protocol", DEC, labels=IpProto)
-    hdr_checksum = bits(16, "Header Checksum", HEX)
-    src_addr = bits(32, "Source", HEX)
-    dst_addr = bits(32, "Destination", HEX)
-    options = var_bytes(ihl * 4 - 20)
-
-
 class Ipv6(Header):
     version = bits(4, "Version")
-    traffic_class = bits(8, "Traffic Class", HEX)
-    flow_label = bits(20, "Flow Label", HEX)
-    payload_len = bits(16, "Payload Length", DEC)
-    next_hdr = bits(8, "Next Header", DEC, labels=IpProto)
-    hop_limit = bits(8, "Hop Limit", DEC)
-    # 128-bit addresses exceed the fixed-`bits` ceiling: opaque 16-byte runs.
-    src_addr = var_bytes(16)
-    dst_addr = var_bytes(16)
-
-
-class Ipv6Rest(Header):
-    """IPv6 minus its leading version nibble (see `Ipv4Rest`)."""
-
     traffic_class = bits(8, "Traffic Class", HEX)
     flow_label = bits(20, "Flow Label", HEX)
     payload_len = bits(16, "Payload Length", DEC)
@@ -409,12 +379,12 @@ class KangarooParseTree(Parser):
         """Bottom of stack: "MPLS is followed by Ethernet, IPv4, or
         IPv6". Nibble 0 is the EoMPLS discriminator here (no control
         word in this tree, unlike Gibb - see README)."""
-        return extract(MplsPayloadNibble).select(
+        return lookahead(MplsPayloadNibble).select(
             MplsPayloadNibble.v,
             {
                 PayloadNibble.ETHERNET: self.parse_ethernet2,
-                PayloadNibble.IPV4: self.parse_ipv4_rest,
-                PayloadNibble.IPV6: self.parse_ipv6_rest,
+                PayloadNibble.IPV4: self.parse_ipv4,
+                PayloadNibble.IPV6: self.parse_ipv6,
             },
             default=accept(),
         )
@@ -433,23 +403,9 @@ class KangarooParseTree(Parser):
             default=accept(),
         )
 
-    def parse_ipv4_rest(self) -> State:
-        return extract(Ipv4Rest).select(
-            Ipv4Rest.protocol,
-            self._ipv4_arms(),
-            default=accept(),
-        )
-
     def parse_ipv6(self) -> State:
         return extract(Ipv6).select(
             Ipv6.next_hdr,
-            self._ipv6_arms(),
-            default=accept(),
-        )
-
-    def parse_ipv6_rest(self) -> State:
-        return extract(Ipv6Rest).select(
-            Ipv6Rest.next_hdr,
             self._ipv6_arms(),
             default=accept(),
         )

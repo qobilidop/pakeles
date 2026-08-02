@@ -14,10 +14,10 @@ This graph introduces the suite's MPLS lookahead pattern: the source
 dispatches MPLS on (bos, 4-bit pseudo-field), where the pseudo-field
 is the NEXT header's first nibble, used in decision only. Transcribed
 by splitting the decision: each MPLS state selects on `bos` alone
-(bos=0 -> next label state), and only on bos=1 is the nibble
-extracted, as its own 4-bit header, with the IP continuations defined
-minus their leading 4 bits (`Ipv4Rest`, `Ipv6Rest`). Bit-for-bit the
-same language; no lookahead construct needed.
+(bos=0 -> next label state), and only on bos=1 is the nibble read —
+with `lookahead()`, which binds it for the select WITHOUT consuming
+it, so the continuations extract the real full `Ipv4`/`Ipv6` headers
+over those same bits. That is the source's "decision only" verbatim.
 """
 
 from pakeles import (
@@ -28,6 +28,7 @@ from pakeles import (
     accept,
     bits,
     extract,
+    lookahead,
     oneof,
     var_bytes,
 )
@@ -89,39 +90,8 @@ class Ipv4(Header):
     options = var_bytes(ihl * 4 - 20)
 
 
-class Ipv4Rest(Header):
-    """IPv4 minus its leading version nibble (already consumed as
-    `MplsPayloadNibble` on the MPLS path)."""
-
-    ihl = bits(4, "IHL", DEC)
-    diffserv = bits(8, "DiffServ", HEX)
-    total_len = bits(16, "Total Length", DEC)
-    identification = bits(16, "Identification", HEX)
-    flags = bits(3, "Flags")
-    frag_offset = bits(13, "Fragment Offset", DEC)
-    ttl = bits(8, "TTL", DEC)
-    protocol = bits(8, "Protocol", DEC)
-    hdr_checksum = bits(16, "Header Checksum", HEX)
-    src_addr = bits(32, "Source", HEX)
-    dst_addr = bits(32, "Destination", HEX)
-    options = var_bytes(ihl * 4 - 20)
-
-
 class Ipv6(Header):
     version = bits(4, "Version")
-    traffic_class = bits(8, "Traffic Class", HEX)
-    flow_label = bits(20, "Flow Label", HEX)
-    payload_len = bits(16, "Payload Length", DEC)
-    next_hdr = bits(8, "Next Header", DEC)
-    hop_limit = bits(8, "Hop Limit", DEC)
-    # 128-bit addresses exceed the fixed-`bits` ceiling: opaque 16-byte runs.
-    src_addr = var_bytes(16)
-    dst_addr = var_bytes(16)
-
-
-class Ipv6Rest(Header):
-    """IPv6 minus its leading version nibble (see `Ipv4Rest`)."""
-
     traffic_class = bits(8, "Traffic Class", HEX)
     flow_label = bits(20, "Flow Label", HEX)
     payload_len = bits(16, "Payload Length", DEC)
@@ -189,11 +159,11 @@ class GibbServiceProvider(Parser):
         """Bottom of stack: the source's 4-bit pseudo-field, extracted
         here as a real header. This graph maps only 4/6 (no EoMPLS arm,
         unlike big-union); other nibbles end the sequence."""
-        return extract(MplsPayloadNibble).select(
+        return lookahead(MplsPayloadNibble).select(
             MplsPayloadNibble.v,
             {
-                PayloadNibble.IPV4: self.parse_ipv4_rest,
-                PayloadNibble.IPV6: self.parse_ipv6_rest,
+                PayloadNibble.IPV4: self.parse_ipv4,
+                PayloadNibble.IPV6: self.parse_ipv6,
             },
             default=accept(),
         )
@@ -204,12 +174,6 @@ class GibbServiceProvider(Parser):
 
     def parse_ipv6(self) -> State:
         return extract(Ipv6).accept()
-
-    def parse_ipv4_rest(self) -> State:
-        return extract(Ipv4Rest).accept()
-
-    def parse_ipv6_rest(self) -> State:
-        return extract(Ipv6Rest).accept()
 
 
 if __name__ == "__main__":
