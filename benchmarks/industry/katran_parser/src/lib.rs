@@ -276,15 +276,31 @@ pub fn ir() -> pb::Ir {
 
 /// Find the committed katran-minted golden file (`katran.<pin>.golden.json`).
 pub fn discover_committed_golden(dir: &std::path::Path) -> Option<std::path::PathBuf> {
-    std::fs::read_dir(dir)
+    let mut hits: Vec<std::path::PathBuf> = std::fs::read_dir(dir)
         .ok()?
         .filter_map(|e| e.ok())
         .map(|e| e.path())
-        .find(|p| {
+        .filter(|p| {
             p.file_name()
                 .and_then(|n| n.to_str())
                 .is_some_and(|n| n.starts_with("katran.") && n.ends_with(".golden.json"))
         })
+        .collect();
+    // `read_dir` order is unspecified, so an unsorted `find` could
+    // pick a different golden run-to-run once a second capture
+    // exists. Pin the choice, and say so when there is more than
+    // one — silently diffing against a stale incumbent version is
+    // the failure mode worth shouting about.
+    hits.sort();
+    if hits.len() > 1 {
+        eprintln!(
+            "warning: {} goldens under {}; using `{}` (remove stale captures)",
+            hits.len(),
+            dir.display(),
+            hits[0].display()
+        );
+    }
+    hits.into_iter().next()
 }
 
 /// Diff our projection against a golden file: verdict, stage, and every

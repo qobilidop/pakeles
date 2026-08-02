@@ -293,18 +293,34 @@ pub fn ir() -> pb::Ir {
 /// Find the committed kernel-captured golden file under `dir` (filename
 /// starts with `flow_keys.linux-`). Shared by the CLI's default `--goldens`
 /// resolution and the `committed_goldens_agree` gate test.
-// TODO(rung-2): when multiple kernel-version goldens exist, diff all or
-// pick/pin deterministically (find() order is unspecified).
+// Pinned deterministically (2026-08-01); diffing ALL committed
+// kernel-version goldens rather than one remains a future option.
 pub fn discover_committed_golden(dir: &std::path::Path) -> Option<std::path::PathBuf> {
-    std::fs::read_dir(dir)
+    let mut hits: Vec<std::path::PathBuf> = std::fs::read_dir(dir)
         .ok()?
         .filter_map(|e| e.ok())
         .map(|e| e.path())
-        .find(|p| {
+        .filter(|p| {
             p.file_name()
                 .and_then(|n| n.to_str())
                 .is_some_and(|n| n.starts_with("flow_keys.linux-"))
         })
+        .collect();
+    // `read_dir` order is unspecified, so an unsorted `find` could
+    // pick a different golden run-to-run once a second capture
+    // exists. Pin the choice, and say so when there is more than
+    // one — silently diffing against a stale incumbent version is
+    // the failure mode worth shouting about.
+    hits.sort();
+    if hits.len() > 1 {
+        eprintln!(
+            "warning: {} goldens under {}; using `{}` (remove stale captures)",
+            hits.len(),
+            dir.display(),
+            hits[0].display()
+        );
+    }
+    hits.into_iter().next()
 }
 
 /// Diff our `project`ed `flow_keys` against a golden file's entries, over
