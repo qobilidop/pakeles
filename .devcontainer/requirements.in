@@ -1,5 +1,6 @@
 # Direct Python tools used by the dev image. requirements.txt is the
-# hash-locked transitive resolution; update it with pip-compile.
+# hash-locked transitive resolution; update it with
+# scripts/update-python-lock.sh.
 build==1.5.0
 protobuf==7.35.1
 pyright==1.1.411

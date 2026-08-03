@@ -70,6 +70,10 @@ CI pulls it instead of rebuilding:
 ./dev.sh cargo test -p pakeles-benchmark-tls-clienthello                # one example's gate
 ```
 
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for source-of-truth and
+regeneration rules, and [`docs/architecture.md`](docs/architecture.md)
+for the trust boundaries that backend work must preserve.
+
 Try the generated dissector in your own Wireshark:
 `tshark -X lua_script:dissector.lua -r some.pcap` (it registers as a
 postdissector, so its tree appears alongside Wireshark's built-in
