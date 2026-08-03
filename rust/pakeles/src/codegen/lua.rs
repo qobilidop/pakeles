@@ -16,6 +16,23 @@ use anyhow::{bail, Result};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 
+fn lua_quote(s: &str) -> String {
+    let mut out = String::from("\"");
+    for byte in s.bytes() {
+        match byte {
+            b'\\' => out.push_str("\\\\"),
+            b'"' => out.push_str("\\\""),
+            b'\n' => out.push_str("\\n"),
+            b'\r' => out.push_str("\\r"),
+            b'\t' => out.push_str("\\t"),
+            0x20..=0x7e => out.push(byte as char),
+            _ => out.push_str(&format!("\\{byte:03}")),
+        }
+    }
+    out.push('"');
+    out
+}
+
 pub fn generate_lua(ir: &crate::ir::ValidatedIr) -> Result<String> {
     let parser = ir
         .parser
@@ -51,8 +68,9 @@ pub fn generate_lua(ir: &crate::ir::ValidatedIr) -> Result<String> {
     writeln!(w, "-- matching the reference interpreter's outcome.")?;
     writeln!(
         w,
-        "local p = Proto(\"{proto}\", \"Pakeles {}\")",
-        parser.name
+        "local p = Proto({}, {})",
+        lua_quote(&proto),
+        lua_quote(&format!("Pakeles {}", parser.name))
     )?;
     writeln!(w)?;
     writeln!(
@@ -78,7 +96,9 @@ pub fn generate_lua(ir: &crate::ir::ValidatedIr) -> Result<String> {
             let hdr_var = format!("pf.f_hdr_{inst}");
             if !pf_names.contains(&hdr_var) {
                 pf_decl.push_str(&format!(
-                    "{hdr_var} = ProtoField.none(\"{proto}.{inst}\", \"{inst}\")\n"
+                    "{hdr_var} = ProtoField.none({}, {})\n",
+                    lua_quote(&format!("{proto}.{inst}")),
+                    lua_quote(inst)
                 ));
                 pf_names.push(hdr_var);
             }
@@ -113,13 +133,16 @@ pub fn generate_lua(ir: &crate::ir::ValidatedIr) -> Result<String> {
             display.name.clone()
         };
         pf_decl.push_str(&format!(
-            "{var} = ProtoField.uint64(\"{abbr}\", \"{name}\")\n"
+            "{var} = ProtoField.uint64({}, {})\n",
+            lua_quote(&abbr),
+            lua_quote(&name)
         ));
         pf_names.push(var);
     }
     let payload_pf = "pf.f_payload".to_string();
     pf_decl.push_str(&format!(
-        "{payload_pf} = ProtoField.bytes(\"{proto}.payload\", \"Payload\")\n"
+        "{payload_pf} = ProtoField.bytes({}, \"Payload\")\n",
+        lua_quote(&format!("{proto}.payload"))
     ));
     pf_names.push(payload_pf);
     w.push_str(&pf_decl);
@@ -274,6 +297,8 @@ fn protofield_decl(
     display: &pb::Display,
     byte_aligned: bool,
 ) -> Result<String> {
+    let abbr = lua_quote(abbr);
+    let name = lua_quote(name);
     let format = pb::DisplayFormat::try_from(display.format).unwrap_or_default();
     let width = match field.width.as_ref().and_then(|w| w.width.as_ref()) {
         Some(pb::field_width::Width::Bits(n)) => Some(*n),
@@ -282,10 +307,10 @@ fn protofield_decl(
     if let Some(width) = width {
         match format {
             pb::DisplayFormat::Ether if width == 48 && byte_aligned => {
-                return Ok(format!("ProtoField.ether(\"{abbr}\", \"{name}\")"));
+                return Ok(format!("ProtoField.ether({abbr}, {name})"));
             }
             pb::DisplayFormat::Ipv4 if width == 32 && byte_aligned => {
-                return Ok(format!("ProtoField.ipv4(\"{abbr}\", \"{name}\")"));
+                return Ok(format!("ProtoField.ipv4({abbr}, {name})"));
             }
             _ => {}
         }
@@ -307,13 +332,11 @@ fn protofield_decl(
             let entries: Vec<String> = display
                 .value_labels
                 .iter()
-                .map(|vl| format!("[{}] = \"{}\"", vl.value, vl.label))
+                .map(|vl| format!("[{}] = {}", vl.value, lua_quote(&vl.label)))
                 .collect();
             format!(", {{ {} }}", entries.join(", "))
         };
-        Ok(format!(
-            "ProtoField.{ctor}(\"{abbr}\", \"{name}\", {base}{labels})"
-        ))
+        Ok(format!("ProtoField.{ctor}({abbr}, {name}, {base}{labels})"))
     } else {
         // Constant-length byte runs may carry a typed display format
         // (the `fixed_bytes(16, ..., IPV6)` case) — type the
@@ -328,15 +351,15 @@ fn protofield_decl(
             });
         match (format, const_bits) {
             (pb::DisplayFormat::Ipv6, Some(128)) if byte_aligned => {
-                Ok(format!("ProtoField.ipv6(\"{abbr}\", \"{name}\")"))
+                Ok(format!("ProtoField.ipv6({abbr}, {name})"))
             }
             (pb::DisplayFormat::Ipv4, Some(32)) if byte_aligned => {
-                Ok(format!("ProtoField.ipv4(\"{abbr}\", \"{name}\")"))
+                Ok(format!("ProtoField.ipv4({abbr}, {name})"))
             }
             (pb::DisplayFormat::Ether, Some(48)) if byte_aligned => {
-                Ok(format!("ProtoField.ether(\"{abbr}\", \"{name}\")"))
+                Ok(format!("ProtoField.ether({abbr}, {name})"))
             }
-            _ => Ok(format!("ProtoField.bytes(\"{abbr}\", \"{name}\")")),
+            _ => Ok(format!("ProtoField.bytes({abbr}, {name})")),
         }
     }
 }
@@ -437,19 +460,12 @@ fn target_lua(
         }
         Some(pb::target::Kind::Reject(r)) => {
             let info = r.annotations.get("severity").map(String::as_str) == Some("info");
+            let reason = lua_quote(&r.reason);
             if info {
                 writeln!(w, "{indent}add_payload(buf, tree, off)")?;
-                writeln!(
-                    w,
-                    "{indent}tree:add_proto_expert_info(ef_info, \"{}\")",
-                    r.reason
-                )?;
+                writeln!(w, "{indent}tree:add_proto_expert_info(ef_info, {reason})")?;
             } else {
-                writeln!(
-                    w,
-                    "{indent}tree:add_proto_expert_info(ef_error, \"{}\")",
-                    r.reason
-                )?;
+                writeln!(w, "{indent}tree:add_proto_expert_info(ef_error, {reason})")?;
             }
             writeln!(w, "{indent}return off")?;
         }
@@ -807,6 +823,36 @@ mod tests {
         assert!(lua.contains("tree:add(pf.f_meta_flag, UInt64(meta.flag))"));
         let plain = generate_lua(&crate::fixtures::eth_ipvx_l4()).unwrap();
         assert!(!plain.contains("meta"));
+    }
+
+    #[test]
+    fn presentation_strings_and_reject_reasons_are_escaped() {
+        let mut ir = crate::builder::meta_loop().into_inner();
+        let parser = ir.parser.as_mut().unwrap();
+        parser.metadata[0].display = Some(pb::Display {
+            name: "quoted \"name\"\nnext".into(),
+            ..Default::default()
+        });
+        parser.header_types[0].fields[0].display = Some(pb::Display {
+            value_labels: vec![pb::ValueLabel {
+                value: 0,
+                label: "slash\\quote\"".into(),
+            }],
+            ..Default::default()
+        });
+        parser.states[0].transition = Some(pb::Transition {
+            kind: Some(pb::transition::Kind::Direct(pb::Target {
+                kind: Some(pb::target::Kind::Reject(pb::Reject {
+                    reason: "bad \"reason\"\nnext".into(),
+                    ..Default::default()
+                })),
+            })),
+        });
+        let ir = crate::ir::ValidatedIr::new(ir).unwrap();
+        let lua = generate_lua(&ir).unwrap();
+        assert!(lua.contains("quoted \\\"name\\\"\\nnext"), "{lua}");
+        assert!(lua.contains("slash\\\\quote\\\""), "{lua}");
+        assert!(lua.contains("bad \\\"reason\\\"\\nnext"), "{lua}");
     }
 
     // The committed-dissector equality guards live with each example

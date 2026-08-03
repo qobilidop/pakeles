@@ -90,7 +90,11 @@ pub fn to_dot(ir: &crate::ir::ValidatedIr) -> String {
         match s.transition.as_ref().and_then(|t| t.kind.as_ref()) {
             Some(pb::transition::Kind::Direct(t)) => {
                 let to = target_node(t);
-                edges.push(format!("  \"{}\" -> \"{}\";\n", s.name, to));
+                edges.push(format!(
+                    "  \"{}\" -> \"{}\";\n",
+                    dot_escape(&s.name),
+                    dot_escape(&to)
+                ));
             }
             Some(pb::transition::Kind::Select(sel)) => {
                 for arm in &sel.arms {
@@ -105,7 +109,9 @@ pub fn to_dot(ir: &crate::ir::ValidatedIr) -> String {
                         let to = target_node(t);
                         edges.push(format!(
                             "  \"{}\" -> \"{}\" [label=\"{}\"];\n",
-                            s.name, to, label
+                            dot_escape(&s.name),
+                            dot_escape(&to),
+                            dot_escape(&label)
                         ));
                     }
                 }
@@ -113,7 +119,8 @@ pub fn to_dot(ir: &crate::ir::ValidatedIr) -> String {
                     let to = target_node(t);
                     edges.push(format!(
                         "  \"{}\" -> \"{}\" [label=\"default\", style=dashed];\n",
-                        s.name, to
+                        dot_escape(&s.name),
+                        dot_escape(&to)
                     ));
                 }
             }
@@ -121,7 +128,7 @@ pub fn to_dot(ir: &crate::ir::ValidatedIr) -> String {
         }
     }
 
-    writeln!(out, "digraph \"{}\" {{", parser.name).unwrap();
+    writeln!(out, "digraph \"{}\" {{", dot_escape(&parser.name)).unwrap();
     writeln!(out, "  rankdir=TB;").unwrap();
     if let Some(doc) = parser.annotations.get("doc") {
         writeln!(out, "  tooltip=\"{}\";", dot_escape(doc)).unwrap();
@@ -144,11 +151,11 @@ pub fn to_dot(ir: &crate::ir::ValidatedIr) -> String {
                 }
             })
             .collect::<Vec<_>>()
-            .join("\\n");
+            .join("\n");
         let label = if extracts.is_empty() {
             s.name.clone()
         } else {
-            format!("{}\\n{extracts}", s.name)
+            format!("{}\n{extracts}", s.name)
         };
         // Surface the state's doc prose on hover in SVG output.
         // Graphviz only emits tooltips for elements that also carry an
@@ -160,8 +167,9 @@ pub fn to_dot(ir: &crate::ir::ValidatedIr) -> String {
             .unwrap_or_default();
         writeln!(
             out,
-            "  \"{}\" [shape=box, label=\"{label}\"{tooltip}];",
-            s.name
+            "  \"{}\" [shape=box, label=\"{}\"{tooltip}];",
+            dot_escape(&s.name),
+            dot_escape(&label)
         )
         .unwrap();
     }
@@ -169,7 +177,8 @@ pub fn to_dot(ir: &crate::ir::ValidatedIr) -> String {
     for (i, reason) in rejects.iter().enumerate() {
         writeln!(
             out,
-            "  \"reject_{i}\" [shape=diamond, label=\"reject:\\n{reason}\"];"
+            "  \"reject_{i}\" [shape=diamond, label=\"reject:\\n{}\"];",
+            dot_escape(reason)
         )
         .unwrap();
     }
@@ -210,5 +219,23 @@ mod tests {
             dot.contains(", tooltip=\"Line one.\\nLine two.\", href=\"#\"];"),
             "{dot}"
         );
+    }
+
+    #[test]
+    fn reject_labels_are_dot_escaped() {
+        let mut ir = crate::builder::meta_loop().into_inner();
+        ir.parser.as_mut().unwrap().states[0].transition = Some(crate::ir::pb::Transition {
+            kind: Some(crate::ir::pb::transition::Kind::Direct(
+                crate::ir::pb::Target {
+                    kind: Some(crate::ir::pb::target::Kind::Reject(crate::ir::pb::Reject {
+                        reason: "bad \"label\"\nnext".into(),
+                        ..Default::default()
+                    })),
+                },
+            )),
+        });
+        let ir = crate::ir::ValidatedIr::new(ir).unwrap();
+        let dot = to_dot(&ir);
+        assert!(dot.contains("reject:\\nbad \\\"label\\\"\\nnext"), "{dot}");
     }
 }

@@ -3,6 +3,110 @@
 
 use super::pb;
 
+fn is_portable_ident(name: &str) -> bool {
+    let mut chars = name.chars();
+    matches!(chars.next(), Some('_' | 'a'..='z' | 'A'..='Z'))
+        && chars.all(|ch| matches!(ch, '_' | 'a'..='z' | 'A'..='Z' | '0'..='9'))
+}
+
+fn is_backend_keyword(name: &str) -> bool {
+    // Union of C99, Lua 5.2, and the P4-16 keywords that can occur in the
+    // identifier positions emitted by Pakeles. Presentation names remain
+    // unrestricted; these are semantic symbols shared by every backend.
+    matches!(
+        name,
+        "_Bool"
+            | "_Complex"
+            | "_Imaginary"
+            | "and"
+            | "apply"
+            | "asm"
+            | "auto"
+            | "bit"
+            | "bool"
+            | "break"
+            | "case"
+            | "char"
+            | "const"
+            | "continue"
+            | "control"
+            | "default"
+            | "do"
+            | "double"
+            | "else"
+            | "end"
+            | "enum"
+            | "error"
+            | "extern"
+            | "false"
+            | "float"
+            | "for"
+            | "function"
+            | "header"
+            | "header_union"
+            | "if"
+            | "in"
+            | "inline"
+            | "int"
+            | "key"
+            | "local"
+            | "long"
+            | "not"
+            | "or"
+            | "out"
+            | "parser"
+            | "register"
+            | "restrict"
+            | "return"
+            | "select"
+            | "short"
+            | "signed"
+            | "sizeof"
+            | "static"
+            | "string"
+            | "struct"
+            | "switch"
+            | "table"
+            | "then"
+            | "this"
+            | "true"
+            | "typedef"
+            | "type"
+            | "typeName"
+            | "typeof"
+            | "union"
+            | "unsigned"
+            | "varbit"
+            | "void"
+            | "volatile"
+            | "while"
+    )
+}
+
+fn validate_symbol(role: &str, name: &str, errs: &mut Vec<String>) {
+    if name.is_empty() {
+        errs.push(format!("{role} has empty name"));
+    } else if !is_portable_ident(name) {
+        errs.push(format!(
+            "{role} `{name}` is not a portable identifier (expected [A-Za-z_][A-Za-z0-9_]*)"
+        ));
+    } else if is_backend_keyword(name) {
+        errs.push(format!("{role} `{name}` is a reserved backend keyword"));
+    }
+}
+
+fn c_reason_ident(reason: &str) -> String {
+    let mut ident = String::from("PK_R_");
+    for ch in reason.chars() {
+        ident.push(if ch.is_ascii_alphanumeric() {
+            ch.to_ascii_uppercase()
+        } else {
+            '_'
+        });
+    }
+    ident
+}
+
 fn validate_expr(e: &pb::Expr, ctx: &str, errs: &mut Vec<String>) {
     match &e.kind {
         None => errs.push(format!("{ctx}: empty expression")),
@@ -59,9 +163,7 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
         return Err(vec!["ir has no parser".into()]);
     };
 
-    if parser.name.is_empty() {
-        errs.push("parser has empty name".into());
-    }
+    validate_symbol("parser", &parser.name, &mut errs);
 
     if parser.max_depth == 0 {
         errs.push("max_depth must be >= 1".into());
@@ -70,20 +172,18 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
     // Header types: unique names, unique field names, sane widths.
     let mut header_types = std::collections::HashMap::new();
     for ht in &parser.header_types {
-        if ht.name.is_empty() {
-            errs.push("header type with empty name".into());
-        }
+        validate_symbol("header type", &ht.name, &mut errs);
         if header_types.insert(ht.name.as_str(), ht).is_some() {
             errs.push(format!("duplicate header type `{}`", ht.name));
         }
         let mut fields = std::collections::HashSet::new();
+        let mut c_members = std::collections::HashMap::<String, String>::new();
         for f in &ht.fields {
-            if f.name.is_empty() {
-                errs.push(format!(
-                    "header type `{}` has a field with empty name",
-                    ht.name
-                ));
-            }
+            validate_symbol(
+                &format!("field of header type `{}`", ht.name),
+                &f.name,
+                &mut errs,
+            );
             if !fields.insert(f.name.as_str()) {
                 errs.push(format!("duplicate field `{}.{}`", ht.name, f.name));
             }
@@ -96,6 +196,20 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
                 }
                 Some(_) => {}
                 None => errs.push(format!("field `{}.{}` has no width", ht.name, f.name)),
+            }
+            let emitted: Vec<String> = match f.width.as_ref().and_then(|w| w.width.as_ref()) {
+                Some(pb::field_width::Width::BitLen(_)) => {
+                    vec![format!("{}_bit_off", f.name), format!("{}_bit_len", f.name)]
+                }
+                _ => vec![f.name.clone()],
+            };
+            for member in emitted {
+                if let Some(previous) = c_members.insert(member.clone(), f.name.clone()) {
+                    errs.push(format!(
+                        "header type `{}` fields `{previous}` and `{}` collide as generated C member `{member}`",
+                        ht.name, f.name
+                    ));
+                }
             }
             if let Some(d) = &f.display {
                 let mut label_vals = std::collections::HashSet::new();
@@ -125,9 +239,7 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
     // Metadata declarations: unique non-empty names, width 1..=64, init fits.
     let mut meta_decls: std::collections::HashMap<&str, u32> = std::collections::HashMap::new();
     for m in &parser.metadata {
-        if m.name.is_empty() {
-            errs.push("metadata field with empty name".into());
-        }
+        validate_symbol("metadata field", &m.name, &mut errs);
         if !(1..=64).contains(&m.bits) {
             errs.push(format!(
                 "metadata `{}` width {} outside 1..=64",
@@ -146,10 +258,20 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
 
     // States: unique non-empty names.
     let mut states = std::collections::HashSet::new();
+    let mut reason_idents = std::collections::HashMap::<String, String>::new();
+    for reason in [
+        "out of bounds",
+        "max depth exceeded",
+        "no matching select arm",
+        "out of region bounds",
+        "region out of bounds",
+        "region not exhausted",
+    ] {
+        reason_idents.insert(c_reason_ident(reason), reason.into());
+    }
+
     for s in &parser.states {
-        if s.name.is_empty() {
-            errs.push("state with empty name".into());
-        }
+        validate_symbol("state", &s.name, &mut errs);
         if !states.insert(s.name.as_str()) {
             errs.push(format!("duplicate state `{}`", s.name));
         }
@@ -167,6 +289,7 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
             } else {
                 &e.instance
             };
+            validate_symbol("header instance", inst, &mut errs);
             if !header_types.contains_key(e.header_type.as_str()) {
                 errs.push(format!(
                     "state `{}` extracts unknown header type `{}`",
@@ -206,6 +329,53 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
                     }
                 }
             }
+        }
+    }
+
+    // The portable C result struct puts instances and metadata beside its
+    // built-in observables. Check lowered member names once, during
+    // validation, instead of letting a backend emit an invalid struct.
+    let mut result_members: std::collections::HashMap<String, String> = [
+        ("outcome".into(), "built-in outcome".into()),
+        ("reason".into(), "built-in reason".into()),
+        ("consumed_bits".into(), "built-in consumed_bits".into()),
+    ]
+    .into_iter()
+    .collect();
+    let mut seen_instances = std::collections::HashSet::new();
+    for s in &parser.states {
+        for e in &s.extracts {
+            let inst = if e.instance.is_empty() {
+                &e.header_type
+            } else {
+                &e.instance
+            };
+            if !seen_instances.insert(inst.as_str()) {
+                continue;
+            }
+            for member in [inst.clone(), format!("{inst}_present")] {
+                if let Some(previous) =
+                    result_members.insert(member.clone(), format!("instance `{inst}`"))
+                {
+                    errs.push(format!(
+                        "instance `{inst}` collides with {previous} as generated C member `{member}`"
+                    ));
+                }
+            }
+            if inst == "verdict" {
+                errs.push("header instance `verdict` is reserved by the P4 backend".into());
+            }
+        }
+    }
+    for m in &parser.metadata {
+        let member = format!("m_{}", m.name);
+        if let Some(previous) =
+            result_members.insert(member.clone(), format!("metadata `{}`", m.name))
+        {
+            errs.push(format!(
+                "metadata `{}` collides with {previous} as generated C member `{member}`",
+                m.name
+            ));
         }
     }
 
@@ -368,7 +538,7 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
             }
         }
 
-        let check_target = |t: &pb::Target, errs: &mut Vec<String>| match &t.kind {
+        let mut check_target = |t: &pb::Target, errs: &mut Vec<String>| match &t.kind {
             Some(pb::target::Kind::State(name)) => {
                 if !states.contains(name.as_str()) {
                     errs.push(format!("{ctx}: unknown state `{name}`"));
@@ -382,6 +552,15 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
                     if sev != "error" && sev != "info" {
                         errs.push(format!(
                             "{ctx}: reject severity `{sev}` (must be `error` or `info`)"
+                        ));
+                    }
+                }
+                let ident = c_reason_ident(&r.reason);
+                if let Some(previous) = reason_idents.insert(ident.clone(), r.reason.clone()) {
+                    if previous != r.reason {
+                        errs.push(format!(
+                            "reject reasons `{previous}` and `{}` collide as generated C identifier `{ident}`",
+                            r.reason
                         ));
                     }
                 }
@@ -872,6 +1051,24 @@ mod tests {
     }
 
     #[test]
+    fn rejects_nonportable_symbols_and_lowering_collisions() {
+        let mut ir = tiny();
+        parser(&mut ir).name = "bad-name".into();
+        assert_err_contains(&ir, "not a portable identifier");
+
+        let mut ir = tiny();
+        parser(&mut ir).states[0].transition = Some(pb::Transition {
+            kind: Some(pb::transition::Kind::Direct(pb::Target {
+                kind: Some(pb::target::Kind::Reject(pb::Reject {
+                    reason: "out-of-bounds".into(),
+                    ..Default::default()
+                })),
+            })),
+        });
+        assert_err_contains(&ir, "collide as generated C identifier");
+    }
+
+    #[test]
     fn rejects_incomplete_expression_and_select_structure() {
         let mut ir = tiny();
         parser(&mut ir).states[0].transition = Some(pb::Transition {
@@ -1113,7 +1310,7 @@ mod tests {
             init: 16,
             ..Default::default()
         });
-        assert_err_contains(&ir, "metadata field with empty name");
+        assert_err_contains(&ir, "metadata field has empty name");
         assert_err_contains(&ir, "metadata `m` width 65 outside 1..=64");
         assert_err_contains(&ir, "duplicate metadata `m`");
         assert_err_contains(&ir, "metadata `m` init 16 does not fit in 4 bits");

@@ -83,6 +83,26 @@ fn reason_ident(reason: &str) -> String {
     s
 }
 
+fn c_string(s: &str) -> String {
+    let mut out = String::new();
+    for byte in s.bytes() {
+        match byte {
+            b'\\' => out.push_str("\\\\"),
+            b'"' => out.push_str("\\\""),
+            b'\n' => out.push_str("\\n"),
+            b'\r' => out.push_str("\\r"),
+            b'\t' => out.push_str("\\t"),
+            0x20..=0x7e => out.push(byte as char),
+            _ => out.push_str(&format!("\\{byte:03o}")),
+        }
+    }
+    out
+}
+
+fn c_comment(s: &str) -> String {
+    s.replace("*/", "* /").replace(['\r', '\n'], " ")
+}
+
 fn uint_type(bits: u32) -> &'static str {
     match bits {
         1..=8 => "uint8_t",
@@ -357,7 +377,12 @@ impl<'a> Emit<'a> {
         writeln!(w, "typedef enum {{")?;
         writeln!(w, "  PK_R_NONE = 0,")?;
         for (reason, code) in &self.reasons {
-            writeln!(w, "  {} = {code}, /* \"{reason}\" */", reason_ident(reason))?;
+            writeln!(
+                w,
+                "  {} = {code}, /* \"{}\" */",
+                reason_ident(reason),
+                c_comment(reason)
+            )?;
         }
         writeln!(w, "}} {p}_reason_t;")?;
         writeln!(w)?;
@@ -741,7 +766,7 @@ impl<'a> Emit<'a> {
         writeln!(w, "const char *{p}_reason_str(uint16_t reason) {{")?;
         writeln!(w, "  switch (reason) {{")?;
         for (reason, code) in &self.reasons {
-            writeln!(w, "  case {code}: return \"{reason}\";")?;
+            writeln!(w, "  case {code}: return \"{}\";", c_string(reason))?;
         }
         writeln!(w, "  default: return \"\";")?;
         writeln!(w, "  }}")?;
@@ -1008,6 +1033,39 @@ mod tests {
             eprintln!("skipping: cc not available");
             return;
         }
+        let mut hostile = eth_ipvx_l4().into_inner();
+        hostile.parser.as_mut().unwrap().states[0].transition = Some(pb::Transition {
+            kind: Some(pb::transition::Kind::Direct(pb::Target {
+                kind: Some(pb::target::Kind::Reject(pb::Reject {
+                    reason: "bad \" */\nreason".into(),
+                    ..Default::default()
+                })),
+            })),
+        });
+        let hostile = crate::ir::ValidatedIr::new(hostile).unwrap();
+        let hostile_art = generate_c(&hostile).unwrap();
+        assert!(hostile_art.source.contains("bad \\\" */\\nreason"));
+        assert!(!hostile_art.header.contains("bad \" */"));
+        let hostile_out = cc_compiles(
+            &[
+                ("parser.h", &hostile_art.header),
+                ("parser.c", &hostile_art.source),
+                (
+                    "main.c",
+                    "#include \"parser.h\"\nint main(void) { return 0; }\n",
+                ),
+            ],
+            &[
+                "cc", "-std=c99", "-Wall", "-Wextra", "-Werror", "-O2", "parser.c", "main.c", "-o",
+                "harness",
+            ],
+        );
+        assert!(
+            hostile_out.status.success(),
+            "cc failed:\n{}",
+            String::from_utf8_lossy(&hostile_out.stderr)
+        );
+
         for ir in [eth_ipvx_l4(), crate::builder::meta_loop()] {
             let arts = generate_c(&ir).unwrap();
             let harness = generate_c_harness(&ir).unwrap();

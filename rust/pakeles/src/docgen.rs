@@ -6,6 +6,24 @@ use crate::ir::pb;
 use anyhow::{Context, Result};
 use std::fmt::Write;
 
+fn markdown_inline(s: &str) -> String {
+    let mut out = String::new();
+    for ch in s.chars() {
+        if matches!(ch, '\\' | '`' | '*' | '_' | '[' | ']' | '<' | '>') {
+            out.push('\\');
+        }
+        out.push(ch);
+    }
+    out
+}
+
+fn markdown_cell(s: &str) -> String {
+    markdown_inline(s)
+        .replace('|', "\\|")
+        .replace("\r\n", "<br>")
+        .replace(['\r', '\n'], "<br>")
+}
+
 /// If `e` is the frontends' byte-length sugar `expr * 8` (either
 /// operand order), the byte-denominated inner expression. Purely
 /// presentational — semantics always use the bit length.
@@ -74,13 +92,18 @@ pub fn generate_markdown(ir: &crate::ir::ValidatedIr) -> Result<String> {
             let labels = d
                 .value_labels
                 .iter()
-                .map(|vl| format!("{}={}", vl.value, vl.label))
+                .map(|vl| format!("{}={}", vl.value, markdown_cell(&vl.label)))
                 .collect::<Vec<_>>()
                 .join(", ");
             writeln!(
                 w,
                 "| `{}` | {} | {} | {} | {} | {} |",
-                f.name, width, format, d.name, labels, d.doc
+                f.name,
+                width,
+                format,
+                markdown_cell(&d.name),
+                labels,
+                markdown_cell(&d.doc)
             )?;
         }
     }
@@ -105,7 +128,12 @@ pub fn generate_markdown(ir: &crate::ir::ValidatedIr) -> Result<String> {
             writeln!(
                 w,
                 "| `{}` | {} | {} | {} | {} | {} |",
-                md.name, md.bits, md.init, format, d.name, d.doc
+                md.name,
+                md.bits,
+                md.init,
+                format,
+                markdown_cell(&d.name),
+                markdown_cell(&d.doc)
             )?;
         }
     }
@@ -191,9 +219,9 @@ fn target_text(t: &pb::Target) -> String {
         Some(pb::target::Kind::Reject(r)) => {
             let info = r.annotations.get("severity").map(String::as_str) == Some("info");
             if info {
-                format!("payload boundary (*{}*)", r.reason)
+                format!("payload boundary (*{}*)", markdown_inline(&r.reason))
             } else {
-                format!("**reject** (*{}*)", r.reason)
+                format!("**reject** (*{}*)", markdown_inline(&r.reason))
             }
         }
         None => "?".into(),
@@ -236,5 +264,19 @@ mod tests {
             md.contains("  > First line.\n  >\n  > Second line.\n"),
             "{md}"
         );
+    }
+
+    #[test]
+    fn display_values_cannot_break_markdown_tables() {
+        let mut ir = crate::builder::meta_loop().into_inner();
+        ir.parser.as_mut().unwrap().metadata[0].display = Some(crate::ir::pb::Display {
+            name: "a|b".into(),
+            doc: "line 1\nline *2*".into(),
+            ..Default::default()
+        });
+        let ir = crate::ir::ValidatedIr::new(ir).unwrap();
+        let md = super::generate_markdown(&ir).unwrap();
+        assert!(md.contains("a\\|b"), "{md}");
+        assert!(md.contains("line 1<br>line \\*2\\*"), "{md}");
     }
 }
