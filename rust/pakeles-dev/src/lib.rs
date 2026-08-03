@@ -80,7 +80,7 @@ pub fn write_vector_suite(name: &str, dir: &Path) -> anyhow::Result<()> {
         conformance.join("vectors.json"),
         pakeles::testvec::suite_to_json(&suite)?,
     )?;
-    let (packets, _) = pakeles::testvec::suite_to_packets(&suite);
+    let (packets, _) = pakeles::testvec::suite_to_packets(&suite)?;
     pakeles::pcapio::write_pcap(&conformance.join("vectors.pcap"), &packets)?;
     Ok(())
 }

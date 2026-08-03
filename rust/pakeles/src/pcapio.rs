@@ -1,10 +1,138 @@
 //! Minimal pcap io: classic-format writer for deterministic fixtures,
 //! pcap-parser-backed reader (legacy + pcapng).
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use pcap_parser::{create_reader, PcapBlockOwned, PcapError};
 use std::io::Write;
 use std::path::Path;
+
+#[derive(Clone, Debug)]
+pub struct PcapLimits {
+    pub max_packets: usize,
+    pub max_packet_bytes: usize,
+    pub max_total_bytes: usize,
+}
+
+impl Default for PcapLimits {
+    fn default() -> Self {
+        Self {
+            max_packets: 1_000_000,
+            max_packet_bytes: crate::testvec::DEFAULT_MAX_PACKET_BYTES,
+            max_total_bytes: 256 * 1024 * 1024,
+        }
+    }
+}
+
+pub struct PacketReader {
+    reader: Box<dyn pcap_parser::traits::PcapReaderIterator>,
+    limits: PcapLimits,
+    packets: usize,
+    total_bytes: usize,
+    done: bool,
+}
+
+impl Iterator for PacketReader {
+    type Item = Result<Vec<u8>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            return None;
+        }
+        loop {
+            match self.reader.next() {
+                Ok((offset, block)) => {
+                    let packet: Result<Option<Vec<u8>>> = match block {
+                        PcapBlockOwned::Legacy(b) => {
+                            packet_bytes(b.data, b.caplen as usize, self.limits.max_packet_bytes)
+                                .map(Some)
+                        }
+                        PcapBlockOwned::NG(pcap_parser::Block::EnhancedPacket(ref epb)) => {
+                            packet_bytes(
+                                epb.data,
+                                epb.caplen as usize,
+                                self.limits.max_packet_bytes,
+                            )
+                            .map(Some)
+                        }
+                        _ => Ok(None),
+                    };
+                    self.reader.consume(offset);
+                    let Some(packet) = (match packet {
+                        Ok(packet) => packet,
+                        Err(error) => {
+                            self.done = true;
+                            return Some(Err(error));
+                        }
+                    }) else {
+                        continue;
+                    };
+                    self.packets = match self.packets.checked_add(1) {
+                        Some(packets) => packets,
+                        None => {
+                            self.done = true;
+                            return Some(Err(anyhow::anyhow!("pcap packet count overflow")));
+                        }
+                    };
+                    self.total_bytes = match self.total_bytes.checked_add(packet.len()) {
+                        Some(total) => total,
+                        None => {
+                            self.done = true;
+                            return Some(Err(anyhow::anyhow!("pcap aggregate size overflow")));
+                        }
+                    };
+                    if self.packets > self.limits.max_packets
+                        || self.total_bytes > self.limits.max_total_bytes
+                    {
+                        self.done = true;
+                        return Some(Err(anyhow::anyhow!(
+                            "pcap resource limit exceeded (packets {}, packet bytes {}, total bytes {})",
+                            self.packets,
+                            packet.len(),
+                            self.total_bytes
+                        )));
+                    }
+                    return Some(Ok(packet));
+                }
+                Err(PcapError::Eof) => {
+                    self.done = true;
+                    return None;
+                }
+                Err(PcapError::Incomplete(_)) => {
+                    if self.reader.refill().is_err() {
+                        self.done = true;
+                        return Some(Err(anyhow::anyhow!("pcap refill failed")));
+                    }
+                }
+                Err(e) => {
+                    self.done = true;
+                    return Some(Err(anyhow::anyhow!("pcap read error: {e:?}")));
+                }
+            }
+        }
+    }
+}
+
+fn packet_bytes(data: &[u8], caplen: usize, max_packet_bytes: usize) -> Result<Vec<u8>> {
+    if caplen > max_packet_bytes {
+        anyhow::bail!("pcap packet size {caplen} exceeds limit {max_packet_bytes}");
+    }
+    let packet = data
+        .get(..caplen)
+        .ok_or_else(|| anyhow::anyhow!("pcap packet caplen {caplen} exceeds captured data"))?;
+    Ok(packet.to_vec())
+}
+
+pub fn packet_reader(path: &Path, limits: PcapLimits) -> Result<PacketReader> {
+    let file = std::fs::File::open(path)?;
+    let reader = create_reader(65536, file).map_err(|e| anyhow::anyhow!("pcap open: {e:?}"))?;
+    Ok(PacketReader {
+        reader,
+        limits,
+        packets: 0,
+        total_bytes: 0,
+        done: false,
+    })
+}
 
 /// Write a classic pcap (LINKTYPE_ETHERNET, snaplen 65535, zero
 /// timestamps so output is byte-for-byte deterministic).
@@ -28,33 +156,7 @@ pub fn write_pcap(path: &Path, packets: &[Vec<u8>]) -> Result<()> {
 }
 
 pub fn read_packets(path: &Path) -> Result<Vec<Vec<u8>>> {
-    let file = std::fs::File::open(path)?;
-    let mut reader = create_reader(65536, file)?;
-    let mut out = Vec::new();
-    loop {
-        match reader.next() {
-            Ok((offset, block)) => {
-                match block {
-                    PcapBlockOwned::Legacy(b) => {
-                        out.push(b.data[..b.caplen as usize].to_vec());
-                    }
-                    PcapBlockOwned::NG(pcap_parser::Block::EnhancedPacket(ref epb)) => {
-                        out.push(epb.data[..epb.caplen as usize].to_vec());
-                    }
-                    _ => {}
-                }
-                reader.consume(offset);
-            }
-            Err(PcapError::Eof) => break,
-            Err(PcapError::Incomplete(_)) => {
-                if reader.refill().is_err() {
-                    bail!("pcap refill failed");
-                }
-            }
-            Err(e) => bail!("pcap read error: {e:?}"),
-        }
-    }
-    Ok(out)
+    packet_reader(path, PcapLimits::default())?.collect()
 }
 
 #[cfg(test)]
@@ -75,5 +177,24 @@ mod tests {
         let packets = read_packets(&crate::test_repo_path("testdata/basic.pcap")).unwrap();
         assert_eq!(packets, fixtures::basic_pcap_packets());
         assert_eq!(packets[0].len(), 54);
+    }
+
+    #[test]
+    fn packet_reader_enforces_limits_before_returning_data() {
+        let packets = fixtures::basic_pcap_packets();
+        let path = std::env::temp_dir().join("pakeles_limited_roundtrip.pcap");
+        write_pcap(&path, &packets).unwrap();
+
+        let limits = PcapLimits {
+            max_packets: usize::MAX,
+            max_packet_bytes: 1,
+            max_total_bytes: usize::MAX,
+        };
+        let error = packet_reader(&path, limits)
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap_err();
+        assert!(error.to_string().contains("exceeds limit 1"));
     }
 }

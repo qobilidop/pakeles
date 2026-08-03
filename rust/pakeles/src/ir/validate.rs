@@ -3,6 +3,29 @@
 
 use super::pb;
 
+#[derive(Clone, Debug)]
+pub struct ValidationLimits {
+    pub max_parse_depth: u32,
+    pub max_states: usize,
+    pub max_header_types: usize,
+    pub max_fields: usize,
+    pub max_extracts: usize,
+    pub max_expression_depth: usize,
+}
+
+impl Default for ValidationLimits {
+    fn default() -> Self {
+        Self {
+            max_parse_depth: 4_096,
+            max_states: 10_000,
+            max_header_types: 10_000,
+            max_fields: 100_000,
+            max_extracts: 100_000,
+            max_expression_depth: 64,
+        }
+    }
+}
+
 fn is_portable_ident(name: &str) -> bool {
     let mut chars = name.chars();
     matches!(chars.next(), Some('_' | 'a'..='z' | 'A'..='Z'))
@@ -71,7 +94,6 @@ fn is_backend_keyword(name: &str) -> bool {
             | "this"
             | "true"
             | "typedef"
-            | "type"
             | "typeName"
             | "typeof"
             | "union"
@@ -107,44 +129,58 @@ fn c_reason_ident(reason: &str) -> String {
     ident
 }
 
-fn validate_expr(e: &pb::Expr, ctx: &str, errs: &mut Vec<String>) {
-    match &e.kind {
-        None => errs.push(format!("{ctx}: empty expression")),
-        Some(pb::expr::Kind::Field(r)) => {
-            if r.header.is_empty() || r.field.is_empty() {
-                errs.push(format!("{ctx}: field reference has an empty component"));
-            }
+fn validate_expr(e: &pb::Expr, ctx: &str, limits: &ValidationLimits, errs: &mut Vec<String>) {
+    let mut stack = vec![(e, 1usize)];
+    while let Some((e, depth)) = stack.pop() {
+        if depth > limits.max_expression_depth {
+            errs.push(format!(
+                "{ctx}: expression depth exceeds limit {}",
+                limits.max_expression_depth
+            ));
+            continue;
         }
-        Some(pb::expr::Kind::Metadata(r)) => {
-            if r.name.is_empty() {
-                errs.push(format!("{ctx}: metadata reference has an empty name"));
-            }
-        }
-        Some(pb::expr::Kind::Bin(b)) => {
-            match pb::BinOpKind::try_from(b.op) {
-                Ok(pb::BinOpKind::Unspecified) => {
-                    errs.push(format!("{ctx}: binary expression has unspecified operator"));
+        match &e.kind {
+            None => errs.push(format!("{ctx}: empty expression")),
+            Some(pb::expr::Kind::Field(r)) => {
+                if r.header.is_empty() || r.field.is_empty() {
+                    errs.push(format!("{ctx}: field reference has an empty component"));
                 }
-                Err(_) => errs.push(format!(
-                    "{ctx}: binary expression has unknown operator {}",
-                    b.op
-                )),
-                Ok(_) => {}
             }
-            match &b.lhs {
-                Some(lhs) => validate_expr(lhs, ctx, errs),
-                None => errs.push(format!("{ctx}: binary expression is missing lhs")),
+            Some(pb::expr::Kind::Metadata(r)) => {
+                if r.name.is_empty() {
+                    errs.push(format!("{ctx}: metadata reference has an empty name"));
+                }
             }
-            match &b.rhs {
-                Some(rhs) => validate_expr(rhs, ctx, errs),
-                None => errs.push(format!("{ctx}: binary expression is missing rhs")),
+            Some(pb::expr::Kind::Bin(b)) => {
+                match pb::BinOpKind::try_from(b.op) {
+                    Ok(pb::BinOpKind::Unspecified) => {
+                        errs.push(format!("{ctx}: binary expression has unspecified operator"));
+                    }
+                    Err(_) => errs.push(format!(
+                        "{ctx}: binary expression has unknown operator {}",
+                        b.op
+                    )),
+                    Ok(_) => {}
+                }
+                match &b.lhs {
+                    Some(lhs) => stack.push((lhs, depth + 1)),
+                    None => errs.push(format!("{ctx}: binary expression is missing lhs")),
+                }
+                match &b.rhs {
+                    Some(rhs) => stack.push((rhs, depth + 1)),
+                    None => errs.push(format!("{ctx}: binary expression is missing rhs")),
+                }
             }
+            Some(pb::expr::Kind::Constant(_) | pb::expr::Kind::Remaining(_)) => {}
         }
-        Some(pb::expr::Kind::Constant(_) | pb::expr::Kind::Remaining(_)) => {}
     }
 }
 
 pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
+    validate_with_limits(ir, &ValidationLimits::default())
+}
+
+pub fn validate_with_limits(ir: &pb::Ir, limits: &ValidationLimits) -> Result<(), Vec<String>> {
     let mut errs = Vec::new();
 
     // Version gate before anything else: length units changed at 0.2.0
@@ -167,6 +203,46 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
 
     if parser.max_depth == 0 {
         errs.push("max_depth must be >= 1".into());
+    } else if parser.max_depth > limits.max_parse_depth {
+        errs.push(format!(
+            "max_depth {} exceeds limit {}",
+            parser.max_depth, limits.max_parse_depth
+        ));
+    }
+
+    if parser.states.len() > limits.max_states {
+        errs.push(format!(
+            "parser has {} states, exceeding limit {}",
+            parser.states.len(),
+            limits.max_states
+        ));
+    }
+    if parser.header_types.len() > limits.max_header_types {
+        errs.push(format!(
+            "parser has {} header types, exceeding limit {}",
+            parser.header_types.len(),
+            limits.max_header_types
+        ));
+    }
+    let field_count = parser
+        .header_types
+        .iter()
+        .fold(0usize, |total, h| total.saturating_add(h.fields.len()));
+    if field_count > limits.max_fields {
+        errs.push(format!(
+            "parser has {field_count} fields, exceeding limit {}",
+            limits.max_fields
+        ));
+    }
+    let extract_count = parser
+        .states
+        .iter()
+        .fold(0usize, |total, s| total.saturating_add(s.extracts.len()));
+    if extract_count > limits.max_extracts {
+        errs.push(format!(
+            "parser has {extract_count} extracts, exceeding limit {}",
+            limits.max_extracts
+        ));
     }
 
     // Header types: unique names, unique field names, sane widths.
@@ -401,33 +477,39 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
     };
 
     fn walk_refs<'a>(e: &'a pb::Expr, out: &mut Vec<&'a pb::FieldRef>) {
-        match &e.kind {
-            Some(pb::expr::Kind::Field(r)) => out.push(r),
-            Some(pb::expr::Kind::Bin(b)) => {
-                if let Some(l) = &b.lhs {
-                    walk_refs(l, out);
+        let mut stack = vec![e];
+        while let Some(e) = stack.pop() {
+            match &e.kind {
+                Some(pb::expr::Kind::Field(r)) => out.push(r),
+                Some(pb::expr::Kind::Bin(b)) => {
+                    if let Some(l) = &b.lhs {
+                        stack.push(l);
+                    }
+                    if let Some(r) = &b.rhs {
+                        stack.push(r);
+                    }
                 }
-                if let Some(r) = &b.rhs {
-                    walk_refs(r, out);
-                }
+                Some(pb::expr::Kind::Metadata(_)) => {}
+                _ => {}
             }
-            Some(pb::expr::Kind::Metadata(_)) => {}
-            _ => {}
         }
     }
 
     fn walk_meta_refs<'a>(e: &'a pb::Expr, out: &mut Vec<&'a pb::MetadataRef>) {
-        match &e.kind {
-            Some(pb::expr::Kind::Metadata(r)) => out.push(r),
-            Some(pb::expr::Kind::Bin(b)) => {
-                if let Some(l) = &b.lhs {
-                    walk_meta_refs(l, out);
+        let mut stack = vec![e];
+        while let Some(e) = stack.pop() {
+            match &e.kind {
+                Some(pb::expr::Kind::Metadata(r)) => out.push(r),
+                Some(pb::expr::Kind::Bin(b)) => {
+                    if let Some(l) = &b.lhs {
+                        stack.push(l);
+                    }
+                    if let Some(r) = &b.rhs {
+                        stack.push(r);
+                    }
                 }
-                if let Some(r) = &b.rhs {
-                    walk_meta_refs(r, out);
-                }
+                _ => {}
             }
-            _ => {}
         }
     }
 
@@ -441,7 +523,7 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
                 f.width.as_ref().and_then(|w| w.width.as_ref())
             {
                 let width_ctx = format!("width of `{}.{}`", ht.name, f.name);
-                validate_expr(e, &width_ctx, &mut errs);
+                validate_expr(e, &width_ctx, limits, &mut errs);
                 let mut refs = Vec::new();
                 walk_refs(e, &mut refs);
                 for r in refs {
@@ -492,7 +574,7 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
             match &op.kind {
                 Some(pb::region_op::Kind::Push(e)) => {
                     let push_ctx = format!("state `{}` region push #{i}", s.name);
-                    validate_expr(e, &push_ctx, &mut errs);
+                    validate_expr(e, &push_ctx, limits, &mut errs);
                     let mut refs = Vec::new();
                     walk_refs(e, &mut refs);
                     for r in refs {
@@ -522,7 +604,7 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
             }
             if let Some(value) = &a.value {
                 let assign_ctx = format!("state `{}` assign `{}`", s.name, a.metadata);
-                validate_expr(value, &assign_ctx, &mut errs);
+                validate_expr(value, &assign_ctx, limits, &mut errs);
                 let mut refs = Vec::new();
                 walk_refs(value, &mut refs);
                 for r in refs {
@@ -576,7 +658,7 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
                     errs.push(format!("{ctx}: select has no keys"));
                 }
                 for k in &sel.keys {
-                    validate_expr(k, &format!("{ctx} select key"), &mut errs);
+                    validate_expr(k, &format!("{ctx} select key"), limits, &mut errs);
                     let mut refs = Vec::new();
                     walk_refs(k, &mut refs);
                     for r in refs {
@@ -757,14 +839,22 @@ fn region_depth_errors(parser: &pb::Parser, errs: &mut Vec<String>) {
 }
 
 fn contains_remaining(e: &pb::Expr) -> bool {
-    match &e.kind {
-        Some(pb::expr::Kind::Remaining(_)) => true,
-        Some(pb::expr::Kind::Bin(b)) => {
-            b.lhs.as_deref().is_some_and(contains_remaining)
-                || b.rhs.as_deref().is_some_and(contains_remaining)
+    let mut stack = vec![e];
+    while let Some(e) = stack.pop() {
+        match &e.kind {
+            Some(pb::expr::Kind::Remaining(_)) => return true,
+            Some(pb::expr::Kind::Bin(b)) => {
+                if let Some(lhs) = &b.lhs {
+                    stack.push(lhs);
+                }
+                if let Some(rhs) = &b.rhs {
+                    stack.push(rhs);
+                }
+            }
+            _ => {}
         }
-        _ => false,
     }
+    false
 }
 
 fn state_instances(s: &pb::State) -> Vec<String> {
@@ -909,18 +999,21 @@ fn definite_extraction_errors(
 }
 
 fn collect_refs<'a>(e: &'a pb::Expr, out: &mut Vec<&'a pb::FieldRef>) {
-    match &e.kind {
-        Some(pb::expr::Kind::Field(r)) => out.push(r),
-        Some(pb::expr::Kind::Bin(b)) => {
-            if let Some(l) = &b.lhs {
-                collect_refs(l, out);
+    let mut stack = vec![e];
+    while let Some(e) = stack.pop() {
+        match &e.kind {
+            Some(pb::expr::Kind::Field(r)) => out.push(r),
+            Some(pb::expr::Kind::Bin(b)) => {
+                if let Some(l) = &b.lhs {
+                    stack.push(l);
+                }
+                if let Some(r) = &b.rhs {
+                    stack.push(r);
+                }
             }
-            if let Some(r) = &b.rhs {
-                collect_refs(r, out);
-            }
+            Some(pb::expr::Kind::Metadata(_)) => {}
+            _ => {}
         }
-        Some(pb::expr::Kind::Metadata(_)) => {}
-        _ => {}
     }
 }
 
@@ -976,6 +1069,19 @@ mod tests {
         let mut ir = tiny();
         parser(&mut ir).max_depth = 0;
         assert_err_contains(&ir, "max_depth");
+    }
+
+    #[test]
+    fn rejects_resource_limits_and_allows_custom_policy() {
+        let mut ir = tiny();
+        parser(&mut ir).max_depth = 4_097;
+        assert_err_contains(&ir, "exceeds limit 4096");
+
+        let limits = super::ValidationLimits {
+            max_parse_depth: 5_000,
+            ..Default::default()
+        };
+        super::validate_with_limits(&ir, &limits).unwrap();
     }
 
     #[test]

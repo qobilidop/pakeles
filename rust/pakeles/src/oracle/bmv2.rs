@@ -20,7 +20,6 @@
 //!   any of those error codes is accepted.
 
 use crate::ir::pb;
-use crate::testvec::pb as tvpb;
 use anyhow::{bail, Context, Result};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -299,15 +298,21 @@ pub struct DiffReport {
 }
 
 /// Cap on byte-aligned vectors sent through `simple_switch` per suite.
-pub fn diff_suite(ir: &crate::ir::ValidatedIr, suite: &tvpb::TestSuite) -> Result<DiffReport> {
+pub fn diff_suite(
+    ir: &crate::ir::ValidatedIr,
+    suite: &crate::testvec::ValidatedTestSuite,
+) -> Result<DiffReport> {
     let p4 = crate::codegen::p4::generate_p4(ir)?;
     let parser = ir.parser.as_ref().context("IR has no parser")?;
     let name = &parser.name;
+    if suite.parser_name != parser.name || suite.ir_version != ir.ir_version {
+        anyhow::bail!("test suite parser/version does not match IR");
+    }
     let bm_bytes =
         crate::codegen::p4::bitmap_bytes(crate::codegen::p4::instance_order(parser).len());
     let workdir = std::env::temp_dir().join(format!("pakeles_bmv2_{name}_{}", std::process::id()));
     let json = compile(&p4, &workdir)?;
-    let (packets, indices) = crate::testvec::suite_to_packets(suite);
+    let (packets, indices) = crate::testvec::suite_to_packets(suite)?;
     let byte_aligned = indices.len();
     let mut report = DiffReport {
         compared: 0,
@@ -321,7 +326,7 @@ pub fn diff_suite(ir: &crate::ir::ValidatedIr, suite: &tvpb::TestSuite) -> Resul
     for (got, &vi) in verdicts.iter().zip(indices.iter()) {
         let vector = &suite.vectors[vi];
         let bs = vector.packet.as_ref().context("vector has no packet")?;
-        let (bits, _) = crate::testvec::Bits::from_pb(bs);
+        let (bits, _) = crate::testvec::Bits::from_pb(bs)?;
         let res = crate::interp::run_bits(ir, &bits)?;
         if matches!(&res.outcome,
             crate::interp::Outcome::Reject { reason } if reason == "max depth exceeded")
@@ -371,12 +376,12 @@ mod tests {
         let Some(suite) = crate::testvec::committed_suite_or_skip("eth_ipvx_l4") else {
             return;
         };
-        let (packets, indices) = crate::testvec::suite_to_packets(&suite);
+        let (packets, indices) = crate::testvec::suite_to_packets(&suite).unwrap();
         // first byte-aligned ACCEPT vector
         let (pkt, vi) = packets
             .iter()
             .zip(indices.iter())
-            .find(|(_, &vi)| suite.vectors[vi].category() == tvpb::Category::Accept)
+            .find(|(_, &vi)| suite.vectors[vi].category() == crate::testvec::pb::Category::Accept)
             .map(|(p, &vi)| (p.clone(), vi))
             .expect("no byte-aligned accept vector");
         let bm_bytes = crate::codegen::p4::bitmap_bytes(

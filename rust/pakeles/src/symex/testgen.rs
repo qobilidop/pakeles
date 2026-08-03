@@ -4,17 +4,24 @@
 //! the suite is self-checking against normative semantics by
 //! construction.
 
-use super::engine::{enumerate, Enumeration, Path, PathKind};
+use super::engine::{enumerate, enumerate_with_limits, Enumeration, Path, PathKind, SymexLimits};
 use super::z3solver::Z3Solver;
 use crate::interp::{run_bits, FieldValue, Outcome};
 use crate::testvec::{pb, Bits};
 use anyhow::{bail, Context, Result};
 
-pub fn generate(ir: &crate::ir::ValidatedIr) -> Result<pb::TestSuite> {
-    let enumeration = enumerate_paths(ir)?;
+pub fn generate(ir: &crate::ir::ValidatedIr) -> Result<crate::testvec::ValidatedTestSuite> {
+    generate_with_limits(ir, &SymexLimits::default())
+}
+
+pub fn generate_with_limits(
+    ir: &crate::ir::ValidatedIr,
+    limits: &SymexLimits,
+) -> Result<crate::testvec::ValidatedTestSuite> {
+    let enumeration = enumerate_paths_with_limits(ir, limits)?;
     let parser = ir.parser.as_ref().expect("validated");
     let vectors = solve_all(ir, &enumeration.paths)?;
-    Ok(pb::TestSuite {
+    crate::testvec::ValidatedTestSuite::new(pb::TestSuite {
         parser_name: parser.name.clone(),
         ir_version: ir.ir_version.clone(),
         vectors,
@@ -27,6 +34,14 @@ pub fn generate(ir: &crate::ir::ValidatedIr) -> Result<pb::TestSuite> {
 pub fn enumerate_paths(ir: &crate::ir::ValidatedIr) -> Result<Enumeration> {
     let mut solver = Z3Solver::new();
     enumerate(ir, &mut solver)
+}
+
+pub fn enumerate_paths_with_limits(
+    ir: &crate::ir::ValidatedIr,
+    limits: &SymexLimits,
+) -> Result<Enumeration> {
+    let mut solver = Z3Solver::new();
+    enumerate_with_limits(ir, &mut solver, limits)
 }
 
 /// Assemble vectors from the witnesses the engine solved at emit time
@@ -116,14 +131,22 @@ fn vector_for(ir: &crate::ir::ValidatedIr, path: &Path) -> Result<pb::TestVector
 /// Replay a suite through the reference interpreter; returns mismatch
 /// descriptions (empty = green). This — not solver re-runs — is the
 /// CI-stable check for committed suites.
-pub fn replay(ir: &crate::ir::ValidatedIr, suite: &pb::TestSuite) -> Result<Vec<String>> {
+pub fn replay(
+    ir: &crate::ir::ValidatedIr,
+    suite: &crate::testvec::ValidatedTestSuite,
+) -> Result<Vec<String>> {
+    if suite.parser_name != ir.parser.as_ref().expect("validated").name
+        || suite.ir_version != ir.ir_version
+    {
+        bail!("test suite parser/version does not match IR");
+    }
     let mut mismatches = Vec::new();
     for v in &suite.vectors {
         let Some(packet) = &v.packet else {
             mismatches.push(format!("{}: no packet", v.id));
             continue;
         };
-        let (bits, warnings) = Bits::from_pb(packet);
+        let (bits, warnings) = Bits::from_pb(packet)?;
         for w in warnings {
             mismatches.push(format!("{}: non-canonical packet: {w}", v.id));
         }
@@ -272,7 +295,7 @@ mod tests {
         );
         // pathid mirrors the engine's segments over every witness.
         for v in &suite.vectors {
-            let (bits, _) = Bits::from_pb(v.packet.as_ref().unwrap());
+            let (bits, _) = Bits::from_pb(v.packet.as_ref().unwrap()).unwrap();
             let res = run_bits(&ir, &bits).unwrap();
             let pid = crate::symex::pathid::path_id(&ir, &res).unwrap();
             assert_eq!(pid, v.id, "pathid diverges from engine on {}", v.id);
@@ -304,11 +327,11 @@ mod tests {
             .iter()
             .find(|v| v.category == pb::Category::Accept as i32)
             .expect("accept vector");
-        let (bits, _) = Bits::from_pb(accept.packet.as_ref().unwrap());
+        let (bits, _) = Bits::from_pb(accept.packet.as_ref().unwrap()).unwrap();
         assert_eq!(&bits.bytes[..2], &[0xAB, 0xCD]);
         // pathid mirrors the engine over every peeked witness.
         for v in &suite.vectors {
-            let (bits, _) = Bits::from_pb(v.packet.as_ref().unwrap());
+            let (bits, _) = Bits::from_pb(v.packet.as_ref().unwrap()).unwrap();
             let res = run_bits(&ir, &bits).unwrap();
             let pid = crate::symex::pathid::path_id(&ir, &res).unwrap();
             assert_eq!(pid, v.id, "pathid diverges from engine on {}", v.id);
@@ -341,7 +364,7 @@ mod tests {
             .iter()
             .find(|v| v.category == pb::Category::Accept as i32)
             .expect("accept vector");
-        let (bits, _) = Bits::from_pb(accept.packet.as_ref().unwrap());
+        let (bits, _) = Bits::from_pb(accept.packet.as_ref().unwrap()).unwrap();
         assert_eq!(bits.bytes[0], 0xAB);
         // And the expected fields agree with the peeked value.
         let Some(pb::expected::Outcome::Accept(a)) =

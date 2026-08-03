@@ -39,6 +39,21 @@ const SANITY_BITS: usize = 8 * 1024 * 1024;
 /// reject). Coexists with the global `max_depth` reject.
 const TESTGEN_LOOP_UNROLL: u32 = 2;
 
+#[derive(Clone, Debug)]
+pub struct SymexLimits {
+    pub max_paths: usize,
+    pub max_solver_checks: u64,
+}
+
+impl Default for SymexLimits {
+    fn default() -> Self {
+        Self {
+            max_paths: 100_000,
+            max_solver_checks: 2_000_000,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum PathKind {
     Accept,
@@ -218,6 +233,9 @@ struct Ctx<'a> {
     /// assignment results to their declared width.
     meta_bits: HashMap<String, u32>,
     stats: EnumStats,
+    limits: SymexLimits,
+    limit_exceeded: Option<String>,
+    last_progress: std::time::Instant,
 }
 
 impl Ctx<'_> {
@@ -225,6 +243,15 @@ impl Ctx<'_> {
     /// call. The session stack already holds `cs` (scope discipline);
     /// `cs`/`packet_bits` feed classification and the cross-check.
     fn check(&mut self, packet_bits: usize, cs: &[Constraint]) -> bool {
+        if self.stats.checks >= self.limits.max_solver_checks {
+            self.limit_exceeded.get_or_insert_with(|| {
+                format!(
+                    "symbolic solver-check limit {} exceeded",
+                    self.limits.max_solver_checks
+                )
+            });
+            return false;
+        }
         let t0 = std::time::Instant::now();
         let sat = self.session.check(packet_bits, cs);
         let dt = t0.elapsed();
@@ -418,6 +445,14 @@ fn alias_constraints(
 }
 
 pub(crate) fn enumerate(ir: &pb::Ir, solver: &mut dyn Solver) -> anyhow::Result<Enumeration> {
+    enumerate_with_limits(ir, solver, &SymexLimits::default())
+}
+
+pub(crate) fn enumerate_with_limits(
+    ir: &pb::Ir,
+    solver: &mut dyn Solver,
+    limits: &SymexLimits,
+) -> anyhow::Result<Enumeration> {
     let parser = ir
         .parser
         .as_ref()
@@ -440,6 +475,9 @@ pub(crate) fn enumerate(ir: &pb::Ir, solver: &mut dyn Solver) -> anyhow::Result<
             .map(|md| (md.name.clone(), md.bits))
             .collect(),
         stats: EnumStats::default(),
+        limits: limits.clone(),
+        limit_exceeded: None,
+        last_progress: std::time::Instant::now(),
     };
     let frame = Frame {
         meta: parser
@@ -450,6 +488,9 @@ pub(crate) fn enumerate(ir: &pb::Ir, solver: &mut dyn Solver) -> anyhow::Result<
         ..Frame::default()
     };
     walk_state(&mut ctx, &parser.start_state, frame)?;
+    if let Some(message) = ctx.limit_exceeded.take() {
+        anyhow::bail!(message);
+    }
     ctx.paths.sort_by(|a, b| a.id.cmp(&b.id));
     Ok(Enumeration {
         paths: ctx.paths,
@@ -575,6 +616,12 @@ fn entry_constraint(entry: &pb::KeysetEntry, key: Term) -> Constraint {
 }
 
 fn emit(ctx: &mut Ctx, frame: &Frame, kind: PathKind, bit_len: Term, min_bits: usize) {
+    if ctx.paths.len() >= ctx.limits.max_paths {
+        ctx.limit_exceeded.get_or_insert_with(|| {
+            format!("symbolic path limit {} exceeded", ctx.limits.max_paths)
+        });
+        return;
+    }
     // The session stack equals `frame.constraints` here (scope
     // discipline), so the witness comes from hot solver state.
     let t0 = std::time::Instant::now();
@@ -589,15 +636,17 @@ fn emit(ctx: &mut Ctx, frame: &Frame, kind: PathKind, bit_len: Term, min_bits: u
     });
     // Progress heartbeat for long regens (stderr; cargo test captures it).
     // Tunnel-scale enumerations run for hours — silence reads as a hang.
-    if ctx.paths.len().is_multiple_of(25) {
+    if ctx.paths.len().is_multiple_of(1_000)
+        || ctx.last_progress.elapsed() >= std::time::Duration::from_secs(30)
+    {
         eprintln!("ENUM PROGRESS: {} paths", ctx.paths.len());
+        ctx.last_progress = std::time::Instant::now();
     }
 }
 
 fn walk_state(ctx: &mut Ctx, state_name: &str, mut frame: Frame) -> anyhow::Result<()> {
-    frame.depth += 1;
     frame.segments.push(state_name.to_string());
-    if frame.depth > ctx.parser.max_depth {
+    if frame.depth >= ctx.parser.max_depth {
         emit(
             ctx,
             &frame,
@@ -609,6 +658,7 @@ fn walk_state(ctx: &mut Ctx, state_name: &str, mut frame: Frame) -> anyhow::Resu
         );
         return Ok(());
     }
+    frame.depth += 1;
     // Testgen loop-unroll cap: a cyclic state may be entered at most
     // TESTGEN_LOOP_UNROLL times per path. Over-cap unrollings are pruned
     // with NO vector emitted (a coverage bound, not parser behavior — the
@@ -1251,6 +1301,27 @@ mod tests {
     fn enumerate_ir(ir: &pb::Ir) -> Enumeration {
         let mut solver = Z3Solver::new();
         enumerate(ir, &mut solver).unwrap()
+    }
+
+    #[test]
+    fn path_enumeration_obeys_resource_limits() {
+        let ir = ParserBuilder::new("limited", 1)
+            .state(StateBuilder::new("s").accept())
+            .start("s")
+            .build()
+            .unwrap();
+        let mut solver = Z3Solver::new();
+        let err = enumerate_with_limits(
+            &ir,
+            &mut solver,
+            &SymexLimits {
+                max_paths: 0,
+                ..SymexLimits::default()
+            },
+        )
+        .err()
+        .expect("zero path limit must fail");
+        assert!(err.to_string().contains("path limit"), "{err:#}");
     }
 
     fn count(paths: &[Path], kind: fn(&PathKind) -> bool) -> usize {

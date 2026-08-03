@@ -15,7 +15,6 @@
 
 use pakeles::interp::{FieldValue, Outcome, ParsedHeader};
 use pakeles::ir::pb;
-use pakeles::testvec::pb as tvpb;
 use std::path::Path;
 
 /// Load an example's committed conformance suite, or `None` when its
@@ -23,7 +22,7 @@ use std::path::Path;
 /// artifact that may be gitignored during fast iteration (it churns on
 /// every IR/testgen change), so conformance tests SKIP when it hasn't
 /// been regenerated: `./dev.sh scripts/gen-examples.sh`.
-pub fn committed_suite(example_dir: &Path) -> Option<tvpb::TestSuite> {
+pub fn committed_suite(example_dir: &Path) -> Option<pakeles::testvec::ValidatedTestSuite> {
     let path = example_dir.join("conformance/vectors.json");
     if !path.exists() {
         eprintln!(
@@ -56,7 +55,10 @@ pub fn last_headers_by_instance(headers: &[ParsedHeader]) -> Vec<&ParsedHeader> 
 /// bit-granular truncations pcap could not carry to the Lua backend —
 /// on outcome, reason, consumed bits, and every field. With no suite
 /// (not generated, or a non-gallery IR) the compile check still runs.
-pub fn c_backend_conformance(ir: &pakeles::ir::ValidatedIr, suite: Option<&tvpb::TestSuite>) {
+pub fn c_backend_conformance(
+    ir: &pakeles::ir::ValidatedIr,
+    suite: Option<&pakeles::testvec::ValidatedTestSuite>,
+) {
     use std::io::Write as _;
     if std::process::Command::new("cc")
         .arg("--version")
@@ -93,7 +95,7 @@ pub fn c_backend_conformance(ir: &pakeles::ir::ValidatedIr, suite: Option<&tvpb:
     let mut input = String::new();
     let mut bits_list = Vec::new();
     for v in &suite.vectors {
-        let (bits, _) = pakeles::testvec::Bits::from_pb(v.packet.as_ref().unwrap());
+        let (bits, _) = pakeles::testvec::Bits::from_pb(v.packet.as_ref().unwrap()).unwrap();
         let hex = if bits.bytes.is_empty() {
             "-".to_string()
         } else {
@@ -201,7 +203,10 @@ pub fn c_backend_conformance(ir: &pakeles::ir::ValidatedIr, suite: Option<&tvpb:
 /// verdict (outcome | reason | consumed) against the reference
 /// interpreter for every vector in the suite. With no suite the
 /// compile check still runs.
-pub fn bpf_backend_conformance(ir: &pakeles::ir::ValidatedIr, suite: Option<&tvpb::TestSuite>) {
+pub fn bpf_backend_conformance(
+    ir: &pakeles::ir::ValidatedIr,
+    suite: Option<&pakeles::testvec::ValidatedTestSuite>,
+) {
     for tool in ["clang", "llvm-objcopy"] {
         if std::process::Command::new(tool)
             .arg("--version")
@@ -264,7 +269,7 @@ pub fn bpf_backend_conformance(ir: &pakeles::ir::ValidatedIr, suite: Option<&tvp
     vm.set_program(&prog).unwrap();
     let mut mismatches = Vec::new();
     for v in &suite.vectors {
-        let (bits, _) = pakeles::testvec::Bits::from_pb(v.packet.as_ref().unwrap());
+        let (bits, _) = pakeles::testvec::Bits::from_pb(v.packet.as_ref().unwrap()).unwrap();
         let reference = pakeles::interp::run_bits(ir, &bits).unwrap();
         let mut mem = (bits.bit_len as u64).to_le_bytes().to_vec();
         mem.extend_from_slice(&bits.bytes);
@@ -353,7 +358,7 @@ fn headers_to_expected(headers: &[&ParsedHeader]) -> Vec<(String, ExpectedFields
 /// generated dissector -> JSON diffed against expected fields.
 pub fn lua_backend_conformance(
     ir: &pakeles::ir::ValidatedIr,
-    suite: &tvpb::TestSuite,
+    suite: &pakeles::testvec::ValidatedTestSuite,
     min_compared: usize,
 ) {
     if std::process::Command::new("tshark")
@@ -367,7 +372,7 @@ pub fn lua_backend_conformance(
     let parser = ir.parser.as_ref().unwrap();
     let name = parser.name.clone();
     let proto = format!("pakeles_{}", parser.name);
-    let (packets, indices) = pakeles::testvec::suite_to_packets(suite);
+    let (packets, indices) = pakeles::testvec::suite_to_packets(suite).unwrap();
 
     let dir = std::env::temp_dir();
     let lua_path = dir.join(format!("pakeles_conf_{name}_{}.lua", std::process::id()));
@@ -439,7 +444,8 @@ pub fn lua_backend_conformance(
                 })
                 .collect::<Vec<_>>(),
             _ => {
-                let (bits, _) = pakeles::testvec::Bits::from_pb(vector.packet.as_ref().unwrap());
+                let (bits, _) =
+                    pakeles::testvec::Bits::from_pb(vector.packet.as_ref().unwrap()).unwrap();
                 let res = pakeles::interp::run_bits(ir, &bits).unwrap();
                 headers_to_expected(&last_headers_by_instance(&res.headers))
             }
@@ -548,7 +554,7 @@ pub fn lua_backend_conformance(
 /// `simple_switch` running the generated P4-16 program.
 pub fn bmv2_backend_conformance(
     ir: &pakeles::ir::ValidatedIr,
-    suite: &tvpb::TestSuite,
+    suite: &pakeles::testvec::ValidatedTestSuite,
     min_compared: usize,
 ) {
     if !pakeles::oracle::bmv2::tools_available() {

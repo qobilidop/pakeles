@@ -34,7 +34,14 @@ pub struct ValidatedIr(pb::Ir);
 
 impl ValidatedIr {
     pub fn new(ir: pb::Ir) -> std::result::Result<Self, ValidationErrors> {
-        validate::validate(&ir).map_err(ValidationErrors)?;
+        Self::new_with_limits(ir, &validate::ValidationLimits::default())
+    }
+
+    pub fn new_with_limits(
+        ir: pb::Ir,
+        limits: &validate::ValidationLimits,
+    ) -> std::result::Result<Self, ValidationErrors> {
+        validate::validate_with_limits(&ir, limits).map_err(ValidationErrors)?;
         Ok(Self(ir))
     }
 

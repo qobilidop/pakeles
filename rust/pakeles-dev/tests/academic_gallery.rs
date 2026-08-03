@@ -30,7 +30,7 @@ fn ir(name: &str) -> pakeles::ir::ValidatedIr {
         .unwrap_or_else(|e| panic!("loading committed {name}.ir.json: {e}"))
 }
 
-fn suite(name: &str) -> Option<pakeles::testvec::pb::TestSuite> {
+fn suite(name: &str) -> Option<pakeles::testvec::ValidatedTestSuite> {
     pakeles_testkit::committed_suite(&dir(name))
 }
 

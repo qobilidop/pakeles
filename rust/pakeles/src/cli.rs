@@ -209,8 +209,11 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
     match cli.command {
         Command::Run { pcap, ir } => {
             let ir = load_ir(&ir)?;
-            for (idx, packet) in pakeles::pcapio::read_packets(&pcap)?.iter().enumerate() {
-                let res = pakeles::interp::run(&ir, packet)?;
+            let packets =
+                pakeles::pcapio::packet_reader(&pcap, pakeles::pcapio::PcapLimits::default())?;
+            for (idx, packet) in packets.enumerate() {
+                let packet = packet?;
+                let res = pakeles::interp::run(&ir, &packet)?;
                 println!("{}", result_json(idx, &res));
             }
             Ok(0)
@@ -300,7 +303,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
                 eprintln!("wrote {} vectors to {}", suite.vectors.len(), out.display());
             }
             if let Some(pcap) = pcap_out {
-                let (packets, indices) = pakeles::testvec::suite_to_packets(&suite);
+                let (packets, indices) = pakeles::testvec::suite_to_packets(&suite)?;
                 pakeles::pcapio::write_pcap(&pcap, &packets)?;
                 eprintln!(
                     "wrote {} byte-aligned vectors to {} ({} bit-granular vectors skipped)",

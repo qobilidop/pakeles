@@ -21,7 +21,7 @@ fn ir(name: &str) -> pakeles::ir::ValidatedIr {
     pakeles::ir::load(&fixture_path(name)).unwrap_or_else(|e| panic!("loading fixture {name}: {e}"))
 }
 
-fn suite(name: &str) -> pakeles::testvec::pb::TestSuite {
+fn suite(name: &str) -> pakeles::testvec::ValidatedTestSuite {
     pakeles::symex::testgen::generate(&ir(name))
         .unwrap_or_else(|e| panic!("testgen for fixture {name}: {e}"))
 }

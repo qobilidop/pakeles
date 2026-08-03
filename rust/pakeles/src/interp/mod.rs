@@ -193,12 +193,11 @@ pub fn run_bits(
     };
 
     loop {
-        depth += 1;
         trace.push(TraceStep {
             state: current.to_string(),
             decision: Decision::None,
         });
-        if depth > parser.max_depth {
+        if depth >= parser.max_depth {
             return reject(
                 "max depth exceeded",
                 plain(Severity::Error),
@@ -210,6 +209,7 @@ pub fn run_bits(
                 final_meta(parser, &meta),
             );
         }
+        depth += 1;
         let state = states
             .get(current)
             .ok_or_else(|| anyhow::anyhow!("unknown state `{current}`"))?;

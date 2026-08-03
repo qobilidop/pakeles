@@ -20,10 +20,13 @@ pub fn coverage(ir: &crate::ir::ValidatedIr, pcap: &Path) -> anyhow::Result<Cove
     let all_ids: std::collections::BTreeSet<String> =
         enumeration.paths.iter().map(|p| p.id.clone()).collect();
 
-    let packets = crate::pcapio::read_packets(pcap)?;
     let mut hits: BTreeMap<String, usize> = BTreeMap::new();
-    for packet in &packets {
-        let result = crate::interp::run(ir, packet)?;
+    let packets = crate::pcapio::packet_reader(pcap, crate::pcapio::PcapLimits::default())?;
+    let mut packet_count = 0usize;
+    for packet in packets {
+        let packet = packet?;
+        packet_count += 1;
+        let result = crate::interp::run(ir, &packet)?;
         let id = path_id(ir, &result)?;
         if !all_ids.contains(&id) {
             anyhow::bail!("packet mapped to unknown path `{id}` — pathid/engine divergence");
@@ -39,7 +42,7 @@ pub fn coverage(ir: &crate::ir::ValidatedIr, pcap: &Path) -> anyhow::Result<Cove
         total: all_ids.len(),
         hits,
         unexercised,
-        packets: packets.len(),
+        packets: packet_count,
     })
 }
 
@@ -89,7 +92,7 @@ mod tests {
                 continue;
             };
             for v in &suite.vectors {
-                let (bits, _) = crate::testvec::Bits::from_pb(v.packet.as_ref().unwrap());
+                let (bits, _) = crate::testvec::Bits::from_pb(v.packet.as_ref().unwrap()).unwrap();
                 let result = crate::interp::run_bits(&ir, &bits).unwrap();
                 let id = path_id(&ir, &result).unwrap();
                 assert_eq!(id, v.id, "[{name}] vector {} mapped to wrong path", v.id);

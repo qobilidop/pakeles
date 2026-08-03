@@ -3,9 +3,9 @@
 /// Canonical form: data_hex is exactly ceil(bit_len/8) bytes of
 /// lowercase hex; when bit_len % 8 != 0 the trailing byte's unused
 /// low-order bits are zero (bits are MSB-first, matching extraction
-/// semantics). Readers canonicalize (pad short input with zeros,
-/// truncate long input, zero the pad bits) and never error; writers
-/// must emit canonical form; lint warns on non-canonical data.
+/// semantics). Bounded readers may canonicalize size mismatches for
+/// diagnostics, but validated suites reject non-canonical or oversized
+/// values before allocation/execution; writers must emit canonical form.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BitString {
     #[prost(string, tag = "1")]
