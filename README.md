@@ -48,9 +48,11 @@ prebuilt copy (amd64+arm64) is published as
 CI pulls it instead of rebuilding:
 
 ```sh
-./dev.sh scripts/gate.sh               # the whole gate — exactly what CI runs (= lint.sh + test.sh)
+./dev.sh scripts/gate.sh               # the whole gate — exactly what CI runs
 ./dev.sh scripts/fmt.sh                # apply every formatter (cargo fmt, ruff format, buf format)
 ./dev.sh scripts/lint.sh               # all static checks, no tests
+./dev.sh scripts/check-features.sh     # compile every supported Cargo feature boundary
+./dev.sh scripts/check-package.sh      # build and inspect the Python and Rust distributions
 ./dev.sh scripts/test.sh               # the test battery: gen_vectors + cargo test + pytest
 ./dev.sh cargo run --bin pakeles -- diff tshark --ir examples/eth_ipvx_l4/eth_ipvx_l4.ir.json --pcap testdata/basic.pcap
 ./dev.sh cargo run --bin pakeles -- run --ir examples/eth_ipvx_l4/eth_ipvx_l4.ir.json --pcap testdata/basic.pcap    # JSON per packet

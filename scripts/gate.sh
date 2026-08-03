@@ -6,5 +6,6 @@ cd "$(dirname "$0")/.."
 
 scripts/lint.sh
 scripts/check-features.sh
+scripts/check-package.sh
 scripts/check-tools.sh
 scripts/test.sh

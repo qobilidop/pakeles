@@ -1,16 +1,35 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pakeles"
 version = "0.1.0"
 description = "The Pakeles Python eDSL: parser descriptions authored in Python, emitted as the normative Pakeles IR"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [{ name = "Pakeles contributors" }]
 requires-python = ">=3.10"
-dependencies = ["protobuf>=5"]
+dependencies = ["protobuf>=5,<8"]
+keywords = ["parser", "packet", "network", "ir"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/qobilidop/pakeles"
+Issues = "https://github.com/qobilidop/pakeles/issues"
+Repository = "https://github.com/qobilidop/pakeles"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+pakeles = ["py.typed"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
