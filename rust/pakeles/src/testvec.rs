@@ -401,7 +401,8 @@ mod tests {
             return;
         }
         let (packets, _) = suite_to_packets(&suite).unwrap();
-        let tmp = std::env::temp_dir().join("pakeles_gallery_check.pcap");
+        let dir = tempfile::tempdir().unwrap();
+        let tmp = dir.path().join("gallery_check.pcap");
         crate::pcapio::write_pcap(&tmp, &packets).unwrap();
         let fresh = std::fs::read(&tmp).unwrap();
         let committed = std::fs::read(&pcap_path).unwrap();

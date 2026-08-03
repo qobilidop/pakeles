@@ -299,7 +299,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             if out.as_os_str() == "-" {
                 println!("{json}");
             } else {
-                std::fs::write(&out, json)?;
+                pakeles::fsutil::atomic_write(&out, json)?;
                 eprintln!("wrote {} vectors to {}", suite.vectors.len(), out.display());
             }
             if let Some(pcap) = pcap_out {
@@ -319,7 +319,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             if out.as_os_str() == "-" {
                 print!("{md}");
             } else {
-                std::fs::write(&out, md)?;
+                pakeles::fsutil::atomic_write(&out, md)?;
             }
             Ok(0)
         }
@@ -330,7 +330,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             if out.as_os_str() == "-" {
                 print!("{lua}");
             } else {
-                std::fs::write(&out, lua)?;
+                pakeles::fsutil::atomic_write(&out, lua)?;
             }
             Ok(0)
         }
@@ -339,8 +339,8 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
         } => {
             let arts = pakeles::codegen::c::generate_c(&load_ir(&ir)?)?;
             std::fs::create_dir_all(&out_dir)?;
-            std::fs::write(out_dir.join("parser.h"), arts.header)?;
-            std::fs::write(out_dir.join("parser.c"), arts.source)?;
+            pakeles::fsutil::atomic_write(&out_dir.join("parser.h"), arts.header)?;
+            pakeles::fsutil::atomic_write(&out_dir.join("parser.c"), arts.source)?;
             eprintln!("wrote parser.h + parser.c to {}", out_dir.display());
             Ok(0)
         }
@@ -351,7 +351,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             if out.as_os_str() == "-" {
                 print!("{c}");
             } else {
-                std::fs::write(&out, c)?;
+                pakeles::fsutil::atomic_write(&out, c)?;
             }
             Ok(0)
         }
@@ -362,7 +362,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             if out.as_os_str() == "-" {
                 print!("{p4}");
             } else {
-                std::fs::write(&out, p4)?;
+                pakeles::fsutil::atomic_write(&out, p4)?;
             }
             Ok(0)
         }
@@ -376,7 +376,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             if out.as_os_str() == "-" {
                 println!("{canonical}");
             } else {
-                std::fs::write(&out, canonical)?;
+                pakeles::fsutil::atomic_write(&out, canonical)?;
             }
             Ok(0)
         }
@@ -408,11 +408,7 @@ mod tests {
 
     #[test]
     fn diff_tshark_on_fixture_green() {
-        if std::process::Command::new("tshark")
-            .arg("--version")
-            .output()
-            .is_err()
-        {
+        if !pakeles::process::is_available("tshark", &["--version"]) {
             eprintln!("skipping: tshark not available");
             return;
         }
@@ -446,10 +442,12 @@ mod tests {
         let mangled =
             serde_json::to_string(&serde_json::from_str::<serde_json::Value>(&canonical).unwrap())
                 .unwrap();
-        let dir = std::env::temp_dir().join("pakeles_fmt_ir");
-        std::fs::create_dir_all(&dir).unwrap();
-        let inp = dir.join("mangled.json");
-        let outp = dir.join("out.json");
+        let dir = tempfile::Builder::new()
+            .prefix("pakeles_fmt_ir_")
+            .tempdir()
+            .unwrap();
+        let inp = dir.path().join("mangled.json");
+        let outp = dir.path().join("out.json");
         std::fs::write(&inp, mangled).unwrap();
         let code = main_with(&[
             "pakeles",
@@ -466,9 +464,11 @@ mod tests {
 
     #[test]
     fn fmt_ir_rejects_structurally_invalid_ir() {
-        let dir = std::env::temp_dir().join("pakeles_fmt_ir_invalid");
-        std::fs::create_dir_all(&dir).unwrap();
-        let inp = dir.join("invalid.json");
+        let dir = tempfile::Builder::new()
+            .prefix("pakeles_fmt_ir_invalid_")
+            .tempdir()
+            .unwrap();
+        let inp = dir.path().join("invalid.json");
         std::fs::write(&inp, r#"{"irVersion":"0.2.0"}"#).unwrap();
         let err = main_with(&["pakeles", "fmt-ir", "--ir", inp.to_str().unwrap()]).unwrap_err();
         assert!(err.to_string().contains("ir has no parser"), "{err:#}");

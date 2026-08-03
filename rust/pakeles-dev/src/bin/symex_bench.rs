@@ -118,7 +118,7 @@ fn main() -> anyhow::Result<()> {
             .map(|p| format!("{}\t{}", kind_str(&p.kind), p.id))
             .collect();
         lines.push(String::new()); // trailing newline
-        std::fs::write(path, lines.join("\n"))?;
+        pakeles::fsutil::atomic_write(std::path::Path::new(path), lines.join("\n"))?;
         println!("INVENTORY: {} paths -> {path}", e.paths.len());
     }
 

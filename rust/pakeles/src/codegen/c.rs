@@ -1023,26 +1023,26 @@ mod tests {
         assert!(err.to_string().contains("C-UNSUPPORTED"), "{err}");
     }
 
-    fn cc_compiles(files: &[(&str, &str)], cmd: &[&str]) -> std::process::Output {
-        let dir = std::env::temp_dir().join(format!("pakeles_c_{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
+    fn cc_compiles(files: &[(&str, &str)], cmd: &[&str]) -> crate::process::ProcessOutput {
+        let scratch = tempfile::Builder::new()
+            .prefix("pakeles_c_")
+            .tempdir()
+            .unwrap();
         for (name, content) in files {
-            std::fs::write(dir.join(name), content).unwrap();
+            crate::fsutil::atomic_write(&scratch.path().join(name), content).unwrap();
         }
-        std::process::Command::new(cmd[0])
-            .args(&cmd[1..])
-            .current_dir(&dir)
-            .output()
-            .unwrap()
+        crate::process::run(
+            std::process::Command::new(cmd[0])
+                .args(&cmd[1..])
+                .current_dir(scratch.path()),
+            crate::process::ProcessLimits::default(),
+        )
+        .unwrap()
     }
 
     #[test]
     fn generated_c_compiles_with_werror() {
-        if std::process::Command::new("cc")
-            .arg("--version")
-            .output()
-            .is_err()
-        {
+        if !crate::process::is_available("cc", &["--version"]) {
             eprintln!("skipping: cc not available");
             return;
         }

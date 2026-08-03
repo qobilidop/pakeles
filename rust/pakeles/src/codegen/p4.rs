@@ -968,22 +968,21 @@ mod tests {
     /// clean compile (and, if `deny_warnings`, no warnings); returns
     /// whether p4test actually ran, so callers can report honestly.
     fn run_p4test(p4: &str, dir_name: &str, deny_warnings: bool) -> bool {
-        if std::process::Command::new("p4test")
-            .arg("--version")
-            .output()
-            .is_err()
-        {
+        if !crate::process::is_available("p4test", &["--version"]) {
             eprintln!("skipping: p4test not available");
             return false;
         }
-        let dir = std::env::temp_dir().join(dir_name);
-        std::fs::create_dir_all(&dir).unwrap();
-        let src = dir.join("parser.p4");
-        std::fs::write(&src, p4).unwrap();
-        let out = std::process::Command::new("p4test")
-            .arg(&src)
-            .output()
+        let scratch = tempfile::Builder::new()
+            .prefix(&format!("{dir_name}_"))
+            .tempdir()
             .unwrap();
+        let src = scratch.path().join("parser.p4");
+        crate::fsutil::atomic_write(&src, p4).unwrap();
+        let out = crate::process::run(
+            std::process::Command::new("p4test").arg(&src),
+            crate::process::ProcessLimits::default(),
+        )
+        .unwrap();
         let stderr = String::from_utf8_lossy(&out.stderr);
         assert!(
             out.status.success(),

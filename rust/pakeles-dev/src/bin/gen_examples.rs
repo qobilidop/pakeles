@@ -13,22 +13,25 @@ fn regenerate(name: &str, dir: &std::path::Path) -> anyhow::Result<()> {
     // marker artifact, the gen p4 precedent. Keep the marker format in
     // step with the guard in pakeles-testkit.
     match pakeles::codegen::lua::generate_lua(&ir) {
-        Ok(lua) => std::fs::write(gen.join("dissector.lua"), lua)?,
+        Ok(lua) => pakeles::fsutil::atomic_write(&gen.join("dissector.lua"), lua)?,
         Err(e) if e.to_string().contains("not supported by the Lua backend") => {
-            std::fs::write(
-                gen.join("LUA-UNSUPPORTED.txt"),
+            pakeles::fsutil::atomic_write(
+                &gen.join("LUA-UNSUPPORTED.txt"),
                 format!("gen lua: {e}\n(see docs/designs/2026-07-31-quic-initial-design.md)\n"),
             )?;
         }
         Err(e) => return Err(e),
     }
-    std::fs::write(gen.join("doc.md"), pakeles::docgen::generate_markdown(&ir)?)?;
-    std::fs::write(gen.join("graph.dot"), pakeles::viz::to_dot(&ir))?;
+    pakeles::fsutil::atomic_write(
+        &gen.join("doc.md"),
+        pakeles::docgen::generate_markdown(&ir)?,
+    )?;
+    pakeles::fsutil::atomic_write(&gen.join("graph.dot"), pakeles::viz::to_dot(&ir))?;
     let c = pakeles::codegen::c::generate_c(&ir)?;
-    std::fs::write(gen.join("parser.h"), c.header)?;
-    std::fs::write(gen.join("parser.c"), c.source)?;
-    std::fs::write(
-        gen.join("parser.bpf.c"),
+    pakeles::fsutil::atomic_write(&gen.join("parser.h"), c.header)?;
+    pakeles::fsutil::atomic_write(&gen.join("parser.c"), c.source)?;
+    pakeles::fsutil::atomic_write(
+        &gen.join("parser.bpf.c"),
         pakeles::codegen::c::generate_bpf(&ir)?,
     )?;
     // gen p4 refuses sized-region IR by design (a P4-16 parser cannot
@@ -36,22 +39,29 @@ fn regenerate(name: &str, dir: &std::path::Path) -> anyhow::Result<()> {
     // marker artifact instead of a parser.p4. Keep the marker format in
     // step with the guard in pakeles-testkit.
     match pakeles::codegen::p4::generate_p4(&ir) {
-        Ok(p4) => std::fs::write(gen.join("parser.p4"), p4)?,
+        Ok(p4) => pakeles::fsutil::atomic_write(&gen.join("parser.p4"), p4)?,
         Err(e) if e.to_string().contains("P4-16 parser expressiveness") => {
-            std::fs::write(
-                gen.join("P4-UNSUPPORTED.txt"),
+            pakeles::fsutil::atomic_write(
+                &gen.join("P4-UNSUPPORTED.txt"),
                 format!("gen p4: {e}\n(see docs/superpowers/specs/2026-07-29-sized-region-tlv-ir-design.md)\n"),
             )?;
         }
         Err(e) => return Err(e),
     }
     pakeles_dev::write_vector_suite(name, dir)?;
-    let _ = std::process::Command::new("dot")
-        .arg("-Tsvg")
-        .arg("-o")
-        .arg(gen.join("graph.svg"))
-        .arg(gen.join("graph.dot"))
-        .status();
+    let dot = pakeles::process::run(
+        std::process::Command::new("dot")
+            .arg("-Tsvg")
+            .arg(gen.join("graph.dot")),
+        pakeles::process::ProcessLimits::default(),
+    )?;
+    anyhow::ensure!(
+        dot.status.success(),
+        "dot failed: {}",
+        String::from_utf8_lossy(&dot.stderr)
+    );
+    anyhow::ensure!(!dot.stdout_truncated, "dot SVG output exceeded its limit");
+    pakeles::fsutil::atomic_write(&gen.join("graph.svg"), dot.stdout)?;
     println!("{} regenerated", dir.display());
     Ok(())
 }

@@ -137,22 +137,29 @@ pub fn packet_reader(path: &Path, limits: PcapLimits) -> Result<PacketReader> {
 /// Write a classic pcap (LINKTYPE_ETHERNET, snaplen 65535, zero
 /// timestamps so output is byte-for-byte deterministic).
 pub fn write_pcap(path: &Path, packets: &[Vec<u8>]) -> Result<()> {
-    let mut f = std::fs::File::create(path)?;
-    f.write_all(&0xa1b2c3d4u32.to_le_bytes())?; // magic
-    f.write_all(&2u16.to_le_bytes())?; // version major
-    f.write_all(&4u16.to_le_bytes())?; // version minor
-    f.write_all(&0i32.to_le_bytes())?; // thiszone
-    f.write_all(&0u32.to_le_bytes())?; // sigfigs
-    f.write_all(&65535u32.to_le_bytes())?; // snaplen
-    f.write_all(&1u32.to_le_bytes())?; // LINKTYPE_ETHERNET
     for p in packets {
-        f.write_all(&0u32.to_le_bytes())?; // ts_sec
-        f.write_all(&0u32.to_le_bytes())?; // ts_usec
-        f.write_all(&(p.len() as u32).to_le_bytes())?; // incl_len
-        f.write_all(&(p.len() as u32).to_le_bytes())?; // orig_len
-        f.write_all(p)?;
+        if p.len() > 65_535 {
+            anyhow::bail!("packet length {} exceeds pcap snaplen 65535", p.len());
+        }
     }
-    Ok(())
+    crate::fsutil::atomic_write_with(path, |f| {
+        f.write_all(&0xa1b2c3d4u32.to_le_bytes())?; // magic
+        f.write_all(&2u16.to_le_bytes())?; // version major
+        f.write_all(&4u16.to_le_bytes())?; // version minor
+        f.write_all(&0i32.to_le_bytes())?; // thiszone
+        f.write_all(&0u32.to_le_bytes())?; // sigfigs
+        f.write_all(&65535u32.to_le_bytes())?; // snaplen
+        f.write_all(&1u32.to_le_bytes())?; // LINKTYPE_ETHERNET
+        for p in packets {
+            let packet_len = u32::try_from(p.len()).expect("pcap packet length checked above");
+            f.write_all(&0u32.to_le_bytes())?; // ts_sec
+            f.write_all(&0u32.to_le_bytes())?; // ts_usec
+            f.write_all(&packet_len.to_le_bytes())?; // incl_len
+            f.write_all(&packet_len.to_le_bytes())?; // orig_len
+            f.write_all(p)?;
+        }
+        Ok(())
+    })
 }
 
 pub fn read_packets(path: &Path) -> Result<Vec<Vec<u8>>> {
@@ -167,7 +174,8 @@ mod tests {
     #[test]
     fn write_read_roundtrip() {
         let packets = fixtures::basic_pcap_packets();
-        let path = std::env::temp_dir().join("pakeles_roundtrip.pcap");
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("roundtrip.pcap");
         write_pcap(&path, &packets).unwrap();
         assert_eq!(read_packets(&path).unwrap(), packets);
     }
@@ -182,7 +190,8 @@ mod tests {
     #[test]
     fn packet_reader_enforces_limits_before_returning_data() {
         let packets = fixtures::basic_pcap_packets();
-        let path = std::env::temp_dir().join("pakeles_limited_roundtrip.pcap");
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("limited_roundtrip.pcap");
         write_pcap(&path, &packets).unwrap();
 
         let limits = PcapLimits {
@@ -196,5 +205,15 @@ mod tests {
             .unwrap()
             .unwrap_err();
         assert!(error.to_string().contains("exceeds limit 1"));
+    }
+
+    #[test]
+    fn oversized_packet_does_not_replace_existing_capture() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("capture.pcap");
+        std::fs::write(&path, b"existing").unwrap();
+        let error = write_pcap(&path, &[vec![0; 65_536]]).unwrap_err();
+        assert!(error.to_string().contains("exceeds pcap snaplen"));
+        assert_eq!(std::fs::read(path).unwrap(), b"existing");
     }
 }

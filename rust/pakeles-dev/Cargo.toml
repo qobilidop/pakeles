@@ -40,3 +40,4 @@ path = "src/bin/gen_fixtures.rs"
 
 [dev-dependencies]
 pakeles-testkit = { path = "../pakeles-testkit" }
+tempfile = "3"

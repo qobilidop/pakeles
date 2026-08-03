@@ -115,14 +115,23 @@ pub fn lookup<'a>(layers: &'a serde_json::Value, key: &str) -> Option<&'a str> {
 }
 
 fn tshark_json(pcap: &Path) -> Result<Vec<serde_json::Value>> {
-    let out = std::process::Command::new("tshark")
-        .args(["-r"])
-        .arg(pcap)
-        .args(["-T", "json"])
-        .output()
-        .context("failed to run tshark — is it installed?")?;
+    let limits = crate::process::ProcessLimits {
+        timeout: std::time::Duration::from_secs(300),
+        max_output_bytes_per_stream: 512 * 1024 * 1024,
+    };
+    let out = crate::process::run(
+        std::process::Command::new("tshark")
+            .args(["-r"])
+            .arg(pcap)
+            .args(["-T", "json"]),
+        limits,
+    )
+    .context("failed to run tshark — is it installed?")?;
     if !out.status.success() {
         bail!("tshark failed: {}", String::from_utf8_lossy(&out.stderr));
+    }
+    if out.stdout_truncated {
+        bail!("tshark JSON exceeded the 512 MiB output limit");
     }
     Ok(serde_json::from_slice(&out.stdout)?)
 }
@@ -231,11 +240,7 @@ mod tests {
 
     #[test]
     fn fixture_pcap_diffs_green() {
-        if std::process::Command::new("tshark")
-            .arg("--version")
-            .output()
-            .is_err()
-        {
+        if !crate::process::is_available("tshark", &["--version"]) {
             eprintln!("skipping: tshark not available");
             return;
         }

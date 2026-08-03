@@ -1352,9 +1352,8 @@ mod gate_tests {
                 keys: Some(keys),
             }],
         };
-        let dir = std::env::temp_dir().join("pakeles_cli_diff_override");
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("golden.json");
+        let dir = pakeles_testkit::tempdir("pakeles_cli_diff_override_");
+        let path = dir.path().join("golden.json");
         std::fs::write(&path, serde_json::to_string(&golden).unwrap()).unwrap();
         let report = cli_diff(None, Some(&path)).unwrap();
         assert_eq!(report.compared, 1);

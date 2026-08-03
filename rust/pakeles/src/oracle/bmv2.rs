@@ -38,21 +38,20 @@ pub struct Expectation {
 }
 
 pub fn tools_available() -> bool {
-    Command::new("p4c-bm2-ss").arg("--version").output().is_ok()
-        && Command::new("simple_switch").arg("--help").output().is_ok()
+    crate::process::is_available("p4c-bm2-ss", &["--version"])
+        && crate::process::is_available("simple_switch", &["--help"])
 }
 
 pub fn compile(p4_src: &str, workdir: &Path) -> Result<PathBuf> {
     std::fs::create_dir_all(workdir)?;
     let src = workdir.join("prog.p4");
     let json = workdir.join("prog.json");
-    std::fs::write(&src, p4_src)?;
-    let out = Command::new("p4c-bm2-ss")
-        .arg(&src)
-        .arg("-o")
-        .arg(&json)
-        .output()
-        .context("running p4c-bm2-ss")?;
+    crate::fsutil::atomic_write(&src, p4_src)?;
+    let out = crate::process::run(
+        Command::new("p4c-bm2-ss").arg(&src).arg("-o").arg(&json),
+        crate::process::ProcessLimits::default(),
+    )
+    .context("running p4c-bm2-ss")?;
     if !out.status.success() {
         bail!(
             "p4c-bm2-ss failed:\n{}",
@@ -146,14 +145,15 @@ fn run_chunk(
     }
     crate::pcapio::write_pcap(&dir.join("p0_in.pcap"), &input)?;
     crate::pcapio::write_pcap(&dir.join("p1_in.pcap"), &[])?;
-    let mut child = Command::new("simple_switch")
+    let mut command = Command::new("simple_switch");
+    command
         .args(["--use-files", "0", "-i", "0@p0", "-i", "1@p1"])
         .arg(json.canonicalize()?)
         .current_dir(&dir)
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .context("spawning simple_switch")?;
+        .stderr(Stdio::null());
+    let mut child =
+        crate::process::spawn_grouped(&mut command).context("spawning simple_switch")?;
     let out_pcap = dir.join("p1_out.pcap");
     let decode_into = |pkts: &[Vec<u8>], out: &mut [Verdict]| -> Result<()> {
         for (i, p) in pkts.iter().take(n).enumerate() {
@@ -177,7 +177,7 @@ fn run_chunk(
         }
         if pkts.len() >= n {
             if let Err(e) = decode_into(&pkts, &mut out) {
-                let _ = child.kill();
+                crate::process::terminate(&mut child);
                 return Err(e);
             }
             break;
@@ -191,8 +191,7 @@ fn run_chunk(
         }
         std::thread::sleep(std::time::Duration::from_millis(25));
     }
-    let _ = child.kill();
-    let _ = child.wait();
+    crate::process::terminate(&mut child);
     Ok(out)
 }
 
@@ -310,8 +309,10 @@ pub fn diff_suite(
     }
     let bm_bytes =
         crate::codegen::p4::bitmap_bytes(crate::codegen::p4::instance_order(parser).len());
-    let workdir = std::env::temp_dir().join(format!("pakeles_bmv2_{name}_{}", std::process::id()));
-    let json = compile(&p4, &workdir)?;
+    let workdir = tempfile::Builder::new()
+        .prefix(&format!("pakeles_bmv2_{name}_"))
+        .tempdir()?;
+    let json = compile(&p4, workdir.path())?;
     let (packets, indices) = crate::testvec::suite_to_packets(suite)?;
     let byte_aligned = indices.len();
     let mut report = DiffReport {
@@ -322,7 +323,7 @@ pub fn diff_suite(
     };
     // One batched simple_switch run over every byte-aligned vector — no
     // sampling. `verdicts[i]` corresponds to `packets[i]` / `indices[i]`.
-    let verdicts = run_batch(&json, &packets, &workdir, bm_bytes)?;
+    let verdicts = run_batch(&json, &packets, workdir.path(), bm_bytes)?;
     for (got, &vi) in verdicts.iter().zip(indices.iter()) {
         let vector = &suite.vectors[vi];
         let bs = vector.packet.as_ref().context("vector has no packet")?;
@@ -350,7 +351,6 @@ pub fn diff_suite(
             ));
         }
     }
-    let _ = std::fs::remove_dir_all(&workdir);
     eprintln!(
         "bmv2: compared all {} byte-aligned vectors in one simple_switch run \
          ({} depth-bound vectors skipped — P4 has no max_depth counter)",
@@ -371,8 +371,11 @@ mod tests {
         }
         let ir = crate::fixtures::eth_ipvx_l4();
         let p4 = crate::codegen::p4::generate_p4(&ir).unwrap();
-        let dir = std::env::temp_dir().join("pakeles_bmv2_unit");
-        let json = compile(&p4, &dir).unwrap();
+        let dir = tempfile::Builder::new()
+            .prefix("pakeles_bmv2_unit_")
+            .tempdir()
+            .unwrap();
+        let json = compile(&p4, dir.path()).unwrap();
         let Some(suite) = crate::testvec::committed_suite_or_skip("eth_ipvx_l4") else {
             return;
         };
@@ -387,7 +390,7 @@ mod tests {
         let bm_bytes = crate::codegen::p4::bitmap_bytes(
             crate::codegen::p4::instance_order(ir.parser.as_ref().unwrap()).len(),
         );
-        let v = run_one(&json, &pkt, &dir, bm_bytes).unwrap();
+        let v = run_one(&json, &pkt, dir.path(), bm_bytes).unwrap();
         assert!(v.delivered, "accept vector {vi} produced no output");
         assert_eq!(v.err, crate::codegen::p4::ERR_NO_ERROR);
     }

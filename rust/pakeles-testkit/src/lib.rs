@@ -17,6 +17,12 @@ use pakeles::interp::{FieldValue, Outcome, ParsedHeader};
 use pakeles::ir::pb;
 use std::path::Path;
 
+/// Collision-free scratch directory for conformance tests and downstream
+/// benchmark tests. Contents are removed automatically when the guard drops.
+pub fn tempdir(prefix: &str) -> tempfile::TempDir {
+    tempfile::Builder::new().prefix(prefix).tempdir().unwrap()
+}
+
 /// Load an example's committed conformance suite, or `None` when its
 /// `conformance/vectors.json` is absent. The suite is a generated
 /// artifact that may be gitignored during fast iteration (it churns on
@@ -59,30 +65,28 @@ pub fn c_backend_conformance(
     ir: &pakeles::ir::ValidatedIr,
     suite: Option<&pakeles::testvec::ValidatedTestSuite>,
 ) {
-    use std::io::Write as _;
-    if std::process::Command::new("cc")
-        .arg("--version")
-        .output()
-        .is_err()
-    {
+    if !pakeles::process::is_available("cc", &["--version"]) {
         eprintln!("skipping: cc not available");
         return;
     }
     let name = ir.parser.as_ref().unwrap().name.clone();
     let arts = pakeles::codegen::c::generate_c(ir).unwrap();
     let harness = pakeles::codegen::c::generate_c_harness(ir).unwrap();
-    let dir = std::env::temp_dir().join(format!("pakeles_cconf_{name}_{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
-    std::fs::write(dir.join("parser.h"), &arts.header).unwrap();
-    std::fs::write(dir.join("parser.c"), &arts.source).unwrap();
-    std::fs::write(dir.join("main.c"), &harness).unwrap();
-    let cc = std::process::Command::new("cc")
-        .args([
-            "-std=c99", "-Wall", "-Wextra", "-Werror", "-O2", "parser.c", "main.c", "-o", "harness",
-        ])
-        .current_dir(&dir)
-        .output()
-        .unwrap();
+    let scratch = tempdir(&format!("pakeles_cconf_{name}_"));
+    let dir = scratch.path();
+    pakeles::fsutil::atomic_write(&dir.join("parser.h"), &arts.header).unwrap();
+    pakeles::fsutil::atomic_write(&dir.join("parser.c"), &arts.source).unwrap();
+    pakeles::fsutil::atomic_write(&dir.join("main.c"), &harness).unwrap();
+    let cc = pakeles::process::run(
+        std::process::Command::new("cc")
+            .args([
+                "-std=c99", "-Wall", "-Wextra", "-Werror", "-O2", "parser.c", "main.c", "-o",
+                "harness",
+            ])
+            .current_dir(dir),
+        pakeles::process::ProcessLimits::default(),
+    )
+    .unwrap();
     assert!(
         cc.status.success(),
         "cc: {}",
@@ -104,22 +108,17 @@ pub fn c_backend_conformance(
         input.push_str(&format!("{} {hex}\n", bits.bit_len));
         bits_list.push(bits);
     }
-    let mut child = std::process::Command::new(dir.join("harness"))
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .unwrap();
-    // Write stdin from a helper thread: the harness starts writing
-    // its verdict lines to stdout as soon as it reads a vector, so
-    // for a large enough suite (linux_flow_dissector's 8-instance
-    // vectors produce far more stdout than eth_ipvx_l4's) the OS
-    // pipe buffer fills before we finish writing input, and a
-    // sequential write-then-read deadlocks parent against child.
-    let mut stdin = child.stdin.take().unwrap();
-    let writer = std::thread::spawn(move || stdin.write_all(input.as_bytes()));
-    let out = child.wait_with_output().unwrap();
-    writer.join().unwrap().unwrap();
+    let out = pakeles::process::run_with_input(
+        &mut std::process::Command::new(dir.join("harness")),
+        Some(input.into_bytes()),
+        pakeles::process::ProcessLimits {
+            timeout: std::time::Duration::from_secs(300),
+            max_output_bytes_per_stream: 512 * 1024 * 1024,
+        },
+    )
+    .unwrap();
     assert!(out.status.success());
+    assert!(!out.stdout_truncated, "C harness output exceeded 512 MiB");
     let lines: Vec<&str> = std::str::from_utf8(&out.stdout).unwrap().lines().collect();
     assert_eq!(lines.len(), suite.vectors.len());
 
@@ -208,37 +207,37 @@ pub fn bpf_backend_conformance(
     suite: Option<&pakeles::testvec::ValidatedTestSuite>,
 ) {
     for tool in ["clang", "llvm-objcopy"] {
-        if std::process::Command::new(tool)
-            .arg("--version")
-            .output()
-            .is_err()
-        {
+        if !pakeles::process::is_available(tool, &["--version"]) {
             eprintln!("skipping: {tool} not available");
             return;
         }
     }
     let name = ir.parser.as_ref().unwrap().name.clone();
     let bpf = pakeles::codegen::c::generate_bpf(ir).unwrap();
-    let dir = std::env::temp_dir().join(format!("pakeles_bpf_{name}_{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
-    std::fs::write(dir.join("bpf.c"), &bpf).unwrap();
-    let cc = std::process::Command::new("clang")
-        .args([
-            "-O2", "-target", "bpf", "-Werror", "-c", "bpf.c", "-o", "bpf.o",
-        ])
-        .current_dir(&dir)
-        .output()
-        .unwrap();
+    let scratch = tempdir(&format!("pakeles_bpf_{name}_"));
+    let dir = scratch.path();
+    pakeles::fsutil::atomic_write(&dir.join("bpf.c"), &bpf).unwrap();
+    let cc = pakeles::process::run(
+        std::process::Command::new("clang")
+            .args([
+                "-O2", "-target", "bpf", "-Werror", "-c", "bpf.c", "-o", "bpf.o",
+            ])
+            .current_dir(dir),
+        pakeles::process::ProcessLimits::default(),
+    )
+    .unwrap();
     assert!(
         cc.status.success(),
         "clang: {}",
         String::from_utf8_lossy(&cc.stderr)
     );
-    let oc = std::process::Command::new("llvm-objcopy")
-        .args(["-O", "binary", "--only-section=.text", "bpf.o", "bpf.bin"])
-        .current_dir(&dir)
-        .output()
-        .unwrap();
+    let oc = pakeles::process::run(
+        std::process::Command::new("llvm-objcopy")
+            .args(["-O", "binary", "--only-section=.text", "bpf.o", "bpf.bin"])
+            .current_dir(dir),
+        pakeles::process::ProcessLimits::default(),
+    )
+    .unwrap();
     assert!(
         oc.status.success(),
         "objcopy: {}",
@@ -306,18 +305,23 @@ pub fn bpf_backend_conformance(
 }
 
 /// Run tshark with args, dropping root (root disables Lua scripts).
-fn tshark_unprivileged(args: &[&str]) -> anyhow::Result<std::process::Output> {
+fn tshark_unprivileged(args: &[&str]) -> anyhow::Result<pakeles::process::ProcessOutput> {
     let script = r#"if [ "$(id -u)" = "0" ]; then
   exec env HOME=/tmp setpriv --reuid=nobody --regid=nogroup --clear-groups tshark "$@"
 else
   exec tshark "$@"
 fi"#;
-    Ok(std::process::Command::new("sh")
-        .arg("-c")
-        .arg(script)
-        .arg("tshark")
-        .args(args)
-        .output()?)
+    pakeles::process::run(
+        std::process::Command::new("sh")
+            .arg("-c")
+            .arg(script)
+            .arg("tshark")
+            .args(args),
+        pakeles::process::ProcessLimits {
+            timeout: std::time::Duration::from_secs(300),
+            max_output_bytes_per_stream: 512 * 1024 * 1024,
+        },
+    )
 }
 
 type ExpectedFields = Vec<(String, Option<pakeles::testvec::pb::expected_field::Value>)>;
@@ -361,11 +365,7 @@ pub fn lua_backend_conformance(
     suite: &pakeles::testvec::ValidatedTestSuite,
     min_compared: usize,
 ) {
-    if std::process::Command::new("tshark")
-        .arg("--version")
-        .output()
-        .is_err()
-    {
+    if !pakeles::process::is_available("tshark", &["--version"]) {
         eprintln!("skipping: tshark not available");
         return;
     }
@@ -374,10 +374,16 @@ pub fn lua_backend_conformance(
     let proto = format!("pakeles_{}", parser.name);
     let (packets, indices) = pakeles::testvec::suite_to_packets(suite).unwrap();
 
-    let dir = std::env::temp_dir();
-    let lua_path = dir.join(format!("pakeles_conf_{name}_{}.lua", std::process::id()));
-    let pcap_path = dir.join(format!("pakeles_conf_{name}_{}.pcap", std::process::id()));
-    std::fs::write(&lua_path, pakeles::codegen::lua::generate_lua(ir).unwrap()).unwrap();
+    let scratch = tempdir(&format!("pakeles_lua_{name}_"));
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        std::fs::set_permissions(scratch.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let lua_path = scratch.path().join("dissector.lua");
+    let pcap_path = scratch.path().join("vectors.pcap");
+    pakeles::fsutil::atomic_write(&lua_path, pakeles::codegen::lua::generate_lua(ir).unwrap())
+        .unwrap();
     pakeles::pcapio::write_pcap(&pcap_path, &packets).unwrap();
 
     let out = tshark_unprivileged(&[
@@ -394,6 +400,7 @@ pub fn lua_backend_conformance(
         "tshark failed: {}",
         String::from_utf8_lossy(&out.stderr)
     );
+    assert!(!out.stdout_truncated, "tshark JSON exceeded 512 MiB");
     let dissected: Vec<serde_json::Value> = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(dissected.len(), packets.len());
 

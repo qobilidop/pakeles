@@ -442,6 +442,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "libc",
  "pakeles-testkit",
  "pbjson",
  "pbjson-types",
@@ -449,6 +450,7 @@ dependencies = [
  "prost",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror",
  "z3",
 ]
@@ -546,6 +548,7 @@ dependencies = [
  "pakeles-testkit",
  "pbjson-build",
  "prost-build",
+ "tempfile",
 ]
 
 [[package]]
@@ -556,6 +559,7 @@ dependencies = [
  "pakeles",
  "rbpf",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]

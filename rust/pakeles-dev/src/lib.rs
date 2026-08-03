@@ -76,8 +76,8 @@ pub fn write_vector_suite(name: &str, dir: &Path) -> anyhow::Result<()> {
     std::fs::create_dir_all(&conformance)?;
     let ir = pakeles::ir::load(&dir.join(format!("{name}.ir.json")))?;
     let suite = pakeles::symex::testgen::generate(&ir)?;
-    std::fs::write(
-        conformance.join("vectors.json"),
+    pakeles::fsutil::atomic_write(
+        &conformance.join("vectors.json"),
         pakeles::testvec::suite_to_json(&suite)?,
     )?;
     let (packets, _) = pakeles::testvec::suite_to_packets(&suite)?;

@@ -2,10 +2,12 @@ pub mod builder;
 pub mod codegen;
 pub mod docgen;
 pub mod fixtures;
+pub mod fsutil;
 pub mod interp;
 pub mod ir;
 pub mod oracle;
 pub mod pcapio;
+pub mod process;
 #[cfg(feature = "symex")]
 pub mod symex;
 pub mod testvec;

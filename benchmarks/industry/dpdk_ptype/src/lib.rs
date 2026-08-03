@@ -619,25 +619,24 @@ mod gate_tests {
     /// where the toolchain is absent (BMv2-precedent gating).
     #[test]
     fn live_dpdk_capture_matches_committed_golden() {
-        let have_tools = std::process::Command::new("pkg-config")
-            .args(["--exists", "libdpdk"])
-            .status()
-            .is_ok_and(|s| s.success())
-            && std::process::Command::new("gcc")
-                .arg("--version")
-                .output()
-                .is_ok();
+        let have_tools = pakeles::process::run(
+            std::process::Command::new("pkg-config").args(["--exists", "libdpdk"]),
+            pakeles::process::ProcessLimits::default(),
+        )
+        .is_ok_and(|output| output.status.success())
+            && pakeles::process::is_available("gcc", &["--version"]);
         if !have_tools {
             eprintln!("skipping: libdpdk/gcc not available");
             return;
         }
-        let dir = std::env::temp_dir().join("pakeles_dpdk_ptype_live");
-        std::fs::create_dir_all(&dir).unwrap();
-        let bin = dir.join("capture");
-        let cflags = std::process::Command::new("pkg-config")
-            .args(["--cflags", "--libs", "libdpdk"])
-            .output()
-            .unwrap();
+        let dir = pakeles_testkit::tempdir("pakeles_dpdk_ptype_live_");
+        let bin = dir.path().join("capture");
+        let cflags = pakeles::process::run(
+            std::process::Command::new("pkg-config").args(["--cflags", "--libs", "libdpdk"]),
+            pakeles::process::ProcessLimits::default(),
+        )
+        .unwrap();
+        assert!(cflags.status.success(), "pkg-config failed");
         let mut args: Vec<String> = vec![
             "-O2".into(),
             "-o".into(),
@@ -653,19 +652,21 @@ mod gate_tests {
                 .split_whitespace()
                 .map(|s| s.to_string()),
         );
-        let cc = std::process::Command::new("gcc")
-            .args(&args)
-            .output()
-            .unwrap();
+        let cc = pakeles::process::run(
+            std::process::Command::new("gcc").args(&args),
+            pakeles::process::ProcessLimits::default(),
+        )
+        .unwrap();
         assert!(
             cc.status.success(),
             "harness build failed:\n{}",
             String::from_utf8_lossy(&cc.stderr)
         );
-        let out = std::process::Command::new(&bin)
-            .arg(super::dir().join("factory/corpus.txt"))
-            .output()
-            .unwrap();
+        let out = pakeles::process::run(
+            std::process::Command::new(&bin).arg(super::dir().join("factory/corpus.txt")),
+            pakeles::process::ProcessLimits::default(),
+        )
+        .unwrap();
         assert!(out.status.success(), "capture run failed");
         let fresh = String::from_utf8(out.stdout).unwrap();
         let committed_path = discover_committed_golden(&conformance_dir()).unwrap();

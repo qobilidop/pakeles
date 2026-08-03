@@ -81,24 +81,22 @@ mod tests {
     /// Skips where protoc is absent (it runs in the dev container).
     #[test]
     fn committed_pb_current() {
-        if std::process::Command::new("protoc")
-            .arg("--version")
-            .output()
-            .is_err()
-        {
+        if !pakeles::process::is_available("protoc", &["--version"]) {
             eprintln!("skipping: protoc not available");
             return;
         }
-        let tmp = std::env::temp_dir().join(format!("pakeles_pbgen_{}", std::process::id()));
-        generate(&tmp).unwrap();
+        let tmp = tempfile::Builder::new()
+            .prefix("pakeles_pbgen_")
+            .tempdir()
+            .unwrap();
+        generate(tmp.path()).unwrap();
         for f in GENERATED {
-            let fresh = std::fs::read_to_string(tmp.join(f)).unwrap();
+            let fresh = std::fs::read_to_string(tmp.path().join(f)).unwrap();
             let committed = std::fs::read_to_string(committed_dir().join(f)).unwrap();
             assert_eq!(
                 fresh, committed,
                 "{f} drifted from proto/; regenerate: ./dev.sh cargo run --bin pakeles-pbgen"
             );
         }
-        let _ = std::fs::remove_dir_all(&tmp);
     }
 }

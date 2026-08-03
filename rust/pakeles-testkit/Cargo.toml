@@ -10,3 +10,4 @@ pakeles = { path = "../pakeles", default-features = false }
 anyhow = "1"
 serde_json = "1"
 rbpf = "0.2"
+tempfile = "3"
