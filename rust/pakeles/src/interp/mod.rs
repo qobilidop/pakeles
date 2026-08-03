@@ -107,12 +107,15 @@ pub struct ParseResult {
 
 /// Run the parser over one byte-aligned packet. `Err` means the IR
 /// itself is malformed; anything about the *packet* is a `Reject`.
-pub fn run(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<ParseResult> {
+pub fn run(ir: &crate::ir::ValidatedIr, packet: &[u8]) -> anyhow::Result<ParseResult> {
     run_bits(ir, &crate::testvec::Bits::from_bytes(packet))
 }
 
 /// Bit-granular entry point (test vectors may end mid-byte).
-pub fn run_bits(ir: &pb::Ir, input: &crate::testvec::Bits) -> anyhow::Result<ParseResult> {
+pub fn run_bits(
+    ir: &crate::ir::ValidatedIr,
+    input: &crate::testvec::Bits,
+) -> anyhow::Result<ParseResult> {
     let packet = input.bytes.as_slice();
     let avail_bits = input.bit_len;
     let parser = ir
@@ -528,7 +531,7 @@ mod tests {
     /// Minimal two-header IR for exercising engine mechanics without the
     /// gallery example: header `a` (16-bit tag) selects into header `b`
     /// (two 16-bit fields); tag 1 -> parse b -> accept, else reject(info).
-    fn mini() -> pb::Ir {
+    fn mini() -> crate::ir::ValidatedIr {
         ParserBuilder::new("mini", 3)
             .header(HeaderTypeBuilder::new("a").bits("tag", 16))
             .header(HeaderTypeBuilder::new("b").bits("x", 16).bits("y", 16))

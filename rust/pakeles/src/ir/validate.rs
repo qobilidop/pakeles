@@ -3,6 +3,43 @@
 
 use super::pb;
 
+fn validate_expr(e: &pb::Expr, ctx: &str, errs: &mut Vec<String>) {
+    match &e.kind {
+        None => errs.push(format!("{ctx}: empty expression")),
+        Some(pb::expr::Kind::Field(r)) => {
+            if r.header.is_empty() || r.field.is_empty() {
+                errs.push(format!("{ctx}: field reference has an empty component"));
+            }
+        }
+        Some(pb::expr::Kind::Metadata(r)) => {
+            if r.name.is_empty() {
+                errs.push(format!("{ctx}: metadata reference has an empty name"));
+            }
+        }
+        Some(pb::expr::Kind::Bin(b)) => {
+            match pb::BinOpKind::try_from(b.op) {
+                Ok(pb::BinOpKind::Unspecified) => {
+                    errs.push(format!("{ctx}: binary expression has unspecified operator"));
+                }
+                Err(_) => errs.push(format!(
+                    "{ctx}: binary expression has unknown operator {}",
+                    b.op
+                )),
+                Ok(_) => {}
+            }
+            match &b.lhs {
+                Some(lhs) => validate_expr(lhs, ctx, errs),
+                None => errs.push(format!("{ctx}: binary expression is missing lhs")),
+            }
+            match &b.rhs {
+                Some(rhs) => validate_expr(rhs, ctx, errs),
+                None => errs.push(format!("{ctx}: binary expression is missing rhs")),
+            }
+        }
+        Some(pb::expr::Kind::Constant(_) | pb::expr::Kind::Remaining(_)) => {}
+    }
+}
+
 pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
     let mut errs = Vec::new();
 
@@ -22,6 +59,10 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
         return Err(vec!["ir has no parser".into()]);
     };
 
+    if parser.name.is_empty() {
+        errs.push("parser has empty name".into());
+    }
+
     if parser.max_depth == 0 {
         errs.push("max_depth must be >= 1".into());
     }
@@ -29,11 +70,20 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
     // Header types: unique names, unique field names, sane widths.
     let mut header_types = std::collections::HashMap::new();
     for ht in &parser.header_types {
+        if ht.name.is_empty() {
+            errs.push("header type with empty name".into());
+        }
         if header_types.insert(ht.name.as_str(), ht).is_some() {
             errs.push(format!("duplicate header type `{}`", ht.name));
         }
         let mut fields = std::collections::HashSet::new();
         for f in &ht.fields {
+            if f.name.is_empty() {
+                errs.push(format!(
+                    "header type `{}` has a field with empty name",
+                    ht.name
+                ));
+            }
             if !fields.insert(f.name.as_str()) {
                 errs.push(format!("duplicate field `{}.{}`", ht.name, f.name));
             }
@@ -123,7 +173,21 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
                     s.name, e.header_type
                 ));
             } else {
-                instances.insert(inst.as_str(), e.header_type.as_str());
+                match instances.entry(inst.as_str()) {
+                    std::collections::hash_map::Entry::Vacant(entry) => {
+                        entry.insert(e.header_type.as_str());
+                    }
+                    std::collections::hash_map::Entry::Occupied(entry)
+                        if *entry.get() != e.header_type.as_str() =>
+                    {
+                        errs.push(format!(
+                            "header instance `{inst}` is extracted as both `{}` and `{}`",
+                            entry.get(),
+                            e.header_type
+                        ));
+                    }
+                    std::collections::hash_map::Entry::Occupied(_) => {}
+                }
                 // W9: a peeked type is all-fixed-width (v1 — keeps
                 // peeked layouts offset-computable per symbolic path).
                 if e.lookahead {
@@ -206,6 +270,8 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
             if let Some(pb::field_width::Width::BitLen(e)) =
                 f.width.as_ref().and_then(|w| w.width.as_ref())
             {
+                let width_ctx = format!("width of `{}.{}`", ht.name, f.name);
+                validate_expr(e, &width_ctx, &mut errs);
                 let mut refs = Vec::new();
                 walk_refs(e, &mut refs);
                 for r in refs {
@@ -256,6 +322,7 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
             match &op.kind {
                 Some(pb::region_op::Kind::Push(e)) => {
                     let push_ctx = format!("state `{}` region push #{i}", s.name);
+                    validate_expr(e, &push_ctx, &mut errs);
                     let mut refs = Vec::new();
                     walk_refs(e, &mut refs);
                     for r in refs {
@@ -285,6 +352,7 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
             }
             if let Some(value) = &a.value {
                 let assign_ctx = format!("state `{}` assign `{}`", s.name, a.metadata);
+                validate_expr(value, &assign_ctx, &mut errs);
                 let mut refs = Vec::new();
                 walk_refs(value, &mut refs);
                 for r in refs {
@@ -295,6 +363,8 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
                 for r in meta_refs {
                     check_meta_ref(r, &assign_ctx, &mut errs);
                 }
+            } else {
+                errs.push(format!("{ctx}: assign `{}` has no value", a.metadata));
             }
         }
 
@@ -305,6 +375,9 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
                 }
             }
             Some(pb::target::Kind::Reject(r)) => {
+                if r.reason.is_empty() {
+                    errs.push(format!("{ctx}: reject has empty reason"));
+                }
                 if let Some(sev) = r.annotations.get("severity") {
                     if sev != "error" && sev != "info" {
                         errs.push(format!(
@@ -313,13 +386,18 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
                     }
                 }
             }
-            _ => {}
+            None => errs.push(format!("{ctx}: empty target")),
+            Some(pb::target::Kind::Accept(_)) => {}
         };
         match s.transition.as_ref().and_then(|t| t.kind.as_ref()) {
             None => errs.push(format!("{ctx}: no transition")),
             Some(pb::transition::Kind::Direct(t)) => check_target(t, &mut errs),
             Some(pb::transition::Kind::Select(sel)) => {
+                if sel.keys.is_empty() {
+                    errs.push(format!("{ctx}: select has no keys"));
+                }
                 for k in &sel.keys {
+                    validate_expr(k, &format!("{ctx} select key"), &mut errs);
                     let mut refs = Vec::new();
                     walk_refs(k, &mut refs);
                     for r in refs {
@@ -340,6 +418,16 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
                         ));
                     }
                     for (entry, key) in arm.entries.iter().zip(&sel.keys) {
+                        match entry.kind.as_ref() {
+                            None => errs.push(format!("{ctx}: empty keyset entry")),
+                            Some(pb::keyset_entry::Kind::Range(r)) if r.lo > r.hi => {
+                                errs.push(format!(
+                                    "{ctx}: invalid keyset range {}..={} (lo exceeds hi)",
+                                    r.lo, r.hi
+                                ))
+                            }
+                            Some(_) => {}
+                        }
                         if let (Some(w), Some(kind)) = (key_width(key), entry.kind.as_ref()) {
                             let max = if w == 64 { u64::MAX } else { (1u64 << w) - 1 };
                             let vals: &[u64] = match kind {
@@ -354,10 +442,14 @@ pub fn validate(ir: &pb::Ir) -> Result<(), Vec<String>> {
                     }
                     if let Some(t) = &arm.next {
                         check_target(t, &mut errs);
+                    } else {
+                        errs.push(format!("{ctx}: select arm has no target"));
                     }
                 }
                 if let Some(t) = &sel.default_target {
                     check_target(t, &mut errs);
+                } else {
+                    errs.push(format!("{ctx}: select has no default target"));
                 }
             }
         }
@@ -744,6 +836,66 @@ mod tests {
             ..Default::default()
         });
         assert_err_contains(&ir, "width 65 outside 1..=64");
+    }
+
+    #[test]
+    fn rejects_conflicting_header_instance_types() {
+        let mut ir = tiny();
+        let p = parser(&mut ir);
+        p.header_types = ["a", "b"]
+            .into_iter()
+            .map(|name| pb::HeaderType {
+                name: name.into(),
+                fields: vec![pb::Field {
+                    name: "value".into(),
+                    width: Some(pb::FieldWidth {
+                        width: Some(pb::field_width::Width::Bits(8)),
+                    }),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            })
+            .collect();
+        p.states[0].extracts = vec![
+            pb::Extract {
+                header_type: "a".into(),
+                instance: "same".into(),
+                lookahead: false,
+            },
+            pb::Extract {
+                header_type: "b".into(),
+                instance: "same".into(),
+                lookahead: false,
+            },
+        ];
+        assert_err_contains(&ir, "instance `same` is extracted as both `a` and `b`");
+    }
+
+    #[test]
+    fn rejects_incomplete_expression_and_select_structure() {
+        let mut ir = tiny();
+        parser(&mut ir).states[0].transition = Some(pb::Transition {
+            kind: Some(pb::transition::Kind::Select(pb::Select {
+                keys: vec![pb::Expr { kind: None }],
+                arms: vec![pb::SelectArm {
+                    entries: vec![pb::KeysetEntry { kind: None }],
+                    next: None,
+                }],
+                default_target: None,
+            })),
+        });
+        let errs = validate(&ir).unwrap_err();
+        for needle in [
+            "empty expression",
+            "empty keyset entry",
+            "select arm has no target",
+            "select has no default target",
+        ] {
+            assert!(
+                errs.iter().any(|e| e.contains(needle)),
+                "missing {needle:?} in {errs:?}"
+            );
+        }
     }
 
     fn field_ref(header: &str, field: &str) -> pb::Expr {

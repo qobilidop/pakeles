@@ -16,7 +16,7 @@ use anyhow::{bail, Result};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 
-pub fn generate_lua(ir: &pb::Ir) -> Result<String> {
+pub fn generate_lua(ir: &crate::ir::ValidatedIr) -> Result<String> {
     let parser = ir
         .parser
         .as_ref()

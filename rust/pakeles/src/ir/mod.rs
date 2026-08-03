@@ -21,6 +21,76 @@ pub const IR_VERSION: &str = "0.2.0";
 
 use anyhow::Result;
 use prost::Message;
+use std::ops::Deref;
+
+/// An IR whose complete set of semantic invariants has been checked.
+///
+/// Decoding protobuf or JSON produces [`pb::Ir`], which is intentionally
+/// treated as untrusted. Interpreters and code generators accept this type
+/// instead, making it impossible to accidentally bypass validation at their
+/// public API boundary.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ValidatedIr(pb::Ir);
+
+impl ValidatedIr {
+    pub fn new(ir: pb::Ir) -> std::result::Result<Self, ValidationErrors> {
+        validate::validate(&ir).map_err(ValidationErrors)?;
+        Ok(Self(ir))
+    }
+
+    pub fn as_pb(&self) -> &pb::Ir {
+        &self.0
+    }
+
+    pub fn into_inner(self) -> pb::Ir {
+        self.0
+    }
+}
+
+impl Deref for ValidatedIr {
+    type Target = pb::Ir;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_pb()
+    }
+}
+
+impl AsRef<pb::Ir> for ValidatedIr {
+    fn as_ref(&self) -> &pb::Ir {
+        self.as_pb()
+    }
+}
+
+impl PartialEq<pb::Ir> for ValidatedIr {
+    fn eq(&self, other: &pb::Ir) -> bool {
+        self.as_pb() == other
+    }
+}
+
+impl PartialEq<ValidatedIr> for pb::Ir {
+    fn eq(&self, other: &ValidatedIr) -> bool {
+        self == other.as_pb()
+    }
+}
+
+impl TryFrom<pb::Ir> for ValidatedIr {
+    type Error = ValidationErrors;
+
+    fn try_from(value: pb::Ir) -> std::result::Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ValidationErrors(pub Vec<String>);
+
+impl std::fmt::Display for ValidationErrors {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "invalid IR:\n  {}", self.0.join("\n  "))
+    }
+}
+
+impl std::error::Error for ValidationErrors {}
 
 pub fn to_bytes(ir: &pb::Ir) -> Vec<u8> {
     ir.encode_to_vec()
@@ -36,13 +106,12 @@ pub fn to_json(ir: &pb::Ir) -> Result<String> {
 
 /// Read, parse, and validate an IR file (protojson) — the standard way
 /// any consumer loads an IR from disk.
-pub fn load(path: &std::path::Path) -> anyhow::Result<pb::Ir> {
+pub fn load(path: &std::path::Path) -> anyhow::Result<ValidatedIr> {
     use anyhow::Context as _;
     let text = std::fs::read_to_string(path)
         .with_context(|| format!("reading IR from {}", path.display()))?;
     let ir = from_json(&text)?;
-    validate::validate(&ir).map_err(|e| anyhow::anyhow!("invalid IR:\n  {}", e.join("\n  ")))?;
-    Ok(ir)
+    Ok(ValidatedIr::new(ir)?)
 }
 
 pub fn from_json(s: &str) -> Result<pb::Ir> {

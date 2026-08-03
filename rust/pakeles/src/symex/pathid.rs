@@ -8,7 +8,7 @@ use crate::ir::pb;
 /// Engine's sanity ceiling, mirrored (see engine::SANITY_BITS).
 const SANITY_BITS: u64 = 8 * 1024 * 1024;
 
-pub fn path_id(ir: &pb::Ir, result: &ParseResult) -> anyhow::Result<String> {
+pub fn path_id(ir: &crate::ir::ValidatedIr, result: &ParseResult) -> anyhow::Result<String> {
     let parser = ir
         .parser
         .as_ref()

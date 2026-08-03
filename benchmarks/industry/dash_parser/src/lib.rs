@@ -23,7 +23,6 @@
 //!   header. The reject reason strings in the description are the
 //!   source's own error names, mapped to codes here.
 
-use pakeles::ir::pb;
 use serde::{Deserialize, Serialize};
 
 /// Bit position (in the incumbent's verdict bitmap) for each modeled
@@ -119,7 +118,7 @@ fn field_u(h: &pakeles::interp::ParsedHeader, f: &str) -> Option<u64> {
 /// completed instances only, mirroring BMv2's isValid()-guarded reads
 /// (the defaults are all-zero, so a missing wire header reads 0 on
 /// both sides).
-pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Projection> {
+pub fn project(ir: &pakeles::ir::ValidatedIr, packet: &[u8]) -> anyhow::Result<Projection> {
     let res = pakeles::interp::run(ir, packet)?;
     let (completed, err) = match &res.outcome {
         pakeles::interp::Outcome::Accept => (res.headers.len(), 0u8),
@@ -170,12 +169,13 @@ pub fn conformance_dir() -> std::path::PathBuf {
 
 /// The example description, parsed from the committed IR (embedded at
 /// compile time).
-pub fn ir() -> pb::Ir {
-    pakeles::ir::from_json(include_str!(concat!(
+pub fn ir() -> pakeles::ir::ValidatedIr {
+    let raw = pakeles::ir::from_json(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/dash_parser.ir.json"
     )))
-    .expect("committed dash_parser IR must parse")
+    .expect("committed dash_parser IR must parse");
+    pakeles::ir::ValidatedIr::new(raw).expect("committed dash_parser IR must validate")
 }
 
 /// Find the committed DASH-minted golden (`dash.<pin>.golden.json`).
@@ -210,7 +210,7 @@ pub fn discover_committed_golden(dir: &std::path::Path) -> Option<std::path::Pat
 /// Diff our projection against a golden file: every verdict field
 /// exact (no laxness rows — the diff run needed none).
 pub fn diff_goldens(
-    ir: &pb::Ir,
+    ir: &pakeles::ir::ValidatedIr,
     golden: &GoldenFile,
 ) -> anyhow::Result<pakeles::oracle::GoldenDiffReport> {
     let mut report = pakeles::oracle::GoldenDiffReport {

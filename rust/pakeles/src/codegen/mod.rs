@@ -362,7 +362,7 @@ mod tests {
         assert_eq!(expr_const(&f("h", "len")), None);
     }
 
-    fn var_run_ir(bit_len: crate::ir::pb::Expr) -> crate::ir::pb::Ir {
+    fn var_run_ir(bit_len: crate::ir::pb::Expr) -> crate::ir::ValidatedIr {
         ParserBuilder::new("vr", 2)
             .header(
                 HeaderTypeBuilder::new("h")

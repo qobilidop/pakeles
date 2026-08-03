@@ -750,7 +750,7 @@ impl<'a> Emit<'a> {
     }
 }
 
-pub fn generate_c(ir: &pb::Ir) -> Result<CArtifacts> {
+pub fn generate_c(ir: &crate::ir::ValidatedIr) -> Result<CArtifacts> {
     let parser = ir
         .parser
         .as_ref()
@@ -764,7 +764,7 @@ pub fn generate_c(ir: &pb::Ir) -> Result<CArtifacts> {
 
 /// stdin/stdout conformance harness: one vector per line in, one
 /// result line out. Test infrastructure, not a shipped artifact.
-pub fn generate_c_harness(ir: &pb::Ir) -> Result<String> {
+pub fn generate_c_harness(ir: &crate::ir::ValidatedIr) -> Result<String> {
     let parser = ir
         .parser
         .as_ref()
@@ -877,7 +877,7 @@ pub fn generate_c_harness(ir: &pb::Ir) -> Result<String> {
 
 /// Self-contained eBPF C: same core, no libc, packed-verdict entry.
 /// Harness convention: mem = 8-byte LE bit_len, then packet bytes.
-pub fn generate_bpf(ir: &pb::Ir) -> Result<String> {
+pub fn generate_bpf(ir: &crate::ir::ValidatedIr) -> Result<String> {
     let parser = ir
         .parser
         .as_ref()

@@ -107,22 +107,22 @@ pub fn basic_pcap_packets() -> Vec<Vec<u8>> {
 // tutorial gallery; see the 2026-07-31 layout decision record).
 
 #[cfg(test)]
-fn parser_fixture(name: &str) -> crate::ir::pb::Ir {
+fn parser_fixture(name: &str) -> crate::ir::ValidatedIr {
     let path = crate::test_repo_path(&format!("testdata/parsers/{name}.ir.json"));
     crate::ir::load(&path).expect("committed fixture IR must parse")
 }
 
 #[cfg(test)]
-pub(crate) fn eth_ipvx_l4() -> crate::ir::pb::Ir {
+pub(crate) fn eth_ipvx_l4() -> crate::ir::ValidatedIr {
     parser_fixture("eth_ipvx_l4")
 }
 
 #[cfg(test)]
-pub(crate) fn counted_items() -> crate::ir::pb::Ir {
+pub(crate) fn counted_items() -> crate::ir::ValidatedIr {
     parser_fixture("counted_items")
 }
 
 #[cfg(test)]
-pub(crate) fn tlv_items() -> crate::ir::pb::Ir {
+pub(crate) fn tlv_items() -> crate::ir::ValidatedIr {
     parser_fixture("tlv_items")
 }

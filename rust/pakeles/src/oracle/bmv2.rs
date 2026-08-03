@@ -229,7 +229,7 @@ fn declared_reject_reasons(parser: &pb::Parser) -> Vec<String> {
 }
 
 /// Derive the expected BMv2 observation for one vector's bits.
-pub fn expected(ir: &pb::Ir, bits: &crate::testvec::Bits) -> Result<Expectation> {
+pub fn expected(ir: &crate::ir::ValidatedIr, bits: &crate::testvec::Bits) -> Result<Expectation> {
     let parser = ir.parser.as_ref().context("IR has no parser")?;
     let res = crate::interp::run_bits(ir, bits)?;
     let order = crate::codegen::p4::instance_order(parser);
@@ -299,7 +299,7 @@ pub struct DiffReport {
 }
 
 /// Cap on byte-aligned vectors sent through `simple_switch` per suite.
-pub fn diff_suite(ir: &pb::Ir, suite: &tvpb::TestSuite) -> Result<DiffReport> {
+pub fn diff_suite(ir: &crate::ir::ValidatedIr, suite: &tvpb::TestSuite) -> Result<DiffReport> {
     let p4 = crate::codegen::p4::generate_p4(ir)?;
     let parser = ir.parser.as_ref().context("IR has no parser")?;
     let name = &parser.name;

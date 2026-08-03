@@ -24,7 +24,7 @@ fn as_byte_len(e: &pb::Expr) -> Option<&pb::Expr> {
     }
 }
 
-pub fn generate_markdown(ir: &pb::Ir) -> Result<String> {
+pub fn generate_markdown(ir: &crate::ir::ValidatedIr) -> Result<String> {
     let parser = ir
         .parser
         .as_ref()
@@ -221,7 +221,7 @@ mod tests {
 
     #[test]
     fn doc_annotations_render_as_prose() {
-        let mut ir = crate::builder::meta_loop();
+        let mut ir = crate::builder::meta_loop().into_inner();
         let parser = ir.parser.as_mut().unwrap();
         parser
             .annotations
@@ -229,6 +229,7 @@ mod tests {
         parser.states[0]
             .annotations
             .insert("doc".into(), "First line.\n\nSecond line.".into());
+        let ir = crate::ir::ValidatedIr::new(ir).unwrap();
         let md = super::generate_markdown(&ir).unwrap();
         assert!(md.contains("\nParser-level prose.\n"), "{md}");
         assert!(

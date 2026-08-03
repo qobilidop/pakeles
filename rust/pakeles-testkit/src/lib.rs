@@ -56,7 +56,7 @@ pub fn last_headers_by_instance(headers: &[ParsedHeader]) -> Vec<&ParsedHeader> 
 /// bit-granular truncations pcap could not carry to the Lua backend —
 /// on outcome, reason, consumed bits, and every field. With no suite
 /// (not generated, or a non-gallery IR) the compile check still runs.
-pub fn c_backend_conformance(ir: &pb::Ir, suite: Option<&tvpb::TestSuite>) {
+pub fn c_backend_conformance(ir: &pakeles::ir::ValidatedIr, suite: Option<&tvpb::TestSuite>) {
     use std::io::Write as _;
     if std::process::Command::new("cc")
         .arg("--version")
@@ -201,7 +201,7 @@ pub fn c_backend_conformance(ir: &pb::Ir, suite: Option<&tvpb::TestSuite>) {
 /// verdict (outcome | reason | consumed) against the reference
 /// interpreter for every vector in the suite. With no suite the
 /// compile check still runs.
-pub fn bpf_backend_conformance(ir: &pb::Ir, suite: Option<&tvpb::TestSuite>) {
+pub fn bpf_backend_conformance(ir: &pakeles::ir::ValidatedIr, suite: Option<&tvpb::TestSuite>) {
     for tool in ["clang", "llvm-objcopy"] {
         if std::process::Command::new(tool)
             .arg("--version")
@@ -351,7 +351,11 @@ fn headers_to_expected(headers: &[&ParsedHeader]) -> Vec<(String, ExpectedFields
 
 /// The full loop: symbolic vectors -> pcap -> tshark running our
 /// generated dissector -> JSON diffed against expected fields.
-pub fn lua_backend_conformance(ir: &pb::Ir, suite: &tvpb::TestSuite, min_compared: usize) {
+pub fn lua_backend_conformance(
+    ir: &pakeles::ir::ValidatedIr,
+    suite: &tvpb::TestSuite,
+    min_compared: usize,
+) {
     if std::process::Command::new("tshark")
         .arg("--version")
         .output()
@@ -542,7 +546,11 @@ pub fn lua_backend_conformance(ir: &pb::Ir, suite: &tvpb::TestSuite, min_compare
 
 /// Verdict-compare the suite's byte-aligned vectors against BMv2
 /// `simple_switch` running the generated P4-16 program.
-pub fn bmv2_backend_conformance(ir: &pb::Ir, suite: &tvpb::TestSuite, min_compared: usize) {
+pub fn bmv2_backend_conformance(
+    ir: &pakeles::ir::ValidatedIr,
+    suite: &tvpb::TestSuite,
+    min_compared: usize,
+) {
     if !pakeles::oracle::bmv2::tools_available() {
         eprintln!("skipping: p4 toolchain not available");
         return;
@@ -569,7 +577,7 @@ pub fn bmv2_backend_conformance(ir: &pb::Ir, suite: &tvpb::TestSuite, min_compar
 /// *-UNSUPPORTED.txt marker. Drift means someone edited a
 /// generated file or changed a generator without regenerating:
 /// `./dev.sh scripts/gen-examples.sh`.
-pub fn committed_artifacts_current(ir: &pb::Ir, example_dir: &Path) {
+pub fn committed_artifacts_current(ir: &pakeles::ir::ValidatedIr, example_dir: &Path) {
     let gen = example_dir.join("gen");
     let check = |file: &str, fresh: &str| {
         let committed = std::fs::read_to_string(gen.join(file))

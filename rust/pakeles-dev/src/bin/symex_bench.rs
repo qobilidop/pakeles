@@ -10,7 +10,7 @@ use pakeles::symex::engine::{Enumeration, PathKind};
 use pakeles::symex::testgen;
 use std::time::Instant;
 
-fn ir_for(name: &str) -> anyhow::Result<pakeles::ir::pb::Ir> {
+fn ir_for(name: &str) -> anyhow::Result<pakeles::ir::ValidatedIr> {
     if name == "encap_proxy" {
         return Ok(pakeles::builder::encap_proxy());
     }

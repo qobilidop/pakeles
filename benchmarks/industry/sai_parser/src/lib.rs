@@ -11,7 +11,6 @@
 //! `error.PacketTooShort` (err 1), which our truncation reject maps onto;
 //! the bitmap then carries the headers extracted BEFORE the failing read.
 
-use pakeles::ir::pb;
 use serde::{Deserialize, Serialize};
 
 /// Bit position (in the incumbent's verdict bitmap) for each modeled
@@ -54,7 +53,7 @@ pub struct GoldenFile {
 /// Accept ⇒ every extracted instance's bit, err 0. Truncation reject ⇒
 /// the bits of instances completed BEFORE the failing read, err 1
 /// (BMv2 records `PacketTooShort` and the partial header stays invalid).
-pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Projection> {
+pub fn project(ir: &pakeles::ir::ValidatedIr, packet: &[u8]) -> anyhow::Result<Projection> {
     let res = pakeles::interp::run(ir, packet)?;
     let (completed, err) = match &res.outcome {
         pakeles::interp::Outcome::Accept => (res.headers.len(), 0u8),
@@ -89,12 +88,13 @@ pub fn conformance_dir() -> std::path::PathBuf {
 
 /// The example description, parsed from the committed IR (embedded at
 /// compile time).
-pub fn ir() -> pb::Ir {
-    pakeles::ir::from_json(include_str!(concat!(
+pub fn ir() -> pakeles::ir::ValidatedIr {
+    let raw = pakeles::ir::from_json(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/sai_parser.ir.json"
     )))
-    .expect("committed sai_parser IR must parse")
+    .expect("committed sai_parser IR must parse");
+    pakeles::ir::ValidatedIr::new(raw).expect("committed sai_parser IR must validate")
 }
 
 /// Find the committed sonic-pins-minted golden (`sai.<pin>.golden.json`).
@@ -128,7 +128,7 @@ pub fn discover_committed_golden(dir: &std::path::Path) -> Option<std::path::Pat
 
 /// Diff our projection against a golden file: bitmap + err exact.
 pub fn diff_goldens(
-    ir: &pb::Ir,
+    ir: &pakeles::ir::ValidatedIr,
     golden: &GoldenFile,
 ) -> anyhow::Result<pakeles::oracle::GoldenDiffReport> {
     let mut report = pakeles::oracle::GoldenDiffReport {

@@ -2,7 +2,6 @@
 //! `onnx.helper` analog). No semantics live here; `build()` validates.
 
 use crate::ir::pb;
-use crate::ir::validate::validate;
 use crate::ir::IR_VERSION;
 
 // ---- Expr helpers ----
@@ -388,13 +387,12 @@ impl ParserBuilder {
         self
     }
 
-    pub fn build(self) -> anyhow::Result<pb::Ir> {
+    pub fn build(self) -> anyhow::Result<crate::ir::ValidatedIr> {
         let ir = pb::Ir {
             ir_version: IR_VERSION.into(),
             parser: Some(self.parser),
         };
-        validate(&ir).map_err(|errs| anyhow::anyhow!("invalid IR:\n  {}", errs.join("\n  ")))?;
-        Ok(ir)
+        Ok(crate::ir::ValidatedIr::new(ir)?)
     }
 }
 
@@ -404,7 +402,7 @@ impl ParserBuilder {
 /// re-enters `parse_ip4` (an encap back edge, bounded by the testgen
 /// loop-unroll cap), so feasibility checks deepen exactly like the tunnel
 /// clusters. Perf-lever comparisons iterate here, not on the 4a IR.
-pub fn encap_proxy() -> pb::Ir {
+pub fn encap_proxy() -> crate::ir::ValidatedIr {
     ParserBuilder::new("encap_proxy", 6)
         .header(HeaderTypeBuilder::new("eth").bits("proto", 16))
         .header(
@@ -461,7 +459,7 @@ pub fn encap_proxy() -> pb::Ir {
 /// plan, Task 2): a count-prefixed accumulator loop with a constant write
 /// and select-on-metadata exits. Used by interp/symex/codegen tests and
 /// the testkit conformance battery (so not test-gated).
-pub fn meta_loop() -> pb::Ir {
+pub fn meta_loop() -> crate::ir::ValidatedIr {
     ParserBuilder::new("meta_loop", 6)
         .meta("flag", 1, 0)
         .meta("acc", 8, 0)
@@ -490,7 +488,7 @@ pub fn meta_loop() -> pb::Ir {
 /// (t:u8, l:u8, val:bytes[l]); loop exits on remaining()==0 -> exact
 /// pop -> accept. Used by interp/symex/codegen tests and the testkit
 /// conformance battery (so not test-gated).
-pub fn tlv_mini() -> pb::Ir {
+pub fn tlv_mini() -> crate::ir::ValidatedIr {
     ParserBuilder::new("tlv_mini", 8)
         .header(HeaderTypeBuilder::new("h").bits("total", 8))
         .header(

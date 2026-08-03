@@ -11,7 +11,7 @@ pub struct Finding {
     pub message: String,
 }
 
-pub fn lint(ir: &pb::Ir) -> anyhow::Result<Vec<Finding>> {
+pub fn lint(ir: &crate::ir::ValidatedIr) -> anyhow::Result<Vec<Finding>> {
     let mut solver = Z3Solver::new();
     let enumeration = enumerate(ir, &mut solver)?;
     let parser = ir.parser.as_ref().expect("validated");

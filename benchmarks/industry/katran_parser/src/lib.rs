@@ -11,7 +11,6 @@
 //! error path inverts src/dst and ports (katran's flow affinity for
 //! errors), driven by the `is_icmp` metadata bit.
 
-use pakeles::ir::pb;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -105,7 +104,7 @@ fn v4_addr_hex(v: u64) -> String {
 }
 
 /// Project our `katran_parser` parse to (verdict, stage, flow).
-pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Projection> {
+pub fn project(ir: &pakeles::ir::ValidatedIr, packet: &[u8]) -> anyhow::Result<Projection> {
     let res = pakeles::interp::run(ir, packet)?;
 
     // A reject is always one of the modeled XDP_DROP causes (ihl!=5,
@@ -266,12 +265,13 @@ pub fn conformance_dir() -> std::path::PathBuf {
 
 /// The example description, parsed from the committed IR (embedded at
 /// compile time).
-pub fn ir() -> pb::Ir {
-    pakeles::ir::from_json(include_str!(concat!(
+pub fn ir() -> pakeles::ir::ValidatedIr {
+    let raw = pakeles::ir::from_json(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/katran_parser.ir.json"
     )))
-    .expect("committed katran_parser IR must parse")
+    .expect("committed katran_parser IR must parse");
+    pakeles::ir::ValidatedIr::new(raw).expect("committed katran_parser IR must validate")
 }
 
 /// Find the committed katran-minted golden file (`katran.<pin>.golden.json`).
@@ -307,7 +307,7 @@ pub fn discover_committed_golden(dir: &std::path::Path) -> Option<std::path::Pat
 /// flow field exact. `out_hex` (the XDP_TX mutation) and `quic` (a
 /// boundary) are deliberately not compared.
 pub fn diff_goldens(
-    ir: &pb::Ir,
+    ir: &pakeles::ir::ValidatedIr,
     golden: &GoldenFile,
 ) -> anyhow::Result<pakeles::oracle::GoldenDiffReport> {
     let mut report = pakeles::oracle::GoldenDiffReport {

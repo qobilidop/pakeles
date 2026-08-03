@@ -3,7 +3,6 @@
 use super::engine::enumerate;
 use super::pathid::path_id;
 use super::z3solver::Z3Solver;
-use crate::ir::pb;
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -15,7 +14,7 @@ pub struct Coverage {
     pub packets: usize,
 }
 
-pub fn coverage(ir: &pb::Ir, pcap: &Path) -> anyhow::Result<Coverage> {
+pub fn coverage(ir: &crate::ir::ValidatedIr, pcap: &Path) -> anyhow::Result<Coverage> {
     let mut solver = Z3Solver::new();
     let enumeration = enumerate(ir, &mut solver)?;
     let all_ids: std::collections::BTreeSet<String> =

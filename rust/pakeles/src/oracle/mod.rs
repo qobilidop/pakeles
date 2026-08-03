@@ -130,7 +130,7 @@ fn tshark_json(pcap: &Path) -> Result<Vec<serde_json::Value>> {
 /// Diff every Accept-outcome packet's annotated fields against tshark.
 /// Reject-outcome packets are skipped (tshark still dissects malformed
 /// input; matching that asymmetry is diagnose mode's job, slice 3).
-pub fn diff_pcap(ir: &pb::Ir, pcap: &Path) -> Result<DiffReport> {
+pub fn diff_pcap(ir: &crate::ir::ValidatedIr, pcap: &Path) -> Result<DiffReport> {
     let packets = crate::pcapio::read_packets(pcap)?;
     let dissected = tshark_json(pcap)?;
     if dissected.len() != packets.len() {

@@ -17,7 +17,7 @@ fn fixture_path(name: &str) -> PathBuf {
         .join(format!("{name}.ir.json"))
 }
 
-fn ir(name: &str) -> pakeles::ir::pb::Ir {
+fn ir(name: &str) -> pakeles::ir::ValidatedIr {
     pakeles::ir::load(&fixture_path(name)).unwrap_or_else(|e| panic!("loading fixture {name}: {e}"))
 }
 

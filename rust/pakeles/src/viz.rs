@@ -59,7 +59,7 @@ fn dot_escape(s: &str) -> String {
         .replace('\n', "\\n")
 }
 
-pub fn to_dot(ir: &pb::Ir) -> String {
+pub fn to_dot(ir: &crate::ir::ValidatedIr) -> String {
     let mut out = String::new();
     let mut rejects: Vec<String> = Vec::new();
     let mut edges: Vec<String> = Vec::new();
@@ -195,7 +195,7 @@ mod tests {
 
     #[test]
     fn doc_annotations_become_tooltips() {
-        let mut ir = crate::builder::meta_loop();
+        let mut ir = crate::builder::meta_loop().into_inner();
         let parser = ir.parser.as_mut().unwrap();
         parser
             .annotations
@@ -203,6 +203,7 @@ mod tests {
         parser.states[0]
             .annotations
             .insert("doc".into(), "Line one.\nLine two.".into());
+        let ir = crate::ir::ValidatedIr::new(ir).unwrap();
         let dot = to_dot(&ir);
         assert!(dot.contains("  tooltip=\"Graph \\\"prose\\\".\";"), "{dot}");
         assert!(

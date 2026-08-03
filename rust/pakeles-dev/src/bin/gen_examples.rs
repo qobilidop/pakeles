@@ -6,9 +6,7 @@ use pakeles_dev::gallery;
 fn regenerate(name: &str, dir: &std::path::Path) -> anyhow::Result<()> {
     let gen = dir.join("gen");
     std::fs::create_dir_all(&gen)?;
-    let ir = pakeles::ir::from_json(&std::fs::read_to_string(
-        dir.join(format!("{name}.ir.json")),
-    )?)?;
+    let ir = pakeles::ir::load(&dir.join(format!("{name}.ir.json")))?;
     // gen lua refuses fields wider than 32 bits by design (Lua 5.2's
     // number model: bit32 semantics and a 53-bit double mantissa can't
     // carry 62-bit varint values faithfully) — commit the refusal as a

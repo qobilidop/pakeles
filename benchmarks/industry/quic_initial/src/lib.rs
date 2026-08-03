@@ -29,7 +29,6 @@
 //! fails. In exchange quinn checks the one field quiche never parses:
 //! the payload `length` varint.
 
-use pakeles::ir::pb;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -141,7 +140,7 @@ fn meta(res: &pakeles::interp::ParseResult, name: &str) -> Option<u64> {
 }
 
 /// Project our `quic_initial` parse to the diffable class.
-pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<OurClass> {
+pub fn project(ir: &pakeles::ir::ValidatedIr, packet: &[u8]) -> anyhow::Result<OurClass> {
     let res = pakeles::interp::run(ir, packet)?;
     match res.outcome {
         pakeles::interp::Outcome::Accept => {
@@ -405,12 +404,13 @@ pub fn conformance_dir() -> std::path::PathBuf {
 
 /// The example description, parsed from the committed IR (embedded at
 /// compile time).
-pub fn ir() -> pb::Ir {
-    pakeles::ir::from_json(include_str!(concat!(
+pub fn ir() -> pakeles::ir::ValidatedIr {
+    let raw = pakeles::ir::from_json(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/quic_initial.ir.json"
     )))
-    .expect("committed quic_initial IR must parse")
+    .expect("committed quic_initial IR must parse");
+    pakeles::ir::ValidatedIr::new(raw).expect("committed quic_initial IR must validate")
 }
 
 /// Find the committed quiche-minted golden (`initial.quiche-*.golden.json`).
@@ -443,7 +443,7 @@ pub fn discover_committed_golden(dir: &std::path::Path) -> Option<std::path::Pat
 }
 
 pub fn diff_goldens(
-    ir: &pb::Ir,
+    ir: &pakeles::ir::ValidatedIr,
     golden: &GoldenFile,
 ) -> anyhow::Result<pakeles::oracle::GoldenDiffReport> {
     let mut report = pakeles::oracle::GoldenDiffReport {

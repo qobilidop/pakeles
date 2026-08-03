@@ -25,7 +25,7 @@ fn dir(name: &str) -> PathBuf {
         .join(name)
 }
 
-fn ir(name: &str) -> pakeles::ir::pb::Ir {
+fn ir(name: &str) -> pakeles::ir::ValidatedIr {
     pakeles::ir::load(&dir(name).join(format!("{name}.ir.json")))
         .unwrap_or_else(|e| panic!("loading committed {name}.ir.json: {e}"))
 }

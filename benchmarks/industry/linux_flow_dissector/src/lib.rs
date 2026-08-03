@@ -1,7 +1,6 @@
 //! Flow-dissector differential oracle: our parse (projected to bpf_flow_keys)
 //! vs golden flow_keys captured from a flow dissector run in the kernel via
 //! BPF_PROG_TEST_RUN. Rung 0: eth/IPv4/IPv6/TCP/UDP subset.
-use pakeles::ir::pb;
 use serde::{Deserialize, Serialize};
 
 /// The rung-0 subset of `struct bpf_flow_keys`. Addresses are lowercase
@@ -68,7 +67,7 @@ pub struct GoldenFile {
 /// (bpf_flow.c re-enters parse_eth_proto with a synthetic proto but only
 /// PROG(VLAN) rewrites keys->n_proto). `None` if the parse rejects (no flow key).
 #[allow(clippy::field_reassign_with_default)]
-pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Option<FlowKeys>> {
+pub fn project(ir: &pakeles::ir::ValidatedIr, packet: &[u8]) -> anyhow::Result<Option<FlowKeys>> {
     let res = pakeles::interp::run(ir, packet)?;
     if !matches!(res.outcome, pakeles::interp::Outcome::Accept) {
         return Ok(None);
@@ -282,12 +281,13 @@ pub fn conformance_dir() -> std::path::PathBuf {
 
 /// The example description, parsed from the committed IR (embedded at
 /// compile time).
-pub fn ir() -> pb::Ir {
-    pakeles::ir::from_json(include_str!(concat!(
+pub fn ir() -> pakeles::ir::ValidatedIr {
+    let raw = pakeles::ir::from_json(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/linux_flow_dissector.ir.json"
     )))
-    .expect("committed linux_flow_dissector IR must parse")
+    .expect("committed linux_flow_dissector IR must parse");
+    pakeles::ir::ValidatedIr::new(raw).expect("committed linux_flow_dissector IR must validate")
 }
 
 /// Find the committed kernel-captured golden file under `dir` (filename
@@ -326,7 +326,7 @@ pub fn discover_committed_golden(dir: &std::path::Path) -> Option<std::path::Pat
 /// Diff our `project`ed `flow_keys` against a golden file's entries, over
 /// the golden's declared `keys_subset` fields.
 pub fn diff_goldens(
-    ir: &pb::Ir,
+    ir: &pakeles::ir::ValidatedIr,
     golden: &GoldenFile,
 ) -> anyhow::Result<pakeles::oracle::GoldenDiffReport> {
     let mut report = pakeles::oracle::GoldenDiffReport {

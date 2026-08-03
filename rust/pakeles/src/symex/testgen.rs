@@ -7,11 +7,10 @@
 use super::engine::{enumerate, Enumeration, Path, PathKind};
 use super::z3solver::Z3Solver;
 use crate::interp::{run_bits, FieldValue, Outcome};
-use crate::ir::pb as irpb;
 use crate::testvec::{pb, Bits};
 use anyhow::{bail, Context, Result};
 
-pub fn generate(ir: &irpb::Ir) -> Result<pb::TestSuite> {
+pub fn generate(ir: &crate::ir::ValidatedIr) -> Result<pb::TestSuite> {
     let enumeration = enumerate_paths(ir)?;
     let parser = ir.parser.as_ref().expect("validated");
     let vectors = solve_all(ir, &enumeration.paths)?;
@@ -25,7 +24,7 @@ pub fn generate(ir: &irpb::Ir) -> Result<pb::TestSuite> {
 /// Enumeration phase only — the bench / phase-timing entry point, and the
 /// source of the path inventory the perf plan uses as its identity
 /// reference (see docs/plans/2026-07-28-symex-enum-perf.md).
-pub fn enumerate_paths(ir: &irpb::Ir) -> Result<Enumeration> {
+pub fn enumerate_paths(ir: &crate::ir::ValidatedIr) -> Result<Enumeration> {
     let mut solver = Z3Solver::new();
     enumerate(ir, &mut solver)
 }
@@ -33,14 +32,14 @@ pub fn enumerate_paths(ir: &irpb::Ir) -> Result<Enumeration> {
 /// Assemble vectors from the witnesses the engine solved at emit time
 /// (no z3 here — just the interp round-trip per path). Public alongside
 /// `enumerate_paths` so the bench can time phases apart.
-pub fn solve_all(ir: &irpb::Ir, paths: &[Path]) -> Result<Vec<pb::TestVector>> {
+pub fn solve_all(ir: &crate::ir::ValidatedIr, paths: &[Path]) -> Result<Vec<pb::TestVector>> {
     paths
         .iter()
         .map(|path| vector_for(ir, path).with_context(|| path.id.clone()))
         .collect()
 }
 
-fn vector_for(ir: &irpb::Ir, path: &Path) -> Result<pb::TestVector> {
+fn vector_for(ir: &crate::ir::ValidatedIr, path: &Path) -> Result<pb::TestVector> {
     let Some((bytes, bit_len)) = path.witness.clone() else {
         bail!("engine bug: enumerated path is UNSAT");
     };
@@ -117,7 +116,7 @@ fn vector_for(ir: &irpb::Ir, path: &Path) -> Result<pb::TestVector> {
 /// Replay a suite through the reference interpreter; returns mismatch
 /// descriptions (empty = green). This — not solver re-runs — is the
 /// CI-stable check for committed suites.
-pub fn replay(ir: &irpb::Ir, suite: &pb::TestSuite) -> Result<Vec<String>> {
+pub fn replay(ir: &crate::ir::ValidatedIr, suite: &pb::TestSuite) -> Result<Vec<String>> {
     let mut mismatches = Vec::new();
     for v in &suite.vectors {
         let Some(packet) = &v.packet else {

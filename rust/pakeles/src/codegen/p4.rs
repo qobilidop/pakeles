@@ -403,7 +403,7 @@ pub(crate) fn stacked_instances(parser: &pb::Parser) -> std::collections::HashSe
     out
 }
 
-pub fn generate_p4(ir: &pb::Ir) -> Result<String> {
+pub fn generate_p4(ir: &crate::ir::ValidatedIr) -> Result<String> {
     let parser = ir.parser.as_ref().context("IR has no parser")?;
     if super::has_region_ops(parser) {
         // Permanent, by design: a P4-16 parser can extract a varbit
@@ -810,8 +810,8 @@ mod tests {
 
     /// `eth_ipvx_l4` with `parse_tcp` looped back to `parse_ethernet`, so
     /// `ethernet`/`ipv4`/`ipv6`/`tcp` all lie on a cycle (are stacked).
-    fn cyclic_ir() -> pb::Ir {
-        let mut ir = crate::fixtures::eth_ipvx_l4();
+    fn cyclic_ir() -> crate::ir::ValidatedIr {
+        let mut ir = crate::fixtures::eth_ipvx_l4().into_inner();
         let p = ir.parser.as_mut().unwrap();
         let tcp = p.states.iter_mut().find(|s| s.name == "parse_tcp").unwrap();
         tcp.transition = Some(pb::Transition {
@@ -819,7 +819,7 @@ mod tests {
                 kind: Some(pb::target::Kind::State("parse_ethernet".into())),
             })),
         });
-        ir
+        crate::ir::ValidatedIr::new(ir).unwrap()
     }
 
     #[test]
@@ -1052,7 +1052,7 @@ mod tests {
     /// of the same trivial single-`bit<8>`-field header type. Exists to
     /// exercise the verdict-bitmap width threshold without needing a
     /// real-world example with that many instances.
-    fn synth_ir(n: usize) -> pb::Ir {
+    fn synth_ir(n: usize) -> crate::ir::ValidatedIr {
         let ht = pb::HeaderType {
             name: "h".into(),
             fields: vec![pb::Field {
@@ -1089,7 +1089,7 @@ mod tests {
                 }
             })
             .collect();
-        pb::Ir {
+        crate::ir::ValidatedIr::new(pb::Ir {
             ir_version: crate::ir::IR_VERSION.into(),
             parser: Some(pb::Parser {
                 name: "synth".into(),
@@ -1099,7 +1099,8 @@ mod tests {
                 max_depth: n as u32,
                 ..Default::default()
             }),
-        }
+        })
+        .unwrap()
     }
 
     #[test]

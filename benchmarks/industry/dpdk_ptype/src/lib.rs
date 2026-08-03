@@ -13,7 +13,6 @@
 //! `project` returns an error, so a corpus line in an excluded class is a
 //! red gate, never a silent skip.
 
-use pakeles::ir::pb;
 use serde::{Deserialize, Serialize};
 
 // RTE_PTYPE_* constants, values from the pinned v23.11.4
@@ -126,7 +125,7 @@ fn dispatch_value(state: &str, h: &pakeles::interp::ParsedHeader) -> Option<u64>
 /// `(ptype, hdr_lens)`, replaying rte_net.c's writes over our trace.
 /// `Err` = the IR is malformed OR the packet falls in an unmappable
 /// reject class (design §3) — the latter must never appear in the corpus.
-pub fn project(ir: &pb::Ir, packet: &[u8]) -> anyhow::Result<Projection> {
+pub fn project(ir: &pakeles::ir::ValidatedIr, packet: &[u8]) -> anyhow::Result<Projection> {
     let res = pakeles::interp::run(ir, packet)?;
 
     // Every state in this example extracts exactly one header, so trace
@@ -462,12 +461,13 @@ pub fn conformance_dir() -> std::path::PathBuf {
 
 /// The example description, parsed from the committed IR (embedded at
 /// compile time).
-pub fn ir() -> pb::Ir {
-    pakeles::ir::from_json(include_str!(concat!(
+pub fn ir() -> pakeles::ir::ValidatedIr {
+    let raw = pakeles::ir::from_json(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/dpdk_ptype.ir.json"
     )))
-    .expect("committed dpdk_ptype IR must parse")
+    .expect("committed dpdk_ptype IR must parse");
+    pakeles::ir::ValidatedIr::new(raw).expect("committed dpdk_ptype IR must validate")
 }
 
 /// Find the committed DPDK-minted golden file under `dir` (filename
@@ -504,7 +504,7 @@ pub fn discover_committed_golden(dir: &std::path::Path) -> Option<std::path::Pat
 /// hdr_lens field exact. An unmappable projection is a mismatch (the
 /// corpus must stay inside the mappable classes).
 pub fn diff_goldens(
-    ir: &pb::Ir,
+    ir: &pakeles::ir::ValidatedIr,
     golden: &GoldenFile,
 ) -> anyhow::Result<pakeles::oracle::GoldenDiffReport> {
     let mut report = pakeles::oracle::GoldenDiffReport {

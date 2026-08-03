@@ -3,7 +3,6 @@
 use anyhow::{Context, Result};
 use clap::{Parser as ClapParser, Subcommand};
 use pakeles::interp::{FieldValue, Outcome};
-use pakeles::ir::pb;
 use std::path::{Path, PathBuf};
 
 #[derive(ClapParser)]
@@ -152,7 +151,7 @@ enum Oracle {
     },
 }
 
-fn load_ir(path: &Path) -> Result<pb::Ir> {
+fn load_ir(path: &Path) -> Result<pakeles::ir::ValidatedIr> {
     pakeles::ir::load(path)
 }
 
@@ -369,6 +368,7 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
                 .with_context(|| format!("reading IR from {}", ir.display()))?;
             let mut parsed = pakeles::ir::from_json(&text)?;
             pakeles::ir::canonicalize(&mut parsed);
+            let parsed = pakeles::ir::ValidatedIr::new(parsed)?;
             let canonical = pakeles::ir::to_json(&parsed)?;
             if out.as_os_str() == "-" {
                 println!("{canonical}");
@@ -459,5 +459,15 @@ mod tests {
         .unwrap();
         assert_eq!(code, 0);
         assert_eq!(std::fs::read_to_string(&outp).unwrap(), canonical);
+    }
+
+    #[test]
+    fn fmt_ir_rejects_structurally_invalid_ir() {
+        let dir = std::env::temp_dir().join("pakeles_fmt_ir_invalid");
+        std::fs::create_dir_all(&dir).unwrap();
+        let inp = dir.join("invalid.json");
+        std::fs::write(&inp, r#"{"irVersion":"0.2.0"}"#).unwrap();
+        let err = main_with(&["pakeles", "fmt-ir", "--ir", inp.to_str().unwrap()]).unwrap_err();
+        assert!(err.to_string().contains("ir has no parser"), "{err:#}");
     }
 }
