@@ -11,9 +11,12 @@ cargo fmt
 ruff format .
 buf format -w
 
-# Own C only (oracle-side factory/spike code): gen/ holds generated C
-# gated by equality guards, never formatters. Keep this find in step
-# with the one in lint.sh.
-find . \( -path ./third_party -o -path ./.ci -o -path ./target -o -path ./.git \
-          -o \( -type d -name gen \) \) -prune \
-  -o \( -name '*.c' -o -name '*.h' \) -print0 | xargs -0 clang-format -i
+# Own tracked C only (oracle-side factory/spike code): gen/ holds generated C
+# gated by equality guards, never formatters. Keep this filter in step with
+# lint.sh.
+mapfile -d '' c_files < <(git ls-files -z -- '*.c' '*.h')
+own_c=()
+for file in "${c_files[@]}"; do
+  case "$file" in third_party/* | */gen/*) ;; *) own_c+=("$file") ;; esac
+done
+((${#own_c[@]} == 0)) || clang-format -i "${own_c[@]}"

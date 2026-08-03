@@ -14,16 +14,24 @@ ruff check .
 buf lint
 buf format --diff --exit-code
 
-# Own shell scripts only: .ci holds CI's cargo-registry mount (vendored
-# .sh), third_party is vendored, target/.git are build/VCS internals.
-find . \( -path ./third_party -o -path ./.ci -o -path ./target -o -path ./.git \) -prune \
-  -o -name '*.sh' -print0 | xargs -0 shellcheck
+# Tracked first-party files only: ignored factory outputs and cache mounts must
+# never make the gate depend on whatever happens to be in a developer's tree.
+mapfile -d '' shell_files < <(git ls-files -z -- '*.sh')
+own_shell=()
+for file in "${shell_files[@]}"; do
+  case "$file" in third_party/*) ;; *) own_shell+=("$file") ;; esac
+done
+((${#own_shell[@]} == 0)) || shellcheck "${own_shell[@]}"
 
-# Own C only; same find as fmt.sh (keep in step).
-find . \( -path ./third_party -o -path ./.ci -o -path ./target -o -path ./.git \
-          -o \( -type d -name gen \) \) -prune \
-  -o \( -name '*.c' -o -name '*.h' \) -print0 | xargs -0 clang-format --dry-run -Werror
+# Generated C is equality-guarded, not formatter-owned. Keep this filter in
+# step with fmt.sh.
+mapfile -d '' c_files < <(git ls-files -z -- '*.c' '*.h')
+own_c=()
+for file in "${c_files[@]}"; do
+  case "$file" in third_party/* | */gen/*) ;; *) own_c+=("$file") ;; esac
+done
+((${#own_c[@]} == 0)) || clang-format --dry-run -Werror "${own_c[@]}"
 
 actionlint
 pyright
-cargo clippy --workspace --all-targets -- -D warnings
+cargo clippy --workspace --all-targets --all-features -- -D warnings

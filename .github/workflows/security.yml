@@ -1,0 +1,25 @@
+name: Dependency audit
+
+on:
+  push:
+    branches: [main]
+    paths: ["Cargo.lock", "**/Cargo.toml"]
+  pull_request:
+    paths: ["Cargo.lock", "**/Cargo.toml"]
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  rustsec:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Audit Cargo.lock against RustSec
+        run: |
+          cargo install cargo-audit --version 0.22.2 --locked
+          cargo audit

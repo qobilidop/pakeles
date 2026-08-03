@@ -1,0 +1,6 @@
+# Direct Python tools used by the dev image. requirements.txt is the
+# hash-locked transitive resolution; update it with pip-compile.
+protobuf==7.35.1
+pyright==1.1.411
+pytest==9.1.1
+ruff==0.16.1

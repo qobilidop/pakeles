@@ -6,6 +6,8 @@ extend-exclude = [
     "**/gen",                  # generated artifacts
     ".claude",
     ".ci",                     # CI mounts its cargo caches inside the checkout
+    "python/build",
+    "python/dist",
     "third_party",
     "target",
 ]

@@ -3,6 +3,8 @@ __pycache__/
 .pytest_cache/
 *.pyc
 *.egg-info/
+/python/build/
+/python/dist/
 
 # Generated conformance suites: they churn on every IR/testgen change,
 # so they stay uncommitted — locally regenerate with

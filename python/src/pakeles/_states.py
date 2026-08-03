@@ -269,7 +269,9 @@ def _expand_arm(key: ArmKey) -> list[ArmValue]:
 def _scalar_values_overlap(left: ScalarArmValue, right: ScalarArmValue) -> bool:
     if isinstance(left, Masked) or isinstance(right, Masked):
         return left == right
-    left_lo, left_hi = (left.lo, left.hi) if isinstance(left, RangeValue) else (left, left)
+    left_lo, left_hi = (
+        (left.lo, left.hi) if isinstance(left, RangeValue) else (left, left)
+    )
     right_lo, right_hi = (
         (right.lo, right.hi) if isinstance(right, RangeValue) else (right, right)
     )
@@ -430,7 +432,11 @@ class State:
                     )
                 candidates = expanded if contains_range else compact_ranges
                 overlap = next(
-                    (existing for existing in candidates if _arm_values_overlap(value, existing)),
+                    (
+                        existing
+                        for existing in candidates
+                        if _arm_values_overlap(value, existing)
+                    ),
                     None,
                 )
                 if overlap is not None:
