@@ -137,53 +137,13 @@ Start state: `parse_first`.
   > Non-v1 CIDs are uncapped: quiche enforces the 20-byte cap
   > only for versions it supports.
 - **`parse_dcid_len`** — extracts dcid_len; selects on `dcid_len.ln`:
-  - dcid_len.ln == 0x0 → `parse_dcid`
-  - dcid_len.ln == 0x1 → `parse_dcid`
-  - dcid_len.ln == 0x2 → `parse_dcid`
-  - dcid_len.ln == 0x3 → `parse_dcid`
-  - dcid_len.ln == 0x4 → `parse_dcid`
-  - dcid_len.ln == 0x5 → `parse_dcid`
-  - dcid_len.ln == 0x6 → `parse_dcid`
-  - dcid_len.ln == 0x7 → `parse_dcid`
-  - dcid_len.ln == 0x8 → `parse_dcid`
-  - dcid_len.ln == 0x9 → `parse_dcid`
-  - dcid_len.ln == 0xa → `parse_dcid`
-  - dcid_len.ln == 0xb → `parse_dcid`
-  - dcid_len.ln == 0xc → `parse_dcid`
-  - dcid_len.ln == 0xd → `parse_dcid`
-  - dcid_len.ln == 0xe → `parse_dcid`
-  - dcid_len.ln == 0xf → `parse_dcid`
-  - dcid_len.ln == 0x10 → `parse_dcid`
-  - dcid_len.ln == 0x11 → `parse_dcid`
-  - dcid_len.ln == 0x12 → `parse_dcid`
-  - dcid_len.ln == 0x13 → `parse_dcid`
-  - dcid_len.ln == 0x14 → `parse_dcid`
+  - dcid_len.ln in 0x0..=0x14 → `parse_dcid`
   - otherwise → **reject** (*dcid too long for v1*)
   > The v1 cap check sits between the length byte and the CID
   > bytes, mirroring quiche's check-before-read order.
 - **`parse_dcid`** — extracts dcid; then `parse_scid_len`
 - **`parse_scid_len`** — extracts scid_len; selects on `scid_len.ln`:
-  - scid_len.ln == 0x0 → `parse_scid`
-  - scid_len.ln == 0x1 → `parse_scid`
-  - scid_len.ln == 0x2 → `parse_scid`
-  - scid_len.ln == 0x3 → `parse_scid`
-  - scid_len.ln == 0x4 → `parse_scid`
-  - scid_len.ln == 0x5 → `parse_scid`
-  - scid_len.ln == 0x6 → `parse_scid`
-  - scid_len.ln == 0x7 → `parse_scid`
-  - scid_len.ln == 0x8 → `parse_scid`
-  - scid_len.ln == 0x9 → `parse_scid`
-  - scid_len.ln == 0xa → `parse_scid`
-  - scid_len.ln == 0xb → `parse_scid`
-  - scid_len.ln == 0xc → `parse_scid`
-  - scid_len.ln == 0xd → `parse_scid`
-  - scid_len.ln == 0xe → `parse_scid`
-  - scid_len.ln == 0xf → `parse_scid`
-  - scid_len.ln == 0x10 → `parse_scid`
-  - scid_len.ln == 0x11 → `parse_scid`
-  - scid_len.ln == 0x12 → `parse_scid`
-  - scid_len.ln == 0x13 → `parse_scid`
-  - scid_len.ln == 0x14 → `parse_scid`
+  - scid_len.ln in 0x0..=0x14 → `parse_scid`
   - otherwise → **reject** (*scid too long for v1*)
 - **`parse_scid`** — extracts scid; selects on `first_byte.ty`:
   - first_byte.ty == 0x0 → `parse_scid__initial`

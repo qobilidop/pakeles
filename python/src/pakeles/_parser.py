@@ -46,6 +46,7 @@ from pakeles._states import (
     Accept,
     ArmValue,
     Masked,
+    RangeValue,
     Reject,
     SelectSpec,
     State,
@@ -66,9 +67,11 @@ class StateFunc(Protocol):
     def __call__(self, _instance: Any, /) -> State: ...
 
 
-def _label_part(value: int | Masked) -> str:
+def _label_part(value: int | Masked | RangeValue) -> str:
     if isinstance(value, Masked):
         return f"m{value.value:x}_{value.mask:x}"
+    if isinstance(value, RangeValue):
+        return f"r{value.lo}_{value.hi}"
     if isinstance(value, IntEnum):
         return value.name.lower()
     return f"v{value}"

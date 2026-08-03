@@ -243,71 +243,7 @@ function states.s_sid_len(buf, pinfo, tree, off, depth, meta, regions)
   v.v_sid_len_slen = buf():bitfield(off, 8)
   hdr_sid_len:add(pf.f_sid_len_slen, buf(math.floor(off / 8), math.floor((off % 8 + 8 + 7) / 8)), v.v_sid_len_slen)
   off = off + 8
-  if v.v_sid_len_slen == 0 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 1 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 2 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 3 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 4 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 5 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 6 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 7 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 8 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 9 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 10 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 11 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 12 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 13 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 14 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 15 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 16 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 17 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 18 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 19 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 20 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 21 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 22 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 23 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 24 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 25 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 26 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 27 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 28 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 29 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 30 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 31 then
-    return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
-  elseif v.v_sid_len_slen == 32 then
+  if (v.v_sid_len_slen >= 0 and v.v_sid_len_slen <= 32) then
     return states.s_sid(buf, pinfo, tree, off, depth, meta, regions)
   else
     tree:add_proto_expert_info(ef_error, "session id too long")

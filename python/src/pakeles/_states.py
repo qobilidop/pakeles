@@ -16,8 +16,9 @@ the prose a method docstring would. One inline `State` object reused
 across several arms (or shared via a variable) hoists once.
 
 Arm keys may be single values, `oneof(...)` value sets, `range`s, or —
-for multi-key selects — tuples of any of those; sets and ranges expand
-to exact per-value arms at `select()` time, in order.
+for multi-key selects — tuples of any of those. Unit-step ranges lower to
+one compact IR range entry; conveniences that genuinely expand have a
+fixed budget so an authored Cartesian product cannot exhaust memory.
 """
 
 from __future__ import annotations
@@ -103,8 +104,17 @@ def masked(value: int, mask: int) -> Masked:
     return Masked(value=value, mask=mask)
 
 
-# One arm's value(s), post-expansion: exact ints and/or ternary Masked.
-ArmValue = int | Masked | tuple["int | Masked", ...]
+@dataclass(frozen=True)
+class RangeValue:
+    """Inclusive compact range after authoring-time normalization."""
+
+    lo: int
+    hi: int
+
+
+# One arm's value(s), post-expansion.
+ScalarArmValue = int | Masked | RangeValue
+ArmValue = ScalarArmValue | tuple[ScalarArmValue, ...]
 ArmKey = int | OneOf | range | Masked | tuple["int | OneOf | range | Masked", ...]
 SelectKey = FieldSpec | BoundField | MetadataFieldSpec | RemainingSpec
 RegionOp = tuple[str, Expr | None]  # ("push", len_expr) | ("pop", None)
@@ -132,18 +142,41 @@ def _key_labels(key: SelectKey) -> dict[int, str]:
     return getattr(key, "labels", None) or {}
 
 
-def _first_missing(covered: set[int], total: int, want: int) -> list[int]:
+def _first_missing(covered: list[tuple[int, int]], total: int, want: int) -> list[int]:
     """The `want` smallest values in [0, total) not in `covered`,
     without iterating the (possibly 2^64-sized) range."""
     out: list[int] = []
-    prev = -1
-    for v in sorted(covered) + [total]:
-        for m in range(prev + 1, v):
+    cursor = 0
+    for lo, hi in covered + [(total, total)]:
+        for m in range(cursor, lo):
             out.append(m)
             if len(out) == want:
                 return out
-        prev = v
+        cursor = max(cursor, hi + 1)
     return out
+
+
+def _covered_intervals(
+    arms: dict[ArmValue, Target], total: int
+) -> tuple[list[tuple[int, int]], int] | None:
+    intervals: list[tuple[int, int]] = []
+    for value in arms:
+        if isinstance(value, int):
+            if 0 <= value < total:
+                intervals.append((value, value))
+        elif isinstance(value, RangeValue):
+            lo, hi = max(0, value.lo), min(total - 1, value.hi)
+            if lo <= hi:
+                intervals.append((lo, hi))
+        else:
+            return None
+    merged: list[tuple[int, int]] = []
+    for lo, hi in sorted(intervals):
+        if merged and lo <= merged[-1][1] + 1:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], hi))
+        else:
+            merged.append((lo, hi))
+    return merged, sum(hi - lo + 1 for lo, hi in merged)
 
 
 def _exhaustive_default(
@@ -152,8 +185,8 @@ def _exhaustive_default(
     """Prove the arms cover every representable value of the key,
     licensing an omitted `default=`; the synthesized IR default is a
     machine-written unreachable reject. Conservative by design: a
-    single fixed-width key with exact-value arms only — masked arms
-    and multi-key selects always need an explicit default."""
+    single fixed-width key with exact/range arms only — masked arms and
+    multi-key selects always need an explicit default."""
     no_default = "select has no default= and "
     if len(keys) != 1:
         raise ValueError(
@@ -167,45 +200,100 @@ def _exhaustive_default(
             no_default + f"key {key.header}.{key.name} is not a "
             "fixed-width field; pass an explicit default"
         )
-    if any(not isinstance(v, int) for v in arms):
+    total = 1 << width
+    coverage = _covered_intervals(arms, total)
+    if coverage is None:
         raise ValueError(
-            no_default + "masked arms cannot prove exhaustiveness; "
+            no_default + "masked arms or multi-key arms cannot prove exhaustiveness; "
             "pass an explicit default"
         )
-    total = 1 << width
-    covered = {v for v in arms if isinstance(v, int) and 0 <= v < total}
-    if len(covered) == total:
+    covered, covered_count = coverage
+    if covered_count == total:
         return Reject(reason="unreachable")
     labels = _key_labels(key)
     shown = [
         f"{m} ({labels[m]})" if m in labels else str(m)
         for m in _first_missing(covered, total, 8)
     ]
-    listed = ", ".join(shown) + (", ..." if total - len(covered) > 8 else "")
+    listed = ", ".join(shown) + (", ..." if total - covered_count > 8 else "")
     raise ValueError(
         f"select on {key.header}.{key.name} ({width} bits) is not "
-        f"exhaustive: arms cover {len(covered)} of {total} values, "
+        f"exhaustive: arms cover {covered_count} of {total} values, "
         f"missing {listed}; add arms or pass default="
     )
 
 
+_MAX_EXPANDED_ARMS = 10_000
+_MAX_COMPACT_RANGE_ARMS = 1_000
+
+
+def _range_pool(key: range) -> list[ScalarArmValue]:
+    if not key:
+        raise ValueError("empty range select arm")
+    if key.step == 1:
+        return [RangeValue(key.start, key.stop - 1)]
+    if len(key) > _MAX_EXPANDED_ARMS:
+        raise ValueError(
+            f"non-unit range expands to {len(key)} arms; limit is {_MAX_EXPANDED_ARMS}"
+        )
+    return list(key)
+
+
 def _expand_arm(key: ArmKey) -> list[ArmValue]:
-    """One authored arm key -> its exact arm values, in authored order."""
+    """One authored arm key -> compact/expanded values in authored order."""
     if isinstance(key, OneOf):
-        return list(key.values)
+        return [value for value in key.values]
     if isinstance(key, range):
-        return list(key)
+        return [value for value in _range_pool(key)]
     if isinstance(key, tuple):
-        pools: list[list[int | Masked]] = [
+        pools: list[list[ScalarArmValue]] = [
             list(k.values)
             if isinstance(k, OneOf)
-            else list(k)
+            else _range_pool(k)
             if isinstance(k, range)
             else [k]
             for k in key
         ]
+        combinations = 1
+        for pool in pools:
+            combinations *= len(pool)
+            if combinations > _MAX_EXPANDED_ARMS:
+                raise ValueError(
+                    f"select arm Cartesian product expands to {combinations} arms; "
+                    f"limit is {_MAX_EXPANDED_ARMS}"
+                )
         return [tuple(combo) for combo in itertools.product(*pools)]
     return [key]
+
+
+def _scalar_values_overlap(left: ScalarArmValue, right: ScalarArmValue) -> bool:
+    if isinstance(left, Masked) or isinstance(right, Masked):
+        return left == right
+    left_lo, left_hi = (left.lo, left.hi) if isinstance(left, RangeValue) else (left, left)
+    right_lo, right_hi = (
+        (right.lo, right.hi) if isinstance(right, RangeValue) else (right, right)
+    )
+    return left_lo <= right_hi and right_lo <= left_hi
+
+
+def _arm_values_overlap(left: ArmValue, right: ArmValue) -> bool:
+    if isinstance(left, tuple) or isinstance(right, tuple):
+        return (
+            isinstance(left, tuple)
+            and isinstance(right, tuple)
+            and len(left) == len(right)
+            and all(
+                _scalar_values_overlap(left_part, right_part)
+                for left_part, right_part in zip(left, right)
+            )
+        )
+    return _scalar_values_overlap(left, right)
+
+
+def _contains_range(value: ArmValue) -> bool:
+    if isinstance(value, tuple):
+        return any(isinstance(part, RangeValue) for part in value)
+    return isinstance(value, RangeValue)
 
 
 def _resolve(
@@ -318,18 +406,40 @@ class State:
         default: Target | None = None,
     ) -> State:
         """`default=` may be omitted when the arms provably cover every
-        representable key value (single fixed-width key, exact values):
+        representable key value (single fixed-width key, exact/range values):
         the IR's mandatory default becomes a synthesized unreachable
         reject, and a coverage gap is an error naming the missing
         values instead of a silent fall-through."""
         self._need_open()
         keys = key if isinstance(key, tuple) else (key,)
         expanded: dict[ArmValue, Target] = {}
+        compact_ranges: list[ArmValue] = []
         for arm_key, target in arms.items():
             for value in _expand_arm(arm_key):
+                if len(expanded) >= _MAX_EXPANDED_ARMS:
+                    raise ValueError(
+                        f"select expands past {_MAX_EXPANDED_ARMS} arms; "
+                        "use compact ranges or split the state"
+                    )
                 if value in expanded:
                     raise ValueError(f"duplicate select arm value {value!r}")
+                contains_range = _contains_range(value)
+                if contains_range and len(compact_ranges) >= _MAX_COMPACT_RANGE_ARMS:
+                    raise ValueError(
+                        f"select has more than {_MAX_COMPACT_RANGE_ARMS} compact range arms"
+                    )
+                candidates = expanded if contains_range else compact_ranges
+                overlap = next(
+                    (existing for existing in candidates if _arm_values_overlap(value, existing)),
+                    None,
+                )
+                if overlap is not None:
+                    raise ValueError(
+                        f"overlapping select arm values {overlap!r} and {value!r}"
+                    )
                 expanded[value] = target
+                if contains_range:
+                    compact_ranges.append(value)
         if default is None:
             default = _exhaustive_default(keys, expanded)
         self.transition = SelectSpec(keys=keys, arms=expanded, default=default)

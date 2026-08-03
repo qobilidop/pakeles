@@ -331,67 +331,7 @@ static __attribute__((always_inline)) int pk_quic_initial_parse_core(const uint8
       out->dcid_len.ln = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       uint64_t key0 = (uint64_t)out->dcid_len.ln;
-      if (key0 == 0ULL) {
-        state = PK_S_PARSE_DCID;
-        continue;
-      } else if (key0 == 1ULL) {
-        state = PK_S_PARSE_DCID;
-        continue;
-      } else if (key0 == 2ULL) {
-        state = PK_S_PARSE_DCID;
-        continue;
-      } else if (key0 == 3ULL) {
-        state = PK_S_PARSE_DCID;
-        continue;
-      } else if (key0 == 4ULL) {
-        state = PK_S_PARSE_DCID;
-        continue;
-      } else if (key0 == 5ULL) {
-        state = PK_S_PARSE_DCID;
-        continue;
-      } else if (key0 == 6ULL) {
-        state = PK_S_PARSE_DCID;
-        continue;
-      } else if (key0 == 7ULL) {
-        state = PK_S_PARSE_DCID;
-        continue;
-      } else if (key0 == 8ULL) {
-        state = PK_S_PARSE_DCID;
-        continue;
-      } else if (key0 == 9ULL) {
-        state = PK_S_PARSE_DCID;
-        continue;
-      } else if (key0 == 10ULL) {
-        state = PK_S_PARSE_DCID;
-        continue;
-      } else if (key0 == 11ULL) {
-        state = PK_S_PARSE_DCID;
-        continue;
-      } else if (key0 == 12ULL) {
-        state = PK_S_PARSE_DCID;
-        continue;
-      } else if (key0 == 13ULL) {
-        state = PK_S_PARSE_DCID;
-        continue;
-      } else if (key0 == 14ULL) {
-        state = PK_S_PARSE_DCID;
-        continue;
-      } else if (key0 == 15ULL) {
-        state = PK_S_PARSE_DCID;
-        continue;
-      } else if (key0 == 16ULL) {
-        state = PK_S_PARSE_DCID;
-        continue;
-      } else if (key0 == 17ULL) {
-        state = PK_S_PARSE_DCID;
-        continue;
-      } else if (key0 == 18ULL) {
-        state = PK_S_PARSE_DCID;
-        continue;
-      } else if (key0 == 19ULL) {
-        state = PK_S_PARSE_DCID;
-        continue;
-      } else if (key0 == 20ULL) {
+      if (key0 <= 20ULL) {
         state = PK_S_PARSE_DCID;
         continue;
       } else {
@@ -429,67 +369,7 @@ static __attribute__((always_inline)) int pk_quic_initial_parse_core(const uint8
       out->scid_len.ln = (uint8_t)((uint64_t)buf[((off >> 3) + 0) & PK_BUF_MASK]);
       off += 8;
       uint64_t key0 = (uint64_t)out->scid_len.ln;
-      if (key0 == 0ULL) {
-        state = PK_S_PARSE_SCID;
-        continue;
-      } else if (key0 == 1ULL) {
-        state = PK_S_PARSE_SCID;
-        continue;
-      } else if (key0 == 2ULL) {
-        state = PK_S_PARSE_SCID;
-        continue;
-      } else if (key0 == 3ULL) {
-        state = PK_S_PARSE_SCID;
-        continue;
-      } else if (key0 == 4ULL) {
-        state = PK_S_PARSE_SCID;
-        continue;
-      } else if (key0 == 5ULL) {
-        state = PK_S_PARSE_SCID;
-        continue;
-      } else if (key0 == 6ULL) {
-        state = PK_S_PARSE_SCID;
-        continue;
-      } else if (key0 == 7ULL) {
-        state = PK_S_PARSE_SCID;
-        continue;
-      } else if (key0 == 8ULL) {
-        state = PK_S_PARSE_SCID;
-        continue;
-      } else if (key0 == 9ULL) {
-        state = PK_S_PARSE_SCID;
-        continue;
-      } else if (key0 == 10ULL) {
-        state = PK_S_PARSE_SCID;
-        continue;
-      } else if (key0 == 11ULL) {
-        state = PK_S_PARSE_SCID;
-        continue;
-      } else if (key0 == 12ULL) {
-        state = PK_S_PARSE_SCID;
-        continue;
-      } else if (key0 == 13ULL) {
-        state = PK_S_PARSE_SCID;
-        continue;
-      } else if (key0 == 14ULL) {
-        state = PK_S_PARSE_SCID;
-        continue;
-      } else if (key0 == 15ULL) {
-        state = PK_S_PARSE_SCID;
-        continue;
-      } else if (key0 == 16ULL) {
-        state = PK_S_PARSE_SCID;
-        continue;
-      } else if (key0 == 17ULL) {
-        state = PK_S_PARSE_SCID;
-        continue;
-      } else if (key0 == 18ULL) {
-        state = PK_S_PARSE_SCID;
-        continue;
-      } else if (key0 == 19ULL) {
-        state = PK_S_PARSE_SCID;
-        continue;
-      } else if (key0 == 20ULL) {
+      if (key0 <= 20ULL) {
         state = PK_S_PARSE_SCID;
         continue;
       } else {

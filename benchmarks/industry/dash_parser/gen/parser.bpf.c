@@ -1276,27 +1276,7 @@ static __attribute__((always_inline)) int pk_dash_parser_parse_core(const uint8_
     }
     case PK_S_PARSE_U0_IPV4_IHL: {
       uint64_t key0 = (uint64_t)out->u0_ipv4.ihl;
-      if (key0 == 0ULL) {
-        out->outcome = 1;
-        out->reason = PK_R_INVALIDIPV4HEADER;
-        out->consumed_bits = off;
-        return 1;
-      } else if (key0 == 1ULL) {
-        out->outcome = 1;
-        out->reason = PK_R_INVALIDIPV4HEADER;
-        out->consumed_bits = off;
-        return 1;
-      } else if (key0 == 2ULL) {
-        out->outcome = 1;
-        out->reason = PK_R_INVALIDIPV4HEADER;
-        out->consumed_bits = off;
-        return 1;
-      } else if (key0 == 3ULL) {
-        out->outcome = 1;
-        out->reason = PK_R_INVALIDIPV4HEADER;
-        out->consumed_bits = off;
-        return 1;
-      } else if (key0 == 4ULL) {
+      if (key0 <= 4ULL) {
         out->outcome = 1;
         out->reason = PK_R_INVALIDIPV4HEADER;
         out->consumed_bits = off;

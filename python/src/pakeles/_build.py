@@ -13,7 +13,15 @@ from google.protobuf import json_format
 from pakeles._header import Header
 from pakeles._metadata import Metadata, MetadataFieldSpec
 from pakeles._pb import ir_pb2
-from pakeles._states import Accept, Masked, Reject, SelectSpec, State, Target
+from pakeles._states import (
+    Accept,
+    Masked,
+    RangeValue,
+    Reject,
+    SelectSpec,
+    State,
+    Target,
+)
 
 # Kept in step with the Rust core's `pakeles::ir::IR_VERSION` (the
 # validator requires an exact match). 0.2.0: bit-uniform lengths.
@@ -86,7 +94,16 @@ class Assembly:
                         )
                     for value, key_spec in zip(values, sel.keys):
                         assert key_spec.width_bits is not None
-                        bound = value.mask if isinstance(value, Masked) else value
+                        if isinstance(value, Masked):
+                            bound = value.mask
+                        elif isinstance(value, RangeValue):
+                            if value.lo < 0 or value.lo > value.hi:
+                                raise ValueError(
+                                    f"state {sname!r}: invalid range arm {value.lo}..{value.hi}{here}"
+                                )
+                            bound = value.hi
+                        else:
+                            bound = value
                         if bound >= 1 << key_spec.width_bits:
                             raise ValueError(
                                 f"state {sname!r}: arm value {bound:#x} does not "
@@ -210,6 +227,9 @@ class Assembly:
                         if isinstance(value, Masked):
                             entry.masked.value = value.value
                             entry.masked.mask = value.mask
+                        elif isinstance(value, RangeValue):
+                            entry.range.lo = value.lo
+                            entry.range.hi = value.hi
                         else:
                             entry.value = value
                     _fill_target(arm.next, target)

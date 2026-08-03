@@ -49,11 +49,7 @@ digraph "dash_parser" {
   "parse_flow_encap_u0_u1" -> "parse_customer_ethernet";
   "parse_u0_ipv4" -> "parse_u0_ipv4_ihl" [label="u0_ipv4.version == 0x4"];
   "parse_u0_ipv4" -> "reject_0" [label="default", style=dashed];
-  "parse_u0_ipv4_ihl" -> "reject_1" [label="u0_ipv4.ihl == 0x0"];
-  "parse_u0_ipv4_ihl" -> "reject_1" [label="u0_ipv4.ihl == 0x1"];
-  "parse_u0_ipv4_ihl" -> "reject_1" [label="u0_ipv4.ihl == 0x2"];
-  "parse_u0_ipv4_ihl" -> "reject_1" [label="u0_ipv4.ihl == 0x3"];
-  "parse_u0_ipv4_ihl" -> "reject_1" [label="u0_ipv4.ihl == 0x4"];
+  "parse_u0_ipv4_ihl" -> "reject_1" [label="u0_ipv4.ihl in 0x0..=0x4"];
   "parse_u0_ipv4_ihl" -> "dispatch_on_u0_protocol" [label="u0_ipv4.ihl == 0x5"];
   "parse_u0_ipv4_ihl" -> "parse_u0_ipv4options" [label="default", style=dashed];
   "parse_u0_ipv4options" -> "dispatch_on_u0_protocol";

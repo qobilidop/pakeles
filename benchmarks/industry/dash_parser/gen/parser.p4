@@ -338,11 +338,7 @@ parser PkParser(packet_in pkt, out headers hdr, inout metadata meta,
     }
     state st_parse_u0_ipv4_ihl {
         transition select((bit<64>)hdr.u0_ipv4_s0.ihl) {
-            64w0: st__reject;
-            64w1: st__reject;
-            64w2: st__reject;
-            64w3: st__reject;
-            64w4: st__reject;
+            64w0 .. 64w4: st__reject;
             64w5: st_dispatch_on_u0_protocol;
             default: st_parse_u0_ipv4options;
         }

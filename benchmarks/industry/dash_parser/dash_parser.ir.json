@@ -1410,55 +1410,9 @@
               {
                 "entries": [
                   {
-                    "value": "0"
-                  }
-                ],
-                "next": {
-                  "reject": {
-                    "reason": "InvalidIPv4Header"
-                  }
-                }
-              },
-              {
-                "entries": [
-                  {
-                    "value": "1"
-                  }
-                ],
-                "next": {
-                  "reject": {
-                    "reason": "InvalidIPv4Header"
-                  }
-                }
-              },
-              {
-                "entries": [
-                  {
-                    "value": "2"
-                  }
-                ],
-                "next": {
-                  "reject": {
-                    "reason": "InvalidIPv4Header"
-                  }
-                }
-              },
-              {
-                "entries": [
-                  {
-                    "value": "3"
-                  }
-                ],
-                "next": {
-                  "reject": {
-                    "reason": "InvalidIPv4Header"
-                  }
-                }
-              },
-              {
-                "entries": [
-                  {
-                    "value": "4"
+                    "range": {
+                      "hi": "4"
+                    }
                   }
                 ],
                 "next": {

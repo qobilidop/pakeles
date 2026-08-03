@@ -174,9 +174,12 @@ fn entry_c(entry: &pb::KeysetEntry, key: &str) -> String {
         Some(pb::keyset_entry::Kind::Masked(m)) => {
             format!("({key} & {}ULL) == {}ULL", m.mask, m.value & m.mask)
         }
-        Some(pb::keyset_entry::Kind::Range(r)) => {
-            format!("({}ULL <= {key} && {key} <= {}ULL)", r.lo, r.hi)
-        }
+        Some(pb::keyset_entry::Kind::Range(r)) => match (r.lo, r.hi) {
+            (0, u64::MAX) => "1".into(),
+            (0, hi) => format!("{key} <= {hi}ULL"),
+            (lo, u64::MAX) => format!("{lo}ULL <= {key}"),
+            (lo, hi) => format!("({lo}ULL <= {key} && {key} <= {hi}ULL)"),
+        },
         None => "0".into(),
     }
 }
@@ -976,6 +979,16 @@ pub fn generate_bpf(ir: &crate::ir::ValidatedIr) -> Result<String> {
 mod tests {
     use super::*;
     use crate::fixtures::eth_ipvx_l4;
+
+    #[test]
+    fn ranges_at_unsigned_bounds_avoid_constant_comparison_warnings() {
+        let entry = |lo, hi| pb::KeysetEntry {
+            kind: Some(pb::keyset_entry::Kind::Range(pb::Range { lo, hi })),
+        };
+        assert_eq!(entry_c(&entry(0, 4), "key"), "key <= 4ULL");
+        assert_eq!(entry_c(&entry(5, u64::MAX), "key"), "5ULL <= key");
+        assert_eq!(entry_c(&entry(0, u64::MAX), "key"), "1");
+    }
 
     #[test]
     fn metadata_c_emission_and_semantics() {

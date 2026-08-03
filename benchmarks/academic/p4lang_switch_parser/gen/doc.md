@@ -13,7 +13,7 @@ fabric-header family, INT over VXLAN-GPE, and sFlow.
 |---|---|---|---|---|---|
 | `dst_addr` | 48 | MAC | Destination |  |  |
 | `src_addr` | 48 | MAC | Source |  |  |
-| `ether_type` | 16 | hex | EtherType | 2048=IPv4, 2054=ARP, 8939=ERSPAN type III, 25944=Transparent Ethernet Bridging, 33024=802.1Q, 34525=IPv6, 34825=Slow Protocols (source: LACP), 34887=MPLS (unicast), 35020=LLDP, 36864=internal fabric header (source: BF_FABRIC), 37120=QinQ (legacy 0x9100) |  |
+| `ether_type` | 16 | hex | EtherType | 2048=IPv4, 2054=ARP, 8939=ERSPAN type III, 25944=Transparent Ethernet Bridging, 33024=802.1Q, 34525=IPv6, 34825=Slow Protocols (source: LACP), 34887=MPLS (unicast), 35020=LLDP, 36864=internal fabric header (source: BF\_FABRIC), 37120=QinQ (legacy 0x9100) |  |
 
 ## Header `llc_header`
 
@@ -28,7 +28,7 @@ fabric-header family, INT over VXLAN-GPE, and sFlow.
 | Field | Bits | Format | Name | Labels | Notes |
 |---|---|---|---|---|---|
 | `oui` | 24 | hex | OUI |  |  |
-| `type_` | 16 | hex | Type | 2048=IPv4, 2054=ARP, 8939=ERSPAN type III, 25944=Transparent Ethernet Bridging, 33024=802.1Q, 34525=IPv6, 34825=Slow Protocols (source: LACP), 34887=MPLS (unicast), 35020=LLDP, 36864=internal fabric header (source: BF_FABRIC), 37120=QinQ (legacy 0x9100) |  |
+| `type_` | 16 | hex | Type | 2048=IPv4, 2054=ARP, 8939=ERSPAN type III, 25944=Transparent Ethernet Bridging, 33024=802.1Q, 34525=IPv6, 34825=Slow Protocols (source: LACP), 34887=MPLS (unicast), 35020=LLDP, 36864=internal fabric header (source: BF\_FABRIC), 37120=QinQ (legacy 0x9100) |  |
 
 ## Header `roce_header`
 
@@ -63,7 +63,7 @@ fabric-header family, INT over VXLAN-GPE, and sFlow.
 | `pcp` | 3 |  | PCP |  |  |
 | `cfi` | 1 |  | CFI |  |  |
 | `vid` | 12 | dec | VLAN ID |  |  |
-| `ether_type` | 16 | hex | EtherType | 2048=IPv4, 2054=ARP, 8939=ERSPAN type III, 25944=Transparent Ethernet Bridging, 33024=802.1Q, 34525=IPv6, 34825=Slow Protocols (source: LACP), 34887=MPLS (unicast), 35020=LLDP, 36864=internal fabric header (source: BF_FABRIC), 37120=QinQ (legacy 0x9100) |  |
+| `ether_type` | 16 | hex | EtherType | 2048=IPv4, 2054=ARP, 8939=ERSPAN type III, 25944=Transparent Ethernet Bridging, 33024=802.1Q, 34525=IPv6, 34825=Slow Protocols (source: LACP), 34887=MPLS (unicast), 35020=LLDP, 36864=internal fabric header (source: BF\_FABRIC), 37120=QinQ (legacy 0x9100) |  |
 
 ## Header `mpls`
 
@@ -481,7 +481,7 @@ fabric-header family, INT over VXLAN-GPE, and sFlow.
 
 | Field | Bits | Format | Name | Labels | Notes |
 |---|---|---|---|---|---|
-| `ether_type` | 16 | hex | EtherType | 2048=IPv4, 2054=ARP, 8939=ERSPAN type III, 25944=Transparent Ethernet Bridging, 33024=802.1Q, 34525=IPv6, 34825=Slow Protocols (source: LACP), 34887=MPLS (unicast), 35020=LLDP, 36864=internal fabric header (source: BF_FABRIC), 37120=QinQ (legacy 0x9100) |  |
+| `ether_type` | 16 | hex | EtherType | 2048=IPv4, 2054=ARP, 8939=ERSPAN type III, 25944=Transparent Ethernet Bridging, 33024=802.1Q, 34525=IPv6, 34825=Slow Protocols (source: LACP), 34887=MPLS (unicast), 35020=LLDP, 36864=internal fabric header (source: BF\_FABRIC), 37120=QinQ (legacy 0x9100) |  |
 
 ## Parse graph
 
@@ -562,7 +562,7 @@ Start state: `parse_ethernet`.
   - mpls.bos == 0x1 → `parse_mpls_bos`
   - otherwise → **accept**
 - **`parse_mpls_3`** — extracts mpls; selects on `mpls.bos`:
-  - mpls.bos == 0x0 → **reject** (*a fourth MPLS label overflows the source's mpls[3] stack*)
+  - mpls.bos == 0x0 → **reject** (*a fourth MPLS label overflows the source's mpls\[3\] stack*)
   - mpls.bos == 0x1 → `parse_mpls_bos`
   - otherwise → **accept**
   > Third label: the stack is full. A fourth label (bos=0)

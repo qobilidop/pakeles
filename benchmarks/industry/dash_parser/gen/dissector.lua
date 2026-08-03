@@ -969,19 +969,7 @@ function states.parse_u0_ipv4_ihl(buf, pinfo, tree, off, depth)
     return off
   end
   local avail = buf:len() * 8
-  if v.v_u0_ipv4_ihl == 0 then
-    tree:add_proto_expert_info(ef_error, "InvalidIPv4Header")
-    return off
-  elseif v.v_u0_ipv4_ihl == 1 then
-    tree:add_proto_expert_info(ef_error, "InvalidIPv4Header")
-    return off
-  elseif v.v_u0_ipv4_ihl == 2 then
-    tree:add_proto_expert_info(ef_error, "InvalidIPv4Header")
-    return off
-  elseif v.v_u0_ipv4_ihl == 3 then
-    tree:add_proto_expert_info(ef_error, "InvalidIPv4Header")
-    return off
-  elseif v.v_u0_ipv4_ihl == 4 then
+  if (v.v_u0_ipv4_ihl >= 0 and v.v_u0_ipv4_ihl <= 4) then
     tree:add_proto_expert_info(ef_error, "InvalidIPv4Header")
     return off
   elseif v.v_u0_ipv4_ihl == 5 then

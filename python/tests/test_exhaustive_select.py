@@ -48,6 +48,24 @@ def test_exhaustive_omits_default_and_synthesizes_unreachable() -> None:
     assert sel.default_target.reject.reason == "unreachable"
 
 
+def test_large_non_unit_range_expansion_is_bounded() -> None:
+    with pytest.raises(ValueError, match="expands to .* limit"):
+        extract(H).select(
+            H.big,
+            {range(0, 30_000, 2): "x"},
+            default=reject("other"),
+        )
+
+
+def test_compact_ranges_reject_overlapping_arms() -> None:
+    with pytest.raises(ValueError, match="overlapping select arm values"):
+        extract(H).select(
+            H.big,
+            {range(10): "low", range(9, 20): "high"},
+            default=reject("other"),
+        )
+
+
 def test_oneof_and_range_count_toward_coverage() -> None:
     class P(Parser):
         max_depth = 2
@@ -60,6 +78,11 @@ def test_oneof_and_range_count_toward_coverage() -> None:
 
     sel = P.to_pb().parser.states[0].transition.select
     assert sel.default_target.reject.reason == "unreachable"
+    assert len(sel.arms) == 3
+    assert (sel.arms[2].entries[0].range.lo, sel.arms[2].entries[0].range.hi) == (
+        2,
+        (1 << 16) - 1,
+    )
 
 
 def test_gap_is_an_error_naming_missing_values_with_labels() -> None:
