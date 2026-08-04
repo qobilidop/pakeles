@@ -32,88 +32,20 @@ fn is_portable_ident(name: &str) -> bool {
         && chars.all(|ch| matches!(ch, '_' | 'a'..='z' | 'A'..='Z' | '0'..='9'))
 }
 
-fn is_backend_keyword(name: &str) -> bool {
-    // Union of C99, Lua 5.2, and the P4-16 keywords that can occur in the
-    // identifier positions emitted by Pakeles. Presentation names remain
-    // unrestricted; these are semantic symbols shared by every backend.
-    matches!(
-        name,
-        "_Bool"
-            | "_Complex"
-            | "_Imaginary"
-            | "and"
-            | "apply"
-            | "asm"
-            | "auto"
-            | "bit"
-            | "bool"
-            | "break"
-            | "case"
-            | "char"
-            | "const"
-            | "continue"
-            | "control"
-            | "default"
-            | "do"
-            | "double"
-            | "else"
-            | "end"
-            | "enum"
-            | "error"
-            | "extern"
-            | "false"
-            | "float"
-            | "for"
-            | "function"
-            | "header"
-            | "header_union"
-            | "if"
-            | "in"
-            | "inline"
-            | "int"
-            | "key"
-            | "local"
-            | "long"
-            | "not"
-            | "or"
-            | "out"
-            | "parser"
-            | "register"
-            | "restrict"
-            | "return"
-            | "select"
-            | "short"
-            | "signed"
-            | "sizeof"
-            | "static"
-            | "string"
-            | "struct"
-            | "switch"
-            | "table"
-            | "then"
-            | "this"
-            | "true"
-            | "typedef"
-            | "typeName"
-            | "typeof"
-            | "union"
-            | "unsigned"
-            | "varbit"
-            | "void"
-            | "volatile"
-            | "while"
-    )
-}
-
 fn validate_symbol(role: &str, name: &str, errs: &mut Vec<String>) {
+    // Authored names are protocol vocabulary: `type`, `key`, `error`
+    // and friends are what the specs call these fields. A name that
+    // collides with some backend's reserved word is that backend's
+    // problem — each emitter prefixes it (`codegen::c::c_ident`,
+    // `codegen::p4::p4_ident`), and the only thing validation owes
+    // them is a name they can spell at all, plus the guarantee below
+    // that two authored names never lower onto one identifier.
     if name.is_empty() {
         errs.push(format!("{role} has empty name"));
     } else if !is_portable_ident(name) {
         errs.push(format!(
             "{role} `{name}` is not a portable identifier (expected [A-Za-z_][A-Za-z0-9_]*)"
         ));
-    } else if is_backend_keyword(name) {
-        errs.push(format!("{role} `{name}` is a reserved backend keyword"));
     }
 }
 
@@ -253,7 +185,7 @@ pub fn validate_with_limits(ir: &pb::Ir, limits: &ValidationLimits) -> Result<()
             errs.push(format!("duplicate header type `{}`", ht.name));
         }
         let mut fields = std::collections::HashSet::new();
-        let mut c_members = std::collections::HashMap::<String, String>::new();
+        let mut c_members = std::collections::HashMap::<(&str, String), String>::new();
         for f in &ht.fields {
             validate_symbol(
                 &format!("field of header type `{}`", ht.name),
@@ -273,16 +205,24 @@ pub fn validate_with_limits(ir: &pb::Ir, limits: &ValidationLimits) -> Result<()
                 Some(_) => {}
                 None => errs.push(format!("field `{}.{}` has no width", ht.name, f.name)),
             }
-            let emitted: Vec<String> = match f.width.as_ref().and_then(|w| w.width.as_ref()) {
-                Some(pb::field_width::Width::BitLen(_)) => {
-                    vec![format!("{}_bit_off", f.name), format!("{}_bit_len", f.name)]
-                }
-                _ => vec![f.name.clone()],
-            };
-            for member in emitted {
-                if let Some(previous) = c_members.insert(member.clone(), f.name.clone()) {
+            // Every backend that puts an authored field name in an
+            // identifier position, with that backend's own escaping
+            // applied: two authored names must never meet there.
+            let c_member = crate::codegen::c::c_ident(&f.name);
+            let mut emitted: Vec<(&str, String)> =
+                match f.width.as_ref().and_then(|w| w.width.as_ref()) {
+                    Some(pb::field_width::Width::BitLen(_)) => vec![
+                        ("C", format!("{c_member}_bit_off")),
+                        ("C", format!("{c_member}_bit_len")),
+                    ],
+                    _ => vec![("C", c_member.into_owned())],
+                };
+            emitted.push(("P4", crate::codegen::p4::p4_ident(&f.name).into_owned()));
+            for (backend, member) in emitted {
+                let key = (backend, member.clone());
+                if let Some(previous) = c_members.insert(key, f.name.clone()) {
                     errs.push(format!(
-                        "header type `{}` fields `{previous}` and `{}` collide as generated C member `{member}`",
+                        "header type `{}` fields `{previous}` and `{}` collide as generated {backend} member `{member}`",
                         ht.name, f.name
                     ));
                 }
@@ -429,7 +369,8 @@ pub fn validate_with_limits(ir: &pb::Ir, limits: &ValidationLimits) -> Result<()
             if !seen_instances.insert(inst.as_str()) {
                 continue;
             }
-            for member in [inst.clone(), format!("{inst}_present")] {
+            let lowered = crate::codegen::c::c_ident(inst);
+            for member in [lowered.to_string(), format!("{lowered}_present")] {
                 if let Some(previous) =
                     result_members.insert(member.clone(), format!("instance `{inst}`"))
                 {
@@ -443,6 +384,9 @@ pub fn validate_with_limits(ir: &pb::Ir, limits: &ValidationLimits) -> Result<()
             }
         }
     }
+    // P4 gives metadata its own struct, so it needs its own map.
+    let mut p4_metadata: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
     for m in &parser.metadata {
         let member = format!("m_{}", m.name);
         if let Some(previous) =
@@ -450,6 +394,15 @@ pub fn validate_with_limits(ir: &pb::Ir, limits: &ValidationLimits) -> Result<()
         {
             errs.push(format!(
                 "metadata `{}` collides with {previous} as generated C member `{member}`",
+                m.name
+            ));
+        }
+        let p4_member = crate::codegen::p4::p4_ident(&m.name).into_owned();
+        if let Some(previous) =
+            p4_metadata.insert(p4_member.clone(), format!("metadata `{}`", m.name))
+        {
+            errs.push(format!(
+                "metadata `{}` collides with {previous} as generated P4 member `{p4_member}`",
                 m.name
             ));
         }
@@ -1172,6 +1125,23 @@ mod tests {
             })),
         });
         assert_err_contains(&ir, "collide as generated C identifier");
+
+        // Reserved words in the target languages are the emitters'
+        // problem, not the author's: they lower, they do not fail.
+        let mut ir = crate::fixtures::eth_ipvx_l4().into_inner();
+        let ht = &mut parser(&mut ir).header_types[0];
+        let mut reserved = ht.fields[0].clone();
+        reserved.name = "goto".into();
+        ht.fields.push(reserved);
+        validate(&ir).expect("a field named `goto` is valid IR");
+
+        // What is not allowed is two authored names meeting at one
+        // lowered member — including by way of that escaping.
+        let ht = &mut parser(&mut ir).header_types[0];
+        let mut clash = ht.fields[0].clone();
+        clash.name = "pk_goto".into();
+        ht.fields.push(clash);
+        assert_err_contains(&ir, "collide as generated C member `pk_goto`");
     }
 
     #[test]

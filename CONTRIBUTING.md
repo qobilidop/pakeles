@@ -51,9 +51,13 @@ for it, then review the resulting golden diff.
 - Treat decoded protobuf, JSON, pcaps, vector suites, and child-process output
   as untrusted. Rust execution and generation APIs take `ValidatedIr` or
   `ValidatedTestSuite`; do not add a raw-message bypass for convenience.
-- Keep semantic identifiers portable across C99, Lua, and P4. Presentation
-  strings are less restricted, but every emitter must escape them for its
-  target language.
+- Authored names are protocol vocabulary (`type`, `key`, `error`), so
+  validation asks only that they be portable identifiers and that no two of
+  them lower onto one generated member. A name that collides with a target
+  language's reserved word is the emitter's problem: escape it there, where
+  that language's rules — and its compiler, in the gate — actually apply.
+- Presentation strings are less restricted, but every emitter must escape them
+  for its target language.
 - New parsing, symbolic, input, or subprocess work needs an explicit resource
   ceiling and a test that exercises the ceiling.
 - Publish files atomically through `fsutil`; external commands go through the

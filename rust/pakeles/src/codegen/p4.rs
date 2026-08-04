@@ -200,6 +200,66 @@ fn peek_only_instances(parser: &pb::Parser) -> std::collections::HashSet<String>
     peeked
 }
 
+/// P4-16 tokens that cannot stand in a `name` position — the grammar's
+/// `nonTypeName` production readmits a handful of keywords (`apply`,
+/// `key`, `actions`, `state`, `entries`, `type`, `priority`, `list`),
+/// which is why an authored `type` field lowers untouched.
+fn is_p4_reserved(name: &str) -> bool {
+    matches!(
+        name,
+        "abstract"
+            | "action"
+            | "bit"
+            | "bool"
+            | "const"
+            | "control"
+            | "default"
+            | "else"
+            | "enum"
+            | "error"
+            | "exit"
+            | "extern"
+            | "false"
+            | "header"
+            | "header_union"
+            | "if"
+            | "in"
+            | "inout"
+            | "int"
+            | "match_kind"
+            | "out"
+            | "package"
+            | "parser"
+            | "return"
+            | "select"
+            | "string"
+            | "struct"
+            | "switch"
+            | "table"
+            | "this"
+            | "transition"
+            | "true"
+            | "tuple"
+            | "typedef"
+            | "value_set"
+            | "varbit"
+            | "verify"
+            | "void"
+    )
+}
+
+/// An authored name in a P4 identifier position (header members are the
+/// only place an authored name lands bare — instances and states are
+/// already prefixed or suffixed). Reserved names take the emitter's own
+/// `pk_` prefix; everything else is emitted as authored.
+pub(crate) fn p4_ident(name: &str) -> std::borrow::Cow<'_, str> {
+    if is_p4_reserved(name) {
+        std::borrow::Cow::Owned(format!("pk_{name}"))
+    } else {
+        std::borrow::Cow::Borrowed(name)
+    }
+}
+
 fn seg_member(inst: &str, i: usize, seg: &Seg) -> String {
     match seg {
         Seg::Fixed(_) => format!("{inst}_s{i}"),
@@ -233,11 +293,12 @@ fn expr_p4(
         pb::expr::Kind::Constant(v) => format!("64w{v}"),
         pb::expr::Kind::Field(r) => {
             let member = member_of_field(parser, r)?;
+            let field = p4_ident(&r.field);
             // member_of_field returns e.g. "ext_opt_s0"; the instance is r.header.
             if stacked.contains(&r.header) {
-                format!("(bit<64>)hdr.{member}.last.{}", r.field)
+                format!("(bit<64>)hdr.{member}.last.{field}")
             } else {
-                format!("(bit<64>)hdr.{member}.{}", r.field)
+                format!("(bit<64>)hdr.{member}.{field}")
             }
         }
         pb::expr::Kind::Bin(b) => {
@@ -273,7 +334,7 @@ fn expr_p4(
                 format!("({l} {op} {r})")
             }
         }
-        pb::expr::Kind::Metadata(r) => format!("(bit<64>)meta.{}", r.name),
+        pb::expr::Kind::Metadata(r) => format!("(bit<64>)meta.{}", p4_ident(&r.name)),
     })
 }
 
@@ -448,7 +509,7 @@ pub fn generate_p4(ir: &crate::ir::ValidatedIr) -> Result<String> {
                             Some(pb::field_width::Width::Bits(n)) => *n,
                             _ => unreachable!("fixed segment holds only fixed fields"),
                         };
-                        writeln!(w, "    bit<{bits}> {};", f.name)?;
+                        writeln!(w, "    bit<{bits}> {};", p4_ident(&f.name))?;
                     }
                     // BMv2 requires every header type to total a
                     // multiple of 8 bits. A peek-only instance never
@@ -495,7 +556,7 @@ pub fn generate_p4(ir: &crate::ir::ValidatedIr) -> Result<String> {
                         );
                     }
                     writeln!(w, "header {inst}_v{i}_t {{")?;
-                    writeln!(w, "    varbit<{max_bits}> {};", f.name)?;
+                    writeln!(w, "    varbit<{max_bits}> {};", p4_ident(&f.name))?;
                     writeln!(w, "}}")?;
                 }
             }
@@ -531,7 +592,7 @@ pub fn generate_p4(ir: &crate::ir::ValidatedIr) -> Result<String> {
     writeln!(w)?;
     writeln!(w, "struct metadata {{")?;
     for md in &parser.metadata {
-        writeln!(w, "    bit<{}> {};", md.bits, md.name)?;
+        writeln!(w, "    bit<{}> {};", md.bits, p4_ident(&md.name))?;
     }
     writeln!(w, "}}")?;
     writeln!(w)?;
@@ -546,7 +607,7 @@ pub fn generate_p4(ir: &crate::ir::ValidatedIr) -> Result<String> {
     // Explicit inits: don't rely on v1model zero-init folklore, which is
     // not guaranteed on every target.
     for md in &parser.metadata {
-        writeln!(w, "        meta.{} = {};", md.name, md.init)?;
+        writeln!(w, "        meta.{} = {};", p4_ident(&md.name), md.init)?;
     }
     writeln!(w, "        transition st_{};", parser.start_state)?;
     writeln!(w, "    }}")?;
@@ -608,7 +669,7 @@ pub fn generate_p4(ir: &crate::ir::ValidatedIr) -> Result<String> {
                         writeln!(
                             w,
                             "        {tgt}.{} = pk_la_{inst}[{}:{}];",
-                            f.name,
+                            p4_ident(&f.name),
                             total - 1 - off,
                             total - off - n
                         )?;
@@ -648,7 +709,11 @@ pub fn generate_p4(ir: &crate::ir::ValidatedIr) -> Result<String> {
             )?;
             // The cast truncates to the field's declared width — no mask
             // needed.
-            writeln!(w, "        meta.{} = (bit<{bits}>)({rhs});", a.metadata)?;
+            writeln!(
+                w,
+                "        meta.{} = (bit<{bits}>)({rhs});",
+                p4_ident(&a.metadata)
+            )?;
         }
         match s.transition.as_ref().and_then(|t| t.kind.as_ref()) {
             Some(pb::transition::Kind::Direct(t)) => {
@@ -1045,6 +1110,34 @@ mod tests {
         assert!(p4.contains("bit<8> acc;"), "{p4}");
         assert!(p4.contains("meta.acc = "), "{p4}");
         run_p4test(&p4, "pakeles_p4test_metadata", true);
+    }
+
+    /// P4-16 readmits a handful of its keywords in `name` position, so
+    /// `type`, `key` and `state` must survive as authored while the
+    /// genuinely reserved ones get escaped. p4test is the judge of
+    /// which is which.
+    #[test]
+    fn p4_reserved_words_in_authored_names_still_compile() {
+        let mut ir = crate::fixtures::eth_ipvx_l4().into_inner();
+        let parser = ir.parser.as_mut().unwrap();
+        let ht = &mut parser.header_types[0];
+        for name in ["type", "key", "state", "entries", "select", "table", "in"] {
+            let mut f = ht.fields[0].clone();
+            f.name = name.into();
+            f.width = Some(pb::FieldWidth {
+                width: Some(pb::field_width::Width::Bits(8)),
+            });
+            ht.fields.push(f);
+        }
+        let ir = crate::ir::ValidatedIr::new(ir).expect("reserved words are valid authored names");
+        let p4 = generate_p4(&ir).unwrap();
+        for kept in ["bit<8> type;", "bit<8> key;", "bit<8> state;"] {
+            assert!(p4.contains(kept), "{kept} missing from:\n{p4}");
+        }
+        for escaped in ["bit<8> pk_select;", "bit<8> pk_table;", "bit<8> pk_in;"] {
+            assert!(p4.contains(escaped), "{escaped} missing from:\n{p4}");
+        }
+        run_p4test(&p4, "pakeles_p4test_reserved", true);
     }
 
     /// A synthetic linear-chain IR with `n` distinct header instances, all

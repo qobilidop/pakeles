@@ -11,11 +11,94 @@
 
 use crate::ir::pb;
 use anyhow::{bail, Context, Result};
+use std::borrow::Cow;
 use std::fmt::Write;
 
 pub struct CArtifacts {
     pub header: String,
     pub source: String,
+}
+
+/// Names C reserves: keywords through C23, plus the identifiers the
+/// standard reserves for the implementation (leading `_` + uppercase,
+/// or any `__`). A field named `goto` is ordinary protocol vocabulary;
+/// it is this emitter's job to spell it legally, not the author's.
+fn is_c_reserved(name: &str) -> bool {
+    if name.starts_with("__") {
+        return true;
+    }
+    if let Some(rest) = name.strip_prefix('_') {
+        if rest.starts_with(|c: char| c.is_ascii_uppercase()) {
+            return true;
+        }
+    }
+    matches!(
+        name,
+        "alignas"
+            | "alignof"
+            | "auto"
+            | "bool"
+            | "break"
+            | "case"
+            | "char"
+            | "const"
+            | "constexpr"
+            | "continue"
+            | "default"
+            | "do"
+            | "double"
+            | "else"
+            | "enum"
+            | "extern"
+            | "false"
+            | "float"
+            | "for"
+            | "goto"
+            | "if"
+            | "inline"
+            | "int"
+            | "long"
+            | "nullptr"
+            | "register"
+            | "restrict"
+            | "return"
+            | "short"
+            | "signed"
+            | "sizeof"
+            | "static"
+            | "static_assert"
+            | "struct"
+            | "switch"
+            | "thread_local"
+            | "true"
+            | "typedef"
+            | "typeof"
+            | "typeof_unqual"
+            | "union"
+            | "unsigned"
+            | "void"
+            | "volatile"
+            | "while"
+    )
+}
+
+/// An authored name in a C identifier position. Reserved names take the
+/// same `pk_` prefix the emitter already uses for its own symbols;
+/// everything else is emitted as authored, so ordinary output is
+/// unchanged. Presentation text (harness labels, docs) keeps the
+/// authored spelling — this is only for identifiers.
+///
+/// [`crate::ir::validate`] applies this to check that two authored
+/// names never lower onto the same member.
+pub(crate) fn c_ident(name: &str) -> Cow<'_, str> {
+    if is_c_reserved(name) {
+        // The prefix *replaces* any leading underscores rather than
+        // adding to them: `pk__Bool` would contain `__`, which C
+        // reserves just as surely as `_Bool` itself.
+        Cow::Owned(format!("pk_{}", name.trim_start_matches('_')))
+    } else {
+        Cow::Borrowed(name)
+    }
 }
 
 /// One header per distinct instance name, keeping the LAST extraction
@@ -139,7 +222,11 @@ fn expr_c(e: &pb::Expr) -> Result<String> {
             Ok("(pk_region_end[(pk_rsp - 1u) & PK_RMASK] - off)".to_string())
         }
         Some(pb::expr::Kind::Constant(v)) => Ok(format!("{v}ULL")),
-        Some(pb::expr::Kind::Field(r)) => Ok(format!("(uint64_t)out->{}.{}", r.header, r.field)),
+        Some(pb::expr::Kind::Field(r)) => Ok(format!(
+            "(uint64_t)out->{}.{}",
+            c_ident(&r.header),
+            c_ident(&r.field)
+        )),
         Some(pb::expr::Kind::Bin(b)) => {
             let l = expr_c(
                 b.lhs
@@ -325,18 +412,19 @@ impl<'a> Emit<'a> {
                 .ok_or_else(|| anyhow::anyhow!("unknown header type `{ht_name}`"))?;
             writeln!(w, "typedef struct {{")?;
             for f in &ht.fields {
+                let member = c_ident(&f.name);
                 match f.width.as_ref().and_then(|x| x.width.as_ref()) {
                     Some(pb::field_width::Width::Bits(n)) => {
-                        writeln!(w, "  {} {};", uint_type(*n), f.name)?;
+                        writeln!(w, "  {} {member};", uint_type(*n))?;
                     }
                     Some(pb::field_width::Width::BitLen(_)) => {
-                        writeln!(w, "  uint64_t {}_bit_off;", f.name)?;
-                        writeln!(w, "  uint64_t {}_bit_len;", f.name)?;
+                        writeln!(w, "  uint64_t {member}_bit_off;")?;
+                        writeln!(w, "  uint64_t {member}_bit_len;")?;
                     }
                     None => bail!("field `{}` has no width", f.name),
                 }
             }
-            writeln!(w, "}} {p}_{inst}_t;")?;
+            writeln!(w, "}} {p}_{}_t;", c_ident(&inst))?;
             writeln!(w)?;
         }
         writeln!(w, "typedef struct {{")?;
@@ -344,8 +432,9 @@ impl<'a> Emit<'a> {
         writeln!(w, "  uint16_t reason; /* {p}_reason */")?;
         writeln!(w, "  uint64_t consumed_bits;")?;
         for (inst, _) in instances(self.parser) {
-            writeln!(w, "  uint8_t {inst}_present;")?;
-            writeln!(w, "  {p}_{inst}_t {inst};")?;
+            let member = c_ident(&inst);
+            writeln!(w, "  uint8_t {member}_present;")?;
+            writeln!(w, "  {p}_{member}_t {member};")?;
         }
         for md in &self.parser.metadata {
             writeln!(w, "  uint64_t m_{};", md.name)?;
@@ -569,7 +658,8 @@ impl<'a> Emit<'a> {
             } else {
                 &ex.instance
             };
-            writeln!(w, "      out->{inst}_present = 1;")?;
+            let inst_m = c_ident(inst);
+            writeln!(w, "      out->{inst_m}_present = 1;")?;
             let regions = self.region_cap() > 0;
             // A lookahead reads through a scoped local cursor; the
             // machine `off` never advances (so a mid-peek reject's
@@ -596,17 +686,16 @@ impl<'a> Emit<'a> {
                         writeln!(w, "      if ({cur} + {n} > bit_len) {{")?;
                         self.emit_reject(w, "        ", "out of bounds")?;
                         writeln!(w, "      }}")?;
+                        let member = c_ident(&f.name);
                         match self.byte_load_expr(s, inst, &f.name, *n, cur) {
                             Some(load) => writeln!(
                                 w,
-                                "      out->{inst}.{} = ({})({load});",
-                                f.name,
+                                "      out->{inst_m}.{member} = ({})({load});",
                                 uint_type(*n)
                             )?,
                             None => writeln!(
                                 w,
-                                "      out->{inst}.{} = ({})pk_read_bits(buf, bit_len, {cur}, {n});",
-                                f.name,
+                                "      out->{inst_m}.{member} = ({})pk_read_bits(buf, bit_len, {cur}, {n});",
                                 uint_type(*n)
                             )?,
                         }
@@ -633,8 +722,9 @@ impl<'a> Emit<'a> {
                         writeln!(w, "        if (vlen > bit_len - off) {{")?;
                         self.emit_reject(w, "          ", "out of bounds")?;
                         writeln!(w, "        }}")?;
-                        writeln!(w, "        out->{inst}.{}_bit_off = off;", f.name)?;
-                        writeln!(w, "        out->{inst}.{}_bit_len = vlen;", f.name)?;
+                        let member = c_ident(&f.name);
+                        writeln!(w, "        out->{inst_m}.{member}_bit_off = off;")?;
+                        writeln!(w, "        out->{inst_m}.{member}_bit_len = vlen;")?;
                         writeln!(w, "        off += vlen;")?;
                         writeln!(w, "      }}")?;
                     }
@@ -857,14 +947,19 @@ pub fn generate_c_harness(ir: &crate::ir::ValidatedIr) -> Result<String> {
             .iter()
             .find(|h| h.name == ht_name)
             .unwrap();
-        writeln!(w, "    if (r.{inst}_present) {{")?;
+        // The printed labels are the observation vocabulary the oracle
+        // compares against the IR, so they stay authored; only the C
+        // expressions beside them are lowered.
+        let inst_m = c_ident(&inst);
+        writeln!(w, "    if (r.{inst_m}_present) {{")?;
         for f in &ht.fields {
+            let member = c_ident(&f.name);
             match f.width.as_ref().and_then(|x| x.width.as_ref()) {
                 Some(pb::field_width::Width::Bits(_)) => {
                     writeln!(
                         w,
-                        "      printf(\"|{inst}.{}=%llu\", (unsigned long long)r.{inst}.{});",
-                        f.name, f.name
+                        "      printf(\"|{inst}.{}=%llu\", (unsigned long long)r.{inst_m}.{member});",
+                        f.name
                     )?;
                 }
                 Some(pb::field_width::Width::BitLen(_)) => {
@@ -874,13 +969,11 @@ pub fn generate_c_harness(ir: &crate::ir::ValidatedIr) -> Result<String> {
                     writeln!(w, "      printf(\"|{inst}.{}=\");", f.name)?;
                     writeln!(
                         w,
-                        "      for (uint64_t i = 0; i < r.{inst}.{}_bit_len / 8; i++)",
-                        f.name
+                        "      for (uint64_t i = 0; i < r.{inst_m}.{member}_bit_len / 8; i++)"
                     )?;
                     writeln!(
                         w,
-                        "        printf(\"%02x\", buf[r.{inst}.{}_bit_off / 8 + i]);",
-                        f.name
+                        "        printf(\"%02x\", buf[r.{inst_m}.{member}_bit_off / 8 + i]);"
                     )?;
                 }
                 None => {}
@@ -1099,5 +1192,55 @@ mod tests {
                 String::from_utf8_lossy(&out.stderr)
             );
         }
+    }
+
+    /// Protocol vocabulary collides with C's: RFC 2890's GRE `key`, an
+    /// ICMP `type`, a field a spec happens to call `switch`. Validation
+    /// lets all of them through, so the emitter has to spell them —
+    /// and a real compiler is the only credible judge of that.
+    #[test]
+    fn c_reserved_words_in_authored_names_still_compile() {
+        if !crate::process::is_available("cc", &["--version"]) {
+            eprintln!("skipping: cc not available");
+            return;
+        }
+        let mut ir = eth_ipvx_l4().into_inner();
+        let parser = ir.parser.as_mut().unwrap();
+        let ht = &mut parser.header_types[0];
+        for name in ["goto", "switch", "register", "key", "type", "_Bool"] {
+            let mut f = ht.fields[0].clone();
+            f.name = name.into();
+            f.width = Some(pb::FieldWidth {
+                width: Some(pb::field_width::Width::Bits(8)),
+            });
+            ht.fields.push(f);
+        }
+        let ir = crate::ir::ValidatedIr::new(ir).expect("reserved words are valid authored names");
+        let arts = generate_c(&ir).unwrap();
+        assert!(arts.header.contains("uint8_t pk_goto;"), "{}", arts.header);
+        // The escape must not itself be a reserved spelling: no `__`.
+        assert!(arts.header.contains("uint8_t pk_Bool;"), "{}", arts.header);
+        // Only names C actually reserves are touched.
+        assert!(arts.header.contains("uint8_t key;"), "{}", arts.header);
+        assert!(arts.header.contains("uint8_t type;"), "{}", arts.header);
+        let out = cc_compiles(
+            &[
+                ("parser.h", &arts.header),
+                ("parser.c", &arts.source),
+                (
+                    "main.c",
+                    "#include \"parser.h\"\nint main(void) { return 0; }\n",
+                ),
+            ],
+            &[
+                "cc", "-std=c99", "-Wall", "-Wextra", "-Werror", "-O2", "parser.c", "main.c", "-o",
+                "harness",
+            ],
+        );
+        assert!(
+            out.status.success(),
+            "cc failed:\n{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
     }
 }
