@@ -2,6 +2,11 @@
 name = "pakeles"
 version = "0.1.0"
 edition = "2021"
+# The toolchain pin in rust-toolchain.toml makes *our* builds
+# reproducible; this is the contract for a consumer who has their own.
+# 1.87 is where `is_multiple_of` landed — verified, not guessed, by
+# `scripts/check-msrv.sh`.
+rust-version = "1.87"
 description = "A serializable IR for wire-format parsers — one description, many provably-agreeing artifacts"
 license = "Apache-2.0"
 repository = "https://github.com/qobilidop/pakeles"
