@@ -6,17 +6,17 @@ use crate::ir::pb;
 use anyhow::{Context, Result};
 use std::fmt::Write;
 
+/// Escape only what would make authored text *disappear*: `<` opens a
+/// raw-HTML tag or an autolink, so `<ptype>` would render as nothing.
+/// Emphasis and code markers are left alone — a doc comment is prose an
+/// author wrote for this page, and `mpls[3]`, `pkt_bytes`, `R=1 -> tunnel`
+/// should read as written.
 fn markdown_inline(s: &str) -> String {
-    let mut out = String::new();
-    for ch in s.chars() {
-        if matches!(ch, '\\' | '`' | '*' | '_' | '[' | ']' | '<' | '>') {
-            out.push('\\');
-        }
-        out.push(ch);
-    }
-    out
+    s.replace('<', "\\<")
 }
 
+/// A table cell additionally cannot contain a row separator or a line
+/// break — those two are structural, not stylistic.
 fn markdown_cell(s: &str) -> String {
     markdown_inline(s)
         .replace('|', "\\|")
@@ -271,12 +271,16 @@ mod tests {
         let mut ir = crate::builder::meta_loop().into_inner();
         ir.parser.as_mut().unwrap().metadata[0].display = Some(crate::ir::pb::Display {
             name: "a|b".into(),
-            doc: "line 1\nline *2*".into(),
+            doc: "line 1\nsee <ptype> and pkt_bytes".into(),
             ..Default::default()
         });
         let ir = crate::ir::ValidatedIr::new(ir).unwrap();
         let md = super::generate_markdown(&ir).unwrap();
+        // Structural characters are neutralized...
         assert!(md.contains("a\\|b"), "{md}");
-        assert!(md.contains("line 1<br>line \\*2\\*"), "{md}");
+        assert!(md.contains("line 1<br>"), "{md}");
+        assert!(md.contains("see \\<ptype>"), "{md}");
+        // ...and authored prose is otherwise left as written.
+        assert!(md.contains("pkt_bytes"), "{md}");
     }
 }

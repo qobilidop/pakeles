@@ -56,8 +56,8 @@ for it, then review the resulting golden diff.
   them lower onto one generated member. A name that collides with a target
   language's reserved word is the emitter's problem: escape it there, where
   that language's rules — and its compiler, in the gate — actually apply.
-- Presentation strings are less restricted, but every emitter must escape them
-  for its target language.
+- Presentation strings are freer still, but every emitter must escape them for
+  its target language, and escape only what that target genuinely requires.
 - New parsing, symbolic, input, or subprocess work needs an explicit resource
   ceiling and a test that exercises the ceiling.
 - Publish files atomically through `fsutil`; external commands go through the
