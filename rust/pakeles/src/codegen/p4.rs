@@ -326,10 +326,18 @@ fn expr_p4(
             // The `simple_switch` (BMv2) backend caps a shift's right
             // operand at 8 bits ("shift amount limited to 8 bits on this
             // target"), but our expressions evaluate in bit<64>, so a
-            // bit<64> shift amount is rejected by p4c-bm2-ss. Shift
-            // amounts are always small, so narrow the RHS to bit<8>.
+            // bit<64> shift amount is rejected by p4c-bm2-ss. Narrow the
+            // RHS to bit<8>, masking first where the amount is not a
+            // constant already in range: P4 yields 0 for a shift at or
+            // past the width, where the spec takes the amount mod 64,
+            // and the narrowing cast alone would not reconcile them.
             if matches!(kind, Ok(pb::BinOpKind::Shl) | Ok(pb::BinOpKind::Shr)) {
-                format!("({l} {op} (bit<8>)({r}))")
+                let rhs = b.rhs.as_deref().context("binop missing rhs")?;
+                if crate::codegen::shift_amount_needs_mask(rhs) {
+                    format!("({l} {op} (bit<8>)(({r}) & 64w63))")
+                } else {
+                    format!("({l} {op} (bit<8>)({r}))")
+                }
             } else {
                 format!("({l} {op} {r})")
             }

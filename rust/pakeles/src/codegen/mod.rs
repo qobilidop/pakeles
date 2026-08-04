@@ -14,6 +14,19 @@ pub(crate) fn has_region_ops(parser: &pb::Parser) -> bool {
     parser.states.iter().any(|s| !s.region_ops.is_empty())
 }
 
+/// The normative semantics take a shift's right operand modulo 64
+/// (`docs/reference/ir-semantics.md` §Expressions). No target language
+/// does that on its own — C calls a shift past the width undefined, P4
+/// and SMT bitvectors yield 0, Lua computes a float — so every backend
+/// masks the amount to reproduce the spec.
+///
+/// The mask is skipped when the amount is a constant that is already in
+/// range, which is every shift the gallery actually authors: `x << 3`
+/// stays `x << 3` rather than becoming `x << (3 & 63)`.
+pub(crate) fn shift_amount_needs_mask(e: &pb::Expr) -> bool {
+    !matches!(e.kind.as_ref(), Some(pb::expr::Kind::Constant(v)) if *v < 64)
+}
+
 /// Derived per-program demands against backend envelopes — the
 /// capability side of the refusal-marker culture, surfaced by
 /// `pakeles lint` as information (never findings; a demand is a fact

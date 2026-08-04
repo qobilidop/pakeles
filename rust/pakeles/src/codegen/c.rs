@@ -238,7 +238,8 @@ fn expr_c(e: &pb::Expr) -> Result<String> {
                     .as_deref()
                     .ok_or_else(|| anyhow::anyhow!("binop missing rhs"))?,
             )?;
-            let op = match pb::BinOpKind::try_from(b.op) {
+            let kind = pb::BinOpKind::try_from(b.op);
+            let op = match kind {
                 Ok(pb::BinOpKind::Add) => "+",
                 Ok(pb::BinOpKind::Sub) => "-",
                 Ok(pb::BinOpKind::Mul) => "*",
@@ -248,6 +249,14 @@ fn expr_c(e: &pb::Expr) -> Result<String> {
                 Ok(pb::BinOpKind::Or) => "|",
                 _ => bail!("unspecified binop"),
             };
+            // C leaves a shift by >= the operand width undefined, so an
+            // unmasked amount is not merely non-conforming — it licenses
+            // the optimizer to discard the surrounding code.
+            if matches!(kind, Ok(pb::BinOpKind::Shl) | Ok(pb::BinOpKind::Shr))
+                && super::shift_amount_needs_mask(b.rhs.as_deref().expect("rhs checked above"))
+            {
+                return Ok(format!("({l} {op} (({r}) & 63))"));
+            }
             Ok(format!("({l} {op} {r})"))
         }
         Some(pb::expr::Kind::Metadata(r)) => Ok(format!("out->m_{}", r.name)),
@@ -1072,6 +1081,27 @@ pub fn generate_bpf(ir: &crate::ir::ValidatedIr) -> Result<String> {
 mod tests {
     use super::*;
     use crate::fixtures::eth_ipvx_l4;
+
+    /// A shift by a runtime amount must not reach C as a bare `<<`:
+    /// past the operand width that is undefined behaviour, and the spec
+    /// asks for mod 64. Authored constants already in range stay bare,
+    /// which is why no committed artifact moves.
+    #[test]
+    fn runtime_shift_amounts_are_masked_to_the_spec() {
+        use crate::builder::{c, f, shl, shr};
+        let var = expr_c(&shl(c(1), f("h", "n"))).unwrap();
+        assert_eq!(var, "(1ULL << (((uint64_t)out->h.n) & 63))");
+        let var = expr_c(&shr(f("h", "x"), f("h", "n"))).unwrap();
+        assert_eq!(var, "((uint64_t)out->h.x >> (((uint64_t)out->h.n) & 63))");
+        // In-range constants are left exactly as authored.
+        assert_eq!(expr_c(&shl(c(1), c(3))).unwrap(), "(1ULL << 3ULL)");
+        assert_eq!(expr_c(&shl(c(1), c(63))).unwrap(), "(1ULL << 63ULL)");
+        // ...but an out-of-range one is still the spec's mod 64.
+        assert_eq!(
+            expr_c(&shl(c(1), c(64))).unwrap(),
+            "(1ULL << ((64ULL) & 63))"
+        );
+    }
 
     #[test]
     fn ranges_at_unsigned_bounds_avoid_constant_comparison_warnings() {

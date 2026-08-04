@@ -107,6 +107,25 @@ mod tests {
         assert!(eval_expr(&expr, &env(), &meta(), None).is_err());
     }
 
+    /// The spec takes a shift's right operand mod 64. Pinned here
+    /// because no target language does this natively — C calls it
+    /// undefined, P4 and SMT bitvectors answer 0, Lua computes a float
+    /// — so every backend has to reproduce it, and this is the value
+    /// they must reproduce.
+    #[test]
+    fn shift_amounts_wrap_at_64() {
+        use crate::builder::{shl, shr};
+        let at = |amount| eval_expr(&shl(c(1), c(amount)), &env(), &meta(), None).unwrap();
+        assert_eq!(at(0), 1);
+        assert_eq!(at(63), 1u64 << 63);
+        assert_eq!(at(64), 1, "64 mod 64 == 0, not a zeroing shift");
+        assert_eq!(at(65), 2);
+        assert_eq!(
+            eval_expr(&shr(c(0x8000_0000_0000_0000), c(64)), &env(), &meta(), None).unwrap(),
+            0x8000_0000_0000_0000
+        );
+    }
+
     #[test]
     fn keyset_matching() {
         assert!(eval_entry(&v(6), 6));

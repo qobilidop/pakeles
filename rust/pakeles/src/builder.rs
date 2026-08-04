@@ -60,6 +60,9 @@ pub fn mul(l: pb::Expr, r: pb::Expr) -> pb::Expr {
 pub fn shl(l: pb::Expr, r: pb::Expr) -> pb::Expr {
     bin(pb::BinOpKind::Shl, l, r)
 }
+pub fn shr(l: pb::Expr, r: pb::Expr) -> pb::Expr {
+    bin(pb::BinOpKind::Shr, l, r)
+}
 
 // ---- Target / arm / keyset helpers ----
 

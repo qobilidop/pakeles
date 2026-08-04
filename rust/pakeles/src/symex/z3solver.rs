@@ -40,6 +40,12 @@ impl<'a> FieldVars<'a> {
     }
 }
 
+/// A shift amount reduced to the normative mod-64 form. Both symbolic
+/// encodings evaluate in 64-bit vectors, so this is a plain `& 63`.
+fn shift_amount<'a>(ctx: &'a z3::Context, r: &BV<'a>) -> BV<'a> {
+    r.bvand(&BV::from_u64(ctx, 63, 64))
+}
+
 fn feas_term<'a>(ctx: &'a z3::Context, fv: &mut FieldVars<'a>, t: &Term) -> BV<'a> {
     match t {
         Term::Const(v) => BV::from_u64(ctx, *v, 64),
@@ -65,8 +71,12 @@ fn feas_term<'a>(ctx: &'a z3::Context, fv: &mut FieldVars<'a>, t: &Term) -> BV<'
                 pb::BinOpKind::Add => l.bvadd(&r),
                 pb::BinOpKind::Sub => l.bvsub(&r),
                 pb::BinOpKind::Mul => l.bvmul(&r),
-                pb::BinOpKind::Shl => l.bvshl(&r),
-                pb::BinOpKind::Shr => l.bvlshr(&r),
+                // Spec: the amount is taken mod 64. SMT bitvector
+                // shifts yield 0 at or past the width, so mask first —
+                // otherwise the solver models a program the reference
+                // interpreter does not run.
+                pb::BinOpKind::Shl => l.bvshl(&shift_amount(ctx, &r)),
+                pb::BinOpKind::Shr => l.bvlshr(&shift_amount(ctx, &r)),
                 pb::BinOpKind::And => l.bvand(&r),
                 pb::BinOpKind::Or => l.bvor(&r),
                 pb::BinOpKind::Unspecified => unreachable!("validated IR"),
@@ -147,8 +157,12 @@ fn packet_term<'a>(ctx: &'a z3::Context, packet: &BV<'a>, t: &Term) -> BV<'a> {
                 pb::BinOpKind::Add => l.bvadd(&r),
                 pb::BinOpKind::Sub => l.bvsub(&r),
                 pb::BinOpKind::Mul => l.bvmul(&r),
-                pb::BinOpKind::Shl => l.bvshl(&r),
-                pb::BinOpKind::Shr => l.bvlshr(&r),
+                // Spec: the amount is taken mod 64. SMT bitvector
+                // shifts yield 0 at or past the width, so mask first —
+                // otherwise the solver models a program the reference
+                // interpreter does not run.
+                pb::BinOpKind::Shl => l.bvshl(&shift_amount(ctx, &r)),
+                pb::BinOpKind::Shr => l.bvlshr(&shift_amount(ctx, &r)),
                 pb::BinOpKind::And => l.bvand(&r),
                 pb::BinOpKind::Or => l.bvor(&r),
                 pb::BinOpKind::Unspecified => unreachable!("validated IR"),
@@ -220,20 +234,11 @@ fn eval_term(vals: &HashMap<Term, u64>, t: &Term) -> u64 {
                 pb::BinOpKind::Add => l.wrapping_add(r),
                 pb::BinOpKind::Sub => l.wrapping_sub(r),
                 pb::BinOpKind::Mul => l.wrapping_mul(r),
-                pb::BinOpKind::Shl => {
-                    if r >= 64 {
-                        0
-                    } else {
-                        l << r
-                    }
-                }
-                pb::BinOpKind::Shr => {
-                    if r >= 64 {
-                        0
-                    } else {
-                        l >> r
-                    }
-                }
+                // `wrapping_shl`/`wrapping_shr` mask the amount to 6
+                // bits, which is exactly the spec's mod 64 — and
+                // exactly what the reference interpreter computes.
+                pb::BinOpKind::Shl => l.wrapping_shl(r as u32),
+                pb::BinOpKind::Shr => l.wrapping_shr(r as u32),
                 pb::BinOpKind::And => l & r,
                 pb::BinOpKind::Or => l | r,
                 pb::BinOpKind::Unspecified => unreachable!("validated IR"),

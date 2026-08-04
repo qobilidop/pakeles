@@ -383,6 +383,16 @@ fn expr_lua(e: &pb::Expr, referenced: &HashSet<(String, String)>) -> Result<Stri
             let l = expr_lua(b.lhs.as_deref().unwrap(), referenced)?;
             let r = expr_lua(b.rhs.as_deref().unwrap(), referenced)?;
             let op = pb::BinOpKind::try_from(b.op).unwrap_or_default();
+            // Lua has no shift: the amount is an exponent, so an
+            // out-of-range one becomes a colossal float rather than the
+            // spec's mod-64 wrap. Mask unless it is already in range.
+            let r = if matches!(op, pb::BinOpKind::Shl | pb::BinOpKind::Shr)
+                && crate::codegen::shift_amount_needs_mask(b.rhs.as_deref().unwrap())
+            {
+                format!("(({r}) % 64)")
+            } else {
+                r
+            };
             Ok(match op {
                 pb::BinOpKind::Add => format!("({l} + {r})"),
                 pb::BinOpKind::Sub => format!("({l} - {r})"),
