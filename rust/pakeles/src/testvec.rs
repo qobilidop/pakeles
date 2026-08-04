@@ -23,7 +23,10 @@ pub struct TestSuiteLimits {
 impl Default for TestSuiteLimits {
     fn default() -> Self {
         Self {
-            max_vectors: 100_000,
+            // An order of magnitude above the gallery's largest suite
+            // (`p4lang_switch_parser`, 93,727 vectors) — see
+            // `symex::engine::SymexLimits` for why the headroom matters.
+            max_vectors: 1_000_000,
             max_packet_bytes: DEFAULT_MAX_PACKET_BYTES,
             max_total_packet_bytes: 256 * 1024 * 1024,
         }

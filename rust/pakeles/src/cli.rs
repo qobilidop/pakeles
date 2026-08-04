@@ -49,6 +49,11 @@ enum Command {
         /// Also export the byte-aligned vectors as a pcap.
         #[arg(long)]
         pcap_out: Option<PathBuf>,
+        /// Raise the enumeration ceiling for a parser that legitimately
+        /// has more paths than the default bound (which exists to stop
+        /// an untrusted IR from running forever, not to cap real work).
+        #[arg(long)]
+        max_paths: Option<usize>,
     },
     /// Report unreachable states and unsatisfiable select arms.
     #[cfg(feature = "symex")]
@@ -293,8 +298,17 @@ pub fn main_with(args: &[&str]) -> Result<i32> {
             Ok(0)
         }
         #[cfg(feature = "symex")]
-        Command::Testgen { ir, out, pcap_out } => {
-            let suite = pakeles::symex::testgen::generate(&load_ir(&ir)?)?;
+        Command::Testgen {
+            ir,
+            out,
+            pcap_out,
+            max_paths,
+        } => {
+            let mut limits = pakeles::symex::engine::SymexLimits::default();
+            if let Some(max_paths) = max_paths {
+                limits.max_paths = max_paths;
+            }
+            let suite = pakeles::symex::testgen::generate_with_limits(&load_ir(&ir)?, &limits)?;
             let json = pakeles::testvec::suite_to_json(&suite)?;
             if out.as_os_str() == "-" {
                 println!("{json}");

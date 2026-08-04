@@ -52,7 +52,10 @@ the tooling itself:
 
 Defaults are policy, not wire semantics. Callers with a legitimate larger
 workload may choose explicit limits; removing the boundary is not the extension
-mechanism.
+mechanism. Set them an order of magnitude above the largest legitimate
+workload in the repository — a ceiling the gallery can reach by growing
+stops a build long before it stops an attack — and give the ones a real
+parser can approach a CLI override (`testgen --max-paths`).
 
 Generated files are written through sibling temporary files and atomically
 renamed only after a successful flush. Multi-file backends should finish all

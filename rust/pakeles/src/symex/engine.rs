@@ -39,6 +39,12 @@ const SANITY_BITS: usize = 8 * 1024 * 1024;
 /// reject). Coexists with the global `max_depth` reject.
 const TESTGEN_LOOP_UNROLL: u32 = 2;
 
+/// Ceilings that stop a hostile or runaway IR from enumerating forever.
+/// They are *not* a budget for real parsers: the defaults sit an order
+/// of magnitude above the gallery's largest member (`p4lang_switch_parser`,
+/// 93,727 paths), because a bound that a legitimate parser can reach by
+/// growing a little is a bound that fails the build instead of the
+/// attack. `pakeles testgen --max-paths` raises it without a code change.
 #[derive(Clone, Debug)]
 pub struct SymexLimits {
     pub max_paths: usize,
@@ -48,8 +54,8 @@ pub struct SymexLimits {
 impl Default for SymexLimits {
     fn default() -> Self {
         Self {
-            max_paths: 100_000,
-            max_solver_checks: 2_000_000,
+            max_paths: 1_000_000,
+            max_solver_checks: 50_000_000,
         }
     }
 }
@@ -645,6 +651,11 @@ fn emit(ctx: &mut Ctx, frame: &Frame, kind: PathKind, bit_len: Term, min_bits: u
 }
 
 fn walk_state(ctx: &mut Ctx, state_name: &str, mut frame: Frame) -> anyhow::Result<()> {
+    // A blown ceiling is terminal: unwind instead of walking the rest of
+    // the tree only to report the same failure hours later.
+    if ctx.limit_exceeded.is_some() {
+        return Ok(());
+    }
     frame.segments.push(state_name.to_string());
     if frame.depth >= ctx.parser.max_depth {
         emit(
