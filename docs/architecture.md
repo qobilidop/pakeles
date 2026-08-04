@@ -48,7 +48,9 @@ the tooling itself:
   and aggregate retained bytes.
 - `ProcessLimits` bounds child duration and retained stdout/stderr while still
   draining pipes. On Unix, timeout termination targets the entire child process
-  group and always reaps the direct child.
+  group and always reaps the direct child. The deadline covers the drain too:
+  a descendant that inherited the pipes can outlive the child, and waiting on
+  that is the hang the limit exists to prevent.
 
 Defaults are policy, not wire semantics. Callers with a legitimate larger
 workload may choose explicit limits; removing the boundary is not the extension

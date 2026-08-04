@@ -66,6 +66,27 @@ pub fn terminate(child: &mut Child) {
     let _ = child.wait();
 }
 
+/// How long a drain may outlive a terminated process group before we
+/// stop waiting on it.
+const GRACE: Duration = Duration::from_secs(5);
+
+/// `JoinHandle::join`, but never past `deadline`. `None` means the
+/// thread is still blocked — the caller must not wait for it.
+fn finish_by<T>(
+    handle: std::thread::JoinHandle<T>,
+    deadline: Instant,
+) -> Option<std::thread::Result<T>> {
+    let mut poll = Duration::from_millis(1);
+    while !handle.is_finished() {
+        if Instant::now() >= deadline {
+            return None;
+        }
+        std::thread::sleep(poll);
+        poll = (poll * 2).min(Duration::from_millis(20));
+    }
+    Some(handle.join())
+}
+
 fn read_bounded(mut reader: impl Read, limit: usize) -> std::io::Result<(Vec<u8>, bool)> {
     let mut retained = Vec::with_capacity(limit.min(64 * 1024));
     let mut truncated = false;
@@ -115,32 +136,44 @@ pub fn run_with_input(
     let deadline = Instant::now()
         .checked_add(limits.timeout)
         .context("process timeout is too large")?;
+    let mut poll = Duration::from_millis(1);
     let status = loop {
         if let Some(status) = child.try_wait()? {
             break status;
         }
         if Instant::now() >= deadline {
             terminate(&mut child);
+            // The group is gone, so the pipes close and these finish;
+            // the grace deadline is only so a descendant that escaped
+            // the group cannot turn a timeout into a hang.
+            let grace = Instant::now() + GRACE;
             if let Some(writer) = stdin_writer.take() {
-                let _ = writer.join();
+                let _ = finish_by(writer, grace);
             }
-            let _ = stdout_reader.join();
-            let _ = stderr_reader.join();
+            let _ = finish_by(stdout_reader, grace);
+            let _ = finish_by(stderr_reader, grace);
             bail!("{program} timed out after {:?}", limits.timeout);
         }
-        std::thread::sleep(Duration::from_millis(20));
+        std::thread::sleep(poll);
+        poll = (poll * 2).min(Duration::from_millis(20));
     };
 
+    // The direct child has been reaped, but a descendant that inherited
+    // the pipes can still hold them open — an unbounded join here would
+    // defeat the deadline the caller asked for. The reaped PID (and its
+    // process group) may already have been recycled, so the only safe
+    // exit is to stop waiting: the readers hold their own pipe ends and
+    // retire when the last writer finally closes.
     if let Some(writer) = stdin_writer {
-        writer
-            .join()
+        finish_by(writer, deadline)
+            .with_context(|| format!("{program} stdin writer did not finish"))?
             .map_err(|_| anyhow::anyhow!("{program} stdin writer panicked"))??;
     }
-    let (stdout, stdout_truncated) = stdout_reader
-        .join()
+    let (stdout, stdout_truncated) = finish_by(stdout_reader, deadline)
+        .with_context(|| format!("{program} exited but its stdout pipe is still held open"))?
         .map_err(|_| anyhow::anyhow!("{program} stdout reader panicked"))??;
-    let (stderr, stderr_truncated) = stderr_reader
-        .join()
+    let (stderr, stderr_truncated) = finish_by(stderr_reader, deadline)
+        .with_context(|| format!("{program} exited but its stderr pipe is still held open"))?
         .map_err(|_| anyhow::anyhow!("{program} stderr reader panicked"))??;
     Ok(ProcessOutput {
         status,
@@ -168,6 +201,29 @@ mod tests {
         let (bytes, truncated) = read_bounded(std::io::Cursor::new(vec![7; 100]), 12).unwrap();
         assert_eq!(bytes, vec![7; 12]);
         assert!(truncated);
+    }
+
+    /// The direct child exits at once and leaves a descendant holding
+    /// its stdout. Waiting on that drain is exactly the hang the
+    /// deadline exists to prevent, so it must return an error instead.
+    #[cfg(unix)]
+    #[test]
+    fn drain_of_a_surviving_descendant_is_bounded() {
+        let limits = ProcessLimits {
+            timeout: Duration::from_millis(200),
+            ..Default::default()
+        };
+        let started = Instant::now();
+        let error = run(
+            Command::new("sh").args(["-c", "sleep 30 & echo parent-done"]),
+            limits,
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("still held open"), "{error:#}");
+        assert!(
+            started.elapsed() < Duration::from_secs(10),
+            "did not give up"
+        );
     }
 
     #[cfg(unix)]
