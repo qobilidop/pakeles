@@ -98,11 +98,11 @@ RUN case "$(uname -m)" in \
  && "$download" -y --profile default --default-toolchain "$RUST_VERSION" --no-modify-path \
  && rm -rf "$download_dir"
 
-# Shell/C/workflow linters for scripts/lint.sh: shellcheck and
-# clang-format from apt (clang-format shares the LLVM libs the bpf
-# backend already pulls in), actionlint pinned the same way as buf.
-# Last layer on purpose: bumping a linter pin must not invalidate the
-# Rust layer above.
+# actionlint for scripts/lint.sh, pinned the same way as buf. Its apt
+# siblings shellcheck and clang-format now install in the single frozen
+# apt transaction at the top (clang-format shares the LLVM libs the bpf
+# backend already pulls in). Last layer on purpose: bumping this pin
+# must not invalidate the Rust layer above.
 ARG ACTIONLINT_VERSION=1.7.7
 RUN case "$(dpkg --print-architecture)" in \
       amd64) sha=023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757 ;; \

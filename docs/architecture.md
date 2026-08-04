@@ -32,7 +32,10 @@ invariants in `rust/pakeles/src/ir/validate.rs`.
 Raw protobuf types remain public for serialization and tooling, but decoding
 alone never establishes validity. Construct `ValidatedIr` with its checked
 constructor, or load files through `ir::load`. The same rule applies to test
-vectors through `ValidatedTestSuite`.
+vectors through `ValidatedTestSuite`. Both wrappers are honest signposts
+rather than sealed capabilities — they deref to the message and can be
+unwrapped — so their value is that the bypass has to be deliberate and shows
+up in review, not that it is unreachable.
 
 ## Bounded work
 
